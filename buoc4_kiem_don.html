@@ -484,10 +484,10 @@
           <div class="step-num">4</div>
           <div class="step-label">4. Kiểm đơn về</div>
         </div>
-        <div class="step-item" style="cursor: default;">
+        <a class="step-item" href="buoc5_bao_cao.html">
           <div class="step-num">5</div>
           <div class="step-label">5. Báo cáo đối soát</div>
-        </div>
+        </a>
         <div class="step-item" style="cursor: default;">
           <div class="step-num">6</div>
           <div class="step-label">6. Bảng kê nộp tiền</div>
@@ -512,6 +512,9 @@
       <div class="hero-actions">
         <button type="button" class="btn btn-green" onclick="luuKetQuaKiemDon()">
           <span>💾</span> Lưu Kết Quả Kiểm Đơn
+        </button>
+        <button type="button" class="btn btn-blue" onclick="chuyenSangBuoc5()" title="Chuyển sang Bước 5 Báo Cáo Đối Soát">
+          <span>📊</span> Báo Cáo Đối Soát (B5) ➡️
         </button>
         <button type="button" class="btn btn-primary" onclick="xuatExcelKiemDon()">
           <span>📥</span> Xuất Excel (Chuẩn Hình 2)
@@ -565,16 +568,16 @@
       </div>
     </section>
 
-  <!-- Modal Cài đặt Danh sách Tài khoản nhận -->
+  <!-- Modal Cài đặt Danh sách Tài khoản nhận & Mã MISA -->
   <div id="modalCaiDatTK" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.6); backdrop-filter:blur(4px); z-index:9999; align-items:center; justify-content:center; padding:16px;">
-    <div style="background:#ffffff; border-radius:16px; width:100%; max-width:540px; max-height:90vh; display:flex; flex-direction:column; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); border:1px solid #e2e8f0;">
+    <div style="background:#ffffff; border-radius:16px; width:100%; max-width:580px; max-height:90vh; display:flex; flex-direction:column; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); border:1px solid #e2e8f0;">
       <div style="padding:18px 22px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
         <div>
           <h3 style="margin:0; font-size:16px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
-            <span>⚙️</span> Cài đặt Danh sách Tài khoản nhận
+            <span>⚙️</span> Cài đặt Danh sách Tài khoản nhận & Mã MISA
           </h3>
           <p style="margin:4px 0 0; font-size:12px; color:#64748b;">
-            Tùy chỉnh, sửa số tài khoản hoặc thêm mới ngân hàng nhận tiền.
+            Quản lý số tài khoản ngân hàng và mã định danh TK MISA (dùng cho Bước 7).
           </p>
         </div>
         <button onclick="dongModalCaiDatTK()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#94a3b8; line-height:1; padding:4px;">✕</button>
@@ -584,27 +587,31 @@
         <!-- Khối thêm tài khoản mới -->
         <div style="background:#f8fafc; border:1.5px dashed #cbd5e1; border-radius:10px; padding:12px 14px; margin-bottom:16px;">
           <label style="font-size:12px; font-weight:700; color:#334155; display:block; margin-bottom:6px;">
-            ➕ Thêm tài khoản mới:
+            ➕ Thêm tài khoản ngân hàng mới & Gán TK MISA:
           </label>
           <div style="display:flex; gap:8px;">
-            <input type="text" id="inputThemTK" placeholder="vd: Techcombank (190366...)" style="flex:1; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:12.5px; outline:none; font-family:inherit;">
+            <input type="text" id="inputThemTK" placeholder="Tên & Số TK (vd: ACB - 12345678)" style="flex:1; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:12.5px; outline:none; font-family:inherit;">
+            <input type="text" id="inputThemMISA" placeholder="TK MISA (1121x)" style="width:130px; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; outline:none; font-family:inherit; font-weight:700; color:#1e3a8a;">
             <button type="button" class="btn btn-green" onclick="themTaiKhoanMoi()" style="padding:8px 14px; font-size:12px;">
               Thêm
             </button>
           </div>
         </div>
 
+        <!-- Tiêu đề cột danh sách -->
+        <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:800; color:#475569; margin-bottom:6px; padding:0 36px 0 28px;">
+          <span>TÊN TÀI KHOẢN / SỐ TÀI KHOẢN</span>
+          <span style="width:100px; text-align:center;">MÃ TK MISA</span>
+        </div>
+
         <!-- Danh sách tài khoản hiện tại -->
-        <label style="font-size:12px; font-weight:700; color:#334155; display:block; margin-bottom:8px;">
-          Danh sách tài khoản đang dùng (bấm trực tiếp vào ô để sửa):
-        </label>
         <div id="danhSachTKInputs" style="display:flex; flex-direction:column; gap:8px;">
           <!-- Render danh sách tài khoản -->
         </div>
       </div>
 
       <div style="padding:14px 22px; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border-radius:0 0 16px 16px;">
-        <button type="button" class="btn btn-back" onclick="khoiPhucTKMaoDinh()" style="font-size:11.5px; padding:6px 12px;" title="Khôi phục về danh sách gốc của Thái Mỹ Hương">
+        <button type="button" class="btn btn-back" onclick="khoiPhucTKMaoDinh()" style="font-size:11.5px; padding:6px 12px;" title="Khôi phục về bảng chuẩn (VCB, TCB, SCB, MB...)">
           🔄 Mặc định
         </button>
         <div style="display:flex; gap:8px;">
@@ -622,11 +629,13 @@
     let danhSachDon = []; // Dữ liệu kiểm đơn của từng hóa đơn
 
     const DEFAULT_TK_NHAN = [
-      "Tiền mặt lái xe",
-      "Vietcombank (0041000266096)",
-      "BIDV",
-      "MB Bank",
-      "Chưa thanh toán"
+      { tenTK: "Tiền mặt lái xe", tkMISA: "1111" },
+      { tenTK: "VCB - 0041000266096", tkMISA: "11211" },
+      { tenTK: "VCB - 3704376789", tkMISA: "11212" },
+      { tenTK: "TCB - 20166789", tkMISA: "11213" },
+      { tenTK: "SCB - 040089722561", tkMISA: "11214" },
+      { tenTK: "MB - 2016056789", tkMISA: "11215" },
+      { tenTK: "Chưa thanh toán", tkMISA: "131" }
     ];
 
     function layDanhSachTaiKhoan() {
@@ -634,7 +643,15 @@
         const saved = localStorage.getItem("tmh_danh_sach_tk_nhan");
         if (saved) {
           const arr = JSON.parse(saved);
-          if (Array.isArray(arr) && arr.length > 0) return arr;
+          if (Array.isArray(arr) && arr.length > 0) {
+            return arr.map((item, idx) => {
+              if (typeof item === 'string') {
+                const matchDefault = DEFAULT_TK_NHAN.find(d => d.tenTK === item);
+                return matchDefault ? matchDefault : { tenTK: item, tkMISA: "1121" + (idx + 1) };
+              }
+              return { tenTK: item.tenTK || '', tkMISA: item.tkMISA || '11211' };
+            });
+          }
         }
       } catch (e) {}
       return [...DEFAULT_TK_NHAN];
@@ -714,7 +731,10 @@
       if (chuaKiemDonThucTe) {
         // TỰ ĐỘNG ĐIỀN ĐỦ TIỀN MẶT vì hầu như khách hàng trả tiền mặt
         const nguon = (dotHienTai.danhSachChiTiet && dotHienTai.danhSachChiTiet.length > 0) ? dotHienTai.danhSachChiTiet : (danhSachDon || []);
-        const tkMacDinh = danhSachTaiKhoanNhan[0] || "Tiền mặt lái xe";
+        const firstTK = danhSachTaiKhoanNhan[0] || { tenTK: "Tiền mặt lái xe", tkMISA: "1111" };
+        const tkMacDinh = firstTK.tenTK;
+        const misaMacDinh = firstTK.tkMISA || "1111";
+
         danhSachDon = nguon.map((r, idx) => {
           const tt = Number(r.thanhTien) || 0;
           return {
@@ -726,11 +746,23 @@
             tienMat: tt, // TỰ ĐỘNG ĐIỀN ĐỦ TIỀN MẶT
             chuyenKhoan: 0,
             taiKhoanNhan: tkMacDinh,
+            tkMISA: misaMacDinh,
             traVe: 0,
             conNo: 0, // Đã thu đủ tiền mặt nên còn nợ = 0
             ngayGiao: dotHienTai.ngayGiao || '',
             giaoLai: false
           };
+        });
+      } else {
+        // Đảm bảo mọi hóa đơn đã nạp từ trước đều có gắn mã MISA tương ứng
+        danhSachDon.forEach(item => {
+          if (!item.tkMISA) {
+            const m = danhSachTaiKhoanNhan.find(t => t.tenTK === item.taiKhoanNhan);
+            if (m) item.tkMISA = m.tkMISA;
+            else if (item.chuyenKhoan > 0) item.tkMISA = "11211";
+            else if (item.tienMat > 0) item.tkMISA = "1111";
+            else item.tkMISA = "131";
+          }
         });
       }
 
@@ -782,8 +814,12 @@
           </td>
           <td class="text-center">
             <select class="select-tk" onchange="onChangeTK(${idx}, this.value)">
-              ${danhSachTaiKhoanNhan.map(tk => `<option value="${tk.replace(/"/g, '&quot;')}" ${item.taiKhoanNhan === tk ? 'selected' : ''}>${tk}</option>`).join('')}
-              <option value="__config__" style="color:#2563eb; font-weight:700;">⚙️ Thêm/Sửa tài khoản...</option>
+              ${danhSachTaiKhoanNhan.map(tk => {
+                const safeVal = (tk.tenTK || '').replace(/"/g, '&quot;');
+                const isSelected = item.taiKhoanNhan === tk.tenTK;
+                return `<option value="${safeVal}" ${isSelected ? 'selected' : ''}>${tk.tenTK} (${tk.tkMISA || ''})</option>`;
+              }).join('')}
+              <option value="__config__" style="color:#2563eb; font-weight:700;">⚙️ Thêm/Sửa tài khoản & MISA...</option>
             </select>
           </td>
           <td class="text-center">
@@ -828,6 +864,28 @@
       const val = parseTien(valStr);
       danhSachDon[idx][field] = val;
 
+      // Thông minh: Nếu nhập Chuyển khoản > 0 mà tài khoản nhận vẫn đang là tiền mặt, tự động chuyển sang tài khoản ngân hàng đầu tiên
+      if (field === 'chuyenKhoan' && val > 0) {
+        if (!danhSachDon[idx].taiKhoanNhan || danhSachDon[idx].taiKhoanNhan === 'Tiền mặt lái xe') {
+          const firstBank = danhSachTaiKhoanNhan.find(t => t.tenTK !== 'Tiền mặt lái xe' && t.tenTK !== 'Chưa thanh toán');
+          if (firstBank) {
+            danhSachDon[idx].taiKhoanNhan = firstBank.tenTK;
+            danhSachDon[idx].tkMISA = firstBank.tkMISA;
+          }
+        }
+      }
+
+      // Thông minh: Nếu nhập Tiền mặt > 0 và Chuyển khoản == 0, tự động chuyển về Tiền mặt lái xe
+      if (field === 'tienMat' && val > 0 && Number(danhSachDon[idx].chuyenKhoan || 0) === 0) {
+        if (danhSachDon[idx].taiKhoanNhan && danhSachDon[idx].taiKhoanNhan !== 'Tiền mặt lái xe') {
+          const cashTK = danhSachTaiKhoanNhan.find(t => t.tenTK === 'Tiền mặt lái xe');
+          if (cashTK) {
+            danhSachDon[idx].taiKhoanNhan = cashTK.tenTK;
+            danhSachDon[idx].tkMISA = cashTK.tkMISA;
+          }
+        }
+      }
+
       // Nếu có hàng trả về > 0, tự động gợi ý tích "Giao lại?" nếu người dùng chưa chọn
       if (field === 'traVe' && val > 0 && !danhSachDon[idx].giaoLai) {
         danhSachDon[idx].giaoLai = true;
@@ -843,6 +901,8 @@
         return;
       }
       danhSachDon[idx].taiKhoanNhan = val;
+      const matched = danhSachTaiKhoanNhan.find(t => t.tenTK === val);
+      danhSachDon[idx].tkMISA = matched ? matched.tkMISA : '';
     }
 
     function onChangeGiaoLai(idx, val) {
@@ -865,12 +925,13 @@
     }
 
     // ========================================================
-    // QUẢN LÝ CÀI ĐẶT DANH SÁCH TÀI KHOẢN NHẬN
+    // QUẢN LÝ CÀI ĐẶT DANH SÁCH TÀI KHOẢN NHẬN & MÃ MISA
     // ========================================================
     function moModalCaiDatTK() {
       danhSachTaiKhoanNhan = layDanhSachTaiKhoan();
       renderDanhSachTKTrongModal();
       document.getElementById('inputThemTK').value = '';
+      document.getElementById('inputThemMISA').value = '';
       const modal = document.getElementById('modalCaiDatTK');
       modal.style.display = 'flex';
       setTimeout(() => document.getElementById('inputThemTK').focus(), 100);
@@ -887,9 +948,14 @@
         const row = document.createElement('div');
         row.style.cssText = "display:flex; gap:8px; align-items:center;";
         row.innerHTML = `
-          <span style="font-size:12px; font-weight:700; color:#94a3b8; width:22px; text-align:right;">${idx + 1}.</span>
-          <input type="text" class="tk-item-input" value="${tk.replace(/"/g, '&quot;')}" 
-                 style="flex:1; padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12.5px; font-family:inherit; outline:none;"
+          <span style="font-size:12px; font-weight:700; color:#94a3b8; width:20px; text-align:right;">${idx + 1}.</span>
+          <input type="text" class="tk-ten-input" value="${(tk.tenTK || '').replace(/"/g, '&quot;')}" 
+                 placeholder="Tên tài khoản / số TK..."
+                 style="flex:1; padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; font-family:inherit; outline:none;"
+                 onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#cbd5e1'">
+          <input type="text" class="tk-misa-input" value="${(tk.tkMISA || '').replace(/"/g, '&quot;')}" 
+                 placeholder="Mã MISA"
+                 style="width:95px; padding:7px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; font-family:inherit; outline:none; font-weight:700; text-align:center; color:#1e3a8a;"
                  onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#cbd5e1'">
           <button type="button" onclick="xoaTaiKhoan(${idx})" style="background:#fee2e2; color:#dc2626; border:1px solid #fecaca; border-radius:6px; padding:6px 10px; cursor:pointer; font-size:12px;" title="Xóa tài khoản này">
             🗑️
@@ -900,19 +966,22 @@
     }
 
     function themTaiKhoanMoi() {
-      const input = document.getElementById('inputThemTK');
-      const val = input.value.trim();
-      if (!val) {
+      const inpTen = document.getElementById('inputThemTK');
+      const inpMISA = document.getElementById('inputThemMISA');
+      const valTen = inpTen.value.trim();
+      const valMISA = inpMISA.value.trim() || '11211';
+      if (!valTen) {
         alert("Vui lòng nhập tên hoặc số tài khoản mới!");
-        input.focus();
+        inpTen.focus();
         return;
       }
-      if (danhSachTaiKhoanNhan.includes(val)) {
+      if (danhSachTaiKhoanNhan.some(t => t.tenTK === valTen)) {
         alert("Tài khoản này đã có trong danh sách!");
         return;
       }
-      danhSachTaiKhoanNhan.push(val);
-      input.value = '';
+      danhSachTaiKhoanNhan.push({ tenTK: valTen, tkMISA: valMISA });
+      inpTen.value = '';
+      inpMISA.value = '';
       renderDanhSachTKTrongModal();
     }
 
@@ -921,7 +990,7 @@
         alert("Danh sách phải có ít nhất 1 tài khoản!");
         return;
       }
-      const ten = danhSachTaiKhoanNhan[idx];
+      const ten = danhSachTaiKhoanNhan[idx].tenTK;
       if (confirm(`Bạn có chắc muốn xóa "${ten}" khỏi danh sách?`)) {
         danhSachTaiKhoanNhan.splice(idx, 1);
         renderDanhSachTKTrongModal();
@@ -929,19 +998,20 @@
     }
 
     function khoiPhucTKMaoDinh() {
-      if (confirm("Bạn có muốn khôi phục về danh sách tài khoản mặc định của Thái Mỹ Hương?")) {
+      if (confirm("Bạn có muốn khôi phục về danh sách tài khoản chuẩn theo Hình 3?")) {
         danhSachTaiKhoanNhan = [...DEFAULT_TK_NHAN];
         renderDanhSachTKTrongModal();
       }
     }
 
     function luuDanhSachTK() {
-      const inputs = document.querySelectorAll('.tk-item-input');
+      const rows = document.querySelectorAll('#danhSachTKInputs > div');
       const danhSachMoi = [];
-      inputs.forEach(inp => {
-        const v = inp.value.trim();
-        if (v && !danhSachMoi.includes(v)) {
-          danhSachMoi.push(v);
+      rows.forEach(r => {
+        const ten = r.querySelector('.tk-ten-input').value.trim();
+        const misa = r.querySelector('.tk-misa-input').value.trim() || '11211';
+        if (ten && !danhSachMoi.some(x => x.tenTK === ten)) {
+          danhSachMoi.push({ tenTK: ten, tkMISA: misa });
         }
       });
 
@@ -955,14 +1025,18 @@
 
       // Cập nhật lại các dòng nếu tài khoản cũ bị đổi hoặc xóa
       danhSachDon.forEach(d => {
-        if (!danhSachTaiKhoanNhan.includes(d.taiKhoanNhan)) {
-          d.taiKhoanNhan = danhSachTaiKhoanNhan[0];
+        const found = danhSachTaiKhoanNhan.find(t => t.tenTK === d.taiKhoanNhan);
+        if (found) {
+          d.tkMISA = found.tkMISA;
+        } else {
+          d.taiKhoanNhan = danhSachTaiKhoanNhan[0].tenTK;
+          d.tkMISA = danhSachTaiKhoanNhan[0].tkMISA;
         }
       });
 
       veBangKiemDon(danhSachDon);
       dongModalCaiDatTK();
-      alert("✅ Đã lưu và cập nhật danh sách tài khoản nhận thành công!");
+      alert("✅ Đã lưu và cập nhật danh sách tài khoản nhận & mã MISA thành công!");
     }
 
     function locDanhSachDon() {
@@ -991,11 +1065,18 @@
       const keyKiemDon = `tmh_kiemdon_${dotHienTai.maDot}`;
       localStorage.setItem(keyKiemDon, JSON.stringify(danhSachDon));
 
-      // 2. Cập nhật lại vào Bước 3 (nếu cần đồng bộ 18 cột)
+      dotHienTai.daKiemDon = true;
+      dotHienTai.ngayKiemDon = new Date().toISOString();
+      localStorage.setItem("tmh_dot_kiem_don", JSON.stringify(dotHienTai));
+      localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dotHienTai));
+
+      // 2. Cập nhật lại vào Bước 3 (đồng bộ 18 cột và đánh dấu đã kiểm đơn)
       try {
         let lichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
         const dotIdx = lichSu.findIndex(d => d.maDot === dotHienTai.maDot);
         if (dotIdx !== -1) {
+          lichSu[dotIdx].daKiemDon = true;
+          lichSu[dotIdx].ngayKiemDon = new Date().toISOString();
           // Cập nhật số tiền thực thu vào danhSachChiTiet
           lichSu[dotIdx].danhSachChiTiet.forEach(r => {
             const matched = danhSachDon.find(d => d.maHD === r.maHD);
@@ -1004,6 +1085,8 @@
               r.chuyenKhoan = matched.chuyenKhoan;
               r.traVe = matched.traVe;
               r.noPhatSinh = matched.conNo;
+              r.taiKhoanNhan = matched.taiKhoanNhan;
+              r.tkMISA = matched.tkMISA;
             }
           });
           localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSu));
@@ -1044,12 +1127,22 @@
 
       localStorage.setItem("tmh_don_giao_lai", JSON.stringify(danhSachGiaoLaiHienCo));
 
-      let thongBao = `✅ ĐÃ LƯU THÀNH CÔNG KẾT QUẢ KIỂM ĐƠN CHO ĐỢT "${dotHienTai.maDot}"!`;
+      let thongBao = `✅ ĐÃ LƯU THÀNH CÔNG KẾT QUẢ KIỂM ĐƠN ĐỢT "${dotHienTai.maDot}"!\n\nDữ liệu đã được lưu trữ vĩnh viễn vào hệ thống và kho lưu trữ Bước 3.`;
       if (demThemGiaoLai > 0) {
-        thongBao += `\n\n🔄 Đã lưu ${demThemGiaoLai} đơn hàng vào mục "ĐƠN CHỜ GIAO LẠI". Chuyến xe tiếp theo ở Bước 2 sẽ tự động đề xuất các đơn này!`;
+        thongBao += `\n\n🔄 Đã lưu ${demThemGiaoLai} đơn hàng vào mục "ĐƠN CHỜ GIAO LẠI" cho chuyến tiếp theo.`;
       }
+      thongBao += `\n\n👉 Bạn có muốn chuyển sang BƯỚC 5: BÁO CÁO ĐỐI SOÁT ngay bây giờ không?`;
 
-      alert(thongBao);
+      if (confirm(thongBao)) {
+        chuyenSangBuoc5();
+      }
+    }
+
+    function chuyenSangBuoc5() {
+      if (!dotHienTai) return;
+      localStorage.setItem("tmh_dot_bao_cao", JSON.stringify(dotHienTai));
+      localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dotHienTai));
+      window.location.href = "buoc5_bao_cao.html";
     }
 
     // ========================================================
