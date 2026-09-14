@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bước 3: Lưu Trữ Đợt Điều Động — THÁI MỸ HƯƠNG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="config.js"></script>
+  <style>
+    :root {
+      --primary: #16a34a;
+      --primary-hover: #15803d;
+      --primary-dark: #14532d;
+      --primary-light: #ecfdf5;
+      --accent-blue: #2563eb;
+      --accent-amber: #d97706;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+      --bg-page: #f8fafc;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 18px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+      --shadow-md: 0 4px 14px -2px rgba(0,0,0,0.08);
+      --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg-page);
+      color: var(--text-main);
+      min-height: 100vh;
+      padding-bottom: 80px;
+    }
+
+    /* Topbar */
+    .topbar {
+      background: #ffffff;
+      border-bottom: 1px solid var(--border-color);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 40px;
+      height: 40px;
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 2px;
+      border: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .brand-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 50%;
+    }
+
+    .brand-info h1 {
+      font-size: 16px;
+      font-weight: 800;
+      color: #14532d;
+      letter-spacing: 0.5px;
+      line-height: 1.2;
+    }
+
+    .brand-info span {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .topbar-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      padding: 9px 16px;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: var(--transition);
+      font-family: inherit;
+      white-space: nowrap;
+      text-decoration: none;
+    }
+
+    .btn-back {
+      background: #f1f5f9;
+      color: #334155;
+      border: 1px solid var(--border-color);
+    }
+    .btn-back:hover { background: #e2e8f0; color: #0f172a; }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(22, 163, 74, 0.28);
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #15803d 0%, #14532d 100%);
+      transform: translateY(-1px);
+    }
+
+    .btn-blue {
+      background: #2563eb;
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+    }
+    .btn-blue:hover { background: #1d4ed8; }
+
+    /* Container */
+    .container {
+      max-width: 1280px;
+      margin: 20px auto 0;
+      padding: 0 20px;
+    }
+
+    /* Stepper Bar */
+    .stepper-card {
+      background: #ffffff;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      padding: 16px 24px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .stepper-track {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    .step-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 6px;
+      position: relative;
+      z-index: 2;
+      cursor: pointer;
+      text-decoration: none;
+      flex: 1;
+    }
+
+    .step-num {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: #f1f5f9;
+      color: #64748b;
+      font-weight: 800;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #e2e8f0;
+      transition: var(--transition);
+    }
+
+    .step-label {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #64748b;
+      transition: var(--transition);
+    }
+
+    .step-item.active .step-num {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #1d4ed8;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
+    }
+    .step-item.active .step-label {
+      color: #2563eb;
+    }
+
+    .step-item.done .step-num {
+      background: #16a34a;
+      color: #ffffff;
+      border-color: #15803d;
+    }
+    .step-item.done .step-label {
+      color: #16a34a;
+    }
+
+    /* Layout Thẻ Đợt Vừa Lưu */
+    .success-hero {
+      background: linear-gradient(135deg, #ecfdf5 0%, #dcfce7 100%);
+      border: 1.5px solid #86efac;
+      border-radius: var(--radius-lg);
+      padding: 24px 30px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .hero-info {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .hero-badge-icon {
+      width: 54px;
+      height: 54px;
+      background: #16a34a;
+      color: #ffffff;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      box-shadow: 0 6px 16px rgba(22, 163, 74, 0.3);
+      flex-shrink: 0;
+    }
+
+    .hero-text h2 {
+      font-size: 18px;
+      font-weight: 800;
+      color: #14532d;
+      margin-bottom: 4px;
+    }
+
+    .hero-text p {
+      font-size: 13.5px;
+      color: #15803d;
+      font-weight: 500;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    /* Card Thông tin đợt */
+    .batch-card {
+      background: #ffffff;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-sm);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: #1e293b;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 12px;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .meta-item {
+      background: #f8fafc;
+      padding: 12px 16px;
+      border-radius: var(--radius-md);
+      border: 1px solid #e2e8f0;
+    }
+
+    .meta-item .label {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .meta-item .value {
+      font-size: 15px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    /* Bảng dữ liệu */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+      margin-top: 12px;
+    }
+
+    .data-table th, .data-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-color);
+      text-align: left;
+    }
+
+    .data-table th {
+      background: #f8fafc;
+      font-weight: 800;
+      color: #475569;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .data-table tr:hover td {
+      background: #f1f5f9;
+    }
+
+    .tag-status {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      background: #eff6ff;
+      color: #2563eb;
+    }
+
+    .btn-action-sm {
+      padding: 5px 10px;
+      font-size: 11.5px;
+      font-weight: 700;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      background: #ffffff;
+      color: #334155;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn-action-sm:hover {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="brand-wrap">
+      <div class="brand-logo">
+        <img src="logo.png" alt="Logo Thái Mỹ Hương">
+      </div>
+      <div class="brand-info">
+        <h1>THÁI MỸ HƯƠNG</h1>
+        <span>Bước 3: Lưu trữ đợt điều động & Hồ sơ vận chuyển</span>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <a href="buoc2_phieu_xuat_kho.html" class="btn btn-back">
+        <span>⬅</span> Quay lại Bước 2
+      </a>
+      <a href="trang_chu.html" class="btn btn-back">
+        <span>🏠</span> Bảng điều khiển
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+    
+    <!-- Thanh Stepper 7 Bước -->
+    <div class="stepper-card">
+      <div class="stepper-track">
+        <a class="step-item done" href="buoc1_upload.html">
+          <div class="step-num">✓</div>
+          <div class="step-label">1. Tải KiotViet</div>
+        </a>
+        <a class="step-item done" href="buoc2_phieu_xuat_kho.html">
+          <div class="step-num">✓</div>
+          <div class="step-label">2. Phiếu thu & Xuất kho</div>
+        </a>
+        <div class="step-item active">
+          <div class="step-num">3</div>
+          <div class="step-label">3. Lưu trữ đợt</div>
+        </div>
+        <div class="step-item" style="cursor: default;">
+          <div class="step-num">4</div>
+          <div class="step-label">4. Kiểm đơn về</div>
+        </div>
+        <div class="step-item" style="cursor: default;">
+          <div class="step-num">5</div>
+          <div class="step-label">5. Lưu kiểm đơn</div>
+        </div>
+        <div class="step-item" style="cursor: default;">
+          <div class="step-num">6</div>
+          <div class="step-label">6. Bảng kê nộp tiền</div>
+        </div>
+        <div class="step-item" style="cursor: default;">
+          <div class="step-num">7</div>
+          <div class="step-label">7. Xuất file MISA</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Khối Thông Báo Đợt Vừa Lưu -->
+    <section class="success-hero" id="heroDotHienTai">
+      <div class="hero-info">
+        <div class="hero-badge-icon">✓</div>
+        <div class="hero-text">
+          <h2 id="heroTitle">Đợt điều động xe đã được lưu trữ thành công!</h2>
+          <p id="heroSub">Toàn bộ dữ liệu Bảng kê và Phiếu xuất kho đã được lưu vào hệ thống.</p>
+        </div>
+      </div>
+      <div class="hero-actions">
+        <button type="button" class="btn btn-blue" onclick="inLaiPhieu()">
+          <span>🖨️</span> Xem lại & In phiếu
+        </button>
+        <button type="button" class="btn btn-primary" onclick="chuyenSangBuoc4()">
+          <span>🚀</span> Tiếp tục: Bước 4 - Kiểm đơn về ➡
+        </button>
+      </div>
+    </section>
+
+    <!-- Thẻ Chi Tiết Đợt Điều Động -->
+    <section class="batch-card" id="cardChiTietDot">
+      <div class="card-title">
+        <span>THÔNG TIN ĐỢT ĐIỀU ĐỘNG VỪA LƯU</span>
+        <span class="tag-status" id="badgeMaDot">Mã đợt: —</span>
+      </div>
+
+      <div class="meta-grid">
+        <div class="meta-item">
+          <div class="label">Xe Vận Chuyển</div>
+          <div class="value" id="valXe" style="color:#2563eb;">—</div>
+        </div>
+        <div class="meta-item">
+          <div class="label">Tài Xế</div>
+          <div class="value" id="valTaiXe">—</div>
+        </div>
+        <div class="meta-item">
+          <div class="label">Ngày Giao Hàng</div>
+          <div class="value" id="valNgayGiao">—</div>
+        </div>
+        <div class="meta-item">
+          <div class="label">Nhân Viên Thu Tiền</div>
+          <div class="value" id="valNvThu">—</div>
+        </div>
+        <div class="meta-item">
+          <div class="label">Nhân Viên Giao Hàng</div>
+          <div class="value" id="valNvGiao">—</div>
+        </div>
+        <div class="meta-item">
+          <div class="label">Tổng Số Hóa Đơn</div>
+          <div class="value" id="valSoLuongHD" style="color:#16a34a;">0</div>
+        </div>
+      </div>
+
+      <!-- Danh Sách Hóa Đơn Trong Đợt -->
+      <h3 style="font-size: 13.5px; font-weight: 800; color: #334155; margin-top: 18px; margin-bottom: 8px;">
+        📋 Danh Sách Hóa Đơn Theo Xe Này
+      </h3>
+      <div style="max-height: 260px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 50px;">STT</th>
+              <th>Mã Hóa Đơn</th>
+              <th>Trạng Thái Giao Hàng</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyHoaDonDot"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Thẻ Lịch Sử Các Đợt Đã Lưu Trữ -->
+    <section class="batch-card">
+      <div class="card-title">
+        <span>🗄️ LỊCH SỬ CÁC ĐỢT ĐIỀU ĐỘNG ĐÃ LƯU TRỮ TRONG CA</span>
+        <button type="button" class="btn-action-sm" onclick="xoaTatCaLichSu()">
+          <span>🗑️</span> Xóa lịch sử tạm
+        </button>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 50px;">STT</th>
+              <th>Mã Đợt</th>
+              <th>Ngày Giao</th>
+              <th>Xe Giao</th>
+              <th>Tài Xế</th>
+              <th>Thu Tiền</th>
+              <th>Số HĐ</th>
+              <th>Thời Gian Tạo</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyLichSu"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    var dotHienTai = null;
+    var lichSuDot = [];
+
+    function khoiTao() {
+      // Đọc đợt hiện tại vừa lưu từ localStorage
+      try {
+        dotHienTai = JSON.parse(localStorage.getItem("tmh_dot_hien_tai") || "null");
+      } catch (e) {
+        dotHienTai = null;
+      }
+
+      // Đọc lịch sử các đợt đã lưu
+      try {
+        lichSuDot = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
+      } catch (e) {
+        lichSuDot = [];
+      }
+
+      hienThiDotHienTai();
+      hienThiLichSu();
+    }
+
+    function hienThiDotHienTai() {
+      if (!dotHienTai) {
+        document.getElementById('heroTitle').textContent = "Chưa có đợt điều động nào vừa được lưu.";
+        document.getElementById('heroSub').textContent = "Vui lòng hoàn tất việc điều động xe và tạo phiếu ở Bước 2 trước khi lưu.";
+        document.getElementById('badgeMaDot').textContent = "Chưa lưu";
+        document.getElementById('tbodyHoaDonDot').innerHTML = '<tr><td colspan="3" style="text-align:center; color:#94a3b8;">Không có dữ liệu đợt vừa lưu</td></tr>';
+        return;
+      }
+
+      document.getElementById('heroTitle').textContent = `Đợt điều động xe "${dotHienTai.xe}" đã được lưu trữ an toàn!`;
+      document.getElementById('heroSub').textContent = `Ngày giao: ${dotHienTai.ngayGiao} — Gồm ${dotHienTai.soLuongHD} hóa đơn đã phân bổ.`;
+      document.getElementById('badgeMaDot').textContent = dotHienTai.maDot;
+
+      document.getElementById('valXe').textContent = dotHienTai.xe || '—';
+      document.getElementById('valTaiXe').textContent = dotHienTai.taiXe || '—';
+      document.getElementById('valNgayGiao').textContent = dotHienTai.ngayGiao || '—';
+      document.getElementById('valNvThu').textContent = dotHienTai.nvThu || '—';
+      document.getElementById('valNvGiao').textContent = dotHienTai.nvGiao || '—';
+      document.getElementById('valSoLuongHD').textContent = (dotHienTai.danhSachHD ? dotHienTai.danhSachHD.length : 0) + ' đơn';
+
+      // Render danh sách hóa đơn trong đợt
+      const tbody = document.getElementById('tbodyHoaDonDot');
+      tbody.innerHTML = '';
+      if (dotHienTai.danhSachHD && dotHienTai.danhSachHD.length > 0) {
+        dotHienTai.danhSachHD.forEach((maHD, idx) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td style="font-weight:700; color:#64748b;">${idx + 1}</td>
+            <td style="font-weight:700; color:#1e3a8a;">${maHD}</td>
+            <td><span class="tag-status">🚚 Đang vận chuyển (Chờ đối soát)</span></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } else {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#94a3b8;">Không có hóa đơn nào</td></tr>';
+      }
+    }
+
+    function hienThiLichSu() {
+      const tbody = document.getElementById('tbodyLichSu');
+      tbody.innerHTML = '';
+
+      if (!lichSuDot || lichSuDot.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#94a3b8; padding:20px;">Chưa có đợt điều động nào trong lịch sử lưu trữ.</td></tr>';
+        return;
+      }
+
+      lichSuDot.forEach((d, idx) => {
+        const tr = document.createElement('tr');
+        const tgTao = d.thoiGianTao ? new Date(d.thoiGianTao).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
+        tr.innerHTML = `
+          <td style="font-weight:700; color:#64748b;">${idx + 1}</td>
+          <td style="font-weight:700; color:#0f172a;">${d.maDot}</td>
+          <td>${d.ngayGiao || '—'}</td>
+          <td style="font-weight:700; color:#2563eb;">${d.xe || '—'}</td>
+          <td>${d.taiXe || '—'}</td>
+          <td>${d.nvThu || '—'}</td>
+          <td style="font-weight:700; color:#16a34a;">${d.soLuongHD || (d.danhSachHD ? d.danhSachHD.length : 0)}</td>
+          <td style="color:#64748b; font-size:11.5px;">${tgTao}</td>
+          <td>
+            <button class="btn-action-sm" onclick="napLaiDot('${d.maDot}')">
+              <span>📋</span> Xem lại Bước 2
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function napLaiDot(maDot) {
+      const dot = lichSuDot.find(d => d.maDot === maDot);
+      if (dot) {
+        localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dot));
+        window.location.href = "buoc2_phieu_xuat_kho.html";
+      }
+    }
+
+    function inLaiPhieu() {
+      window.location.href = "buoc2_phieu_xuat_kho.html";
+    }
+
+    function chuyenSangBuoc4() {
+      alert("🚧 Bước 4: Kiểm đơn giao về đang được chuẩn bị tiếp nối.");
+    }
+
+    function xoaTatCaLichSu() {
+      if (confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch sử đợt lưu trữ trong phiên này?")) {
+        localStorage.removeItem("tmh_dot_hien_tai");
+        localStorage.removeItem("tmh_lich_su_dot");
+        dotHienTai = null;
+        lichSuDot = [];
+        hienThiDotHienTai();
+        hienThiLichSu();
+      }
+    }
+
+    khoiTao();
+  </script>
+</body>
+</html>
