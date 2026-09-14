@@ -81,15 +81,16 @@
 <script>
     // 1. Kiểm tra đăng nhập và quyền admin
     async function kiemTraQuyen() {
-        const user = await baoVeTrang();
-        if (!user) return;
+        const nd = await baoVeTrang();
+        if (!nd) return; // Nếu chưa đăng nhập, baoVeTrang() sẽ tự chuyển hướng
         
-        const { data, error } = await supabaseClient.from('ho_so').select('vai_tro').eq('id', user.id).single();
-        if (error || data.vai_tro !== 'admin') {
+        if (nd.vai_tro !== 'admin') {
             alert("Bạn không có quyền truy cập trang này!");
             window.location.href = 'trang_chu.html';
             return;
         }
+        
+        // Nếu là admin thì tải danh sách
         taiDanhSachUser();
     }
 
