@@ -35,7 +35,6 @@
         </div>
     </div>
 
-    <!-- Form tạo tài khoản mới -->
     <div id="addForm">
         <h3>Thêm nhân viên mới</h3>
         <div class="form-group">
@@ -61,7 +60,6 @@
         <button class="btn btn-add" onclick="taoTaiKhoan()">Lưu tài khoản</button>
     </div>
 
-    <!-- Bảng danh sách -->
     <table>
         <thead>
             <tr>
@@ -79,6 +77,101 @@
 </div>
 
 <script>
+    // 1. Kiểm tra đăng nhập và quyền admin
+    async function kiemTraQuyen() {
+        const nd = await baoVeTrang();
+        if (!nd) return;
+        
+        if (nd.vai_tro !== 'admin') {
+            alert("Bạn không có quyền truy cập trang này!");
+            window.location.href = 'trang_chu.html';
+            return;
+        }
+        taiDanhSachUser();
+    }
+
+    // 2. Tải danh sách người dùng từ bảng ho_so
+    async function taiDanhSachUser() {
+        const { data, error } = await sb.from('ho_so').select('*').order('tao_luc', { ascending: false });
+        if (error) {
+            alert("Lỗi tải danh sách: " + error.message);
+            return;
+        }
+        
+        const tbody = document.getElementById('danhSachUser');
+        tbody.innerHTML = '';
+        data.forEach(u => {
+            const row = `<tr>
+                <td>${u.ho_ten}</td>
+                <td>${u.so_dien_thoai}</td>
+                <td>${u.vai_tro}</td>
+                <td>${u.trang_thai === 'hoat_dong' ? '🟢 Hoạt động' : '🔴 Bị khóa'}</td>
+                <td>
+                    ${u.trang_thai === 'hoat_dong' 
+                        ? `<button class="btn btn-lock" onclick="doiTrangThai('${u.id}', 'bi_khoa')">Khóa</button>`
+                        : `<button class="btn btn-unlock" onclick="doiTrangThai('${u.id}', 'hoat_dong')">Mở khóa</button>`
+                    }
+                </td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+    }
+
+    // Mở/đóng form nhập
+    function toggleForm() {
+        const form = document.getElementById('addForm');
+        form.style.display = form.style.display === 'block' ? 'none' : 'block';
+    }
+
+    // 3. Gọi Edge Function để tạo tài khoản
+    async function taoTaiKhoan() {
+        const hoten = document.getElementById('hoten').value;
+        const sdt = document.getElementById('sdt').value;
+        const matkhau = document.getElementById('matkhau').value;
+        const vaitro = document.getElementById('vaitro').value;
+
+        if (!hoten || !sdt || !matkhau) return alert("Vui lòng điền đủ thông tin!");
+
+        try {
+            const { data, error } = await sb.functions.invoke('dynamic-responder', {
+                body: { action: 'create', ho_ten: hoten, sdt: sdt, mat_khau: matkhau, vai_tro: vaitro }
+            });
+
+            if (error) throw error;
+            if (data.error) throw new Error(data.error);
+
+            alert("Tạo tài khoản thành công!");
+            document.getElementById('hoten').value = '';
+            document.getElementById('sdt').value = '';
+            document.getElementById('matkhau').value = '';
+            toggleForm();
+            taiDanhSachUser();
+        } catch (err) {
+            alert("Lỗi: " + err.message);
+        }
+    }
+
+    // 4. Gọi Edge Function để Khóa/Mở tài khoản
+    async function doiTrangThai(userId, trangThaiMoi) {
+        if (!confirm(`Bạn có chắc muốn ${trangThaiMoi === 'bi_khoa' ? 'KHÓA' : 'MỞ KHÓA'} tài khoản này?`)) return;
+
+        try {
+            const { data, error } = await sb.functions.invoke('dynamic-responder', {
+                body: { action: 'toggle_status', user_id: userId, trang_thai: trangThaiMoi }
+            });
+
+            if (error) throw error;
+            if (data.error) throw new Error(data.error);
+
+            taiDanhSachUser();
+        } catch (err) {
+            alert("Lỗi: " + err.message);
+        }
+    }
+
+    // Chạy khi mở trang
+    kiemTraQuyen();
+</script>
 
 </body>
 </html>
