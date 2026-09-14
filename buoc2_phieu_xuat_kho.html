@@ -538,15 +538,17 @@
 
     .doc-table th, .doc-table td {
       border: 1px solid #94a3b8;
-      padding: 6px 8px;
+      padding: 7px 6px;
       vertical-align: middle;
+      line-height: 1.35;
+      word-break: break-word;
     }
 
     .doc-table th {
       background-color: #f1f5f9;
       font-weight: 800;
       text-align: center;
-      white-space: nowrap;
+      padding: 8px 6px;
     }
 
     .doc-table tr:nth-child(even) td {
@@ -581,15 +583,16 @@
     }
 
     /* ========================================================
-       CHỈNH SỬA CSS IN ẤN CHUẨN A4: 
-       - Cố định tfoot chỉ hiện 1 lần ở cuối, KHÔNG lặp mỗi trang
-       - Trang in khổ ngang A4 landscape không bị vỡ cột
+       CHỈNH SỬA CSS IN ẤN CHUẨN A4 TRANG ĐỨNG (PORTRAIT): 
+       - Cố định tfoot chỉ hiện 1 lần ở cuối bảng, KHÔNG lặp mỗi trang
+       - Trang in khổ đứng A4 portrait vừa khít lề
+       - Giãn cách dòng lớn hơn và đều nhau cho đẹp, rõ ràng
        - Chỉ in đúng biểu mẫu đang hiển thị
        ======================================================== */
     @media print {
       @page {
-        size: A4 landscape;
-        margin: 8mm 8mm 8mm 8mm;
+        size: A4 portrait;
+        margin: 6mm 5mm 6mm 5mm;
       }
 
       body {
@@ -662,17 +665,23 @@
       .doc-table {
         width: 100% !important;
         border-collapse: collapse !important;
-        font-size: 10px !important;
+        table-layout: fixed !important;
+        font-size: 9.5px !important;
       }
 
       .doc-table th, .doc-table td {
         border: 1px solid #0f172a !important;
-        padding: 3.5px 5px !important;
+        padding: 6px 4px !important; /* Giãn cách dòng lớn hơn và đều nhau cho đẹp */
+        vertical-align: middle !important;
+        line-height: 1.35 !important;
+        word-break: break-word !important;
       }
 
       .doc-table th {
         background-color: #f1f5f9 !important;
         color: #000000 !important;
+        font-weight: 800 !important;
+        padding: 7px 4px !important;
       }
     }
 
@@ -902,9 +911,21 @@
             </div>
 
             <table class="doc-table">
+              <colgroup>
+                <col style="width: 5%;">
+                <col style="width: 12%;">
+                <col style="width: 12%;">
+                <col style="width: 23%;">
+                <col style="width: 16%;">
+                <col style="width: 8.5%;">
+                <col style="width: 6.5%;">
+                <col style="width: 5%;">
+                <col style="width: 9%;">
+                <col style="width: 3%;">
+              </colgroup>
               <thead>
                 <tr>
-                  <th style="width: 35px;">STT</th>
+                  <th>STT</th>
                   <th>Mã Hoá Đơn</th>
                   <th>Mã Khách Hàng</th>
                   <th>Tên Khách Hàng</th>
@@ -947,13 +968,26 @@
             </div>
 
             <table class="doc-table">
+              <colgroup>
+                <col style="width: 4%;">
+                <col style="width: 11%;">
+                <col style="width: 25%;">
+                <col style="width: 6%;">
+                <col style="width: 6%;">
+                <col style="width: 7%;">
+                <col style="width: 6%;">
+                <col style="width: 6%;">
+                <col style="width: 9%;">
+                <col style="width: 11%;">
+                <col style="width: 9%;">
+              </colgroup>
               <thead>
                 <tr>
-                  <th style="width: 35px;">STT</th>
+                  <th>STT</th>
                   <th>Mã Hàng</th>
                   <th>Tên Hàng</th>
-                  <th style="width: 50px;">Quy Cách</th>
-                  <th style="width: 50px;">ĐVT</th>
+                  <th>Quy Cách</th>
+                  <th>ĐVT</th>
                   <th>Tổng SL</th>
                   <th>Chẵn</th>
                   <th>Lẻ</th>
@@ -976,6 +1010,7 @@
   <script>
     let duLieuGoc = [];
     let danhSachHoaDon = [];
+    let danhSachHoaDonChiTietToanCuc = [];
     let mapQuyCach = new Map(); // ma_hang -> quy_cach từ Supabase
     let tabHienTai = 'bangke';
 
@@ -1319,6 +1354,7 @@
       let tongGiamGiaHD = 0;
       let tongThanhTien = 0;
       let stt = 1;
+      danhSachHoaDonChiTietToanCuc = Array.from(mapHoaDonChiTiet.values());
 
       mapHoaDonChiTiet.forEach(hd => {
         // Thành tiền hóa đơn = Tổng thành tiền các dòng - Giảm giá HĐ
@@ -1576,6 +1612,28 @@
         if (parts.length === 3) ngayDinhDang = `${parts[2]}/${parts[1]}/${parts[0]}`;
       }
 
+      let sttIndex = 1;
+      const danhSachChiTietLuu = danhSachHoaDonChiTietToanCuc.map(hd => ({
+        stt: sttIndex++,
+        ngay: ngayDinhDang,
+        xe: xe,
+        taiXe: taiXe,
+        giaoHang: nvGiao,
+        thuTien: nvThu,
+        maHD: hd.maHD,
+        tenKH: hd.tenKH,
+        nguoiBan: hd.nguoiBan,
+        maKH: hd.maKH,
+        doanhSo: hd.doanhSo || 0,
+        giamGiaSP: hd.giamGiaSP || 0,
+        giamGiaHD: hd.giamGiaHD || 0,
+        thanhTien: hd.thanhTien || 0,
+        tienMat: hd.thanhTien || 0,
+        chuyenKhoan: 0,
+        traVe: 0,
+        noPhatSinh: 0
+      }));
+
       // Tạo đối tượng lưu trữ đợt xử lý
       const dotHienTai = {
         maDot: `DOT_${ngayRaw.replace(/-/g, '')}_${xe.replace(/[^a-zA-Z0-9]/g, '_')}`,
@@ -1587,6 +1645,7 @@
         nvThu: nvThu,
         soLuongHD: hoaDonDuocChon.length,
         danhSachHD: hoaDonDuocChon.map(h => h.maHD),
+        danhSachChiTiet: danhSachChiTietLuu,
         thoiGianTao: new Date().toISOString()
       };
 
@@ -1603,7 +1662,7 @@
       lichSu.unshift(dotHienTai);
       localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSu));
 
-      alert(`✅ Đã lưu thành công đợt điều động xe "${xe}" với ${hoaDonDuocChon.length} hóa đơn!\nĐang chuyển sang Bước 3: Lưu trữ.`);
+      alert(`✅ Đã lưu thành công đợt điều động xe "${xe}" với ${hoaDonDuocChon.length} hóa đơn đầy đủ 18 cột!\nĐang chuyển sang Bước 3: Lưu trữ.`);
       window.location.href = "buoc3_luu_tru.html";
     }
 

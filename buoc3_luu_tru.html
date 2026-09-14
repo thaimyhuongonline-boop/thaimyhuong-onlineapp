@@ -12,22 +12,23 @@
   <script src="config.js"></script>
   <style>
     :root {
-      --primary: #16a34a;
-      --primary-hover: #15803d;
-      --primary-dark: #14532d;
-      --primary-light: #ecfdf5;
+      --primary: #236446;
+      --primary-hover: #1b4d36;
+      --primary-light: #e8f5e9;
+      --primary-soft: #ecfdf5;
       --accent-blue: #2563eb;
-      --accent-amber: #d97706;
+      --accent-amber: #b45309;
       --text-main: #0f172a;
       --text-muted: #64748b;
       --border-color: #e2e8f0;
       --bg-page: #f8fafc;
+      --bg-surface: #ffffff;
       --radius-sm: 8px;
       --radius-md: 12px;
-      --radius-lg: 18px;
-      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
-      --shadow-md: 0 4px 14px -2px rgba(0,0,0,0.08);
-      --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      --radius-lg: 16px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+      --shadow-card: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
+      --transition: all 0.2s ease;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -38,11 +39,12 @@
       color: var(--text-main);
       min-height: 100vh;
       padding-bottom: 80px;
+      font-size: 13.5px;
     }
 
     /* Topbar */
     .topbar {
-      background: #ffffff;
+      background: var(--bg-surface);
       border-bottom: 1px solid var(--border-color);
       padding: 14px 28px;
       display: flex;
@@ -61,30 +63,29 @@
     }
 
     .brand-logo {
-      width: 40px;
-      height: 40px;
+      width: 38px;
+      height: 38px;
       background: #ffffff;
-      border-radius: 10px;
-      padding: 2px;
+      border-radius: 50%;
       border: 1px solid var(--border-color);
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
+      flex-shrink: 0;
     }
 
     .brand-logo img {
       width: 100%;
       height: 100%;
-      object-fit: contain;
-      border-radius: 50%;
+      object-fit: cover;
     }
 
     .brand-info h1 {
-      font-size: 16px;
+      font-size: 15.5px;
       font-weight: 800;
-      color: #14532d;
-      letter-spacing: 0.5px;
+      color: var(--primary);
+      letter-spacing: 0.2px;
       line-height: 1.2;
     }
 
@@ -99,10 +100,10 @@
     }
 
     .btn {
-      padding: 9px 16px;
+      padding: 8px 16px;
       border: none;
-      border-radius: var(--radius-md);
-      font-size: 13px;
+      border-radius: var(--radius-sm);
+      font-size: 12.5px;
       font-weight: 700;
       cursor: pointer;
       display: inline-flex;
@@ -115,42 +116,45 @@
     }
 
     .btn-back {
-      background: #f1f5f9;
+      background: #ffffff;
       color: #334155;
       border: 1px solid var(--border-color);
     }
-    .btn-back:hover { background: #e2e8f0; color: #0f172a; }
+    .btn-back:hover { background: #f8fafc; color: #0f172a; border-color: #cbd5e1; }
 
     .btn-primary {
-      background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+      background: var(--primary);
       color: #ffffff;
-      box-shadow: 0 4px 12px rgba(22, 163, 74, 0.28);
     }
     .btn-primary:hover {
-      background: linear-gradient(135deg, #15803d 0%, #14532d 100%);
-      transform: translateY(-1px);
+      background: var(--primary-hover);
     }
 
     .btn-blue {
       background: #2563eb;
       color: #ffffff;
-      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
     }
     .btn-blue:hover { background: #1d4ed8; }
 
+    .btn-amber {
+      background: #d97706;
+      color: #ffffff;
+    }
+    .btn-amber:hover { background: #b45309; }
+
     /* Container */
     .container {
-      max-width: 1280px;
+      max-width: 1440px;
       margin: 20px auto 0;
-      padding: 0 20px;
+      padding: 0 24px;
     }
 
     /* Stepper Bar */
     .stepper-card {
       background: #ffffff;
-      border-radius: var(--radius-lg);
+      border-radius: var(--radius-md);
       border: 1px solid var(--border-color);
-      padding: 16px 24px;
+      padding: 14px 20px;
       margin-bottom: 20px;
       box-shadow: var(--shadow-sm);
     }
@@ -176,13 +180,13 @@
     }
 
     .step-num {
-      width: 34px;
-      height: 34px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
       background: #f1f5f9;
       color: #64748b;
       font-weight: 800;
-      font-size: 13px;
+      font-size: 12.5px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -198,13 +202,13 @@
     }
 
     .step-item.active .step-num {
-      background: #2563eb;
+      background: var(--primary);
       color: #ffffff;
-      border-color: #1d4ed8;
-      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
+      border-color: var(--primary-hover);
+      box-shadow: 0 0 0 4px rgba(35, 100, 70, 0.15);
     }
     .step-item.active .step-label {
-      color: #2563eb;
+      color: var(--primary);
     }
 
     .step-item.done .step-num {
@@ -216,164 +220,157 @@
       color: #16a34a;
     }
 
-    /* Layout Thẻ Đợt Vừa Lưu */
-    .success-hero {
-      background: linear-gradient(135deg, #ecfdf5 0%, #dcfce7 100%);
-      border: 1.5px solid #86efac;
-      border-radius: var(--radius-lg);
-      padding: 24px 30px;
-      margin-bottom: 24px;
-      box-shadow: var(--shadow-sm);
+    /* Hero Banner Thông Báo Đợt */
+    .hero-banner {
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 20px 24px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow-card);
       display: flex;
       align-items: center;
       justify-content: space-between;
       flex-wrap: wrap;
-      gap: 20px;
+      gap: 16px;
     }
 
-    .hero-info {
+    .hero-left {
       display: flex;
       align-items: center;
-      gap: 18px;
+      gap: 16px;
     }
 
-    .hero-badge-icon {
-      width: 54px;
-      height: 54px;
-      background: #16a34a;
-      color: #ffffff;
-      border-radius: 16px;
+    .hero-icon {
+      width: 46px;
+      height: 46px;
+      background: #e8f5e9;
+      color: var(--primary);
+      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 26px;
-      box-shadow: 0 6px 16px rgba(22, 163, 74, 0.3);
+      font-size: 22px;
       flex-shrink: 0;
     }
 
     .hero-text h2 {
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 800;
-      color: #14532d;
-      margin-bottom: 4px;
+      color: var(--text-main);
+      margin-bottom: 3px;
     }
 
     .hero-text p {
-      font-size: 13.5px;
-      color: #15803d;
-      font-weight: 500;
+      font-size: 13px;
+      color: var(--text-muted);
     }
 
     .hero-actions {
       display: flex;
-      gap: 10px;
+      align-items: center;
+      gap: 8px;
       flex-wrap: wrap;
     }
 
-    /* Card Thông tin đợt */
-    .batch-card {
+    /* Card Panels */
+    .card-panel {
       background: #ffffff;
-      border-radius: var(--radius-lg);
+      border-radius: var(--radius-md);
       border: 1px solid var(--border-color);
-      box-shadow: var(--shadow-sm);
-      padding: 24px;
-      margin-bottom: 24px;
+      box-shadow: var(--shadow-card);
+      padding: 20px 24px;
+      margin-bottom: 20px;
     }
 
-    .card-title {
-      font-size: 15px;
-      font-weight: 800;
-      color: #1e293b;
-      margin-bottom: 16px;
+    .panel-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
       border-bottom: 1px solid var(--border-color);
       padding-bottom: 12px;
     }
 
-    .meta-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      margin-bottom: 20px;
-    }
-
-    .meta-item {
-      background: #f8fafc;
-      padding: 12px 16px;
-      border-radius: var(--radius-md);
-      border: 1px solid #e2e8f0;
-    }
-
-    .meta-item .label {
-      font-size: 11.5px;
-      font-weight: 700;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 4px;
-    }
-
-    .meta-item .value {
-      font-size: 15px;
+    .panel-title {
+      font-size: 14.5px;
       font-weight: 800;
-      color: #0f172a;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
-    /* Bảng dữ liệu */
-    .data-table {
+    .panel-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .search-input {
+      padding: 6px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-family: inherit;
+      outline: none;
+      width: 220px;
+    }
+    .search-input:focus { border-color: var(--primary); }
+
+    /* Bảng Dữ Liệu 18 Cột Chuẩn Mẫu Hình 3 */
+    .table-container {
+      overflow-x: auto;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      max-height: 480px;
+    }
+
+    .excel-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 12.5px;
-      margin-top: 12px;
+      font-size: 11.5px;
+      white-space: nowrap;
     }
 
-    .data-table th, .data-table td {
-      padding: 10px 14px;
-      border-bottom: 1px solid var(--border-color);
-      text-align: left;
+    .excel-table th, .excel-table td {
+      border: 1px solid #cbd5e1;
+      padding: 7px 8px;
+      vertical-align: middle;
+      line-height: 1.35;
     }
 
-    .data-table th {
-      background: #f8fafc;
-      font-weight: 800;
-      color: #475569;
-      font-size: 12px;
-      text-transform: uppercase;
-    }
-
-    .data-table tr:hover td {
+    .excel-table th {
       background: #f1f5f9;
+      color: #1e293b;
+      font-weight: 800;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 2px solid #94a3b8;
     }
+
+    .excel-table tr:hover td {
+      background: #f8fafc;
+    }
+
+    .excel-table td.text-center { text-align: center; }
+    .excel-table td.text-right { text-align: right; }
+    .excel-table td.text-bold { font-weight: 700; }
+    .excel-table td.col-money { font-weight: 700; color: #15803d; }
+    .excel-table td.col-cash { font-weight: 700; color: #2563eb; }
 
     .tag-status {
       display: inline-block;
-      padding: 3px 10px;
-      border-radius: 20px;
-      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10.5px;
       font-weight: 700;
-      background: #eff6ff;
-      color: #2563eb;
-    }
-
-    .btn-action-sm {
-      padding: 5px 10px;
-      font-size: 11.5px;
-      font-weight: 700;
-      border-radius: 6px;
-      border: 1px solid var(--border-color);
-      background: #ffffff;
-      color: #334155;
-      cursor: pointer;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .btn-action-sm:hover {
-      background: #f1f5f9;
-      color: #0f172a;
+      background: #ecfdf5;
+      color: var(--primary);
     }
   </style>
 </head>
@@ -386,8 +383,8 @@
         <img src="logo.png" alt="Logo Thái Mỹ Hương">
       </div>
       <div class="brand-info">
-        <h1>THÁI MỸ HƯƠNG</h1>
-        <span>Bước 3: Lưu trữ đợt điều động & Hồ sơ vận chuyển</span>
+        <h1>CÔNG TY TNHH THÁI MỸ HƯƠNG</h1>
+        <span>Bước 3: Lưu trữ dữ liệu đợt & Chuẩn bị kiểm đơn giao về</span>
       </div>
     </div>
     <div class="topbar-actions">
@@ -436,91 +433,89 @@
       </div>
     </div>
 
-    <!-- Khối Thông Báo Đợt Vừa Lưu -->
-    <section class="success-hero" id="heroDotHienTai">
-      <div class="hero-info">
-        <div class="hero-badge-icon">✓</div>
+    <!-- Hero Thông Báo Đợt Lưu Trữ -->
+    <section class="hero-banner">
+      <div class="hero-left">
+        <div class="hero-icon">💾</div>
         <div class="hero-text">
           <h2 id="heroTitle">Đợt điều động xe đã được lưu trữ thành công!</h2>
-          <p id="heroSub">Toàn bộ dữ liệu Bảng kê và Phiếu xuất kho đã được lưu vào hệ thống.</p>
+          <p id="heroSub">Toàn bộ 18 cột dữ liệu đối soát đã được lưu an toàn, sẵn sàng cho Bước 4 (Kiểm đơn giao về).</p>
         </div>
       </div>
       <div class="hero-actions">
-        <button type="button" class="btn btn-blue" onclick="inLaiPhieu()">
-          <span>🖨️</span> Xem lại & In phiếu
+        <button type="button" class="btn btn-primary" onclick="xuatExcel18Cot()">
+          <span>📥</span> Xuất Excel kiểm đơn (18 cột)
         </button>
-        <button type="button" class="btn btn-primary" onclick="chuyenSangBuoc4()">
+        <button type="button" class="btn btn-blue" onclick="chuyenSangBuoc4()">
           <span>🚀</span> Tiếp tục: Bước 4 - Kiểm đơn về ➡
         </button>
       </div>
     </section>
 
-    <!-- Thẻ Chi Tiết Đợt Điều Động -->
-    <section class="batch-card" id="cardChiTietDot">
-      <div class="card-title">
-        <span>THÔNG TIN ĐỢT ĐIỀU ĐỘNG VỪA LƯU</span>
-        <span class="tag-status" id="badgeMaDot">Mã đợt: —</span>
-      </div>
+    <!-- BẢNG LƯU TRỮ ĐẦY ĐỦ 18 CỘT CHUẨN MẪU HÌNH 3 -->
+    <section class="card-panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span>📋 BẢNG LƯU TRỮ ĐỐI SOÁT HÓA ĐƠN THEO XE (CHUẨN 18 CỘT)</span>
+          <span class="tag-status" id="badgeSoLuongHD">0 hóa đơn</span>
+        </div>
 
-      <div class="meta-grid">
-        <div class="meta-item">
-          <div class="label">Xe Vận Chuyển</div>
-          <div class="value" id="valXe" style="color:#2563eb;">—</div>
-        </div>
-        <div class="meta-item">
-          <div class="label">Tài Xế</div>
-          <div class="value" id="valTaiXe">—</div>
-        </div>
-        <div class="meta-item">
-          <div class="label">Ngày Giao Hàng</div>
-          <div class="value" id="valNgayGiao">—</div>
-        </div>
-        <div class="meta-item">
-          <div class="label">Nhân Viên Thu Tiền</div>
-          <div class="value" id="valNvThu">—</div>
-        </div>
-        <div class="meta-item">
-          <div class="label">Nhân Viên Giao Hàng</div>
-          <div class="value" id="valNvGiao">—</div>
-        </div>
-        <div class="meta-item">
-          <div class="label">Tổng Số Hóa Đơn</div>
-          <div class="value" id="valSoLuongHD" style="color:#16a34a;">0</div>
+        <div class="panel-actions">
+          <input type="text" id="timKiemBang" class="search-input" placeholder="Tìm mã HĐ, tên khách, người bán..." oninput="locDuLieuBang()">
+          <button type="button" class="btn btn-back" onclick="inBang18Cot()">
+            <span>🖨️</span> In bảng
+          </button>
         </div>
       </div>
 
-      <!-- Danh Sách Hóa Đơn Trong Đợt -->
-      <h3 style="font-size: 13.5px; font-weight: 800; color: #334155; margin-top: 18px; margin-bottom: 8px;">
-        📋 Danh Sách Hóa Đơn Theo Xe Này
-      </h3>
-      <div style="max-height: 260px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md);">
-        <table class="data-table">
+      <div class="table-container">
+        <table class="excel-table" id="bangLuuTru18Cot">
           <thead>
             <tr>
-              <th style="width: 50px;">STT</th>
+              <th>stt</th>
+              <th>Ngày</th>
+              <th>Xe</th>
+              <th>Tài Xế</th>
+              <th>Giao Hàng</th>
+              <th>Thu Tiền</th>
               <th>Mã Hóa Đơn</th>
-              <th>Trạng Thái Giao Hàng</th>
+              <th>Tên Khách Hàng</th>
+              <th>Người Bán</th>
+              <th>Mã KH</th>
+              <th>Doanh Số</th>
+              <th>Giảm Giá SP</th>
+              <th>Giảm Giá HĐ</th>
+              <th>Thành Tiền</th>
+              <th>Tiền mặt</th>
+              <th>Chuyển khoản</th>
+              <th>Trả về</th>
+              <th>Nợ phát sinh</th>
             </tr>
           </thead>
-          <tbody id="tbodyHoaDonDot"></tbody>
+          <tbody id="tbody18Cot"></tbody>
+          <tfoot id="tfoot18Cot"></tfoot>
         </table>
       </div>
     </section>
 
     <!-- Thẻ Lịch Sử Các Đợt Đã Lưu Trữ -->
-    <section class="batch-card">
-      <div class="card-title">
-        <span>🗄️ LỊCH SỬ CÁC ĐỢT ĐIỀU ĐỘNG ĐÃ LƯU TRỮ TRONG CA</span>
-        <button type="button" class="btn-action-sm" onclick="xoaTatCaLichSu()">
-          <span>🗑️</span> Xóa lịch sử tạm
-        </button>
+    <section class="card-panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span>🗄️ LỊCH SỬ CÁC ĐỢT ĐIỀU ĐỘNG ĐÃ LƯU TRỮ TRONG CA</span>
+        </div>
+        <div class="panel-actions">
+          <button type="button" class="btn btn-back" onclick="xoaTatCaLichSu()">
+            <span>🗑️</span> Xóa lịch sử tạm
+          </button>
+        </div>
       </div>
 
       <div style="overflow-x: auto;">
-        <table class="data-table">
+        <table class="excel-table">
           <thead>
             <tr>
-              <th style="width: 50px;">STT</th>
+              <th>STT</th>
               <th>Mã Đợt</th>
               <th>Ngày Giao</th>
               <th>Xe Giao</th>
@@ -541,62 +536,193 @@
   <script>
     var dotHienTai = null;
     var lichSuDot = [];
+    var danhSach18CotHienThi = [];
+
+    function formatTien(so) {
+      if (so === null || so === undefined || isNaN(so)) return "0";
+      return Math.round(Number(so)).toLocaleString('vi-VN');
+    }
 
     function khoiTao() {
-      // Đọc đợt hiện tại vừa lưu từ localStorage
       try {
         dotHienTai = JSON.parse(localStorage.getItem("tmh_dot_hien_tai") || "null");
       } catch (e) {
         dotHienTai = null;
       }
 
-      // Đọc lịch sử các đợt đã lưu
       try {
         lichSuDot = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
       } catch (e) {
         lichSuDot = [];
       }
 
-      hienThiDotHienTai();
-      hienThiLichSu();
+      hienThiDuLieu();
     }
 
-    function hienThiDotHienTai() {
+    function hienThiDuLieu() {
       if (!dotHienTai) {
-        document.getElementById('heroTitle').textContent = "Chưa có đợt điều động nào vừa được lưu.";
-        document.getElementById('heroSub').textContent = "Vui lòng hoàn tất việc điều động xe và tạo phiếu ở Bước 2 trước khi lưu.";
-        document.getElementById('badgeMaDot').textContent = "Chưa lưu";
-        document.getElementById('tbodyHoaDonDot').innerHTML = '<tr><td colspan="3" style="text-align:center; color:#94a3b8;">Không có dữ liệu đợt vừa lưu</td></tr>';
+        document.getElementById('heroTitle').textContent = "Chưa có dữ liệu đợt điều động nào vừa lưu.";
+        document.getElementById('heroSub').textContent = "Vui lòng quay lại Bước 2 để hoàn tất việc điều động xe và tạo phiếu.";
+        document.getElementById('tbody18Cot').innerHTML = '<tr><td colspan="18" style="text-align:center; color:#94a3b8; padding:20px;">Không có dữ liệu đợt vừa lưu</td></tr>';
         return;
       }
 
-      document.getElementById('heroTitle').textContent = `Đợt điều động xe "${dotHienTai.xe}" đã được lưu trữ an toàn!`;
-      document.getElementById('heroSub').textContent = `Ngày giao: ${dotHienTai.ngayGiao} — Gồm ${dotHienTai.soLuongHD} hóa đơn đã phân bổ.`;
-      document.getElementById('badgeMaDot').textContent = dotHienTai.maDot;
+      document.getElementById('heroTitle').textContent = `Đợt điều động xe "${dotHienTai.xe}" đã được lưu trữ thành công!`;
+      document.getElementById('heroSub').textContent = `Ngày giao: ${dotHienTai.ngayGiao} — Gồm ${dotHienTai.soLuongHD} hóa đơn đã phân bổ đầy đủ 18 cột đối soát.`;
 
-      document.getElementById('valXe').textContent = dotHienTai.xe || '—';
-      document.getElementById('valTaiXe').textContent = dotHienTai.taiXe || '—';
-      document.getElementById('valNgayGiao').textContent = dotHienTai.ngayGiao || '—';
-      document.getElementById('valNvThu').textContent = dotHienTai.nvThu || '—';
-      document.getElementById('valNvGiao').textContent = dotHienTai.nvGiao || '—';
-      document.getElementById('valSoLuongHD').textContent = (dotHienTai.danhSachHD ? dotHienTai.danhSachHD.length : 0) + ' đơn';
-
-      // Render danh sách hóa đơn trong đợt
-      const tbody = document.getElementById('tbodyHoaDonDot');
-      tbody.innerHTML = '';
-      if (dotHienTai.danhSachHD && dotHienTai.danhSachHD.length > 0) {
-        dotHienTai.danhSachHD.forEach((maHD, idx) => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td style="font-weight:700; color:#64748b;">${idx + 1}</td>
-            <td style="font-weight:700; color:#1e3a8a;">${maHD}</td>
-            <td><span class="tag-status">🚚 Đang vận chuyển (Chờ đối soát)</span></td>
-          `;
-          tbody.appendChild(tr);
-        });
-      } else {
-        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#94a3b8;">Không có hóa đơn nào</td></tr>';
+      // Chuẩn bị mảng 18 cột
+      if (dotHienTai.danhSachChiTiet && dotHienTai.danhSachChiTiet.length > 0) {
+        danhSach18CotHienThi = dotHienTai.danhSachChiTiet;
+      } else if (dotHienTai.danhSachHD) {
+        // Dự phòng nếu chưa có chi tiết
+        danhSach18CotHienThi = dotHienTai.danhSachHD.map((ma, idx) => ({
+          stt: idx + 1,
+          ngay: dotHienTai.ngayGiao || '',
+          xe: dotHienTai.xe || '',
+          taiXe: dotHienTai.taiXe || '',
+          giaoHang: dotHienTai.nvGiao || '',
+          thuTien: dotHienTai.nvThu || '',
+          maHD: ma,
+          tenKH: '',
+          nguoiBan: '',
+          maKH: '',
+          doanhSo: 0,
+          giamGiaSP: 0,
+          giamGiaHD: 0,
+          thanhTien: 0,
+          tienMat: 0,
+          chuyenKhoan: 0,
+          traVe: 0,
+          noPhatSinh: 0
+        }));
       }
+
+      document.getElementById('badgeSoLuongHD').textContent = danhSach18CotHienThi.length + ' hóa đơn';
+      veBang18Cot(danhSach18CotHienThi);
+      hienThiLichSu();
+    }
+
+    function veBang18Cot(danhSach) {
+      const tbody = document.getElementById('tbody18Cot');
+      tbody.innerHTML = '';
+
+      let sumDoanhSo = 0;
+      let sumGiamSP = 0;
+      let sumGiamHD = 0;
+      let sumThanhTien = 0;
+      let sumTienMat = 0;
+      let sumChuyenKhoan = 0;
+      let sumTraVe = 0;
+      let sumNoPhatSinh = 0;
+
+      danhSach.forEach(row => {
+        sumDoanhSo += Number(row.doanhSo) || 0;
+        sumGiamSP += Number(row.giamGiaSP) || 0;
+        sumGiamHD += Number(row.giamGiaHD) || 0;
+        sumThanhTien += Number(row.thanhTien) || 0;
+        sumTienMat += Number(row.tienMat) || 0;
+        sumChuyenKhoan += Number(row.chuyenKhoan) || 0;
+        sumTraVe += Number(row.traVe) || 0;
+        sumNoPhatSinh += Number(row.noPhatSinh) || 0;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="text-center">${row.stt}</td>
+          <td class="text-center">${row.ngay || ''}</td>
+          <td class="text-bold">${row.xe || ''}</td>
+          <td>${row.taiXe || ''}</td>
+          <td>${row.giaoHang || ''}</td>
+          <td>${row.thuTien || ''}</td>
+          <td class="text-bold" style="color:#1e3a8a;">${row.maHD || ''}</td>
+          <td>${row.tenKH || ''}</td>
+          <td>${row.nguoiBan || ''}</td>
+          <td class="text-center">${row.maKH || ''}</td>
+          <td class="text-right">${formatTien(row.doanhSo)}</td>
+          <td class="text-right">${formatTien(row.giamGiaSP)}</td>
+          <td class="text-right">${formatTien(row.giamGiaHD)}</td>
+          <td class="text-right col-money">${formatTien(row.thanhTien)}</td>
+          <td class="text-right col-cash">${formatTien(row.tienMat)}</td>
+          <td class="text-right">${formatTien(row.chuyenKhoan)}</td>
+          <td class="text-right">${formatTien(row.traVe)}</td>
+          <td class="text-right">${formatTien(row.noPhatSinh)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Dòng tổng cộng chân bảng
+      document.getElementById('tfoot18Cot').innerHTML = `
+        <tr style="background:#f1f5f9; font-weight:800;">
+          <td colspan="10" class="text-center">TỔNG CỘNG (${danhSach.length} HÓA ĐƠN)</td>
+          <td class="text-right">${formatTien(sumDoanhSo)}</td>
+          <td class="text-right">${formatTien(sumGiamSP)}</td>
+          <td class="text-right">${formatTien(sumGiamHD)}</td>
+          <td class="text-right col-money" style="font-size:12.5px;">${formatTien(sumThanhTien)}</td>
+          <td class="text-right col-cash" style="font-size:12.5px;">${formatTien(sumTienMat)}</td>
+          <td class="text-right">${formatTien(sumChuyenKhoan)}</td>
+          <td class="text-right">${formatTien(sumTraVe)}</td>
+          <td class="text-right">${formatTien(sumNoPhatSinh)}</td>
+        </tr>
+      `;
+    }
+
+    function locDuLieuBang() {
+      const q = document.getElementById('timKiemBang').value.toLowerCase().trim();
+      if (!q) {
+        veBang18Cot(danhSach18CotHienThi);
+        return;
+      }
+      const ketQua = danhSach18CotHienThi.filter(r => 
+        (r.maHD && r.maHD.toLowerCase().includes(q)) ||
+        (r.tenKH && r.tenKH.toLowerCase().includes(q)) ||
+        (r.nguoiBan && r.nguoiBan.toLowerCase().includes(q)) ||
+        (r.maKH && r.maKH.toLowerCase().includes(q)) ||
+        (r.xe && r.xe.toLowerCase().includes(q))
+      );
+      veBang18Cot(ketQua);
+    }
+
+    function xuatExcel18Cot() {
+      if (!danhSach18CotHienThi || danhSach18CotHienThi.length === 0) {
+        alert("Không có dữ liệu để xuất Excel!");
+        return;
+      }
+
+      // Tạo cấu trúc dữ liệu theo đúng 18 cột trong hình mẫu 3
+      const duLieuExcel = danhSach18CotHienThi.map(r => ({
+        "stt": r.stt,
+        "Ngày": r.ngay,
+        "Xe": r.xe,
+        "Tài Xế": r.taiXe,
+        "Giao Hàng": r.giaoHang,
+        "Thu Tiền": r.thuTien,
+        "Mã Hóa Đơn": r.maHD,
+        "Tên Khách Hàng": r.tenKH,
+        "Người Bán": r.nguoiBan,
+        "Mã KH": r.maKH,
+        "Doanh Số": r.doanhSo,
+        "Giảm Giá SP": r.giamGiaSP,
+        "Giảm Giá HĐ": r.giamGiaHD,
+        "Thành Tiền": r.thanhTien,
+        "Tiền mặt": r.tienMat,
+        "Chuyển khoản": r.chuyenKhoan,
+        "Trả về": r.traVe,
+        "Nợ phát sinh": r.noPhatSinh
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(duLieuExcel);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "LuuTru_KiemDon");
+
+      const xeTen = dotHienTai ? dotHienTai.xe.replace(/[^a-zA-Z0-9]/g, '_') : 'XE';
+      XLSX.writeFile(wb, `Bang_Luu_Tru_18Cot_${xeTen}_${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
+
+    function inBang18Cot() {
+      window.print();
+    }
+
+    function chuyenSangBuoc4() {
+      alert("🚧 Đang kết nối sang Bước 4: Kiểm đơn giao về (đối soát tiền mặt, chuyển khoản, trả về, nợ phát sinh).");
     }
 
     function hienThiLichSu() {
@@ -604,56 +730,40 @@
       tbody.innerHTML = '';
 
       if (!lichSuDot || lichSuDot.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#94a3b8; padding:20px;">Chưa có đợt điều động nào trong lịch sử lưu trữ.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#94a3b8; padding:16px;">Chưa có đợt lưu trữ nào khác trong phiên làm việc.</td></tr>';
         return;
       }
 
       lichSuDot.forEach((d, idx) => {
         const tr = document.createElement('tr');
-        const tgTao = d.thoiGianTao ? new Date(d.thoiGianTao).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
+        const tg = d.thoiGianTao ? new Date(d.thoiGianTao).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '—';
         tr.innerHTML = `
-          <td style="font-weight:700; color:#64748b;">${idx + 1}</td>
-          <td style="font-weight:700; color:#0f172a;">${d.maDot}</td>
-          <td>${d.ngayGiao || '—'}</td>
-          <td style="font-weight:700; color:#2563eb;">${d.xe || '—'}</td>
-          <td>${d.taiXe || '—'}</td>
-          <td>${d.nvThu || '—'}</td>
-          <td style="font-weight:700; color:#16a34a;">${d.soLuongHD || (d.danhSachHD ? d.danhSachHD.length : 0)}</td>
-          <td style="color:#64748b; font-size:11.5px;">${tgTao}</td>
-          <td>
-            <button class="btn-action-sm" onclick="napLaiDot('${d.maDot}')">
-              <span>📋</span> Xem lại Bước 2
-            </button>
+          <td class="text-center">${idx + 1}</td>
+          <td class="text-bold">${d.maDot}</td>
+          <td class="text-center">${d.ngayGiao || ''}</td>
+          <td class="text-bold" style="color:#2563eb;">${d.xe || ''}</td>
+          <td>${d.taiXe || ''}</td>
+          <td>${d.nvThu || ''}</td>
+          <td class="text-center text-bold" style="color:#15803d;">${d.soLuongHD || (d.danhSachHD ? d.danhSachHD.length : 0)}</td>
+          <td class="text-center" style="color:#64748b; font-size:11px;">${tg}</td>
+          <td class="text-center">
+            <a href="buoc2_phieu_xuat_kho.html" class="btn btn-back" style="padding:4px 8px; font-size:11px;">
+              <span>📋</span> Mở Bước 2
+            </a>
           </td>
         `;
         tbody.appendChild(tr);
       });
     }
 
-    function napLaiDot(maDot) {
-      const dot = lichSuDot.find(d => d.maDot === maDot);
-      if (dot) {
-        localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dot));
-        window.location.href = "buoc2_phieu_xuat_kho.html";
-      }
-    }
-
-    function inLaiPhieu() {
-      window.location.href = "buoc2_phieu_xuat_kho.html";
-    }
-
-    function chuyenSangBuoc4() {
-      alert("🚧 Bước 4: Kiểm đơn giao về đang được chuẩn bị tiếp nối.");
-    }
-
     function xoaTatCaLichSu() {
-      if (confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch sử đợt lưu trữ trong phiên này?")) {
+      if (confirm("Bạn có chắc muốn xóa lịch sử các đợt lưu trữ tạm này?")) {
         localStorage.removeItem("tmh_dot_hien_tai");
         localStorage.removeItem("tmh_lich_su_dot");
         dotHienTai = null;
         lichSuDot = [];
-        hienThiDotHienTai();
-        hienThiLichSu();
+        danhSach18CotHienThi = [];
+        hienThiDuLieu();
       }
     }
 
