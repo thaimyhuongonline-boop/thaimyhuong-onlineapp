@@ -14,23 +14,22 @@
       --primary-hover: #1b4d36;
       --primary-light: #e8f5e9;
       --primary-soft: #ecfdf5;
-      --accent-amber: #b45309;
-      --bg-page: #f9fafb;
+      --bg-page: #f8fafc;
       --bg-surface: #ffffff;
-      --text-main: #111827;
-      --text-muted: #6b7280;
-      --text-sub: #9ca3af;
-      --border-color: #e5e7eb;
-      --border-subtle: #f3f4f6;
-      --sidebar-width: 230px;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --text-sub: #94a3b8;
+      --border-color: #e2e8f0;
+      --border-subtle: #f1f5f9;
+      --sidebar-width: 240px;
       --sidebar-collapsed-width: 72px;
       --radius-sm: 8px;
       --radius-md: 12px;
       --radius-lg: 16px;
       --radius-full: 9999px;
       --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
-      --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
-      --transition: all 0.2s ease;
+      --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+      --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -61,7 +60,7 @@
     .spinner {
       width: 40px;
       height: 40px;
-      border: 3px solid #e5e7eb;
+      border: 3px solid #e2e8f0;
       border-top-color: var(--primary);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
@@ -80,7 +79,7 @@
     }
 
     /* ========================================================
-       SIDEBAR (THANH ĐIỀU HƯỚNG BÊN TRÁI - GIAO DIỆN SÁNG, TỐI GIẢN)
+       SIDEBAR SÁNG TỐI GIẢN (LIGHT MINIMALIST SIDEBAR)
        ======================================================== */
     .sidebar {
       width: var(--sidebar-width);
@@ -103,26 +102,16 @@
       padding: 0 16px;
       display: flex;
       align-items: center;
-      gap: 10px;
+      justify-content: space-between;
       border-bottom: 1px solid var(--border-color);
       flex-shrink: 0;
     }
 
-    .btn-collapse-sidebar {
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      color: var(--text-muted);
+    .sidebar-brand-group {
       display: flex;
       align-items: center;
-      justify-content: center;
-      padding: 6px;
-      border-radius: 6px;
-      transition: var(--transition);
-    }
-    .btn-collapse-sidebar:hover {
-      background: #f3f4f6;
-      color: var(--text-main);
+      gap: 10px;
+      min-width: 0;
     }
 
     .sidebar-logo {
@@ -148,7 +137,25 @@
       overflow: hidden;
       text-overflow: ellipsis;
       font-size: 13.5px;
-      font-weight: 700;
+      font-weight: 800;
+      color: var(--text-main);
+      letter-spacing: -0.2px;
+    }
+
+    .btn-collapse-sidebar {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px;
+      border-radius: 6px;
+      transition: var(--transition);
+    }
+    .btn-collapse-sidebar:hover {
+      background: #f1f5f9;
       color: var(--text-main);
     }
 
@@ -169,7 +176,7 @@
       color: var(--text-sub);
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      padding: 10px 10px 4px;
+      padding: 12px 10px 4px;
       white-space: nowrap;
     }
 
@@ -179,7 +186,7 @@
       gap: 10px;
       padding: 8px 12px;
       border-radius: var(--radius-sm);
-      color: #374151;
+      color: #334155;
       text-decoration: none;
       font-size: 12.5px;
       font-weight: 600;
@@ -189,12 +196,12 @@
     }
 
     .menu-item:hover {
-      background: #f3f4f6;
+      background: #f1f5f9;
       color: var(--text-main);
     }
 
     .menu-item.active {
-      background: #f3f4f6;
+      background: #f1f5f9;
       color: var(--primary);
       font-weight: 700;
     }
@@ -216,8 +223,8 @@
       font-size: 9px;
       padding: 2px 6px;
       border-radius: 4px;
-      background: #e5e7eb;
-      color: #4b5563;
+      background: #e2e8f0;
+      color: #475569;
       font-weight: 700;
     }
 
@@ -240,7 +247,7 @@
       width: 32px;
       height: 32px;
       border-radius: 50%;
-      background: #236446;
+      background: var(--primary);
       color: #ffffff;
       display: flex;
       align-items: center;
@@ -265,7 +272,7 @@
 
     .badge-role {
       display: inline-block;
-      font-size: 9.5px;
+      font-size: 10px;
       font-weight: 600;
       color: var(--text-muted);
     }
@@ -293,7 +300,7 @@
     }
 
     /* ========================================================
-       MAIN WRAPPER & TOPBAR (CHUẨN THEO ẢNH MẪU)
+       MAIN WRAPPER & TOPBAR (TỐI GIẢN, TINH TẾ)
        ======================================================== */
     .main-wrapper {
       flex: 1;
@@ -305,7 +312,7 @@
     }
 
     .main-header {
-      padding: 24px 32px 14px;
+      padding: 24px 32px 16px;
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
@@ -316,7 +323,7 @@
     .header-left {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 3px;
     }
 
     .kicker-label {
@@ -331,10 +338,10 @@
     }
 
     .main-title {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 800;
       color: var(--text-main);
-      letter-spacing: -0.3px;
+      letter-spacing: -0.4px;
     }
 
     .main-sub {
@@ -346,10 +353,11 @@
       display: flex;
       align-items: center;
       gap: 10px;
+      flex-wrap: wrap;
     }
 
     .pill-btn {
-      padding: 7px 16px;
+      padding: 7px 15px;
       border-radius: var(--radius-full);
       font-size: 12.5px;
       font-weight: 600;
@@ -365,11 +373,11 @@
     .pill-btn-outline {
       background: #ffffff;
       border: 1px solid var(--border-color);
-      color: #374151;
+      color: #334155;
     }
     .pill-btn-outline:hover {
-      background: #f9fafb;
-      border-color: #d1d5db;
+      background: #f8fafc;
+      border-color: #cbd5e1;
     }
 
     .pill-btn-primary {
@@ -381,216 +389,18 @@
       background: var(--primary-hover);
     }
 
-    /* Notification Alert Bar */
-    .alert-banner {
-      margin: 0 32px 20px;
-      background: #fffbeb;
-      border: 1px solid #fef3c7;
-      border-radius: var(--radius-sm);
-      padding: 10px 16px;
-      font-size: 12.5px;
-      color: var(--accent-amber);
-      font-weight: 500;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    /* ========================================================
-       2-COLUMN DASHBOARD GRID
-       ======================================================== */
-    .dashboard-container {
+    /* Container Nội Dung */
+    .dashboard-body {
       padding: 0 32px 40px;
-      display: grid;
-      grid-template-columns: 240px 1fr;
-      gap: 20px;
-      align-items: start;
-    }
-
-    /* CỘT TRÁI: SUB-CARD ĐIỀU HƯỚNG CÁ NHÂN */
-    .sub-card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-md);
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      box-shadow: var(--shadow-card);
-    }
-
-    .sub-card-datebox {
-      background: #e8f5e9;
-      border-radius: var(--radius-sm);
-      padding: 14px 16px;
-    }
-
-    .sub-card-datebox .kicker {
-      font-size: 10.5px;
-      font-weight: 700;
-      color: var(--primary);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 2px;
-    }
-
-    .sub-card-datebox .day {
-      font-size: 18px;
-      font-weight: 800;
-      color: var(--text-main);
-      line-height: 1.2;
-    }
-
-    .sub-card-datebox .date {
-      font-size: 12px;
-      color: var(--text-muted);
-      margin-top: 2px;
-    }
-
-    .sub-card-nav {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .sub-nav-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 9px 12px;
-      border-radius: var(--radius-sm);
-      font-size: 12.5px;
-      font-weight: 600;
-      color: var(--text-muted);
-      cursor: pointer;
-      text-decoration: none;
-      transition: var(--transition);
-    }
-
-    .sub-nav-item:hover {
-      background: #f9fafb;
-      color: var(--text-main);
-    }
-
-    .sub-nav-item.active {
-      background: var(--primary);
-      color: #ffffff;
-      font-weight: 700;
-    }
-
-    .sub-card-progress {
-      border-top: 1px solid var(--border-subtle);
-      padding-top: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .progress-header {
-      display: flex;
-      justify-content: space-between;
-      font-size: 11.5px;
-      color: var(--text-muted);
-      font-weight: 600;
-    }
-
-    .progress-track {
-      width: 100%;
-      height: 6px;
-      background: #e5e7eb;
-      border-radius: 999px;
-      overflow: hidden;
-    }
-
-    .progress-fill {
-      height: 100%;
-      background: var(--primary);
-      border-radius: 999px;
-      width: 43%;
-      transition: width 0.3s ease;
-    }
-
-    .progress-sub {
-      font-size: 11px;
-      color: var(--text-sub);
-    }
-
-    /* CỘT PHẢI: KHU VỰC NỘI DUNG CHÍNH */
-    .content-column {
       display: flex;
       flex-direction: column;
       gap: 20px;
-      min-width: 0;
     }
 
-    /* Top Bar Nội Dung */
-    .section-header-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 14px;
-    }
-
-    .section-header-bar .title-group h2 {
-      font-size: 17px;
-      font-weight: 800;
-      color: var(--text-main);
-    }
-
-    .section-header-bar .title-group p {
-      font-size: 12.5px;
-      color: var(--text-muted);
-    }
-
-    .filter-controls {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .select-control {
-      padding: 6px 12px;
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-sm);
-      background: #ffffff;
-      font-size: 12px;
-      font-weight: 600;
-      color: #374151;
-      font-family: inherit;
-      outline: none;
-      cursor: pointer;
-    }
-
-    .segmented-control {
-      display: flex;
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-sm);
-      background: #ffffff;
-      overflow: hidden;
-    }
-
-    .seg-item {
-      padding: 6px 12px;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-muted);
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      transition: var(--transition);
-    }
-
-    .seg-item.active {
-      background: var(--primary);
-      color: #ffffff;
-    }
-
-    /* KPI Summary Row */
+    /* KPI Summary Row (4 chỉ số chính) */
     .kpi-row {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 14px;
     }
 
@@ -602,7 +412,7 @@
       display: flex;
       align-items: center;
       gap: 14px;
-      box-shadow: var(--shadow-sm);
+      box-shadow: var(--shadow-card);
     }
 
     .kpi-box-icon {
@@ -617,7 +427,7 @@
     }
 
     .kpi-box-icon.green { background: #e8f5e9; color: var(--primary); }
-    .kpi-box-icon.amber { background: #fffbeb; color: var(--accent-amber); }
+    .kpi-box-icon.amber { background: #fffbeb; color: #b45309; }
     .kpi-box-icon.purple { background: #f5f3ff; color: #7c3aed; }
     .kpi-box-icon.blue { background: #eff6ff; color: #2563eb; }
 
@@ -633,74 +443,147 @@
     }
 
     .kpi-box-info .kpi-val {
-      font-size: 19px;
+      font-size: 17px;
       font-weight: 800;
       color: var(--text-main);
       line-height: 1.2;
       margin-top: 2px;
     }
 
-    /* Section Thẻ Trắng Tối Giản */
-    .card-panel {
+    /* ========================================================
+       TIẾN TRÌNH LIÊN HOÀN 7 BƯỚC (INTERACTIVE 7-STEP TIMELINE)
+       ======================================================== */
+    .workflow-timeline-card {
       background: var(--bg-surface);
       border: 1px solid var(--border-color);
       border-radius: var(--radius-md);
-      padding: 20px;
+      padding: 18px 22px;
       box-shadow: var(--shadow-card);
     }
 
-    .card-panel-title {
-      font-size: 14.5px;
+    .workflow-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .workflow-title {
+      font-size: 14px;
       font-weight: 800;
       color: var(--text-main);
-      margin-bottom: 2px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
-    .card-panel-sub {
+    .workflow-sub {
       font-size: 12px;
       color: var(--text-muted);
-      margin-bottom: 16px;
     }
 
-    /* Tiến Độ Từng Nhân Sự / Đầu Việc */
-    .task-progress-list {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
+    .workflow-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 8px;
     }
 
-    .task-progress-item {
+    .wf-step-item {
+      background: #f8fafc;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
       display: flex;
       flex-direction: column;
       gap: 4px;
+      text-decoration: none;
+      transition: var(--transition);
+      cursor: pointer;
     }
 
-    .task-progress-header {
+    .wf-step-item:hover {
+      background: #ffffff;
+      border-color: #cbd5e1;
+      transform: translateY(-1px);
+    }
+
+    .wf-step-item.active {
+      background: #ecfdf5;
+      border-color: #a7f3d0;
+    }
+
+    .wf-step-top {
       display: flex;
+      align-items: center;
       justify-content: space-between;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    .wf-step-item.active .wf-step-top {
+      color: var(--primary);
+    }
+
+    .wf-step-name {
       font-size: 12px;
-      font-weight: 600;
-      color: #374151;
-    }
-
-    .task-progress-bar {
-      width: 100%;
-      height: 6px;
-      background: #f1f5f9;
-      border-radius: 999px;
+      font-weight: 700;
+      color: var(--text-main);
+      line-height: 1.3;
+      white-space: nowrap;
       overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    .task-progress-val {
-      height: 100%;
-      background: var(--primary);
-      border-radius: 999px;
+    .wf-step-status {
+      font-size: 9.5px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      display: inline-block;
+      width: fit-content;
     }
 
-    /* LƯỚI CÁC Ô CHỨC NĂNG NGHIỆP VỤ (7 BƯỚC VÀ QUẢN TRỊ) */
+    .wf-status-ready {
+      background: #dcfce7;
+      color: #15803d;
+    }
+
+    .wf-status-dev {
+      background: #f1f5f9;
+      color: #94a3b8;
+    }
+
+    /* ========================================================
+       LƯỚI CÁC Ô CHỨC NĂNG NGHIỆP VỤ (TILES GRID)
+       ======================================================== */
+    .section-panel {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 20px 24px;
+      box-shadow: var(--shadow-card);
+    }
+
+    .section-panel-header {
+      margin-bottom: 16px;
+    }
+
+    .section-panel-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    .section-panel-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
     .tiles-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 14px;
     }
 
@@ -708,13 +591,13 @@
       background: var(--bg-surface);
       border: 1px solid var(--border-color);
       border-radius: var(--radius-md);
-      padding: 18px;
+      padding: 16px 18px;
       cursor: pointer;
       transition: var(--transition);
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      min-height: 140px;
+      min-height: 135px;
     }
 
     .tile-card:hover {
@@ -727,13 +610,13 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
 
     .tile-icon-wrap {
       width: 34px;
       height: 34px;
-      background: #f3f4f6;
+      background: #f1f5f9;
       border-radius: 8px;
       display: flex;
       align-items: center;
@@ -742,7 +625,7 @@
     }
 
     .tile-status {
-      font-size: 10px;
+      font-size: 10.5px;
       font-weight: 700;
       padding: 2px 8px;
       border-radius: 999px;
@@ -752,15 +635,15 @@
     }
 
     .tile-status.ready {
-      background: #e8f5e9;
-      color: var(--primary);
-      border: 1px solid #c8e6c9;
+      background: #ecfdf5;
+      color: #15803d;
+      border: 1px solid #bbf7d0;
     }
 
     .tile-status.dev {
-      background: #f3f4f6;
+      background: #f8fafc;
       color: var(--text-muted);
-      border: 1px solid #e5e7eb;
+      border: 1px solid #e2e8f0;
     }
 
     .tile-name {
@@ -772,7 +655,7 @@
     }
 
     .tile-description {
-      font-size: 11.5px;
+      font-size: 12px;
       color: var(--text-muted);
       line-height: 1.4;
       flex: 1;
@@ -780,7 +663,7 @@
     }
 
     .tile-action-link {
-      font-size: 11.5px;
+      font-size: 12px;
       font-weight: 700;
       color: var(--primary);
       display: flex;
@@ -788,106 +671,29 @@
       gap: 4px;
     }
 
-    /* Khối Đánh Giá / Báo Cáo Chờ Xử Lý */
-    .review-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 16px;
-      padding: 12px 0;
-      border-top: 1px solid var(--border-subtle);
-    }
-
-    .review-user-info {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .review-user-info strong {
-      font-size: 13px;
-      color: var(--text-main);
-    }
-
-    .review-user-info span {
-      font-size: 11.5px;
-      color: var(--text-muted);
-    }
-
-    .review-tags {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .review-tag-pill {
-      font-size: 11px;
-      padding: 3px 8px;
-      border-radius: 6px;
-      background: #f3f4f6;
-      color: #4b5563;
-    }
-
-    .review-tag-pill b {
-      color: var(--primary);
-    }
-
-    .review-action-group {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .input-score {
-      width: 54px;
-      padding: 5px 8px;
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 700;
-      text-align: center;
-      font-family: inherit;
-    }
-
-    .btn-review {
-      padding: 6px 14px;
-      background: var(--primary);
-      color: #ffffff;
-      border: none;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 700;
-      cursor: pointer;
-      font-family: inherit;
-      transition: var(--transition);
-    }
-    .btn-review:hover {
-      background: var(--primary-hover);
-    }
-
-    /* Thông Tin Công Ty */
-    .company-footer-grid {
+    /* Thông Tin Doanh Nghiệp & Hỗ Trợ Chân Trang */
+    .company-footer-card {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 16px;
-      padding-top: 14px;
-      border-top: 1px solid var(--border-subtle);
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 18px;
+      padding: 18px 22px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
       font-size: 12px;
       color: var(--text-muted);
+      box-shadow: var(--shadow-card);
     }
 
-    .company-footer-grid strong {
+    .company-footer-card strong {
       display: block;
       color: var(--text-main);
-      margin-bottom: 2px;
+      font-size: 13px;
+      margin-bottom: 4px;
     }
 
     /* Mobile Responsive */
-    @media (max-width: 960px) {
-      .dashboard-container {
-        grid-template-columns: 1fr;
-      }
+    @media (max-width: 768px) {
       .sidebar {
         transform: translateX(-100%);
       }
@@ -897,7 +703,7 @@
       .main-wrapper {
         margin-left: 0 !important;
       }
-      .main-header, .alert-banner, .dashboard-container {
+      .main-header, .dashboard-body {
         padding-left: 16px;
         padding-right: 16px;
       }
@@ -919,38 +725,32 @@
       <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
       <!-- ====================================================
-           SIDEBAR (GIAO DIỆN SÁNG TỐI GIẢN CHUẨN HÌNH ẢNH)
+           SIDEBAR SÁNG TỐI GIẢN (LIGHT MINIMALIST SIDEBAR)
            ==================================================== -->
       <aside class="sidebar" id="sidebar">
         <!-- Header Sidebar -->
         <div class="sidebar-header">
+          <div class="sidebar-brand-group">
+            <div class="sidebar-logo">
+              <img src="logo.png" alt="Logo Thái Mỹ Hương">
+            </div>
+            <div class="sidebar-brand-text">THÁI MỸ HƯƠNG</div>
+          </div>
           <button type="button" class="btn-collapse-sidebar" id="btnHamburger" title="Mở rộng / Thu gọn">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
               <line x1="9" y1="3" x2="9" y2="21"></line>
             </svg>
           </button>
-          <div class="sidebar-logo">
-            <img src="logo.png" alt="Logo Thái Mỹ Hương">
-          </div>
-          <div class="sidebar-brand-text">Thái Mỹ Hương</div>
         </div>
 
         <!-- Menu Điều Hướng -->
         <div class="sidebar-menu">
-          <div class="menu-category">Menu chính</div>
+          <div class="menu-category">Chức năng chính</div>
           
           <a class="menu-item active" href="trang_chu.html">
-            <span class="menu-ic">⊞</span>
-            <span class="menu-label">Tổng quan</span>
-          </a>
-          <a class="menu-item" href="javascript:void(0)" onclick="alert('Đang hiển thị kế hoạch & báo cáo.')">
-            <span class="menu-ic">📋</span>
-            <span class="menu-label">Kế hoạch & báo cáo</span>
-          </a>
-          <a class="menu-item" href="javascript:void(0)" onclick="alert('Tính năng thống kê đang tổng hợp số liệu.')">
-            <span class="menu-ic">📊</span>
-            <span class="menu-label">Thống kê</span>
+            <span class="menu-ic">🏠</span>
+            <span class="menu-label">Bảng điều khiển</span>
           </a>
 
           <div class="menu-category">Quy trình 7 bước</div>
@@ -973,7 +773,7 @@
       </aside>
 
       <!-- ====================================================
-           MAIN WRAPPER (GIAO DIỆN TỐI GIẢN SANG TRỌNG)
+           MAIN WRAPPER (GIAO DIỆN TỐI GIẢN, TINH TẾ)
            ==================================================== -->
       <div class="main-wrapper">
         
@@ -982,255 +782,183 @@
           <div class="header-left">
             <div class="kicker-label">
               <span>🌿</span>
-              <span>KHÔNG GIAN LÀM VIỆC NỘI BỘ</span>
+              <span>CÔNG TY TNHH THÁI MỸ HƯƠNG — HỆ THỐNG XỬ LÝ DỮ LIỆU</span>
             </div>
-            <h1 class="main-title">Kế hoạch 5 phút – Thái Mỹ Hương</h1>
+            <h1 class="main-title">
+              <span>Xin chào, </span>
+              <span id="tenNguoiDungBanner">Đang tải...</span>
+              <span>👋</span>
+            </h1>
             <p class="main-sub">
-              Lập kế hoạch rõ ràng. Báo cáo minh bạch. Cải thiện mỗi ngày.
+              Hệ thống xử lý liên hoàn 7 bước KiotViet — MISA. Đơn giản, chính xác và minh bạch.
             </p>
           </div>
 
           <div class="header-actions">
             <div class="pill-btn pill-btn-outline">
-              <span>🔔</span>
-              <span>Nhắc 08:00 & 17:00</span>
+              <span>📅</span>
+              <span id="currentDateStr">Đang lấy ngày…</span>
+            </div>
+            <div class="pill-btn pill-btn-outline" style="color: #166534; background: #ecfdf5; border-color: #bbf7d0;">
+              <span>🟢</span>
+              <span>Supabase Online</span>
             </div>
             <button type="button" class="pill-btn pill-btn-primary" onclick="dangXuat()">
-              <span>💾</span>
+              <span>🚪</span>
               <span>Đăng xuất</span>
             </button>
           </div>
         </header>
 
-        <!-- Thanh thông báo trạng thái nhẹ nhàng -->
-        <div class="alert-banner">
-          <span>ℹ️</span>
-          <span>Hệ thống sẵn sàng xử lý đợt làm việc hôm nay. Chúc bạn một ngày làm việc hiệu quả và tử tế.</span>
-        </div>
-
-        <!-- Khung 2 Cột chuẩn mẫu -->
-        <div class="dashboard-container">
+        <!-- Thân Trang Dashboard -->
+        <main class="dashboard-body">
           
-          <!-- CỘT TRÁI: THẺ THÔNG TIN CÁ NHÂN & TIẾN ĐỘ -->
-          <aside class="sub-card">
-            <div class="sub-card-datebox">
-              <div class="kicker">HÔM NAY</div>
-              <div class="day" id="subCardThu">Thứ Hai</div>
-              <div class="date" id="subCardNgay">14/9/2026</div>
-            </div>
-
-            <nav class="sub-card-nav">
-              <a class="sub-nav-item" href="javascript:void(0)" onclick="alert('Mục: Kế hoạch đầu ngày')">
-                <span>📄</span>
-                <span>Kế hoạch đầu ngày</span>
-              </a>
-              <a class="sub-nav-item" href="javascript:void(0)" onclick="alert('Mục: Báo cáo cuối ngày')">
-                <span>🕒</span>
-                <span>Báo cáo cuối ngày</span>
-              </a>
-              <a class="sub-nav-item" href="javascript:void(0)" onclick="alert('Mục: Lịch sử cá nhân')">
-                <span>⏱️</span>
-                <span>Lịch sử cá nhân</span>
-              </a>
-              <a class="sub-nav-item active" href="trang_chu.html">
-                <span>👥</span>
-                <span>Dashboard quản lý</span>
-              </a>
-            </nav>
-
-            <div class="sub-card-progress">
-              <div class="progress-header">
-                <span>Tiến độ quy trình</span>
-                <b id="progressPercentText" style="color: var(--primary);">43%</b>
-              </div>
-              <div class="progress-track">
-                <div class="progress-fill" id="progressBarFill" style="width: 43%;"></div>
-              </div>
-              <div class="progress-sub" id="progressSubText">3/7 bước đã hoàn tất</div>
-            </div>
-          </aside>
-
-          <!-- CỘT PHẢI: NỘI DUNG DASHBOARD QUẢN LÝ -->
-          <main class="content-column">
-            
-            <!-- Tiêu đề & Bộ lọc -->
-            <div class="section-header-bar">
-              <div class="title-group">
-                <h2>Dashboard quản lý</h2>
-                <p>Theo dõi kế hoạch và quản lý 7 bước quy trình nghiệp vụ Thái Mỹ Hương.</p>
-              </div>
-
-              <div class="filter-controls">
-                <select class="select-control">
-                  <option>Tất cả bộ phận</option>
-                  <option>Kho & Vận chuyển</option>
-                  <option>Kế toán & Thu ngân</option>
-                  <option>Kinh doanh</option>
-                </select>
-
-                <select class="select-control">
-                  <option>Tất cả nhân sự</option>
-                  <option>Sinh (Tài xế)</option>
-                  <option>Đạt (Thu tiền)</option>
-                  <option>Nguyễn Tống Duy Nam</option>
-                  <option>Nguyễn Hồng Phúc</option>
-                </select>
-
-                <div class="segmented-control">
-                  <button type="button" class="seg-item active">Ngày</button>
-                  <button type="button" class="seg-item">Tuần</button>
-                  <button type="button" class="seg-item">Tháng</button>
-                </div>
+          <!-- Hàng Chỉ Số Tổng Quan (KPIs) -->
+          <div class="kpi-row">
+            <div class="kpi-box">
+              <div class="kpi-box-icon green">📦</div>
+              <div class="kpi-box-info">
+                <div class="kpi-label">Quy trình nghiệp vụ</div>
+                <div class="kpi-val">7 Bước Liên Hoàn</div>
               </div>
             </div>
 
-            <!-- KPI Summary Cards -->
-            <div class="kpi-row">
-              <div class="kpi-box">
-                <div class="kpi-box-icon green">📋</div>
-                <div class="kpi-box-info">
-                  <div class="kpi-label">Nhân sự đã lập kế hoạch</div>
-                  <div class="kpi-val">5</div>
-                </div>
-              </div>
-
-              <div class="kpi-box">
-                <div class="kpi-box-icon amber">⏱️</div>
-                <div class="kpi-box-info">
-                  <div class="kpi-label">Đã nộp báo cáo</div>
-                  <div class="kpi-val">3</div>
-                </div>
-              </div>
-
-              <div class="kpi-box">
-                <div class="kpi-box-icon purple">🎯</div>
-                <div class="kpi-box-info">
-                  <div class="kpi-label">Hoàn thành trung bình</div>
-                  <div class="kpi-val">51%</div>
-                </div>
-              </div>
-
-              <div class="kpi-box">
-                <div class="kpi-box-icon blue">🏦</div>
-                <div class="kpi-box-info">
-                  <div class="kpi-label">Tài khoản Vietcombank</div>
-                  <div class="kpi-val" style="font-size: 14.5px; font-weight: 800; color: #1e3a8a;">0041000266096</div>
-                </div>
+            <div class="kpi-box">
+              <div class="kpi-box-icon amber">📚</div>
+              <div class="kpi-box-info">
+                <div class="kpi-label">Danh mục quản lý</div>
+                <div class="kpi-val">4 Bảng Dữ Liệu</div>
               </div>
             </div>
 
-            <!-- Card: Tỷ lệ hoàn thành theo nhân sự -->
-            <section class="card-panel">
-              <div class="card-panel-title">Tỷ lệ hoàn thành theo nhân sự</div>
-              <div class="card-panel-sub">Tính từ các đầu việc trong khoảng thời gian đang lọc.</div>
-
-              <div class="task-progress-list">
-                <div class="task-progress-item">
-                  <div class="task-progress-header">
-                    <span>Gấm Hà</span>
-                    <b>100%</b>
-                  </div>
-                  <div class="task-progress-bar">
-                    <div class="task-progress-val" style="width: 100%;"></div>
-                  </div>
-                </div>
-
-                <div class="task-progress-item">
-                  <div class="task-progress-header">
-                    <span>Thùy Dzung Nguyễn</span>
-                    <b>0%</b>
-                  </div>
-                  <div class="task-progress-bar">
-                    <div class="task-progress-val" style="width: 0%;"></div>
-                  </div>
-                </div>
-
-                <div class="task-progress-item">
-                  <div class="task-progress-header">
-                    <span>tramdoan.ds</span>
-                    <b>80%</b>
-                  </div>
-                  <div class="task-progress-bar">
-                    <div class="task-progress-val" style="width: 80%;"></div>
-                  </div>
-                </div>
-
-                <div class="task-progress-item">
-                  <div class="task-progress-header">
-                    <span>Nga Phan</span>
-                    <b>0%</b>
-                  </div>
-                  <div class="task-progress-bar">
-                    <div class="task-progress-val" style="width: 0%;"></div>
-                  </div>
-                </div>
-
-                <div class="task-progress-item">
-                  <div class="task-progress-header">
-                    <span>nynapham1990</span>
-                    <b>75%</b>
-                  </div>
-                  <div class="task-progress-bar">
-                    <div class="task-progress-val" style="width: 75%;"></div>
-                  </div>
-                </div>
+            <div class="kpi-box">
+              <div class="kpi-box-icon purple">👤</div>
+              <div class="kpi-box-info">
+                <div class="kpi-label">Vai trò tài khoản</div>
+                <div class="kpi-val" id="kpiVaiTro">Nhân viên</div>
               </div>
-            </section>
+            </div>
 
-            <!-- Card: Lưới Chức Năng Nghiệp Vụ (7 Bước & Quản Trị) -->
-            <section class="card-panel">
-              <div class="card-panel-title">Danh sách chức năng nghiệp vụ</div>
-              <div class="card-panel-sub">
-                Các ô chức năng được phân quyền tự động theo hồ sơ tài khoản: <b id="kpiVaiTro" style="color:var(--primary);">Nhân viên</b>.
+            <div class="kpi-box">
+              <div class="kpi-box-icon blue">🏦</div>
+              <div class="kpi-box-info">
+                <div class="kpi-label">Tài khoản Vietcombank</div>
+                <div class="kpi-val" style="font-size: 15px; font-weight: 800; color: #1e3a8a;">0041000266096</div>
               </div>
+            </div>
+          </div>
 
-              <!-- Lưới các ô chức năng -->
-              <div class="tiles-grid" id="luoiChucNang"></div>
-            </section>
+          <!-- Dòng Tiến Trình Quy Trình 7 Bước Trực Quan -->
+          <section class="workflow-timeline-card">
+            <div class="workflow-header">
+              <div>
+                <h2 class="workflow-title">
+                  <span>⚡</span>
+                  <span>Tiến trình xử lý liên hoàn 7 bước</span>
+                </h2>
+                <span class="workflow-sub">Nhấn vào từng bước sẵn sàng để truy cập ngay quy trình làm việc.</span>
+              </div>
+            </div>
 
-            <!-- Card: Danh Sách Báo Cáo Cần Đánh Giá & Thông Tin Doanh Nghiệp -->
-            <section class="card-panel">
-              <div class="card-panel-title">Danh sách báo cáo cần đánh giá</div>
-              <div class="card-panel-sub">Ghi nhận tiến độ công việc hàng ngày của nhân sự.</div>
-
-              <div class="review-row">
-                <div class="review-user-info">
-                  <strong>Gấm Hà</strong>
-                  <span>Phòng Kinh doanh · Đã nộp báo cáo</span>
+            <div class="workflow-steps">
+              <a class="wf-step-item active" href="buoc1_upload.html">
+                <div class="wf-step-top">
+                  <span>Bước 1</span>
+                  <span>📥</span>
                 </div>
+                <div class="wf-step-name">Tải KiotViet</div>
+                <span class="wf-step-status wf-status-ready">✓ Sẵn sàng</span>
+              </a>
 
-                <div class="review-tags">
-                  <span class="review-tag-pill">Nhập dữ liệu lên misa: <b>Không đạt giờ - 100%</b></span>
-                  <span class="review-tag-pill">Xuất hóa đơn: <b>Không đạt giờ - 100%</b></span>
+              <a class="wf-step-item active" href="buoc2_phieu_xuat_kho.html">
+                <div class="wf-step-top">
+                  <span>Bước 2</span>
+                  <span>📊</span>
                 </div>
+                <div class="wf-step-name">Phiếu thu & Xuất kho</div>
+                <span class="wf-step-status wf-status-ready">✓ Sẵn sàng</span>
+              </a>
 
-                <div class="review-action-group">
-                  <input type="number" class="input-score" value="80" min="0" max="100">
-                  <button type="button" class="btn-review" onclick="alert('Đã lưu kết quả đánh giá cho nhân sự.')">Đánh giá</button>
+              <a class="wf-step-item active" href="buoc3_luu_tru.html">
+                <div class="wf-step-top">
+                  <span>Bước 3</span>
+                  <span>🗄️</span>
                 </div>
+                <div class="wf-step-name">Lưu trữ đợt</div>
+                <span class="wf-step-status wf-status-ready">✓ Sẵn sàng</span>
+              </a>
+
+              <div class="wf-step-item" style="cursor: default;">
+                <div class="wf-step-top">
+                  <span>Bước 4</span>
+                  <span>📋</span>
+                </div>
+                <div class="wf-step-name">Kiểm đơn về</div>
+                <span class="wf-step-status wf-status-dev">⏳ Đang xây dựng</span>
               </div>
 
-              <div class="company-footer-grid">
-                <div>
-                  <strong>🌿 CÔNG TY TNHH THÁI MỸ HƯƠNG</strong>
-                  <span>MST: 4001085814</span><br>
-                  <span>Địa chỉ: 291 Văn Tiến Dũng, P. Hòa Xuân, TP Đà Nẵng</span>
+              <div class="wf-step-item" style="cursor: default;">
+                <div class="wf-step-top">
+                  <span>Bước 5</span>
+                  <span>💾</span>
                 </div>
-                <div>
-                  <strong>📞 Kênh Hỗ Trợ Doanh Nghiệp</strong>
-                  <span>Hotline: 090 580 1918 / 090 585 1918</span><br>
-                  <span>Email: thaimyhuong.co@gmail.com</span>
-                </div>
-                <div>
-                  <strong>🏦 Tài Khoản Ngân Hàng</strong>
-                  <span>Số TK: 0041000266096 (Vietcombank)</span><br>
-                  <span>Chủ TK: CÔNG TY TNHH THÁI MỸ HƯƠNG</span>
-                </div>
+                <div class="wf-step-name">Lưu kiểm đơn</div>
+                <span class="wf-step-status wf-status-dev">⏳ Đang xây dựng</span>
               </div>
-            </section>
 
-          </main>
-        </div>
+              <div class="wf-step-item" style="cursor: default;">
+                <div class="wf-step-top">
+                  <span>Bước 6</span>
+                  <span>📗</span>
+                </div>
+                <div class="wf-step-name">Bảng kê nộp tiền</div>
+                <span class="wf-step-status wf-status-dev">⏳ Đang xây dựng</span>
+              </div>
+
+              <div class="wf-step-item" style="cursor: default;">
+                <div class="wf-step-top">
+                  <span>Bước 7</span>
+                  <span>📤</span>
+                </div>
+                <div class="wf-step-name">Xuất file MISA</div>
+                <span class="wf-step-status wf-status-dev">⏳ Đang xây dựng</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- Khu Vực Danh Sách Chức Năng Nghiệp Vụ -->
+          <section class="section-panel">
+            <div class="section-panel-header">
+              <h2 class="section-panel-title">Danh sách chức năng nghiệp vụ</h2>
+              <p class="section-panel-sub">
+                Các ô chức năng được phân quyền tự động theo hồ sơ tài khoản của bạn.
+              </p>
+            </div>
+
+            <!-- Lưới các ô chức năng (giữ nguyên logic JS) -->
+            <div class="tiles-grid" id="luoiChucNang"></div>
+          </section>
+
+          <!-- Thông Tin Doanh Nghiệp & Hỗ Trợ -->
+          <footer class="company-footer-card">
+            <div>
+              <strong>🌿 CÔNG TY TNHH THÁI MỸ HƯƠNG</strong>
+              <span>Mã số thuế: <b>4001085814</b></span><br>
+              <span>Địa chỉ: 291 Văn Tiến Dũng, P. Hòa Xuân, TP Đà Nẵng</span>
+            </div>
+            <div>
+              <strong>📞 Kênh Hỗ Trợ Doanh Nghiệp</strong>
+              <span>Hotline: 090 580 1918 / 090 585 1918</span><br>
+              <span>Email: thaimyhuong.co@gmail.com</span>
+            </div>
+            <div>
+              <strong>🏦 Tài Khoản Ngân Hàng</strong>
+              <span>Số tài khoản: <b>0041000266096</b></span><br>
+              <span>Vietcombank Chi nhánh Đà Nẵng</span>
+            </div>
+          </footer>
+
+        </main>
 
       </div>
 
@@ -1266,15 +994,12 @@
     function capNhatNgayHienTai() {
       var now = new Date();
       var days = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
-      var dayStr = days[now.getDay()];
-      var dateStr = String(now.getDate()).padStart(2, '0') + "/" + 
-                    String(now.getMonth() + 1).padStart(2, '0') + "/" + 
-                    now.getFullYear();
-
-      var elThu = document.getElementById("subCardThu");
-      if (elThu) elThu.textContent = dayStr;
-      var elNgay = document.getElementById("subCardNgay");
-      if (elNgay) elNgay.textContent = dateStr;
+      var str = days[now.getDay()] + ", " + 
+                String(now.getDate()).padStart(2, '0') + "/" + 
+                String(now.getMonth() + 1).padStart(2, '0') + "/" + 
+                now.getFullYear();
+      var el = document.getElementById("currentDateStr");
+      if (el) el.textContent = str;
     }
 
     // Xử lý cơ chế Hamburger Thụt ra Thụt vào
@@ -1286,12 +1011,12 @@
 
       // Khôi phục trạng thái đã lưu trước đó (nếu có)
       var saved = localStorage.getItem("tmh_sidebar_collapsed");
-      if (saved === "true" && window.innerWidth > 960) {
+      if (saved === "true" && window.innerWidth > 768) {
         layout.classList.add("sidebar-collapsed");
       }
 
       btn.addEventListener("click", function () {
-        if (window.innerWidth <= 960) {
+        if (window.innerWidth <= 768) {
           sidebar.classList.toggle("mobile-open");
         } else {
           layout.classList.toggle("sidebar-collapsed");
@@ -1319,6 +1044,9 @@
       var tenVaiTro = TEN_VAI_TRO[nd.vai_tro] || nd.vai_tro;
 
       // Cập nhật thông tin lên giao diện
+      var elBannerTen = document.getElementById("tenNguoiDungBanner");
+      if (elBannerTen) elBannerTen.textContent = tenNguoiDung;
+
       var elSidebarTen = document.getElementById("sidebarTenNguoiDung");
       if (elSidebarTen) elSidebarTen.textContent = tenNguoiDung;
 
