@@ -43,8 +43,7 @@
 </head>
 <body>
   <div class="card">
-    <!-- LOGO: cây may mắn 4 lá. Muốn dùng logo thật: tải logo.png lên repo,
-         rồi thay cả khối <svg>...</svg> này bằng: <img src="logo.png" class="logo"> -->
+    <!-- LOGO cây may mắn. Muốn dùng logo thật: tải logo.png lên repo rồi thay khối <svg> bằng <img src="logo.png" class="logo"> -->
     <svg class="logo" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
       <circle cx="100" cy="100" r="94" fill="none" stroke="#8bc34a" stroke-width="6"/>
       <g transform="translate(100,92)">
@@ -72,31 +71,21 @@
     <div class="chan">© THÁI MỸ HƯƠNG LIMITED</div>
   </div>
 
+  <!-- Cấu hình chung: chứa khóa Supabase + hàm dùng chung -->
+  <script src="config.js"></script>
   <script>
-    // ================== CẤU HÌNH SUPABASE ==================
-    // 1) URL: kiểm tra đúng với Settings → API → Project URL
-    const SUPABASE_URL = "https://oedidnctnteeegkdcwaa.supabase.co";
-    // 2) DÁN khóa "anon public" từ Settings → API vào giữa 2 dấu nháy dưới đây:
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9lZGlkbmN0bnRlZWVna2Rjd2FhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzMzE3MTYsImV4cCI6MjEwNDkwNzcxNn0.3ZO5ZO9_VJ7vsr9qC586kXl4XAbDCjQcamP66FkDkTE";
-    // ======================================================
-
-    const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    // Số điện thoại → email nội bộ (để dùng chung hệ đăng nhập của Supabase).
-    // Có "@" nghĩa là đã là email → dùng thẳng.
-    function taiKhoanThanhEmail(tk) {
-      tk = (tk || "").trim();
-      if (tk.indexOf("@") !== -1) return tk;
-      var so = tk.replace(/[^0-9]/g, "");
-      return so + "@thaimyhuong.local";
-    }
-
     function bao(text, loai) {
       var el = document.getElementById("thongBao");
       el.className = (loai === "ok") ? "ok" : "loi";
       el.textContent = text;
       el.style.display = "block";
     }
+
+    // Nếu đã đăng nhập sẵn thì vào thẳng trang chủ
+    (async function () {
+      var phien = await sb.auth.getSession();
+      if (phien.data && phien.data.session) window.location.href = "trang_chu.html";
+    })();
 
     async function dangNhap() {
       var tk = document.getElementById("taiKhoan").value;
@@ -108,36 +97,22 @@
 
       try {
         var email = taiKhoanThanhEmail(tk);
-        var res = await client.auth.signInWithPassword({ email: email, password: mk });
-        if (res.error) {
-          bao("❌ Sai tài khoản hoặc mật khẩu.", "loi");
-          return;
-        }
+        var res = await sb.auth.signInWithPassword({ email: email, password: mk });
+        if (res.error) { bao("❌ Sai tài khoản hoặc mật khẩu.", "loi"); return; }
 
-        // Đọc hồ sơ để lấy vai trò + trạng thái
         var uid = res.data.user.id;
-        var hs = await client.from("ho_so")
-                             .select("ho_ten, vai_tro, trang_thai")
-                             .eq("id", uid).single();
+        var hs = await sb.from("ho_so").select("vai_tro, trang_thai").eq("id", uid).single();
 
         if (hs.error || !hs.data) {
-          await client.auth.signOut();
-          bao("⚠️ Tài khoản chưa được cấp hồ sơ/quyền. Báo quản trị viên.", "loi");
-          return;
+          await sb.auth.signOut();
+          bao("⚠️ Tài khoản chưa được cấp hồ sơ/quyền. Báo quản trị viên.", "loi"); return;
         }
         if (hs.data.trang_thai === "khoa") {
-          await client.auth.signOut();
-          bao("🔒 Tài khoản đang bị KHÓA. Liên hệ quản trị viên.", "loi");
-          return;
+          await sb.auth.signOut();
+          bao("🔒 Tài khoản đang bị KHÓA. Liên hệ quản trị viên.", "loi"); return;
         }
 
-        var ten = {admin:"Quản trị", quanly:"Cấp quản lý", nhanvien:"Nhân viên"}[hs.data.vai_tro] || hs.data.vai_tro;
-        bao("✅ Đăng nhập thành công!\nXin chào: " + (hs.data.ho_ten || tk) +
-            "\nVai trò: " + ten +
-            "\n\n(Trang chủ sẽ được dựng ở bước sau — hiện chỉ kiểm tra đăng nhập.)", "ok");
-
-        // BƯỚC SAU: khi có trang chủ, mở dòng dưới để tự chuyển trang:
-        // window.location.href = "trang_chu.html";
+        window.location.href = "trang_chu.html";   // ✅ vào trang chủ
 
       } catch (e) {
         bao("❌ Lỗi kết nối: " + e.message, "loi");
