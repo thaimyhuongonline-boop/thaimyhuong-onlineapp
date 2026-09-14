@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <script src="config.js"></script>
   <style>
     :root {
@@ -237,11 +237,11 @@
       color: #16a34a;
     }
 
-    /* Layout 2 cột: Cột trái (Form điều động) - Cột phải (Kết quả xem trước) */
+    /* Layout 2 cột: Cột trái (Form điều động) - Cột phải (Kết quả xem trước vừa khít A4 dọc) */
     .dispatch-layout {
       display: grid;
-      grid-template-columns: 410px 1fr;
-      gap: 20px;
+      grid-template-columns: 360px 1fr;
+      gap: 16px;
       align-items: start;
     }
 
@@ -471,53 +471,58 @@
       white-space: nowrap;
     }
 
-    /* Paper Document Wrapper (Định dạng trang giấy xem trước) */
+    /* Paper Document Wrapper (Định dạng trang giấy xem trước chuẩn khổ A4 dọc) */
     .paper-doc {
       background: #ffffff;
       border: 1px solid #cbd5e1;
       box-shadow: 0 4px 16px rgba(0,0,0,0.06);
-      padding: 28px 24px;
+      padding: 22px 16px;
       border-radius: var(--radius-sm);
       margin-bottom: 20px;
-      overflow-x: auto;
+      max-width: 820px;
+      margin-left: auto;
+      margin-right: auto;
+      box-sizing: border-box;
+      overflow-x: visible;
     }
 
     .doc-brand-header {
-      border-bottom: 1.5px solid #2563eb;
-      padding-bottom: 8px;
-      margin-bottom: 14px;
+      margin-bottom: 6px;
     }
 
     .doc-company-name {
-      font-size: 15px;
+      font-size: 13.5px;
       font-weight: 800;
-      color: #0f172a;
-      letter-spacing: 0.5px;
+      color: #000000;
+      letter-spacing: 0.2px;
+      text-transform: uppercase;
     }
 
     .doc-company-meta {
-      font-size: 11px;
-      color: #475569;
+      font-size: 10px;
+      color: #334155;
+      font-style: italic;
       margin-top: 2px;
     }
 
     .doc-title {
       text-align: center;
-      font-size: 18px;
+      font-size: 16.5px;
       font-weight: 800;
-      color: #0f172a;
+      color: #000000;
       letter-spacing: 0.5px;
-      margin-bottom: 12px;
+      margin-top: 8px;
+      margin-bottom: 8px;
       text-transform: uppercase;
     }
 
     .doc-dispatch-meta {
-      font-size: 12px;
-      margin-bottom: 14px;
-      color: #334155;
+      font-size: 11px;
+      margin-bottom: 10px;
+      color: #000000;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 3px;
     }
 
     .doc-dispatch-meta .meta-row {
@@ -527,48 +532,103 @@
       gap: 12px;
     }
 
-    /* Table Styles */
+    /* Bảng chung: Cố định độ rộng và cỡ chữ vừa khít A4 dọc */
     .doc-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 11.5px;
-      color: #0f172a;
+      table-layout: fixed;
+      font-size: 9.5px;
+      color: #000000;
       margin-bottom: 16px;
     }
 
     .doc-table th, .doc-table td {
-      border: 1px solid #94a3b8;
-      padding: 7px 6px;
+      border: 1px solid #b0c4de;
+      padding: 5px 3px;
       vertical-align: middle;
       line-height: 1.35;
       word-break: break-word;
+      overflow-wrap: break-word;
     }
 
-    .doc-table th {
-      background-color: #f1f5f9;
+    /* Phong cách riêng của BẢNG KÊ THU TIỀN: Header xanh nhạt #b8cce4 */
+    .bangke-table th {
+      background-color: #b8cce4;
+      color: #000000;
       font-weight: 800;
       text-align: center;
-      padding: 8px 6px;
+      border: 1px solid #7f9bb8;
+      padding: 6px 3px;
+    }
+    .bangke-table td {
+      border: 1px solid #b0c4de;
+    }
+    .bangke-table tr:nth-child(even) td {
+      background-color: #f7f9fc;
     }
 
-    .doc-table tr:nth-child(even) td {
-      background-color: #fafafa;
+    /* Phong cách riêng của PHIẾU XUẤT KHO: Header vàng nhạt #fff2cc */
+    .xuatkho-table th {
+      background-color: #fff2cc;
+      color: #000000;
+      font-weight: 800;
+      text-align: center;
+      border: 1px solid #d6b656;
+      padding: 6px 3px;
+    }
+    .xuatkho-table td {
+      border: 1px solid #b0c4de;
+    }
+    .xuatkho-table tr:nth-child(even) td {
+      background-color: #fcfdfd;
     }
 
-    .doc-table td.text-center { text-align: center; }
-    .doc-table td.text-right { text-align: right; }
-    .doc-table td.text-bold { font-weight: 700; }
+    /* Hàng Tổng cộng Hàng Hóa (Xanh bạc hà #e2efda) */
+    .row-tong-hang {
+      background-color: #e2efda !important;
+      font-weight: 800 !important;
+    }
+    .row-tong-hang td {
+      background-color: #e2efda !important;
+    }
+
+    /* Dòng Banner Chứng từ / Giấy tờ đi kèm (Xanh lavender #d9e1f2) */
+    .row-banner-doc {
+      background-color: #d9e1f2 !important;
+      font-weight: 800 !important;
+    }
+    .row-banner-doc td {
+      background-color: #d9e1f2 !important;
+    }
+
+    /* Dòng Cộng chứng từ (Xanh lavender #d9e1f2) */
+    .row-cong-doc {
+      background-color: #d9e1f2 !important;
+      font-weight: 800 !important;
+    }
+    .row-cong-doc td {
+      background-color: #d9e1f2 !important;
+    }
+
+    /* Dòng Tổng cộng Bảng kê (Xanh nhạt #b8cce4) */
+    .row-tong-bangke {
+      background-color: #b8cce4 !important;
+      font-weight: 800 !important;
+    }
+    .row-tong-bangke td {
+      background-color: #b8cce4 !important;
+    }
 
     .tag-km {
-      color: #dc2626;
+      color: #c00000;
       font-weight: 800;
-      font-size: 10.5px;
+      font-size: 9px;
     }
 
     .tag-hd {
       color: #2563eb;
       font-weight: 800;
-      font-size: 10.5px;
+      font-size: 9px;
     }
 
     .empty-state {
@@ -584,24 +644,22 @@
 
     /* ========================================================
        CHỈNH SỬA CSS IN ẤN CHUẨN A4 TRANG ĐỨNG (PORTRAIT): 
-       - Trang in khổ đứng A4 portrait vừa khít lề (HP LaserJet)
-       - Cố định tfoot chỉ hiện 1 lần ở cuối bảng, KHÔNG lặp mỗi trang
-       - Giãn cách dòng lớn hơn và đều nhau cho đẹp, rõ ràng
-       - Chiều cao dòng tối thiểu đồng đều (30px) cho mọi hàng
-       - Chỉ in đúng biểu mẫu đang hiển thị
+       - Vừa khít chiều ngang trang in khổ đứng A4 portrait (198mm)
+       - Giữ nguyên màu sắc theo đúng mẫu Hình 1 và Hình 2
+       - Chiều cao dòng tối thiểu đồng đều cho mọi hàng
        ======================================================== */
     @media print {
       @page {
         size: A4 portrait !important;
-        margin: 8mm 6mm 8mm 6mm !important;
+        margin: 6mm 5mm 6mm 5mm !important;
       }
 
       body {
         background: #ffffff !important;
         padding: 0 !important;
         margin: 0 !important;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
 
       .topbar, .stepper-card, .dispatch-card, .tab-header, .btn, .btn-print-hide {
@@ -632,11 +690,12 @@
         padding: 0 !important;
         margin: 0 !important;
         width: 100% !important;
+        max-width: 100% !important;
       }
 
       /* Tiêu đề biểu mẫu khi in */
       .doc-brand-header {
-        margin-bottom: 6px !important;
+        margin-bottom: 5px !important;
       }
       .doc-company-name {
         font-size: 13px !important;
@@ -644,18 +703,20 @@
         color: #000000 !important;
       }
       .doc-company-meta {
-        font-size: 10px !important;
+        font-size: 9.5px !important;
+        font-style: italic !important;
         color: #333333 !important;
       }
       .doc-title {
         font-size: 15px !important;
         font-weight: 800 !important;
-        margin-bottom: 8px !important;
+        margin-top: 6px !important;
+        margin-bottom: 6px !important;
         color: #000000 !important;
         text-align: center !important;
       }
       .doc-dispatch-meta {
-        font-size: 10.5px !important;
+        font-size: 10px !important;
         margin-bottom: 8px !important;
         color: #000000 !important;
       }
@@ -675,7 +736,6 @@
         display: none !important;
       }
 
-      /* ĐẢM BẢO TFOOT CHỈ HIỆN 1 LẦN Ở CUỐI BẢNG (KHÔNG LẶP LẠI MỖI TRANG) */
       thead {
         display: table-header-group !important;
       }
@@ -693,54 +753,56 @@
         width: 100% !important;
         border-collapse: collapse !important;
         table-layout: fixed !important;
-        font-size: 9.5px !important;
+        font-size: 9px !important;
       }
 
-      /* Hàng trong thân bảng: Chiều cao đồng đều, giãn cách dòng lớn đẹp mắt */
       .doc-table tbody tr {
-        height: 29px !important;
+        height: 24px !important;
       }
 
       .doc-table th, .doc-table td {
-        border: 1px solid #000000 !important;
-        padding: 5px 4px !important; /* Giãn cách đều nhau, rộng rãi, cân đối */
+        border: 1px solid #7f9bb8 !important;
+        padding: 3px 2px !important;
         vertical-align: middle !important;
-        line-height: 1.4 !important;
+        line-height: 1.3 !important;
         word-break: break-word !important;
         color: #000000 !important;
       }
 
-      .doc-table thead tr {
-        height: 32px !important;
+      .bangke-table th {
+        background-color: #b8cce4 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
 
-      .doc-table th {
-        background-color: #f1f5f9 !important;
-        color: #000000 !important;
-        font-weight: 800 !important;
-        padding: 6px 4px !important;
-        text-align: center !important;
+      .xuatkho-table th {
+        background-color: #fff2cc !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
 
-      .doc-table tfoot tr {
-        height: 32px !important;
-        background-color: #f1f5f9 !important;
-        font-weight: 800 !important;
+      .row-tong-hang td {
+        background-color: #e2efda !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
 
-      .doc-table tfoot td {
-        padding: 6px 4px !important;
-        vertical-align: middle !important;
-        border: 1px solid #000000 !important;
+      .row-banner-doc td, .row-cong-doc td {
+        background-color: #d9e1f2 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
 
-      .tag-km, .tag-hd {
-        border: 1px solid #000000 !important;
-        color: #000000 !important;
-        background: transparent !important;
-        font-size: 8px !important;
-        padding: 1px 3px !important;
+      .row-tong-bangke td {
+        background-color: #b8cce4 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .tag-km {
+        color: #c00000 !important;
         font-weight: 700 !important;
+        font-size: 8.5px !important;
       }
     }
 
@@ -969,18 +1031,18 @@
               </div>
             </div>
 
-            <table class="doc-table">
+            <table class="doc-table bangke-table">
               <colgroup>
                 <col style="width: 4%;">
-                <col style="width: 11.5%;">
-                <col style="width: 11.5%;">
-                <col style="width: 23%;">
-                <col style="width: 16%;">
-                <col style="width: 8.5%;">
-                <col style="width: 6.5%;">
+                <col style="width: 11%;">
+                <col style="width: 10%;">
+                <col style="width: 22%;">
+                <col style="width: 15%;">
+                <col style="width: 9%;">
+                <col style="width: 7.5%;">
+                <col style="width: 7.5%;">
+                <col style="width: 9%;">
                 <col style="width: 5%;">
-                <col style="width: 9.5%;">
-                <col style="width: 4.5%;">
               </colgroup>
               <thead>
                 <tr>
@@ -1026,19 +1088,19 @@
               </div>
             </div>
 
-            <table class="doc-table">
+            <table class="doc-table xuatkho-table">
               <colgroup>
                 <col style="width: 4%;">
-                <col style="width: 11%;">
-                <col style="width: 25%;">
+                <col style="width: 10%;">
+                <col style="width: 26%;">
                 <col style="width: 6%;">
-                <col style="width: 6%;">
-                <col style="width: 7%;">
-                <col style="width: 6%;">
-                <col style="width: 6%;">
+                <col style="width: 5%;">
+                <col style="width: 6.5%;">
+                <col style="width: 5.5%;">
+                <col style="width: 5%;">
                 <col style="width: 9%;">
                 <col style="width: 11%;">
-                <col style="width: 9%;">
+                <col style="width: 12%;">
               </colgroup>
               <thead>
                 <tr>
@@ -1070,6 +1132,7 @@
     let duLieuGoc = [];
     let danhSachHoaDon = [];
     let danhSachHoaDonChiTietToanCuc = [];
+    let danhSachHangHoaXuatKhoToanCuc = { hangHoa: [], hangHoaDon: [], soLuongHD: 0 };
     let mapQuyCach = new Map(); // ma_hang -> quy_cach từ Supabase
     let tabHienTai = 'bangke';
 
@@ -1440,22 +1503,26 @@
         tbody.appendChild(tr);
       });
 
-      // Tfoot tổng cộng (Chỉ xuất hiện 1 lần ở cuối bảng)
+      // Tfoot tổng cộng (Chỉ xuất hiện 1 lần ở cuối bảng, màu xanh nhạt #b8cce4 như hình 1)
       document.getElementById('tfootBangKe').innerHTML = `
-        <tr style="background:#f1f5f9; font-weight:800;">
-          <td colspan="5" class="text-center">TỔNG CỘNG</td>
-          <td class="text-right">${formatTien(tongDoanhSo)}</td>
-          <td class="text-right">${formatTien(tongGiamGiaSP)}</td>
-          <td class="text-right">${formatTien(tongGiamGiaHD)}</td>
-          <td class="text-right" style="color:#15803d; font-size:13px;">${formatTien(tongThanhTien)}</td>
+        <tr class="row-tong-bangke" style="font-weight:800;">
+          <td colspan="5" class="text-center" style="font-weight:800;">TỔNG CỘNG</td>
+          <td class="text-right" style="font-weight:800;">${formatTien(tongDoanhSo)}</td>
+          <td class="text-right" style="font-weight:800;">${formatTien(tongGiamGiaSP)}</td>
+          <td class="text-right" style="font-weight:800;">${formatTien(tongGiamGiaHD)}</td>
+          <td class="text-right text-bold" style="color:#000000; font-weight:800;">${formatTien(tongThanhTien)}</td>
           <td></td>
         </tr>
       `;
     }
 
     // ========================================================
-    // TẠO PHIẾU XUẤT KHO TỔNG HỢP (MẪU 2)
-    // SẮP XẾP: 1. HÀNG 0Đ LÊN ĐẦU, 2. HÀNG THƯỜNG, 3. MÃ HĐ XUỐNG DƯỚI
+    // TẠO PHIẾU XUẤT KHO TỔNG HỢP (MẪU 2 CHUẨN THEO HÌNH SỐ 2)
+    // 1. Hàng 0đ khuyến mãi lên trên cùng
+    // 2. Hàng thông thường ở giữa
+    // 3. Dòng TỔNG CỘNG HÀNG HÓA (Màu xanh bạc hà #e2efda)
+    // 4. Dòng Banner Chứng từ / Giấy tờ đi kèm (Màu xanh #d9e1f2)
+    // 5. Dòng Hóa đơn GTGT và dòng CỘNG CHỨNG TỪ (Màu #d9e1f2)
     // ========================================================
     function taoPhieuXuatKhoTongHop(dongKiotViet) {
       const mapHangHoa = new Map();
@@ -1470,11 +1537,9 @@
         const soLuong = Number(layGiaTri(r, ['Số lượng', 'SL', 'SoLuong'])) || 0;
         const donGia = Number(layGiaTri(r, ['Đơn giá', 'Giá bán', 'DonGia'])) || 0;
 
-        // Thành tiền lấy đồng bộ 100% với Bảng kê
         const thanhTienRaw = layGiaTri(r, ['Thành tiền', 'ThanhTien', 'Khách cần trả', 'Cần thu']);
         const lineThanhTien = (thanhTienRaw !== null && !isNaN(Number(thanhTienRaw))) ? Number(thanhTienRaw) : (soLuong * donGia);
 
-        // Quy cách: Ưu tiên lấy từ Supabase mapQuyCach -> tiếp đến trong file KiotViet -> mặc định là 1
         let quyCach = mapQuyCach.get(maHang);
         if (!quyCach || isNaN(quyCach)) {
           quyCach = Number(layGiaTri(r, ['Quy cách', 'QuyCach', 'QC'])) || 1;
@@ -1501,19 +1566,9 @@
 
       const tbody = document.getElementById('tbodyXuatKho');
       tbody.innerHTML = '';
+      document.getElementById('tfootXuatKho').innerHTML = '';
 
-      let tongSLToanBo = 0;
-      let tongChanToanBo = 0;
-      let tongLeToanBo = 0;
-      let tongTienToanBo = 0;
-      let stt = 1;
-
-      // ========================================================
-      // PHÂN NHÓM HIỂN THỊ:
-      // 1. Hàng 0đ là khuyến mãi đưa lên TRÊN CÙNG
-      // 2. Hàng hóa thông thường ở GIỮA
-      // 3. Mã hàng HĐ (hóa đơn giá trị) tách XUỐNG DƯỚI CÙNG
-      // ========================================================
+      // Phân loại mặt hàng
       const tatCaHang = Array.from(mapHangHoa.values());
       const hangKhuyenMai = [];
       const hangThongThuong = [];
@@ -1534,42 +1589,46 @@
         }
       });
 
-      const danhSachSapXep = [...hangKhuyenMai, ...hangThongThuong, ...hangHoaDon];
+      const danhSachHangHoa = [...hangKhuyenMai, ...hangThongThuong];
+      let stt = 1;
+      let tongChanHang = 0;
+      let tongLeHang = 0;
+      let tongTienHang = 0;
 
-      danhSachSapXep.forEach(h => {
-        // ========================================================
-        // THUẬT TOÁN TÍNH CHẴN VÀ LẺ THEO QUY CÁCH CỦA THÁI MỸ HƯƠNG
-        // ========================================================
+      const danhSachHangHoaExcel = [];
+
+      danhSachHangHoa.forEach(h => {
         const qc = (h.quyCach && h.quyCach > 0) ? h.quyCach : 1;
         let chan = Math.floor(h.tongSL);
         let le = 0;
 
-        // Nếu có số thập phân (số lẻ) và quy cách > 1
         const phanLe = h.tongSL - chan;
         if (qc > 1 && phanLe > 0.00001) {
           le = Math.round(phanLe * qc);
-          // Trường hợp làm tròn chạm trần quy cách
           if (le >= qc) {
             chan += 1;
             le = 0;
           }
         }
 
-        tongSLToanBo += h.tongSL;
-        tongChanToanBo += chan;
-        tongLeToanBo += le;
-        tongTienToanBo += h.thanhTien;
+        tongChanHang += chan;
+        tongLeHang += le;
+        tongTienHang += h.thanhTien;
 
-        let ghiChuHienThi = '';
-        if (h.laKhuyenMai) {
-          ghiChuHienThi = '<span class="tag-km">HÀNG KHUYẾN MÃI</span>';
-        } else {
-          const mh = (h.maHang || '').toUpperCase().trim();
-          const th = (h.tenHang || '').toLowerCase();
-          if (mh === 'HĐ' || mh === 'HD' || mh.startsWith('HĐ') || mh.startsWith('HD') || th.includes('hóa đơn') || th.includes('hoá đơn')) {
-            ghiChuHienThi = '<span class="tag-hd">HÓA ĐƠN GIÁ TRỊ</span>';
-          }
-        }
+        danhSachHangHoaExcel.push({
+          stt: stt,
+          maHang: h.maHang,
+          tenHang: h.tenHang,
+          quyCach: qc,
+          dvt: h.dvt,
+          tongSL: h.tongSL,
+          chan: chan,
+          le: le,
+          donGia: h.donGia,
+          thanhTien: h.thanhTien,
+          laKhuyenMai: h.laKhuyenMai,
+          ghiChu: h.laKhuyenMai ? 'HÀNG KHUYẾN MÃI' : ''
+        });
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -1579,27 +1638,74 @@
           <td class="text-center">${qc}</td>
           <td class="text-center">${h.dvt}</td>
           <td class="text-center text-bold">${formatSoLuong(h.tongSL)}</td>
-          <td class="text-center text-bold" style="color:#2563eb;">${chan}</td>
-          <td class="text-center text-bold" style="color:${le > 0 ? '#d97706' : '#94a3b8'};">${le}</td>
+          <td class="text-center">${chan}</td>
+          <td class="text-center">${le}</td>
           <td class="text-right">${formatTien(h.donGia)}</td>
           <td class="text-right text-bold">${formatTien(h.thanhTien)}</td>
-          <td class="text-center">${ghiChuHienThi}</td>
+          <td class="text-center">${h.laKhuyenMai ? '<span class="tag-km">HÀNG KHUYẾN MÃI</span>' : ''}</td>
         `;
         tbody.appendChild(tr);
       });
 
-      // Tfoot tổng cộng (Chỉ xuất hiện 1 lần ở cuối bảng)
-      document.getElementById('tfootXuatKho').innerHTML = `
-        <tr style="background:#f1f5f9; font-weight:800;">
-          <td colspan="5" class="text-center">TỔNG CỘNG</td>
-          <td class="text-center">${formatSoLuong(tongSLToanBo)}</td>
-          <td class="text-center" style="color:#2563eb;">${tongChanToanBo}</td>
-          <td class="text-center" style="color:#d97706;">${tongLeToanBo}</td>
-          <td></td>
-          <td class="text-right" style="color:#15803d; font-size:13px;">${formatTien(tongTienToanBo)}</td>
-          <td></td>
-        </tr>
+      // 1. DÒNG TỔNG CỘNG HÀNG HÓA (Màu xanh bạc hà #e2efda như hình số 2)
+      const trTongHang = document.createElement('tr');
+      trTongHang.className = 'row-tong-hang';
+      trTongHang.innerHTML = `
+        <td colspan="6" class="text-center" style="font-weight:800;">TỔNG CỘNG HÀNG HÓA</td>
+        <td class="text-center" style="font-weight:800;">${tongChanHang}</td>
+        <td class="text-center" style="font-weight:800;">${tongLeHang}</td>
+        <td></td>
+        <td class="text-right" style="font-weight:800;">${formatTien(tongTienHang)}</td>
+        <td></td>
       `;
+      tbody.appendChild(trTongHang);
+
+      // 2. DÒNG BANNER PHÂN TÁCH CHỨNG TỪ (Màu xanh lavender #d9e1f2 như hình số 2)
+      const trBanner = document.createElement('tr');
+      trBanner.className = 'row-banner-doc';
+      trBanner.innerHTML = `
+        <td colspan="11" class="text-center" style="font-size:11px; padding:6px; letter-spacing:0.3px;">
+          CHỨNG TỪ / GIẤY TỜ ĐI KÈM — KHÔNG TÍNH VÀO TỔNG SỐ KIỆN Ở TRÊN
+        </td>
+      `;
+      tbody.appendChild(trBanner);
+
+      // 3. DÒNG CHỨNG TỪ HÓA ĐƠN GTGT
+      const countHD = hangHoaDon.length > 0 ? (hangHoaDon[0].tongSL || 1) : (danhSachHoaDonChiTietToanCuc.length || 1);
+      const trHD = document.createElement('tr');
+      trHD.innerHTML = `
+        <td class="text-center">${stt++}</td>
+        <td class="text-bold">HĐ</td>
+        <td>Hóa Đơn GTGT</td>
+        <td class="text-center">1</td>
+        <td class="text-center">Tờ</td>
+        <td class="text-center text-bold">${countHD}</td>
+        <td class="text-center"></td>
+        <td class="text-center"></td>
+        <td class="text-right">0</td>
+        <td class="text-right text-bold">0</td>
+        <td class="text-center"><span class="tag-km">HÀNG KHUYẾN MÃI</span></td>
+      `;
+      tbody.appendChild(trHD);
+
+      // 4. DÒNG CỘNG CHỨNG TỪ (Màu xanh lavender #d9e1f2 như hình số 2)
+      const trCongDoc = document.createElement('tr');
+      trCongDoc.className = 'row-cong-doc';
+      trCongDoc.innerHTML = `
+        <td colspan="9" class="text-center" style="font-weight:800;">CỘNG CHỨNG TỪ</td>
+        <td class="text-right" style="font-weight:800;">0</td>
+        <td></td>
+      `;
+      tbody.appendChild(trCongDoc);
+
+      // Lưu trữ cấu trúc để hàm xuất Excel sử dụng
+      danhSachHangHoaXuatKhoToanCuc = {
+        hangHoa: danhSachHangHoaExcel,
+        tongChanHang: tongChanHang,
+        tongLeHang: tongLeHang,
+        tongTienHang: tongTienHang,
+        soLuongHD: countHD
+      };
     }
 
     // Chuyển tab hiển thị
@@ -1619,7 +1725,7 @@
     }
 
     // ========================================================
-    // IN ẤN CHUẨN A4 LANDSCAPE (CHỈ IN BIỂU MẪU ĐANG CHỌN)
+    // IN ẤN CHUẨN A4 DỌC PORTRAIT (VỪA KHÍT 198MM CHIỀU NGANG)
     // ========================================================
     function inPhieuHienTai() {
       document.body.classList.remove('print-mode-bangke', 'print-mode-xuatkho');
@@ -1627,19 +1733,277 @@
       window.print();
     }
 
-    // Xuất Excel chuẩn định dạng
+    // ========================================================
+    // XUẤT EXCEL CHUẨN GIAO DIỆN & MÀU SẮC NHƯ HÌNH MẪU 1 VÀ 2
+    // ========================================================
     function xuatExcelHienTai() {
+      if (typeof XLSX === 'undefined') {
+        alert("Thư viện xuất Excel đang khởi tạo, vui lòng bấm lại sau giây lát.");
+        return;
+      }
+
       const xe = document.getElementById('xeVanChuyen').value || 'XE';
       const ngay = document.getElementById('ngayGiaoHang').value || 'NGAY';
+      const ngayDinhDang = document.getElementById('lblNgayBangKe').textContent || ngay;
+      const taiXe = document.getElementById('taiXe').value || '';
+      const nvGiao = document.getElementById('nvGiaoHang').value || '.............';
+      const nvThu = document.getElementById('nvThuTien').value || '';
+
+      const wb = XLSX.utils.book_new();
+
+      const borderThin = {
+        top: { style: "thin", color: { rgb: "B0C4DE" } },
+        bottom: { style: "thin", color: { rgb: "B0C4DE" } },
+        left: { style: "thin", color: { rgb: "B0C4DE" } },
+        right: { style: "thin", color: { rgb: "B0C4DE" } }
+      };
 
       if (tabHienTai === 'bangke') {
-        const table = document.querySelector('#tabContentBangKe table');
-        const wb = XLSX.utils.table_to_book(table, { sheet: "BangKeThuTien" });
-        XLSX.writeFile(wb, `Bang_Ke_Thu_Tien_${xe}_${ngay}.xlsx`);
+        // ========================================================
+        // 1. XUẤT BẢNG KÊ THU TIỀN HÀNG VÀ GIAO HÀNG (CHUẨN HÌNH 1)
+        // ========================================================
+        const wsData = [];
+        wsData.push([
+          { v: "CÔNG TY TNHH THÁI MỸ HƯƠNG", s: { font: { bold: true, sz: 12, name: "Times New Roman" } } }
+        ]);
+        wsData.push([
+          { v: "Đc: 291 Văn Tiến Dũng, Phường Hoà Xuân, TP Đà Nẵng — ĐT: 0903.550.648", s: { font: { italic: true, sz: 9.5, name: "Times New Roman", color: { rgb: "444444" } } } }
+        ]);
+        wsData.push([]);
+        wsData.push([
+          { v: "BẢNG KÊ THU TIỀN HÀNG VÀ GIAO HÀNG", s: { font: { bold: true, sz: 15, name: "Times New Roman" }, alignment: { horizontal: "center", vertical: "center" } } }
+        ]);
+        wsData.push([
+          { v: `Xe giao: ${xe}`, s: { font: { bold: true, sz: 10, name: "Times New Roman" } } },
+          null, null, null, null, null, null,
+          { v: `Tài xế: ${taiXe}`, s: { font: { bold: true, sz: 10, name: "Times New Roman" } } }
+        ]);
+        wsData.push([
+          { v: `Ngày giao: ${ngayDinhDang}`, s: { font: { bold: true, sz: 10, name: "Times New Roman" } } },
+          null, null,
+          { v: `Giao hàng: ${nvGiao}`, s: { font: { bold: true, sz: 10, name: "Times New Roman" } } },
+          null, null, null,
+          { v: `Thu tiền: ${nvThu}`, s: { font: { bold: true, sz: 10, name: "Times New Roman" } } }
+        ]);
+        wsData.push([]);
+
+        // Tiêu đề cột (Xanh nhạt #B8CCE4)
+        const headerStyle = {
+          font: { bold: true, sz: 10, name: "Times New Roman", color: { rgb: "000000" } },
+          fill: { fgColor: { rgb: "B8CCE4" } },
+          alignment: { horizontal: "center", vertical: "center", wrapText: true },
+          border: borderThin
+        };
+        const headers = ["STT", "Mã Hoá Đơn", "Mã Khách Hàng", "Tên Khách Hàng", "Người Bán", "Doanh Số", "Giảm Giá SP", "Giảm Giá HĐ", "Thành Tiền", "Ghi Chú"];
+        wsData.push(headers.map(h => ({ v: h, s: headerStyle })));
+
+        let tongDoanhSo = 0, tongGiamSP = 0, tongGiamHD = 0, tongThanhTien = 0;
+        let stt = 1;
+        danhSachHoaDonChiTietToanCuc.forEach(hd => {
+          tongDoanhSo += hd.doanhSo;
+          tongGiamSP += hd.giamGiaSP;
+          tongGiamHD += hd.giamGiaHD;
+          tongThanhTien += hd.thanhTien;
+
+          const baseStyle = { font: { sz: 9.5, name: "Times New Roman" }, border: borderThin, alignment: { vertical: "center" } };
+          wsData.push([
+            { v: stt++, t: "n", s: { ...baseStyle, alignment: { horizontal: "center", vertical: "center" } } },
+            { v: hd.maHD, t: "s", s: { ...baseStyle, font: { bold: true, sz: 9.5, name: "Times New Roman" }, alignment: { horizontal: "center", vertical: "center" } } },
+            { v: hd.maKH, t: "s", s: { ...baseStyle, alignment: { horizontal: "left", vertical: "center" } } },
+            { v: hd.tenKH, t: "s", s: { ...baseStyle, alignment: { horizontal: "left", vertical: "center", wrapText: true } } },
+            { v: hd.nguoiBan, t: "s", s: { ...baseStyle, alignment: { horizontal: "left", vertical: "center", wrapText: true } } },
+            { v: hd.doanhSo, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right", vertical: "center" } } },
+            { v: hd.giamGiaSP, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right", vertical: "center" } } },
+            { v: hd.giamGiaHD, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right", vertical: "center" } } },
+            { v: hd.thanhTien, t: "n", z: "#,##0", s: { ...baseStyle, font: { bold: true, sz: 9.5, name: "Times New Roman" }, alignment: { horizontal: "right", vertical: "center" } } },
+            { v: hd.ghiChu || "", t: "s", s: { ...baseStyle, alignment: { horizontal: "center", vertical: "center" } } }
+          ]);
+        });
+
+        // Dòng TỔNG CỘNG (#B8CCE4)
+        const totalStyle = {
+          font: { bold: true, sz: 10, name: "Times New Roman" },
+          fill: { fgColor: { rgb: "B8CCE4" } },
+          border: borderThin,
+          alignment: { vertical: "center" }
+        };
+        wsData.push([
+          { v: "TỔNG CỘNG", s: { ...totalStyle, alignment: { horizontal: "center", vertical: "center" } } },
+          { v: "", s: totalStyle },
+          { v: "", s: totalStyle },
+          { v: "", s: totalStyle },
+          { v: "", s: totalStyle },
+          { v: tongDoanhSo, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right", vertical: "center" } } },
+          { v: tongGiamSP, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right", vertical: "center" } } },
+          { v: tongGiamHD, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right", vertical: "center" } } },
+          { v: tongThanhTien, t: "n", z: "#,##0", s: { ...totalStyle, font: { bold: true, sz: 10, name: "Times New Roman" }, alignment: { horizontal: "right", vertical: "center" } } },
+          { v: "", s: totalStyle }
+        ]);
+
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        ws['!merges'] = [
+          { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
+          { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
+          { s: { r: 3, c: 0 }, e: { r: 3, c: 9 } },
+          { s: { r: wsData.length - 1, c: 0 }, e: { r: wsData.length - 1, c: 4 } }
+        ];
+        ws['!cols'] = [
+          { wch: 5 }, { wch: 13 }, { wch: 14 }, { wch: 32 }, { wch: 25 },
+          { wch: 13 }, { wch: 12 }, { wch: 11 }, { wch: 14 }, { wch: 10 }
+        ];
+        XLSX.utils.book_append_sheet(wb, ws, "BangKeThuTien");
+        XLSX.writeFile(wb, `Bang_Ke_Thu_Tien_${xe.replace(/[^a-zA-Z0-9]/g, '_')}_${ngay}.xlsx`);
+
       } else {
-        const table = document.querySelector('#tabContentXuatKho table');
-        const wb = XLSX.utils.table_to_book(table, { sheet: "PhieuXuatKho" });
-        XLSX.writeFile(wb, `Phieu_Xuat_Kho_${xe}_${ngay}.xlsx`);
+        // ========================================================
+        // 2. XUẤT PHIẾU XUẤT KHO TỔNG HỢP (CHUẨN HÌNH 2)
+        // ========================================================
+        const wsData = [];
+        wsData.push([
+          { v: "CÔNG TY TNHH THÁI MỸ HƯƠNG", s: { font: { bold: true, sz: 12, name: "Times New Roman" } } }
+        ]);
+        wsData.push([
+          { v: "Đc: 291 Văn Tiến Dũng, Phường Hoà Xuân, TP Đà Nẵng — ĐT: 0903.550.648", s: { font: { italic: true, sz: 9.5, name: "Times New Roman", color: { rgb: "444444" } } } }
+        ]);
+        wsData.push([]);
+        wsData.push([
+          { v: "PHIẾU XUẤT KHO TỔNG HỢP", s: { font: { bold: true, sz: 15, name: "Times New Roman" }, alignment: { horizontal: "center", vertical: "center" } } }
+        ]);
+        wsData.push([
+          { v: `Xe giao: ${xe}`, s: { font: { bold: true, sz: 10, name: "Times New Roman" } } },
+          null, null, null, null, null, null,
+          { v: `Tài xế: ${taiXe}`, s: { font: { bold: true, sz: 10, name: "Times New Roman" } } }
+        ]);
+        wsData.push([
+          { v: `Ngày giao: ${ngayDinhDang}`, s: { font: { bold: true, sz: 10, name: "Times New Roman" } } },
+          null, null,
+          { v: `Giao hàng: ${nvGiao}`, s: { font: { bold: true, sz: 10, name: "Times New Roman" } } },
+          null, null, null,
+          { v: `Thu tiền: ${nvThu}`, s: { font: { bold: true, sz: 10, name: "Times New Roman" } } }
+        ]);
+        wsData.push([]);
+
+        // Tiêu đề cột (Vàng nhạt #FFF2CC)
+        const headerStyle = {
+          font: { bold: true, sz: 10, name: "Times New Roman", color: { rgb: "000000" } },
+          fill: { fgColor: { rgb: "FFF2CC" } },
+          alignment: { horizontal: "center", vertical: "center", wrapText: true },
+          border: borderThin
+        };
+        const headers = ["STT", "Mã Hàng", "Tên Hàng", "Quy Cách", "ĐVT", "Tổng SL", "Chẵn", "Lẻ", "Đơn Giá", "Thành Tiền", "Ghi Chú"];
+        wsData.push(headers.map(h => ({ v: h, s: headerStyle })));
+
+        let stt = 1;
+        const hangList = danhSachHangHoaXuatKhoToanCuc.hangHoa || [];
+        hangList.forEach(h => {
+          const baseStyle = { font: { sz: 9.5, name: "Times New Roman" }, border: borderThin, alignment: { vertical: "center" } };
+          const kmStyle = h.laKhuyenMai ? { font: { bold: true, color: { rgb: "C00000" }, sz: 9, name: "Times New Roman" } } : {};
+
+          wsData.push([
+            { v: stt++, t: "n", s: { ...baseStyle, alignment: { horizontal: "center", vertical: "center" } } },
+            { v: h.maHang, t: "s", s: { ...baseStyle, font: { bold: true, sz: 9.5, name: "Times New Roman" }, alignment: { horizontal: "left", vertical: "center" } } },
+            { v: h.tenHang, t: "s", s: { ...baseStyle, alignment: { horizontal: "left", vertical: "center", wrapText: true } } },
+            { v: h.quyCach, t: "n", s: { ...baseStyle, alignment: { horizontal: "center", vertical: "center" } } },
+            { v: h.dvt, t: "s", s: { ...baseStyle, alignment: { horizontal: "center", vertical: "center" } } },
+            { v: h.tongSL, t: "n", z: "#,##0.##", s: { ...baseStyle, font: { bold: true, sz: 9.5, name: "Times New Roman" }, alignment: { horizontal: "center", vertical: "center" } } },
+            { v: h.chan, t: "n", s: { ...baseStyle, alignment: { horizontal: "center", vertical: "center" } } },
+            { v: h.le, t: "n", s: { ...baseStyle, alignment: { horizontal: "center", vertical: "center" } } },
+            { v: h.donGia, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right", vertical: "center" } } },
+            { v: h.thanhTien, t: "n", z: "#,##0", s: { ...baseStyle, font: { bold: true, sz: 9.5, name: "Times New Roman" }, alignment: { horizontal: "right", vertical: "center" } } },
+            { v: h.laKhuyenMai ? "HÀNG KHUYẾN MÃI" : (h.ghiChu || ""), t: "s", s: { ...baseStyle, ...kmStyle, alignment: { horizontal: "center", vertical: "center" } } }
+          ]);
+        });
+
+        // Dòng TỔNG CỘNG HÀNG HÓA (Xanh bạc hà #E2EFDA)
+        const rowTongHangIdx = wsData.length;
+        const mintGreenStyle = {
+          font: { bold: true, sz: 10, name: "Times New Roman" },
+          fill: { fgColor: { rgb: "E2EFDA" } },
+          border: borderThin,
+          alignment: { vertical: "center" }
+        };
+        wsData.push([
+          { v: "TỔNG CỘNG HÀNG HÓA", s: { ...mintGreenStyle, alignment: { horizontal: "center", vertical: "center" } } },
+          { v: "", s: mintGreenStyle },
+          { v: "", s: mintGreenStyle },
+          { v: "", s: mintGreenStyle },
+          { v: "", s: mintGreenStyle },
+          { v: "", s: mintGreenStyle },
+          { v: danhSachHangHoaXuatKhoToanCuc.tongChanHang || 0, t: "n", s: { ...mintGreenStyle, alignment: { horizontal: "center", vertical: "center" } } },
+          { v: danhSachHangHoaXuatKhoToanCuc.tongLeHang || 0, t: "n", s: { ...mintGreenStyle, alignment: { horizontal: "center", vertical: "center" } } },
+          { v: "", s: mintGreenStyle },
+          { v: danhSachHangHoaXuatKhoToanCuc.tongTienHang || 0, t: "n", z: "#,##0", s: { ...mintGreenStyle, alignment: { horizontal: "right", vertical: "center" } } },
+          { v: "", s: mintGreenStyle }
+        ]);
+
+        // Dòng Banner: CHỨNG TỪ / GIẤY TỜ ĐI KÈM (Xanh lavender #D9E1F2)
+        const rowBannerIdx = wsData.length;
+        const bannerStyle = {
+          font: { bold: true, sz: 10, name: "Times New Roman", color: { rgb: "000000" } },
+          fill: { fgColor: { rgb: "D9E1F2" } },
+          border: borderThin,
+          alignment: { horizontal: "center", vertical: "center" }
+        };
+        const bannerRow = Array(11).fill(null).map((_, i) => ({
+          v: i === 0 ? "CHỨNG TỪ / GIẤY TỜ ĐI KÈM — KHÔNG TÍNH VÀO TỔNG SỐ KIỆN Ở TRÊN" : "",
+          s: bannerStyle
+        }));
+        wsData.push(bannerRow);
+
+        // Dòng Hóa đơn GTGT
+        const countHD = danhSachHangHoaXuatKhoToanCuc.soLuongHD || 1;
+        const docBaseStyle = { font: { sz: 9.5, name: "Times New Roman" }, border: borderThin, alignment: { vertical: "center" } };
+        wsData.push([
+          { v: stt++, t: "n", s: { ...docBaseStyle, alignment: { horizontal: "center", vertical: "center" } } },
+          { v: "HĐ", t: "s", s: { ...docBaseStyle, font: { bold: true, sz: 9.5, name: "Times New Roman" }, alignment: { horizontal: "left", vertical: "center" } } },
+          { v: "Hóa Đơn GTGT", t: "s", s: { ...docBaseStyle, alignment: { horizontal: "left", vertical: "center" } } },
+          { v: 1, t: "n", s: { ...docBaseStyle, alignment: { horizontal: "center", vertical: "center" } } },
+          { v: "Tờ", t: "s", s: { ...docBaseStyle, alignment: { horizontal: "center", vertical: "center" } } },
+          { v: countHD, t: "n", s: { ...docBaseStyle, font: { bold: true, sz: 9.5, name: "Times New Roman" }, alignment: { horizontal: "center", vertical: "center" } } },
+          { v: "", s: docBaseStyle },
+          { v: "", s: docBaseStyle },
+          { v: 0, t: "n", z: "#,##0", s: { ...docBaseStyle, alignment: { horizontal: "right", vertical: "center" } } },
+          { v: 0, t: "n", z: "#,##0", s: { ...docBaseStyle, alignment: { horizontal: "right", vertical: "center" } } },
+          { v: "HÀNG KHUYẾN MÃI", t: "s", s: { ...docBaseStyle, font: { italic: true, sz: 9, name: "Times New Roman", color: { rgb: "C00000" } }, alignment: { horizontal: "center", vertical: "center" } } }
+        ]);
+
+        // Dòng CỘNG CHỨNG TỪ (Xanh lavender #D9E1F2)
+        const rowCongDocIdx = wsData.length;
+        const congDocStyle = {
+          font: { bold: true, sz: 10, name: "Times New Roman" },
+          fill: { fgColor: { rgb: "D9E1F2" } },
+          border: borderThin,
+          alignment: { vertical: "center" }
+        };
+        wsData.push([
+          { v: "CỘNG CHỨNG TỪ", s: { ...congDocStyle, alignment: { horizontal: "center", vertical: "center" } } },
+          { v: "", s: congDocStyle },
+          { v: "", s: congDocStyle },
+          { v: "", s: congDocStyle },
+          { v: "", s: congDocStyle },
+          { v: "", s: congDocStyle },
+          { v: "", s: congDocStyle },
+          { v: "", s: congDocStyle },
+          { v: "", s: congDocStyle },
+          { v: 0, t: "n", z: "#,##0", s: { ...congDocStyle, alignment: { horizontal: "right", vertical: "center" } } },
+          { v: "", s: congDocStyle }
+        ]);
+
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        ws['!merges'] = [
+          { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
+          { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
+          { s: { r: 3, c: 0 }, e: { r: 3, c: 10 } },
+          { s: { r: rowTongHangIdx, c: 0 }, e: { r: rowTongHangIdx, c: 5 } },
+          { s: { r: rowBannerIdx, c: 0 }, e: { r: rowBannerIdx, c: 10 } },
+          { s: { r: rowCongDocIdx, c: 0 }, e: { r: rowCongDocIdx, c: 8 } }
+        ];
+        ws['!cols'] = [
+          { wch: 5 }, { wch: 13 }, { wch: 36 }, { wch: 9 }, { wch: 8 },
+          { wch: 9 }, { wch: 7 }, { wch: 7 }, { wch: 13 }, { wch: 15 }, { wch: 22 }
+        ];
+        XLSX.utils.book_append_sheet(wb, ws, "PhieuXuatKho");
+        XLSX.writeFile(wb, `Phieu_Xuat_Kho_${xe.replace(/[^a-zA-Z0-9]/g, '_')}_${ngay}.xlsx`);
       }
     }
 
