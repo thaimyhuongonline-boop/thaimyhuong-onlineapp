@@ -9,13 +9,15 @@
     <script src="config.js"></script>
     <style>
         body { font-family: sans-serif; background: #f1f5f9; padding: 20px; }
-        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .container { max-width: 1100px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 20px; }
         .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; color: white; font-weight: bold; }
         .btn-back { background-color: #64748b; }
         .btn-action { background-color: #16a34a; }
         .btn-template { background-color: #f59e0b; }
         .btn-add { background-color: #3b82f6; }
+        .btn-edit { background-color: #0ea5e9; padding: 4px 10px; font-size: 12px; }
+        .btn-delete { background-color: #ef4444; padding: 4px 10px; font-size: 12px; }
         .controls { display: flex; gap: 15px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
         select { padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 15px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
@@ -26,6 +28,7 @@
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; }
         .form-group input { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee; }
     </style>
 </head>
 <body>
@@ -37,14 +40,14 @@
     </div>
 
     <div class="controls">
-        <select id="chonBang" onchange="taiDuLieu()">
+        <select id="chonBang" onchange="doiBang()">
             <option value="khach_hang">Khách hàng</option>
             <option value="hang_hoa">Hàng hóa (Quy cách)</option>
             <option value="dinh_khoan_hang_hoa">Định khoản hàng hóa</option>
             <option value="danh_sach_xe">Danh sách xe</option>
         </select>
         
-        <button class="btn btn-add" onclick="moFormThem()">➕ Thêm</button>
+        <button class="btn btn-add" onclick="moFormThem()">➕ Thêm / Sửa</button>
         <button class="btn btn-template" onclick="taiTemplate()">📄 Tải File Mẫu</button>
         
         <input type="file" id="fileExcel" accept=".xlsx, .xls, .csv" style="display: none;" onchange="docFileExcel(event)">
@@ -54,9 +57,25 @@
     <!-- Khu vực Form nhập thủ công (Ẩn mặc định) -->
     <div id="formThemMoi"></div>
 
+    <div class="pagination" id="thanhPhanTrangTrai">
+        <div>
+            Hiển thị: 
+            <select id="soDongHienThi" onchange="doiKichThuocTrang()" style="padding: 4px;">
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="500">500</option>
+                <option value="1000">1000</option>
+            </select> dòng / trang
+        </div>
+        <div>
+            <button class="btn btn-back" style="padding: 4px 10px;" onclick="chuyenTrang(-1)">⬅ Trước</button>
+            <span id="thongTinTrang" style="margin: 0 15px; font-weight: bold;">Trang 1 / 1</span>
+            <button class="btn btn-back" style="padding: 4px 10px;" onclick="chuyenTrang(1)">Sau ➡</button>
+        </div>
+    </div>
+
     <table>
-        <thead id="bangHead">
-        </thead>
+        <thead id="bangHead"></thead>
         <tbody id="bangBody">
             <tr><td>Đang tải dữ liệu...</td></tr>
         </tbody>
@@ -64,6 +83,11 @@
 </div>
 
 <script>
+    // Các biến phân trang và lưu trữ dữ liệu tạm
+    let trangHienTai = 1;
+    let tongSoTrang = 1;
+    let duLieuBangHienTai = [];
+
     async function kiemTraQuyen() {
         const nd = await baoVeTrang();
         if (!nd) return;
@@ -76,53 +100,101 @@
         taiDuLieu();
     }
 
+    function doiBang() {
+        trangHienTai = 1; // Đổi bảng thì quay về trang 1
+        taiDuLieu();
+    }
+
+    function doiKichThuocTrang() {
+        trangHienTai = 1;
+        taiDuLieu();
+    }
+
+    function chuyenTrang(huong) {
+        let trangMoi = trangHienTai + huong;
+        if (trangMoi >= 1 && trangMoi <= tongSoTrang) {
+            trangHienTai = trangMoi;
+            taiDuLieu();
+        }
+    }
+
+    function xacDinhKhoaChinh(tenBang) {
+        if (tenBang === 'khach_hang') return 'ma_kh';
+        if (tenBang === 'hang_hoa' || tenBang === 'dinh_khoan_hang_hoa') return 'ma_hang';
+        if (tenBang === 'danh_sach_xe') return 'ma_xe';
+        return '';
+    }
+
     async function taiDuLieu() {
-        // Ẩn form thêm khi đổi bảng
         document.getElementById('formThemMoi').style.display = 'none';
 
         const tenBang = document.getElementById('chonBang').value;
+        const soDong = parseInt(document.getElementById('soDongHienThi').value);
         const thead = document.getElementById('bangHead');
         const tbody = document.getElementById('bangBody');
         
-        tbody.innerHTML = '<tr><td colspan="5">Đang tải...</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="10">Đang tải trang ${trangHienTai}...</td></tr>`;
         
-        const { data, error } = await sb.from(tenBang).select('*').limit(50);
+        // Tính toán khoảng dòng cần lấy cho Supabase (Vd: trang 1 là 0 tới 49)
+        const tuDong = (trangHienTai - 1) * soDong;
+        const denDong = tuDong + soDong - 1;
+
+        // Kéo dữ liệu và đếm tổng số dòng
+        const { data, count, error } = await sb.from(tenBang)
+                                                .select('*', { count: 'exact' })
+                                                .range(tuDong, denDong);
         
         if (error) {
-            tbody.innerHTML = `<tr><td colspan="5" style="color:red">Lỗi: ${error.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="10" style="color:red">Lỗi: ${error.message}</td></tr>`;
             return;
         }
 
-        if (!data || data.length === 0) {
+        duLieuBangHienTai = data || [];
+        tongSoTrang = Math.ceil((count || 0) / soDong) || 1;
+        document.getElementById('thongTinTrang').textContent = `Trang ${trangHienTai} / ${tongSoTrang} (Tổng: ${count || 0} dòng)`;
+
+        if (duLieuBangHienTai.length === 0) {
             thead.innerHTML = '<tr><th>Thông báo</th></tr>';
             tbody.innerHTML = '<tr><td>Bảng này hiện chưa có dữ liệu.</td></tr>';
             return;
         }
 
-        const cacCot = Object.keys(data[0]);
+        const cacCot = Object.keys(duLieuBangHienTai[0]);
+        const khoaChinh = xacDinhKhoaChinh(tenBang);
+
+        // Vẽ tiêu đề cột
         let htmlHead = '<tr>';
         cacCot.forEach(cot => htmlHead += `<th>${cot.toUpperCase()}</th>`);
-        htmlHead += '</tr>';
+        htmlHead += '<th>THAO TÁC</th></tr>';
         thead.innerHTML = htmlHead;
 
+        // Vẽ thân bảng
         let htmlBody = '';
-        data.forEach(dong => {
+        duLieuBangHienTai.forEach(dong => {
             htmlBody += '<tr>';
             cacCot.forEach(cot => {
                 htmlBody += `<td>${dong[cot] !== null ? dong[cot] : ''}</td>`;
             });
+            
+            // Nút sửa và xóa
+            const giaTriKhoa = dong[khoaChinh];
+            htmlBody += `<td style="white-space: nowrap;">
+                <button class="btn btn-edit" onclick="suaDong('${giaTriKhoa}')">Sửa</button>
+                <button class="btn btn-delete" onclick="xoaDong('${giaTriKhoa}')">Xóa</button>
+            </td>`;
+            
             htmlBody += '</tr>';
         });
         tbody.innerHTML = htmlBody;
     }
 
-    // --- CÁC HÀM XỬ LÝ NHẬP THỦ CÔNG ---
-    function moFormThem() {
+    // --- CÁC HÀM XỬ LÝ NHẬP & SỬA THỦ CÔNG ---
+    function moFormThem(cheDoEdit = false) {
         const form = document.getElementById('formThemMoi');
         const tenBang = document.getElementById('chonBang').value;
         const tenBangHienThi = document.getElementById('chonBang').options[document.getElementById('chonBang').selectedIndex].text;
         
-        let html = `<h3 style="margin-top:0;">Thêm mới - ${tenBangHienThi}</h3>`;
+        let html = `<h3 style="margin-top:0;">${cheDoEdit ? 'Sửa' : 'Thêm mới'} - ${tenBangHienThi}</h3>`;
 
         if (tenBang === 'khach_hang') {
             html += taoInput('ma_kh', 'Mã Khách Hàng (Bắt buộc)') + taoInput('ten_kh', 'Tên Khách Hàng');
@@ -141,6 +213,7 @@
         
         form.innerHTML = html;
         form.style.display = 'block';
+        window.scrollTo(0, 0); // Cuộn lên đầu để thấy form
     }
 
     function taoInput(id, label) {
@@ -148,9 +221,32 @@
     }
 
     function layGiaTri(id, batBuoc = false) {
-        const val = document.getElementById(`input_${id}`).value.trim();
+        const input = document.getElementById(`input_${id}`);
+        if (!input) return null;
+        const val = input.value.trim();
         if (batBuoc && !val) throw new Error(`Vui lòng nhập đầy đủ trường Bắt buộc!`);
         return val;
+    }
+
+    function suaDong(giaTriKhoa) {
+        moFormThem(true);
+        const tenBang = document.getElementById('chonBang').value;
+        const khoaChinh = xacDinhKhoaChinh(tenBang);
+        
+        // Tìm dòng dữ liệu đang hiển thị trong mảng
+        const dongDuLieu = duLieuBangHienTai.find(d => d[khoaChinh] == giaTriKhoa);
+        if(!dongDuLieu) return;
+
+        // Đổ dữ liệu cũ vào input
+        Object.keys(dongDuLieu).forEach(key => {
+            const input = document.getElementById(`input_${key}`);
+            if(input) input.value = (dongDuLieu[key] === null) ? '' : dongDuLieu[key];
+        });
+
+        // Khóa không cho sửa Mã (Khóa chính) để tránh tạo thành dòng mới
+        const inputKhoa = document.getElementById(`input_${khoaChinh}`);
+        inputKhoa.readOnly = true;
+        inputKhoa.style.backgroundColor = '#e2e8f0'; 
     }
 
     async function luuThuCong(tenBang) {
@@ -173,33 +269,43 @@
                 dataObj = { ma_xe: layGiaTri('ma_xe', true), bien_so: layGiaTri('bien_so'), ten_tai_xe: layGiaTri('ten_tai_xe') };
             }
 
-            // Dùng lệnh upsert: Nếu mã đã có sẽ cập nhật, chưa có sẽ thêm mới
             const { error } = await sb.from(tenBang).upsert([dataObj]);
             if (error) throw error;
             
             alert("Đã lưu thành công!");
             document.getElementById('formThemMoi').style.display = 'none';
-            taiDuLieu(); // Tải lại bảng để thấy dòng mới
+            taiDuLieu(); 
         } catch (err) {
             alert("Lỗi: " + err.message);
         }
     }
-    // --- HẾT PHẦN HÀM XỬ LÝ NHẬP THỦ CÔNG ---
 
-    // Tạo và tải file mẫu tương ứng với bảng đang chọn
+    async function xoaDong(giaTriKhoa) {
+        const tenBang = document.getElementById('chonBang').value;
+        const khoaChinh = xacDinhKhoaChinh(tenBang);
+
+        if(!confirm(`Bạn có CHẮC CHẮN muốn XÓA vĩnh viễn dòng có mã "${giaTriKhoa}" không?`)) return;
+
+        try {
+            const { error } = await sb.from(tenBang).delete().eq(khoaChinh, giaTriKhoa);
+            if (error) throw error;
+            
+            alert("Đã xóa thành công!");
+            taiDuLieu(); 
+        } catch (err) {
+            alert("Lỗi khi xóa: " + err.message);
+        }
+    }
+
+    // --- TẢI TEMPLATE & EXCEL ---
     function taiTemplate() {
         const tenBang = document.getElementById('chonBang').value;
         let duLieuMau = [];
 
-        if (tenBang === 'khach_hang') {
-            duLieuMau = [{ ma_kh: 'KH001', ten_kh: 'Nguyễn Văn A' }];
-        } else if (tenBang === 'hang_hoa') {
-            duLieuMau = [{ ma_hang: 'SP001', ten_hang: 'Nước lọc', quy_cach: 24 }];
-        } else if (tenBang === 'dinh_khoan_hang_hoa') {
-            duLieuMau = [{ ma_hang: 'SP001', thue_suat: 8, tk_doanh_thu: '5111', tk_gia_von: '632', ma_kho: 'KHO01', tk_kho: '1561' }];
-        } else if (tenBang === 'danh_sach_xe') {
-            duLieuMau = [{ ma_xe: 'XE01', bien_so: '67A-12345', ten_tai_xe: 'Lê Văn B' }];
-        }
+        if (tenBang === 'khach_hang') duLieuMau = [{ ma_kh: 'KH001', ten_kh: 'Nguyễn Văn A' }];
+        else if (tenBang === 'hang_hoa') duLieuMau = [{ ma_hang: 'SP001', ten_hang: 'Nước lọc', quy_cach: 24 }];
+        else if (tenBang === 'dinh_khoan_hang_hoa') duLieuMau = [{ ma_hang: 'SP001', thue_suat: 8, tk_doanh_thu: '5111', tk_gia_von: '632', ma_kho: 'KHO01', tk_kho: '1561' }];
+        else if (tenBang === 'danh_sach_xe') duLieuMau = [{ ma_xe: 'XE01', bien_so: '67A-12345', ten_tai_xe: 'Lê Văn B' }];
 
         const worksheet = XLSX.utils.json_to_sheet(duLieuMau);
         const workbook = XLSX.utils.book_new();
@@ -208,7 +314,6 @@
         XLSX.writeFile(workbook, `Mau_Nhap_${tenBang}.xlsx`);
     }
 
-    // 3. Xử lý đọc file Excel và đẩy lên Supabase (Đã thêm bộ lọc chống trùng lặp)
     async function docFileExcel(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -218,29 +323,21 @@
             try {
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, {type: 'array'});
-                
-                // Lấy sheet đầu tiên
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                 const jsonData = XLSX.utils.sheet_to_json(firstSheet, {defval: null});
 
                 if (jsonData.length === 0) {
-                    alert("File Excel trống, không có dữ liệu!");
+                    alert("File Excel trống!");
                     return;
                 }
 
                 const tenBang = document.getElementById('chonBang').value;
-                
-                // TỰ ĐỘNG LỌC TRÙNG LẶP DỮ LIỆU
-                let khoaChinh = "";
-                if (tenBang === 'khach_hang') khoaChinh = 'ma_kh';
-                else if (tenBang === 'hang_hoa' || tenBang === 'dinh_khoan_hang_hoa') khoaChinh = 'ma_hang';
-                else if (tenBang === 'danh_sach_xe') khoaChinh = 'ma_xe';
+                const khoaChinh = xacDinhKhoaChinh(tenBang);
 
                 let duLieuSach = [];
                 if (khoaChinh) {
                     const map = new Map();
                     jsonData.forEach(item => {
-                        // Loại bỏ khoảng trắng thừa ở mã và giữ lại dòng cuối cùng nếu trùng
                         if (item[khoaChinh]) {
                             item[khoaChinh] = String(item[khoaChinh]).trim();
                             map.set(item[khoaChinh], item);
@@ -256,16 +353,15 @@
                     return;
                 }
 
-                // Đẩy dữ liệu sạch lên Supabase
                 const { error } = await sb.from(tenBang).upsert(duLieuSach);
-
                 if (error) throw error;
 
                 alert("Tải dữ liệu lên thành công!");
+                trangHienTai = 1; // Nhảy về trang 1 để xem dữ liệu mới
                 taiDuLieu();
 
             } catch (error) {
-                alert("Lỗi khi tải file: " + error.message + "\n\nLƯU Ý: Tên cột (dòng 1) trong Excel phải viết thường và khớp chữ 100% với tên cột trên màn hình web.");
+                alert("Lỗi khi tải file: " + error.message);
             } finally {
                 event.target.value = ''; 
             }
