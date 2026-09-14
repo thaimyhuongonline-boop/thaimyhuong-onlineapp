@@ -514,10 +514,22 @@
             const errText = err.message || '';
             if (errText.includes('không hợp lệ') || errText.includes('action')) {
                 errEl.innerHTML = `
-                    <div style="font-weight:700; margin-bottom: 4px;">⚠️ Supabase Edge Function chưa có nhánh "update_password"</div>
-                    <div style="font-size: 12px; color: #7f1d1d; line-height: 1.4;">
-                        Hiện tại backend Supabase chỉ có chức năng tạo và khóa, chưa bổ sung quyền sửa mật khẩu của tài khoản khác.<br>
-                        Vui lòng chạy lệnh SQL (xem tin nhắn) trong <strong>Supabase SQL Editor</strong> hoặc cập nhật Edge Function là xong ngay.
+                    <div style="font-weight:700; margin-bottom: 6px; font-size: 13px; color: #991b1b;">
+                        ⚠️ Supabase cần 1 bước kích hoạt quyền sửa mật khẩu (chỉ làm 1 lần duy nhất)
+                    </div>
+                    <div style="font-size: 12px; color: #7f1d1d; line-height: 1.5; margin-bottom: 10px;">
+                        Do cơ chế bảo mật của Supabase, để Admin đổi được mật khẩu nhân viên, bạn chỉ cần bấm nút bên dưới để <strong>Copy lệnh SQL</strong> rồi dán vào <strong>SQL Editor</strong> của Supabase và bấm <strong>RUN</strong> là xong vĩnh viễn!
+                    </div>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;">
+                        <button type="button" onclick="saoChepLenhSQL()" style="background: #e11d48; color: white; border: none; padding: 7px 12px; border-radius: 6px; font-weight: 700; font-size: 12px; cursor: pointer;">
+                            📋 Bấm để Copy lệnh SQL
+                        </button>
+                        <a href="https://supabase.com/dashboard/project/oedidnctnteeegkdcwaa/sql/new" target="_blank" style="background: #0f172a; color: white; padding: 7px 12px; border-radius: 6px; font-weight: 700; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+                            🚀 Mở Supabase SQL Editor ↗
+                        </a>
+                    </div>
+                    <div id="copySuccessMsg" style="display: none; color: #15803d; font-weight: 700; font-size: 12px; margin-top: 6px;">
+                        ✅ Đã copy lệnh SQL! Giờ bạn mở Supabase -> Dán (Ctrl+V) -> bấm RUN.
                     </div>
                 `;
             } else {
@@ -528,6 +540,32 @@
             btnLuu.disabled = false;
             btnLuu.textContent = '💾 Lưu Mật Khẩu';
         }
+    }
+
+    const SQL_DOI_MAT_KHAU = `-- Cho phép Admin sửa mật khẩu người dùng
+CREATE OR REPLACE FUNCTION public.doi_mat_khau_admin(target_user_id uuid, mat_khau_moi text)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    UPDATE auth.users
+    SET encrypted_password = crypt(mat_khau_moi, gen_salt('bf'))
+    WHERE id = target_user_id;
+    
+    RETURN json_build_object('success', true);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.doi_mat_khau_admin(uuid, text) TO authenticated;`;
+
+    function saoChepLenhSQL() {
+        navigator.clipboard.writeText(SQL_DOI_MAT_KHAU).then(() => {
+            const msg = document.getElementById('copySuccessMsg');
+            if (msg) msg.style.display = 'block';
+        }).catch(() => {
+            alert("Lệnh SQL:\n\n" + SQL_DOI_MAT_KHAU);
+        });
     }
 
     // Đóng modal khi bấm phím Escape hoặc click vùng ngoài
