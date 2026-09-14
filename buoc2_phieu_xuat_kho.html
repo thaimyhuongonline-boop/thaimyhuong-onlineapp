@@ -1257,7 +1257,35 @@
       let tongTienToanBo = 0;
       let stt = 1;
 
-      mapHangHoa.forEach(h => {
+      // ========================================================
+      // PHÂN NHÓM HIỂN THỊ:
+      // 1. Hàng 0đ là khuyến mãi đưa lên TRÊN CÙNG
+      // 2. Hàng hóa thông thường ở GIỮA
+      // 3. Mã hàng HĐ (hóa đơn giá trị) tách XUỐNG DƯỚI CÙNG
+      // ========================================================
+      const tatCaHang = Array.from(mapHangHoa.values());
+      const hangKhuyenMai = [];
+      const hangThongThuong = [];
+      const hangHoaDon = [];
+
+      tatCaHang.forEach(h => {
+        const mh = (h.maHang || '').toUpperCase().trim();
+        const th = (h.tenHang || '').toLowerCase();
+        const laHD = mh === 'HĐ' || mh === 'HD' || mh.startsWith('HĐ') || mh.startsWith('HD') || th.includes('hóa đơn') || th.includes('hoá đơn');
+        const laKM = (h.donGia === 0 || h.thanhTien === 0 || h.laKhuyenMai);
+
+        if (laHD) {
+          hangHoaDon.push(h);
+        } else if (laKM) {
+          hangKhuyenMai.push(h);
+        } else {
+          hangThongThuong.push(h);
+        }
+      });
+
+      const danhSachSapXep = [...hangKhuyenMai, ...hangThongThuong, ...hangHoaDon];
+
+      danhSachSapXep.forEach(h => {
         // ========================================================
         // THUẬT TOÁN TÍNH CHẴN VÀ LẺ THEO QUY CÁCH CỦA THÁI MỸ HƯƠNG
         // ========================================================
@@ -1281,6 +1309,17 @@
         tongLeToanBo += le;
         tongTienToanBo += h.thanhTien;
 
+        let ghiChuHienThi = '';
+        if (h.laKhuyenMai) {
+          ghiChuHienThi = '<span class="tag-km">HÀNG KHUYẾN MÃI</span>';
+        } else {
+          const mh = (h.maHang || '').toUpperCase().trim();
+          const th = (h.tenHang || '').toLowerCase();
+          if (mh === 'HĐ' || mh === 'HD' || mh.startsWith('HĐ') || mh.startsWith('HD') || th.includes('hóa đơn') || th.includes('hoá đơn')) {
+            ghiChuHienThi = '<span style="color:#2563eb; font-weight:700;">HÓA ĐƠN GIÁ TRỊ</span>';
+          }
+        }
+
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td class="text-center">${stt++}</td>
@@ -1293,7 +1332,7 @@
           <td class="text-center text-bold" style="color:${le > 0 ? '#d97706' : '#94a3b8'};">${le}</td>
           <td class="text-right">${formatTien(h.donGia)}</td>
           <td class="text-right text-bold">${formatTien(h.thanhTien)}</td>
-          <td class="text-center">${h.laKhuyenMai ? '<span class="tag-km">HÀNG KHUYẾN MÃI</span>' : ''}</td>
+          <td class="text-center">${ghiChuHienThi}</td>
         `;
         tbody.appendChild(tr);
       });
