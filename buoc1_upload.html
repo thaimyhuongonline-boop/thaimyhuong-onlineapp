@@ -1,126 +1,797 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bước 1: Upload KiotViet - Thái Mỹ Hương</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="config.js"></script>
-    <style>
-        body { font-family: sans-serif; background: #f1f5f9; padding: 20px; margin: 0; }
-        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 20px; }
-        .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; color: white; font-weight: bold; font-size: 14px; }
-        .btn-back { background-color: #64748b; }
-        .btn-upload { background-color: #3b82f6; }
-        .btn-process { background-color: #16a34a; display: none; margin-left: 10px; }
-        .step-title { color: #3b82f6; margin-bottom: 5px; }
-        .box-upload { border: 2px dashed #cbd5e1; padding: 40px; text-align: center; border-radius: 8px; background: #f8fafc; margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f8f9fa; position: sticky; top: 0; }
-        .table-container { max-height: 500px; overflow-y: auto; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bước 1: Tải dữ liệu KiotViet — THÁI MỸ HƯƠNG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="config.js"></script>
+  <style>
+    :root {
+      --primary: #16a34a;
+      --primary-hover: #15803d;
+      --primary-dark: #14532d;
+      --primary-light: #ecfdf5;
+      --accent-blue: #2563eb;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+      --bg-page: #f8fafc;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 18px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+      --shadow-md: 0 4px 14px -2px rgba(0,0,0,0.08);
+      --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg-page);
+      color: var(--text-main);
+      min-height: 100vh;
+      padding-bottom: 60px;
+    }
+
+    /* Topbar */
+    .topbar {
+      background: #ffffff;
+      border-bottom: 1px solid var(--border-color);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 40px;
+      height: 40px;
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 2px;
+      border: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .brand-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 50%;
+    }
+
+    .brand-info h1 {
+      font-size: 16px;
+      font-weight: 800;
+      color: #14532d;
+      letter-spacing: 0.5px;
+      line-height: 1.2;
+    }
+
+    .brand-info span {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .btn {
+      padding: 9px 18px;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: var(--transition);
+      font-family: inherit;
+    }
+
+    .btn-back {
+      background: #f1f5f9;
+      color: #334155;
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-back:hover {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(22, 163, 74, 0.28);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #15803d 0%, #14532d 100%);
+      transform: translateY(-1px);
+    }
+
+    .btn-blue {
+      background: #2563eb;
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+    }
+
+    .btn-blue:hover {
+      background: #1d4ed8;
+      transform: translateY(-1px);
+    }
+
+    /* Container */
+    .container {
+      max-width: 1280px;
+      margin: 24px auto 0;
+      padding: 0 20px;
+    }
+
+    /* ========================================================
+       THANH TIẾN TRÌNH LIÊN HOÀN 7 BƯỚC (STEPPER)
+       ======================================================== */
+    .stepper-card {
+      background: #ffffff;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .stepper-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .stepper-header h3 {
+      font-size: 14px;
+      font-weight: 800;
+      color: #334155;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stepper-track {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+      overflow-x: auto;
+      padding: 6px 0;
+      gap: 8px;
+    }
+
+    .step-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      min-width: 130px;
+      text-decoration: none;
+      position: relative;
+      z-index: 2;
+    }
+
+    .step-num {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #f1f5f9;
+      color: #64748b;
+      font-weight: 800;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #e2e8f0;
+      transition: var(--transition);
+    }
+
+    .step-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #64748b;
+      text-align: center;
+      line-height: 1.3;
+      white-space: nowrap;
+    }
+
+    .step-item.active .step-num {
+      background: #16a34a;
+      color: #ffffff;
+      border-color: #15803d;
+      box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.2);
+    }
+
+    .step-item.active .step-label {
+      color: #15803d;
+      font-weight: 800;
+    }
+
+    .step-item.done .step-num {
+      background: #ecfdf5;
+      color: #16a34a;
+      border-color: #22c55e;
+    }
+
+    /* Main Upload Card */
+    .card {
+      background: #ffffff;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      padding: 28px;
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 24px;
+    }
+
+    .page-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .page-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+
+    /* Upload Drag & Drop Area */
+    .upload-zone {
+      border: 2px dashed #94a3b8;
+      border-radius: var(--radius-lg);
+      background: #f8fafc;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: var(--transition);
+      position: relative;
+    }
+
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: var(--primary);
+      background: #f0fdf4;
+      transform: translateY(-2px);
+    }
+
+    .upload-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 18px;
+      background: #ecfdf5;
+      color: var(--primary);
+      font-size: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+      border: 1px solid #bbf7d0;
+    }
+
+    .upload-text {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 6px;
+    }
+
+    .upload-hint {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 18px;
+    }
+
+    /* KPI Stats sau khi upload */
+    .kpi-row {
+      display: none;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin: 24px 0;
+    }
+
+    .kpi-card {
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .kpi-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    .kpi-icon.blue { background: #eff6ff; color: #2563eb; }
+    .kpi-icon.green { background: #ecfdf5; color: #16a34a; }
+    .kpi-icon.purple { background: #f5f3ff; color: #7c3aed; }
+    .kpi-icon.amber { background: #fffbeb; color: #d97706; }
+
+    .kpi-meta .title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+    }
+
+    .kpi-meta .num {
+      font-size: 18px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    /* Thanh điều hướng tiếp theo */
+    .action-bar {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 14px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      margin-bottom: 24px;
+    }
+
+    .action-bar-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: #166534;
+      font-weight: 600;
+    }
+
+    .action-btns {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    /* Bảng xem trước dữ liệu */
+    .table-container {
+      max-height: 520px;
+      overflow-y: auto;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      background: #ffffff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      text-align: left;
+    }
+
+    th, td {
+      border: 1px solid #f1f5f9;
+      padding: 9px 12px;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #475569;
+      font-weight: 700;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 2px solid #e2e8f0;
+    }
+
+    tr:hover td {
+      background: #f8fafc;
+    }
+
+    @media (max-width: 900px) {
+      .kpi-row {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 600px) {
+      .kpi-row {
+        grid-template-columns: 1fr;
+      }
+      .topbar {
+        padding: 12px 16px;
+      }
+      .container {
+        padding: 0 12px;
+      }
+    }
+  </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="header">
-        <div>
-            <h2 class="step-title">Bước 1: Tải dữ liệu KiotViet</h2>
-            <div style="color: #64748b; font-size: 14px;">Đọc file xuất từ KiotViet và tự động cập nhật danh mục mới.</div>
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="brand-wrap">
+      <div class="brand-logo">
+        <img src="logo.png" alt="Logo Thái Mỹ Hương">
+      </div>
+      <div class="brand-info">
+        <h1>THÁI MỸ HƯƠNG</h1>
+        <span>Hệ thống xử lý nghiệp vụ bán hàng</span>
+      </div>
+    </div>
+    <button class="btn btn-back" onclick="window.location.href='trang_chu.html'">
+      <span>⬅</span> Về Bảng điều khiển
+    </button>
+  </header>
+
+  <main class="container">
+    
+    <!-- THANH TIẾN TRÌNH LIÊN HOÀN 7 BƯỚC -->
+    <div class="stepper-card">
+      <div class="stepper-header">
+        <h3>Quy trình liên hoàn 7 bước</h3>
+        <span style="font-size: 12px; color: #16a34a; font-weight: 700;">Đang ở Bước 1</span>
+      </div>
+      <div class="stepper-track">
+        <div class="step-item active">
+          <div class="step-num">1</div>
+          <div class="step-label">1. Tải KiotViet</div>
         </div>
-        <button class="btn btn-back" onclick="window.location.href='trang_chu.html'">⬅ Về trang chủ</button>
+        <div class="step-item">
+          <div class="step-num">2</div>
+          <div class="step-label">2. Phiếu thu & Xuất kho</div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">3</div>
+          <div class="step-label">3. Lưu trữ đợt</div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">4</div>
+          <div class="step-label">4. Kiểm đơn về</div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">5</div>
+          <div class="step-label">5. Lưu kiểm đơn</div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">6</div>
+          <div class="step-label">6. Bảng kê nộp tiền</div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">7</div>
+          <div class="step-label">7. Xuất file MISA</div>
+        </div>
+      </div>
     </div>
 
-    <div class="box-upload">
+    <!-- MAIN UPLOAD CARD -->
+    <div class="card">
+      <h2 class="page-title">
+        <span>📥</span>
+        <span>Bước 1: Tải dữ liệu xuất từ KiotViet</span>
+      </h2>
+      <p class="page-desc">
+        Chọn hoặc kéo thả file Excel (.xlsx, .xls) xuất từ phần mềm KiotViet. Dữ liệu sẽ được tự động phân tích và chuyển tiếp sang Bước 2 để tạo danh sách thu tiền và phiếu xuất kho.
+      </p>
+
+      <!-- Drag & Drop Zone -->
+      <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileKiotViet').click()">
         <input type="file" id="fileKiotViet" accept=".xlsx, .xls, .csv" style="display: none;" onchange="docFileKiotViet(event)">
-        <button class="btn btn-upload" onclick="document.getElementById('fileKiotViet').click()">📥 Chọn file KiotViet (Excel)</button>
-        <button id="btnXuLy" class="btn btn-process" onclick="xuLyDuLieu()">⚙️ Chạy tự động thêm Danh mục</button>
-        <div id="thongTinFile" style="margin-top: 15px; font-weight: bold; color: #333;"></div>
-    </div>
+        <div class="upload-icon">📊</div>
+        <div class="upload-text">Kéo thả file Excel vào đây hoặc bấm để chọn file</div>
+        <div class="upload-hint">Hỗ trợ định dạng file KiotViet: .xlsx, .xls, .csv</div>
+        <button class="btn btn-blue" type="button">
+          <span>📁</span> Chọn File KiotViet
+        </button>
+        <div id="thongTinFile" style="margin-top: 15px; font-weight: 700; font-size: 14px;"></div>
+      </div>
 
-    <div class="table-container">
-        <table>
+      <!-- KPI Thống Kê Nhanh Sau Khi Upload -->
+      <div class="kpi-row" id="kpiRow">
+        <div class="kpi-card">
+          <div class="kpi-icon blue">📑</div>
+          <div class="kpi-meta">
+            <div class="title">Tổng Hóa Đơn</div>
+            <div class="num" id="kpiHoaDon">0</div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon green">📦</div>
+          <div class="kpi-meta">
+            <div class="title">Dòng Hàng Hóa</div>
+            <div class="num" id="kpiDongHang">0</div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon purple">👥</div>
+          <div class="kpi-meta">
+            <div class="title">Khách Hàng</div>
+            <div class="num" id="kpiKhachHang">0</div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon amber">💰</div>
+          <div class="kpi-meta">
+            <div class="title">Tổng Doanh Số</div>
+            <div class="num" id="kpiDoanhSo">0 đ</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Bar: Nút chuyển tiếp sang Bước 2 -->
+      <div class="action-bar" id="actionBar">
+        <div class="action-bar-info">
+          <span>✅</span>
+          <span id="txtTrangThaiFile">Đã đọc dữ liệu thành công! Bạn có thể chuyển sang Bước 2.</span>
+        </div>
+        <div class="action-btns">
+          <button class="btn btn-primary" onclick="chuyenSangBuoc2()">
+            <span>Tiếp tục: Bước 2 - Điều động xe & Tạo phiếu</span>
+            <span>➡</span>
+          </button>
+          <button class="btn btn-back" id="btnSyncDanhMuc" onclick="dongBoDanhMuc()">
+            <span>⚙️</span> Đồng bộ Danh mục mới
+          </button>
+        </div>
+      </div>
+
+      <!-- Bảng xem trước dữ liệu -->
+      <div id="previewWrap" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h3 style="font-size: 14px; font-weight: 800; color: #334155;">
+            Xem trước 30 dòng đầu tiên của file:
+          </h3>
+          <span id="soDongHienThiText" style="font-size: 12px; color: #64748b;"></span>
+        </div>
+        <div class="table-container">
+          <table>
             <thead id="bangHead"></thead>
             <tbody id="bangBody"></tbody>
-        </table>
-    </div>
-</div>
+          </table>
+        </div>
+      </div>
 
-<script>
+    </div>
+
+  </main>
+
+  <script>
     let duLieuKiotViet = [];
 
-    async function kiemTraQuyen() {
-        const nd = await baoVeTrang();
-        if (!nd) return;
-    }
-
-    async function docFileKiotViet(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        document.getElementById('thongTinFile').innerHTML = "⏳ Đang đọc file...";
-        
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, {type: 'array'});
-                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                
-                // Đọc file từ dòng số 1 (chú ý: tùy file KiotViet mà dòng tiêu đề có thể nằm ở vị trí khác)
-                duLieuKiotViet = XLSX.utils.sheet_to_json(firstSheet, {defval: null});
-
-                if (duLieuKiotViet.length === 0) {
-                    alert("File không có dữ liệu!");
-                    return;
-                }
-
-                document.getElementById('thongTinFile').innerHTML = `✅ Đã đọc thành công ${duLieuKiotViet.length} dòng. Vui lòng kiểm tra các cột bên dưới.`;
-                document.getElementById('btnXuLy').style.display = 'inline-block';
-                
-                hienThiBangTam();
-
-            } catch (error) {
-                alert("Lỗi đọc file: " + error.message);
-            } finally {
-                event.target.value = ''; 
-            }
-        };
-        reader.readAsArrayBuffer(file);
-    }
-
-    function hienThiBangTam() {
-        const thead = document.getElementById('bangHead');
-        const tbody = document.getElementById('bangBody');
-        
-        const cacCot = Object.keys(duLieuKiotViet[0]);
-        let htmlHead = '<tr>';
-        cacCot.forEach(cot => htmlHead += `<th>${cot}</th>`);
-        htmlHead += '</tr>';
-        thead.innerHTML = htmlHead;
-
-        let htmlBody = '';
-        // Chỉ hiển thị 20 dòng đầu để xem trước cho nhẹ trình duyệt
-        const soDongHienThi = Math.min(duLieuKiotViet.length, 20);
-        for (let i = 0; i < soDongHienThi; i++) {
-            htmlBody += '<tr>';
-            cacCot.forEach(cot => {
-                htmlBody += `<td>${duLieuKiotViet[i][cot] !== null ? duLieuKiotViet[i][cot] : ''}</td>`;
-            });
-            htmlBody += '</tr>';
+    // Helper trích xuất cột theo nhiều biến thể tên
+    function layGiaTriCot(row, candidates) {
+      const keys = Object.keys(row);
+      for (let c of candidates) {
+        let cleanCandidate = c.toLowerCase().replace(/[^a-z0-9à-ỹ]/gi, '');
+        for (let k of keys) {
+          let cleanKey = k.toLowerCase().replace(/[^a-z0-9à-ỹ]/gi, '');
+          if (cleanKey === cleanCandidate || cleanKey.includes(cleanCandidate)) {
+            return row[k];
+          }
         }
-        tbody.innerHTML = htmlBody;
+      }
+      return null;
     }
 
-    function xuLyDuLieu() {
-        alert("Nút này sẽ kiểm tra và thêm mã Khách hàng/Hàng hóa mới vào Supabase. Đang chờ xác nhận tên cột từ bạn ở bước sau!");
+    async function khoiTao() {
+      const nd = await baoVeTrang();
+      if (!nd) return;
+
+      // Kiểm tra xem trong sessionStorage đã có sẵn dữ liệu từ trước chưa
+      const cache = sessionStorage.getItem("tmh_kiotviet_data");
+      if (cache) {
+        try {
+          duLieuKiotViet = JSON.parse(cache);
+          if (duLieuKiotViet && duLieuKiotViet.length > 0) {
+            document.getElementById('thongTinFile').innerHTML = 
+              `<span style="color:#16a34a;">🔄 Tìm thấy dữ liệu đã tải gần đây (${duLieuKiotViet.length} dòng).</span>`;
+            capNhatGiaoDienSauKhiCoDuLieu();
+          }
+        } catch (e) {
+          console.warn(e);
+        }
+      }
+
+      // Hỗ trợ kéo thả file
+      const dropZone = document.getElementById('dropZone');
+      ['dragenter', 'dragover'].forEach(name => {
+        dropZone.addEventListener(name, (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+      });
+      ['dragleave', 'drop'].forEach(name => {
+        dropZone.addEventListener(name, (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); });
+      });
+      dropZone.addEventListener('drop', (e) => {
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          docFile(files[0]);
+        }
+      });
     }
 
-    kiemTraQuyen();
-</script>
+    function docFileKiotViet(event) {
+      const file = event.target.files[0];
+      if (file) docFile(file);
+    }
 
+    function docFile(file) {
+      document.getElementById('thongTinFile').innerHTML = '<span style="color:#2563eb;">⏳ Đang đọc file Excel...</span>';
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+
+          duLieuKiotViet = XLSX.utils.sheet_to_json(firstSheet, { defval: null });
+
+          if (!duLieuKiotViet || duLieuKiotViet.length === 0) {
+            alert("File không có dữ liệu!");
+            document.getElementById('thongTinFile').innerHTML = '<span style="color:#dc2626;">❌ File trống!</span>';
+            return;
+          }
+
+          // Lưu vào sessionStorage để truyền sang Bước 2
+          sessionStorage.setItem("tmh_kiotviet_data", JSON.stringify(duLieuKiotViet));
+          sessionStorage.setItem("tmh_kiotviet_filename", file.name);
+
+          document.getElementById('thongTinFile').innerHTML = 
+            `<span style="color:#16a34a;">✅ Đã đọc thành công file "${file.name}" (${duLieuKiotViet.length} dòng dữ liệu).</span>`;
+
+          capNhatGiaoDienSauKhiCoDuLieu();
+
+        } catch (error) {
+          alert("Lỗi đọc file: " + error.message);
+          document.getElementById('thongTinFile').innerHTML = `<span style="color:#dc2626;">❌ Lỗi: ${error.message}</span>`;
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function capNhatGiaoDienSauKhiCoDuLieu() {
+      // 1. Phân tích KPI
+      const hoaDonSet = new Set();
+      const khachHangSet = new Set();
+      let tongDoanhSo = 0;
+
+      duLieuKiotViet.forEach(row => {
+        const maHD = layGiaTriCot(row, ['Mã hóa đơn', 'Mã HĐ', 'Mã chứng từ', 'Số hóa đơn', 'Ma hoa don']);
+        if (maHD) hoaDonSet.add(String(maHD).trim());
+
+        const maKH = layGiaTriCot(row, ['Mã khách hàng', 'Mã KH', 'Mã đối tác', 'Tên khách hàng']);
+        if (maKH) khachHangSet.add(String(maKH).trim());
+
+        const thanhTien = Number(layGiaTriCot(row, ['Thành tiền', 'Khách cần trả', 'Tổng cộng', 'Tổng tiền', 'Doanh số'])) || 0;
+        tongDoanhSo += thanhTien;
+      });
+
+      document.getElementById('kpiHoaDon').textContent = hoaDonSet.size.toLocaleString('vi-VN');
+      document.getElementById('kpiDongHang').textContent = duLieuKiotViet.length.toLocaleString('vi-VN');
+      document.getElementById('kpiKhachHang').textContent = khachHangSet.size.toLocaleString('vi-VN');
+      document.getElementById('kpiDoanhSo').textContent = Math.round(tongDoanhSo).toLocaleString('vi-VN') + ' đ';
+
+      document.getElementById('kpiRow').style.display = 'grid';
+      document.getElementById('actionBar').style.display = 'flex';
+      document.getElementById('previewWrap').style.display = 'block';
+
+      // 2. Vẽ bảng xem trước
+      const thead = document.getElementById('bangHead');
+      const tbody = document.getElementById('bangBody');
+      const cacCot = Object.keys(duLieuKiotViet[0]);
+
+      let htmlHead = '<tr><th>STT</th>';
+      cacCot.forEach(cot => htmlHead += `<th>${cot}</th>`);
+      htmlHead += '</tr>';
+      thead.innerHTML = htmlHead;
+
+      let htmlBody = '';
+      const soDongHienThi = Math.min(duLieuKiotViet.length, 30);
+      document.getElementById('soDongHienThiText').textContent = `Hiển thị ${soDongHienThi} / ${duLieuKiotViet.length} dòng`;
+
+      for (let i = 0; i < soDongHienThi; i++) {
+        htmlBody += `<tr><td style="font-weight:bold; color:#64748b;">${i + 1}</td>`;
+        cacCot.forEach(cot => {
+          let val = duLieuKiotViet[i][cot];
+          htmlBody += `<td>${val !== null ? val : ''}</td>`;
+        });
+        htmlBody += '</tr>';
+      }
+      tbody.innerHTML = htmlBody;
+    }
+
+    function chuyenSangBuoc2() {
+      if (!duLieuKiotViet || duLieuKiotViet.length === 0) {
+        alert("Vui lòng nạp file KiotViet trước!");
+        return;
+      }
+      window.location.href = "buoc2_phieu_xuat_kho.html";
+    }
+
+    // Tự động thêm Khách hàng và Hàng hóa mới vào Supabase
+    async function dongBoDanhMuc() {
+      if (!duLieuKiotViet || duLieuKiotViet.length === 0) return;
+
+      const btn = document.getElementById('btnSyncDanhMuc');
+      btn.disabled = true;
+      btn.innerHTML = '<span>⏳ Đang quét danh mục…</span>';
+
+      try {
+        const danhSachKH = new Map();
+        const danhSachHang = new Map();
+
+        duLieuKiotViet.forEach(r => {
+          const maKH = layGiaTriCot(r, ['Mã khách hàng', 'Mã KH', 'Mã đối tác']);
+          const tenKH = layGiaTriCot(r, ['Tên khách hàng', 'Tên KH', 'Khách hàng']);
+          if (maKH) {
+            danhSachKH.set(String(maKH).trim(), { ma_kh: String(maKH).trim(), ten_kh: tenKH ? String(tenKH).trim() : '' });
+          }
+
+          const maHang = layGiaTriCot(r, ['Mã hàng', 'Mã hàng hóa', 'Mã SP']);
+          const tenHang = layGiaTriCot(r, ['Tên hàng', 'Tên hàng hóa', 'Tên SP']);
+          const quyCach = Number(layGiaTriCot(r, ['Quy cách', 'QuyCach'])) || 1;
+          if (maHang) {
+            danhSachHang.set(String(maHang).trim(), { 
+              ma_hang: String(maHang).trim(), 
+              ten_hang: tenHang ? String(tenHang).trim() : '',
+              quy_cach: quyCach
+            });
+          }
+        });
+
+        let thongBaoText = `Tìm thấy ${danhSachKH.size} khách hàng và ${danhSachHang.size} mặt hàng trong file.\nBạn có muốn đồng bộ (cập nhật nếu chưa có) vào Supabase?`;
+        if (!confirm(thongBaoText)) return;
+
+        if (danhSachKH.size > 0) {
+          await sb.from('khach_hang').upsert(Array.from(danhSachKH.values()));
+        }
+        if (danhSachHang.size > 0) {
+          await sb.from('hang_hoa').upsert(Array.from(danhSachHang.values()));
+        }
+
+        alert("✅ Đã đồng bộ Khách hàng và Hàng hóa mới vào Supabase thành công!");
+      } catch (err) {
+        alert("Lỗi khi đồng bộ danh mục: " + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>⚙️</span> Đồng bộ Danh mục mới';
+      }
+    }
+
+    khoiTao();
+  </script>
 </body>
 </html>
