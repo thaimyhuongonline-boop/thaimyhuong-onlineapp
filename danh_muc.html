@@ -36,7 +36,8 @@
             <option value="dinh_khoan_hang_hoa">Định khoản hàng hóa</option>
             <option value="danh_sach_xe">Danh sách xe</option>
         </select>
-        <button class="btn btn-action" onclick="alert('Chức năng tải file Excel lên đang được xây dựng ở bước kế tiếp!')">📥 Upload từ Excel (Google Sheet/KiotViet)</button>
+        <input type="file" id="fileExcel" accept=".xlsx, .xls, .csv" style="display: none;" onchange="docFileExcel(event)">
+        <button class="btn btn-action" onclick="document.getElementById('fileExcel').click()">📥 Upload từ Excel (Google Sheet/KiotViet)</button>
     </div>
 
     <table>
@@ -96,6 +97,52 @@
             htmlBody += '</tr>';
         });
         tbody.innerHTML = htmlBody;
+    }
+
+    // 3. Xử lý đọc file Excel và đẩy lên Supabase
+    async function docFileExcel(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                
+                // Lấy sheet đầu tiên
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                
+                // Chuyển sheet thành mảng dữ liệu
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet, {defval: null});
+
+                if (jsonData.length === 0) {
+                    alert("File Excel trống, không có dữ liệu!");
+                    return;
+                }
+
+                const tenBang = document.getElementById('chonBang').value;
+                
+                if(!confirm(`Tìm thấy ${jsonData.length} dòng. Bạn có chắc muốn chèn vào bảng "${tenBang}"?`)) {
+                    event.target.value = ''; 
+                    return;
+                }
+
+                // Dùng lệnh upsert: Nếu mã đã tồn tại thì CẬP NHẬT, chưa có thì THÊM MỚI
+                const { error } = await sb.from(tenBang).upsert(jsonData);
+
+                if (error) throw error;
+
+                alert("Tải dữ liệu lên thành công!");
+                taiDuLieu(); // Tự động tải lại bảng để xem kết quả
+
+            } catch (error) {
+                alert("Lỗi khi tải file: " + error.message + "\n\nLƯU Ý: Tên cột (dòng 1) trong Excel phải viết thường và khớp chữ 100% với tên cột trên màn hình web.");
+            } finally {
+                event.target.value = ''; // Reset để chọn lại được file cũ
+            }
+        };
+        reader.readAsArrayBuffer(file);
     }
 
     kiemTraQuyen();
