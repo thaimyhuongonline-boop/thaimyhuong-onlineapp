@@ -530,8 +530,8 @@
           <span style="font-size:12px; color:#16a34a; font-weight:700; background:#ecfdf5; padding:3px 8px; border-radius:12px;" id="badgeTongDon">0 hóa đơn</span>
         </div>
         <div class="panel-controls">
-          <button type="button" class="btn btn-back" style="font-size:11.5px; padding:5px 10px;" onclick="thuDuTienMat()">
-            <span>⚡</span> Thu đủ tiền mặt
+          <button type="button" class="btn btn-back" style="font-size:11.5px; padding:5px 10px;" onclick="moModalCaiDatTK()" title="Cài đặt và sửa danh sách tài khoản ngân hàng nhận tiền">
+            <span>⚙️</span> Cài đặt TK nhận
           </button>
           <button type="button" class="btn btn-back" style="font-size:11.5px; padding:5px 10px;" onclick="datLaiTien()">
             <span>🔄</span> Đặt lại 0đ
@@ -565,18 +565,82 @@
       </div>
     </section>
 
+  <!-- Modal Cài đặt Danh sách Tài khoản nhận -->
+  <div id="modalCaiDatTK" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.6); backdrop-filter:blur(4px); z-index:9999; align-items:center; justify-content:center; padding:16px;">
+    <div style="background:#ffffff; border-radius:16px; width:100%; max-width:540px; max-height:90vh; display:flex; flex-direction:column; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); border:1px solid #e2e8f0;">
+      <div style="padding:18px 22px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <h3 style="margin:0; font-size:16px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+            <span>⚙️</span> Cài đặt Danh sách Tài khoản nhận
+          </h3>
+          <p style="margin:4px 0 0; font-size:12px; color:#64748b;">
+            Tùy chỉnh, sửa số tài khoản hoặc thêm mới ngân hàng nhận tiền.
+          </p>
+        </div>
+        <button onclick="dongModalCaiDatTK()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#94a3b8; line-height:1; padding:4px;">✕</button>
+      </div>
+
+      <div style="padding:18px 22px; overflow-y:auto; flex:1;">
+        <!-- Khối thêm tài khoản mới -->
+        <div style="background:#f8fafc; border:1.5px dashed #cbd5e1; border-radius:10px; padding:12px 14px; margin-bottom:16px;">
+          <label style="font-size:12px; font-weight:700; color:#334155; display:block; margin-bottom:6px;">
+            ➕ Thêm tài khoản mới:
+          </label>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="inputThemTK" placeholder="vd: Techcombank (190366...)" style="flex:1; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:12.5px; outline:none; font-family:inherit;">
+            <button type="button" class="btn btn-green" onclick="themTaiKhoanMoi()" style="padding:8px 14px; font-size:12px;">
+              Thêm
+            </button>
+          </div>
+        </div>
+
+        <!-- Danh sách tài khoản hiện tại -->
+        <label style="font-size:12px; font-weight:700; color:#334155; display:block; margin-bottom:8px;">
+          Danh sách tài khoản đang dùng (bấm trực tiếp vào ô để sửa):
+        </label>
+        <div id="danhSachTKInputs" style="display:flex; flex-direction:column; gap:8px;">
+          <!-- Render danh sách tài khoản -->
+        </div>
+      </div>
+
+      <div style="padding:14px 22px; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border-radius:0 0 16px 16px;">
+        <button type="button" class="btn btn-back" onclick="khoiPhucTKMaoDinh()" style="font-size:11.5px; padding:6px 12px;" title="Khôi phục về danh sách gốc của Thái Mỹ Hương">
+          🔄 Mặc định
+        </button>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="btn btn-back" onclick="dongModalCaiDatTK()">Hủy</button>
+          <button type="button" class="btn btn-blue" onclick="luuDanhSachTK()">💾 Lưu danh sách</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   </main>
 
   <script>
     let dotHienTai = null;
     let danhSachDon = []; // Dữ liệu kiểm đơn của từng hóa đơn
-    const danhSachTaiKhoanNhan = [
+
+    const DEFAULT_TK_NHAN = [
+      "Tiền mặt lái xe",
       "Vietcombank (0041000266096)",
       "BIDV",
       "MB Bank",
-      "Tiền mặt lái xe",
       "Chưa thanh toán"
     ];
+
+    function layDanhSachTaiKhoan() {
+      try {
+        const saved = localStorage.getItem("tmh_danh_sach_tk_nhan");
+        if (saved) {
+          const arr = JSON.parse(saved);
+          if (Array.isArray(arr) && arr.length > 0) return arr;
+        }
+      } catch (e) {}
+      return [...DEFAULT_TK_NHAN];
+    }
+
+    let danhSachTaiKhoanNhan = layDanhSachTaiKhoan();
 
     function formatTien(so) {
       if (so === null || so === undefined || isNaN(so)) return "0";
@@ -629,6 +693,8 @@
     }
 
     function khoiTaoDanhSachChiTiet() {
+      danhSachTaiKhoanNhan = layDanhSachTaiKhoan();
+
       // Nếu đợt đã có dữ liệu đối soát trước đó thì dùng lại
       const savedKiemDonKey = `tmh_kiemdon_${dotHienTai.maDot}`;
       const savedKiemDon = localStorage.getItem(savedKiemDonKey);
@@ -641,9 +707,14 @@
         }
       }
 
-      if (!danhSachDon || danhSachDon.length === 0) {
-        // Lấy từ danhSachChiTiet của Bước 3
-        const nguon = dotHienTai.danhSachChiTiet || [];
+      // Kiểm tra xem dữ liệu đã có số liệu thực thu chưa (nếu chưa có hoặc toàn bộ tiền mặt/CK/trả về đều 0 thì tự động điền tiền mặt)
+      const chuaKiemDonThucTe = !danhSachDon || danhSachDon.length === 0 || 
+        danhSachDon.every(d => (!d.tienMat || Number(d.tienMat) === 0) && (!d.chuyenKhoan || Number(d.chuyenKhoan) === 0) && (!d.traVe || Number(d.traVe) === 0));
+
+      if (chuaKiemDonThucTe) {
+        // TỰ ĐỘNG ĐIỀN ĐỦ TIỀN MẶT vì hầu như khách hàng trả tiền mặt
+        const nguon = (dotHienTai.danhSachChiTiet && dotHienTai.danhSachChiTiet.length > 0) ? dotHienTai.danhSachChiTiet : (danhSachDon || []);
+        const tkMacDinh = danhSachTaiKhoanNhan[0] || "Tiền mặt lái xe";
         danhSachDon = nguon.map((r, idx) => {
           const tt = Number(r.thanhTien) || 0;
           return {
@@ -652,11 +723,11 @@
             tenKH: r.tenKH || '',
             maKH: r.maKH || '',
             thanhTien: tt,
-            tienMat: 0,
+            tienMat: tt, // TỰ ĐỘNG ĐIỀN ĐỦ TIỀN MẶT
             chuyenKhoan: 0,
-            taiKhoanNhan: "Vietcombank (0041000266096)",
+            taiKhoanNhan: tkMacDinh,
             traVe: 0,
-            conNo: tt,
+            conNo: 0, // Đã thu đủ tiền mặt nên còn nợ = 0
             ngayGiao: dotHienTai.ngayGiao || '',
             giaoLai: false
           };
@@ -711,7 +782,8 @@
           </td>
           <td class="text-center">
             <select class="select-tk" onchange="onChangeTK(${idx}, this.value)">
-              ${danhSachTaiKhoanNhan.map(tk => `<option value="${tk}" ${item.taiKhoanNhan === tk ? 'selected' : ''}>${tk}</option>`).join('')}
+              ${danhSachTaiKhoanNhan.map(tk => `<option value="${tk.replace(/"/g, '&quot;')}" ${item.taiKhoanNhan === tk ? 'selected' : ''}>${tk}</option>`).join('')}
+              <option value="__config__" style="color:#2563eb; font-weight:700;">⚙️ Thêm/Sửa tài khoản...</option>
             </select>
           </td>
           <td class="text-center">
@@ -765,24 +837,17 @@
     }
 
     function onChangeTK(idx, val) {
+      if (val === '__config__') {
+        moModalCaiDatTK();
+        veBangKiemDon(danhSachDon);
+        return;
+      }
       danhSachDon[idx].taiKhoanNhan = val;
     }
 
     function onChangeGiaoLai(idx, val) {
       danhSachDon[idx].giaoLai = val;
       veBangKiemDon(danhSachDon);
-    }
-
-    // Thu đủ tiền mặt cho tất cả hóa đơn
-    function thuDuTienMat() {
-      if (confirm("Bạn có muốn điền toàn bộ số tiền còn lại vào 'Tiền mặt' cho các hóa đơn chưa thu?")) {
-        danhSachDon.forEach(item => {
-          const conLai = Math.max(0, item.thanhTien - item.chuyenKhoan - item.traVe);
-          item.tienMat = conLai;
-          item.conNo = 0;
-        });
-        veBangKiemDon(danhSachDon);
-      }
     }
 
     // Đặt lại 0đ
@@ -792,10 +857,112 @@
           item.tienMat = 0;
           item.chuyenKhoan = 0;
           item.traVe = 0;
+          item.conNo = item.thanhTien;
           item.giaoLai = false;
         });
         veBangKiemDon(danhSachDon);
       }
+    }
+
+    // ========================================================
+    // QUẢN LÝ CÀI ĐẶT DANH SÁCH TÀI KHOẢN NHẬN
+    // ========================================================
+    function moModalCaiDatTK() {
+      danhSachTaiKhoanNhan = layDanhSachTaiKhoan();
+      renderDanhSachTKTrongModal();
+      document.getElementById('inputThemTK').value = '';
+      const modal = document.getElementById('modalCaiDatTK');
+      modal.style.display = 'flex';
+      setTimeout(() => document.getElementById('inputThemTK').focus(), 100);
+    }
+
+    function dongModalCaiDatTK() {
+      document.getElementById('modalCaiDatTK').style.display = 'none';
+    }
+
+    function renderDanhSachTKTrongModal() {
+      const container = document.getElementById('danhSachTKInputs');
+      container.innerHTML = '';
+      danhSachTaiKhoanNhan.forEach((tk, idx) => {
+        const row = document.createElement('div');
+        row.style.cssText = "display:flex; gap:8px; align-items:center;";
+        row.innerHTML = `
+          <span style="font-size:12px; font-weight:700; color:#94a3b8; width:22px; text-align:right;">${idx + 1}.</span>
+          <input type="text" class="tk-item-input" value="${tk.replace(/"/g, '&quot;')}" 
+                 style="flex:1; padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12.5px; font-family:inherit; outline:none;"
+                 onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#cbd5e1'">
+          <button type="button" onclick="xoaTaiKhoan(${idx})" style="background:#fee2e2; color:#dc2626; border:1px solid #fecaca; border-radius:6px; padding:6px 10px; cursor:pointer; font-size:12px;" title="Xóa tài khoản này">
+            🗑️
+          </button>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    function themTaiKhoanMoi() {
+      const input = document.getElementById('inputThemTK');
+      const val = input.value.trim();
+      if (!val) {
+        alert("Vui lòng nhập tên hoặc số tài khoản mới!");
+        input.focus();
+        return;
+      }
+      if (danhSachTaiKhoanNhan.includes(val)) {
+        alert("Tài khoản này đã có trong danh sách!");
+        return;
+      }
+      danhSachTaiKhoanNhan.push(val);
+      input.value = '';
+      renderDanhSachTKTrongModal();
+    }
+
+    function xoaTaiKhoan(idx) {
+      if (danhSachTaiKhoanNhan.length <= 1) {
+        alert("Danh sách phải có ít nhất 1 tài khoản!");
+        return;
+      }
+      const ten = danhSachTaiKhoanNhan[idx];
+      if (confirm(`Bạn có chắc muốn xóa "${ten}" khỏi danh sách?`)) {
+        danhSachTaiKhoanNhan.splice(idx, 1);
+        renderDanhSachTKTrongModal();
+      }
+    }
+
+    function khoiPhucTKMaoDinh() {
+      if (confirm("Bạn có muốn khôi phục về danh sách tài khoản mặc định của Thái Mỹ Hương?")) {
+        danhSachTaiKhoanNhan = [...DEFAULT_TK_NHAN];
+        renderDanhSachTKTrongModal();
+      }
+    }
+
+    function luuDanhSachTK() {
+      const inputs = document.querySelectorAll('.tk-item-input');
+      const danhSachMoi = [];
+      inputs.forEach(inp => {
+        const v = inp.value.trim();
+        if (v && !danhSachMoi.includes(v)) {
+          danhSachMoi.push(v);
+        }
+      });
+
+      if (danhSachMoi.length === 0) {
+        alert("Vui lòng giữ ít nhất 1 tài khoản!");
+        return;
+      }
+
+      danhSachTaiKhoanNhan = danhSachMoi;
+      localStorage.setItem("tmh_danh_sach_tk_nhan", JSON.stringify(danhSachTaiKhoanNhan));
+
+      // Cập nhật lại các dòng nếu tài khoản cũ bị đổi hoặc xóa
+      danhSachDon.forEach(d => {
+        if (!danhSachTaiKhoanNhan.includes(d.taiKhoanNhan)) {
+          d.taiKhoanNhan = danhSachTaiKhoanNhan[0];
+        }
+      });
+
+      veBangKiemDon(danhSachDon);
+      dongModalCaiDatTK();
+      alert("✅ Đã lưu và cập nhật danh sách tài khoản nhận thành công!");
     }
 
     function locDanhSachDon() {
