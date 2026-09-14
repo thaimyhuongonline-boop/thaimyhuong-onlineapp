@@ -1,1 +1,155 @@
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9lZGlkbmN0bnRlZWVna2Rjd2FhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzMzE3MTYsImV4cCI6MjEwNDkwNzcxNn0.3ZO5ZO9_VJ7vsr9qC586kXl4XAbDCjQcamP66FkDkTE";
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đăng nhập — THÁI MỸ HƯƠNG</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, "Segoe UI", sans-serif;
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 50%, #a7f3d0 100%);
+      padding: 16px;
+    }
+    .card {
+      background: #fff; width: 100%; max-width: 400px; border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(16,185,129,.18); padding: 32px 28px; text-align: center;
+    }
+    .logo { width: 96px; height: 96px; margin: 0 auto 10px; }
+    h1 { color: #15803d; font-size: 22px; letter-spacing: 1px; }
+    .sub { color: #6b7280; font-size: 13px; margin: 4px 0 22px; }
+    label { display: block; text-align: left; font-size: 13px; font-weight: bold; color: #374151; margin: 14px 0 6px; }
+    input {
+      width: 100%; padding: 12px 14px; font-size: 15px; border: 1px solid #d1d5db;
+      border-radius: 8px; outline: none; transition: .15s;
+    }
+    input:focus { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,.15); }
+    button {
+      width: 100%; margin-top: 22px; padding: 13px; font-size: 16px; font-weight: bold;
+      color: #fff; background: #16a34a; border: none; border-radius: 8px; cursor: pointer; transition: .15s;
+    }
+    button:hover { background: #15803d; }
+    button:disabled { background: #9ca3af; cursor: default; }
+    #thongBao {
+      display: none; margin-top: 18px; padding: 12px; border-radius: 8px;
+      font-size: 13px; line-height: 1.5; white-space: pre-line;
+    }
+    .loi { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+    .ok  { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+    .chan { margin-top: 20px; font-size: 11px; color: #9ca3af; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <!-- LOGO: cây may mắn 4 lá. Muốn dùng logo thật: tải logo.png lên repo,
+         rồi thay cả khối <svg>...</svg> này bằng: <img src="logo.png" class="logo"> -->
+    <svg class="logo" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="100" cy="100" r="94" fill="none" stroke="#8bc34a" stroke-width="6"/>
+      <g transform="translate(100,92)">
+        <path d="M0,-6 C-8,-40 -46,-40 -46,-14 C-46,2 -22,6 0,-6 Z" fill="#22c55e"/>
+        <path d="M0,-6 C8,-40 46,-40 46,-14 C46,2 22,6 0,-6 Z" fill="#16a34a"/>
+        <path d="M-6,0 C-40,-8 -40,-46 -14,-46 C2,-46 6,-22 -6,0 Z" fill="#4ade80"/>
+        <path d="M6,0 C40,-8 40,-46 14,-46 C-2,-46 -6,-22 6,0 Z" fill="#15803d"/>
+      </g>
+      <path d="M100,96 C96,120 90,140 78,158" fill="none" stroke="#0e7490" stroke-width="7" stroke-linecap="round"/>
+    </svg>
+
+    <h1>THÁI MỸ HƯƠNG</h1>
+    <p class="sub">Hệ thống xử lý dữ liệu · Đăng nhập</p>
+
+    <label for="taiKhoan">Tài khoản (Email hoặc Số điện thoại)</label>
+    <input id="taiKhoan" type="text" placeholder="vd: 0905123456" autocomplete="username">
+
+    <label for="matKhau">Mật khẩu</label>
+    <input id="matKhau" type="password" placeholder="Nhập mật khẩu" autocomplete="current-password">
+
+    <button id="btnDangNhap">ĐĂNG NHẬP</button>
+
+    <div id="thongBao"></div>
+
+    <div class="chan">© THÁI MỸ HƯƠNG LIMITED</div>
+  </div>
+
+  <script>
+    // ================== CẤU HÌNH SUPABASE ==================
+    // 1) URL: kiểm tra đúng với Settings → API → Project URL
+    const SUPABASE_URL = "https://oedidnctnteeegkdcwaa.supabase.co";
+    // 2) DÁN khóa "anon public" từ Settings → API vào giữa 2 dấu nháy dưới đây:
+    const SUPABASE_ANON_KEY = "DÁN_ANON_PUBLIC_KEY_VÀO_ĐÂY";
+    // ======================================================
+
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // Số điện thoại → email nội bộ (để dùng chung hệ đăng nhập của Supabase).
+    // Có "@" nghĩa là đã là email → dùng thẳng.
+    function taiKhoanThanhEmail(tk) {
+      tk = (tk || "").trim();
+      if (tk.indexOf("@") !== -1) return tk;
+      var so = tk.replace(/[^0-9]/g, "");
+      return so + "@thaimyhuong.local";
+    }
+
+    function bao(text, loai) {
+      var el = document.getElementById("thongBao");
+      el.className = (loai === "ok") ? "ok" : "loi";
+      el.textContent = text;
+      el.style.display = "block";
+    }
+
+    async function dangNhap() {
+      var tk = document.getElementById("taiKhoan").value;
+      var mk = document.getElementById("matKhau").value;
+      if (!tk || !mk) { bao("Vui lòng nhập đủ tài khoản và mật khẩu.", "loi"); return; }
+
+      var btn = document.getElementById("btnDangNhap");
+      btn.disabled = true; btn.textContent = "Đang đăng nhập…";
+
+      try {
+        var email = taiKhoanThanhEmail(tk);
+        var res = await client.auth.signInWithPassword({ email: email, password: mk });
+        if (res.error) {
+          bao("❌ Sai tài khoản hoặc mật khẩu.", "loi");
+          return;
+        }
+
+        // Đọc hồ sơ để lấy vai trò + trạng thái
+        var uid = res.data.user.id;
+        var hs = await client.from("ho_so")
+                             .select("ho_ten, vai_tro, trang_thai")
+                             .eq("id", uid).single();
+
+        if (hs.error || !hs.data) {
+          await client.auth.signOut();
+          bao("⚠️ Tài khoản chưa được cấp hồ sơ/quyền. Báo quản trị viên.", "loi");
+          return;
+        }
+        if (hs.data.trang_thai === "khoa") {
+          await client.auth.signOut();
+          bao("🔒 Tài khoản đang bị KHÓA. Liên hệ quản trị viên.", "loi");
+          return;
+        }
+
+        var ten = {admin:"Quản trị", quanly:"Cấp quản lý", nhanvien:"Nhân viên"}[hs.data.vai_tro] || hs.data.vai_tro;
+        bao("✅ Đăng nhập thành công!\nXin chào: " + (hs.data.ho_ten || tk) +
+            "\nVai trò: " + ten +
+            "\n\n(Trang chủ sẽ được dựng ở bước sau — hiện chỉ kiểm tra đăng nhập.)", "ok");
+
+        // BƯỚC SAU: khi có trang chủ, mở dòng dưới để tự chuyển trang:
+        // window.location.href = "trang_chu.html";
+
+      } catch (e) {
+        bao("❌ Lỗi kết nối: " + e.message, "loi");
+      } finally {
+        btn.disabled = false; btn.textContent = "ĐĂNG NHẬP";
+      }
+    }
+
+    document.getElementById("btnDangNhap").addEventListener("click", dangNhap);
+    document.getElementById("matKhau").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") dangNhap();
+    });
+  </script>
+</body>
+</html>
