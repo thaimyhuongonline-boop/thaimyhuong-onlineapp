@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý Tài khoản - Thái Mỹ Hương</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <style>
+        body { font-family: sans-serif; background-color: #f4f7f6; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 20px; }
+        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; color: white; }
+        .btn-back { background-color: #6c757d; }
+        .btn-add { background-color: #28a745; }
+        .btn-lock { background-color: #dc3545; padding: 4px 8px; font-size: 12px;}
+        .btn-unlock { background-color: #17a2b8; padding: 4px 8px; font-size: 12px;}
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background-color: #f8f9fa; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; }
+        .form-group input, .form-group select { width: 100%; padding: 8px; box-sizing: border-box; }
+        #addForm { background: #f9f9f9; padding: 15px; border: 1px solid #ddd; margin-bottom: 20px; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h2>Quản lý Tài khoản</h2>
+        <div>
+            <button class="btn btn-back" onclick="window.location.href='trang_chu.html'">⬅ Quay lại</button>
+            <button class="btn btn-add" onclick="toggleForm()">+ Tạo tài khoản</button>
+        </div>
+    </div>
+
+    <!-- Form tạo tài khoản mới -->
+    <div id="addForm">
+        <h3>Thêm nhân viên mới</h3>
+        <div class="form-group">
+            <label>Họ và Tên:</label>
+            <input type="text" id="hoten" required>
+        </div>
+        <div class="form-group">
+            <label>Số điện thoại (dùng để đăng nhập):</label>
+            <input type="text" id="sdt" required>
+        </div>
+        <div class="form-group">
+            <label>Mật khẩu:</label>
+            <input type="password" id="matkhau" required>
+        </div>
+        <div class="form-group">
+            <label>Vai trò:</label>
+            <select id="vaitro">
+                <option value="nhanvien">Nhân viên</option>
+                <option value="quanly">Quản lý</option>
+                <option value="admin">Admin</option>
+            </select>
+        </div>
+        <button class="btn btn-add" onclick="taoTaiKhoan()">Lưu tài khoản</button>
+    </div>
+
+    <!-- Bảng danh sách -->
+    <table>
+        <thead>
+            <tr>
+                <th>Họ tên</th>
+                <th>SĐT</th>
+                <th>Vai trò</th>
+                <th>Trạng thái</th>
+                <th>Thao tác</th>
+            </tr>
+        </thead>
+        <tbody id="danhSachUser">
+            <tr><td colspan="5">Đang tải dữ liệu...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    // 1. Kiểm tra đăng nhập và quyền admin
+    async function kiemTraQuyen() {
+        const user = await baoVeTrang();
+        if (!user) return;
+        
+        const { data, error } = await supabaseClient.from('ho_so').select('vai_tro').eq('id', user.id).single();
+        if (error || data.vai_tro !== 'admin') {
+            alert("Bạn không có quyền truy cập trang này!");
+            window.location.href = 'trang_chu.html';
+            return;
+        }
+        taiDanhSachUser();
+    }
+
+    // 2. Tải danh sách người dùng từ bảng ho_so
+    async function taiDanhSachUser() {
+        const { data, error } = await supabaseClient.from('ho_so').select('*').order('tao_luc', { ascending: false });
+        if (error) {
+            alert("Lỗi tải danh sách: " + error.message);
+            return;
+        }
+        
+        const tbody = document.getElementById('danhSachUser');
+        tbody.innerHTML = '';
+        data.forEach(u => {
+            const row = `<tr>
+                <td>${u.ho_ten}</td>
+                <td>${u.so_dien_thoai}</td>
+                <td>${u.vai_tro}</td>
+                <td>${u.trang_thai === 'hoat_dong' ? '🟢 Hoạt động' : '🔴 Bị khóa'}</td>
+                <td>
+                    ${u.trang_thai === 'hoat_dong' 
+                        ? `<button class="btn btn-lock" onclick="doiTrangThai('${u.id}', 'bi_khoa')">Khóa</button>`
+                        : `<button class="btn btn-unlock" onclick="doiTrangThai('${u.id}', 'hoat_dong')">Mở khóa</button>`
+                    }
+                </td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+    }
+
+    // Mở/đóng form nhập
+    function toggleForm() {
+        const form = document.getElementById('addForm');
+        form.style.display = form.style.display === 'block' ? 'none' : 'block';
+    }
+
+    // 3. Gọi Edge Function để tạo tài khoản
+    async function taoTaiKhoan() {
+        const hoten = document.getElementById('hoten').value;
+        const sdt = document.getElementById('sdt').value;
+        const matkhau = document.getElementById('matkhau').value;
+        const vaitro = document.getElementById('vaitro').value;
+
+        if (!hoten || !sdt || !matkhau) return alert("Vui lòng điền đủ thông tin!");
+
+        try {
+            // Chú ý: Gọi đúng tên function là 'dynamic-responder' như bạn đã tạo
+            const { data, error } = await supabaseClient.functions.invoke('dynamic-responder', {
+                body: { action: 'create', ho_ten: hoten, sdt: sdt, mat_khau: matkhau, vai_tro: vaitro }
+            });
+
+            if (error) throw error;
+            if (data.error) throw new Error(data.error);
+
+            alert("Tạo tài khoản thành công!");
+            document.getElementById('hoten').value = '';
+            document.getElementById('sdt').value = '';
+            document.getElementById('matkhau').value = '';
+            toggleForm();
+            taiDanhSachUser();
+        } catch (err) {
+            alert("Lỗi: " + err.message);
+        }
+    }
+
+    // 4. Gọi Edge Function để Khóa/Mở tài khoản
+    async function doiTrangThai(userId, trangThaiMoi) {
+        if (!confirm(`Bạn có chắc muốn ${trangThaiMoi === 'bi_khoa' ? 'KHÓA' : 'MỞ KHÓA'} tài khoản này?`)) return;
+
+        try {
+            const { data, error } = await supabaseClient.functions.invoke('dynamic-responder', {
+                body: { action: 'toggle_status', user_id: userId, trang_thai: trangThaiMoi }
+            });
+
+            if (error) throw error;
+            if (data.error) throw new Error(data.error);
+
+            taiDanhSachUser();
+        } catch (err) {
+            alert("Lỗi: " + err.message);
+        }
+    }
+
+    // Chạy khi mở trang
+    kiemTraQuyen();
+</script>
+
+</body>
+</html>
