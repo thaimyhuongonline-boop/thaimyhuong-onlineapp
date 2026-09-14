@@ -121,11 +121,15 @@
       justify-content: center;
       box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
       flex-shrink: 0;
+      padding: 4px;
+      overflow: hidden;
     }
 
-    .brand-logo-svg {
-      width: 48px;
-      height: 48px;
+    .brand-logo-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 50%;
     }
 
     .company-title {
@@ -491,17 +495,7 @@
       <div class="brand-side-content">
         <div class="brand-header">
           <div class="brand-logo-wrap">
-            <!-- Logo Cỏ 4 Lá Thái Mỹ Hương SVG tinh xảo theo nhận diện thương hiệu -->
-            <svg class="brand-logo-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="100" cy="100" r="94" fill="#ffffff" stroke="#8bc34a" stroke-width="6"/>
-              <g transform="translate(100,92)">
-                <path d="M0,-6 C-8,-40 -46,-40 -46,-14 C-46,2 -22,6 0,-6 Z" fill="#22c55e"/>
-                <path d="M0,-6 C8,-40 46,-40 46,-14 C46,2 22,6 0,-6 Z" fill="#16a34a"/>
-                <path d="M-6,0 C-40,-8 -40,-46 -14,-46 C2,-46 6,-22 -6,0 Z" fill="#4ade80"/>
-                <path d="M6,0 C40,-8 40,-46 14,-46 C-2,-46 -6,-22 6,0 Z" fill="#15803d"/>
-              </g>
-              <path d="M100,96 C96,120 90,140 78,158" fill="none" stroke="#0e7490" stroke-width="7" stroke-linecap="round"/>
-            </svg>
+            <img src="logo.png" alt="Logo Thái Mỹ Hương" class="brand-logo-img">
           </div>
           <div>
             <h1 class="company-title">CÔNG TY TNHH THÁI MỸ HƯƠNG</h1>

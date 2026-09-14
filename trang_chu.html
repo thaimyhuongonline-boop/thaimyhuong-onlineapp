@@ -116,11 +116,15 @@
       justify-content: center;
       flex-shrink: 0;
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+      padding: 2px;
+      overflow: hidden;
     }
 
-    .sidebar-logo svg {
-      width: 30px;
-      height: 30px;
+    .sidebar-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 50%;
     }
 
     .sidebar-brand-text {
@@ -867,16 +871,7 @@
         <!-- Header Sidebar -->
         <div class="sidebar-header">
           <div class="sidebar-logo">
-            <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="100" cy="100" r="94" fill="#ffffff" stroke="#8bc34a" stroke-width="6"/>
-              <g transform="translate(100,92)">
-                <path d="M0,-6 C-8,-40 -46,-40 -46,-14 C-46,2 -22,6 0,-6 Z" fill="#22c55e"/>
-                <path d="M0,-6 C8,-40 46,-40 46,-14 C46,2 22,6 0,-6 Z" fill="#16a34a"/>
-                <path d="M-6,0 C-40,-8 -40,-46 -14,-46 C2,-46 6,-22 -6,0 Z" fill="#4ade80"/>
-                <path d="M6,0 C40,-8 40,-46 14,-46 C-2,-46 -6,-22 6,0 Z" fill="#15803d"/>
-              </g>
-              <path d="M100,96 C96,120 90,140 78,158" fill="none" stroke="#0e7490" stroke-width="7" stroke-linecap="round"/>
-            </svg>
+            <img src="logo.png" alt="Logo Thái Mỹ Hương">
           </div>
           <div class="sidebar-brand-text">
             <h2>THÁI MỸ HƯƠNG</h2>
