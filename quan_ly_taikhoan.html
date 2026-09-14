@@ -462,7 +462,22 @@
                 return;
             }
 
-            // Trường hợp 2: Đổi mật khẩu cho tài khoản khác thông qua Edge Function dynamic-responder
+            // Trường hợp 2: Thử gọi qua Database RPC (nếu đã kích hoạt trên Supabase SQL Editor)
+            try {
+                const { data: rpcData, error: rpcError } = await sb.rpc('doi_mat_khau_admin', {
+                    target_user_id: userId,
+                    mat_khau_moi: matKhauMoi
+                });
+                if (!rpcError && rpcData && rpcData.success) {
+                    alert('✅ Đã cập nhật mật khẩu mới thành công!');
+                    dongModalDoiMatKhau();
+                    return;
+                }
+            } catch (eRpc) {
+                console.warn("RPC doi_mat_khau_admin chưa khả dụng, thử tiếp Edge Function...", eRpc);
+            }
+
+            // Trường hợp 3: Đổi mật khẩu cho tài khoản khác thông qua Edge Function dynamic-responder
             let res = await sb.functions.invoke('dynamic-responder', {
                 body: {
                     action: 'update_password',
@@ -496,7 +511,18 @@
             alert('✅ Đã cập nhật mật khẩu mới thành công!');
             dongModalDoiMatKhau();
         } catch (err) {
-            errEl.textContent = 'Lỗi đổi mật khẩu: ' + err.message;
+            const errText = err.message || '';
+            if (errText.includes('không hợp lệ') || errText.includes('action')) {
+                errEl.innerHTML = `
+                    <div style="font-weight:700; margin-bottom: 4px;">⚠️ Supabase Edge Function chưa có nhánh "update_password"</div>
+                    <div style="font-size: 12px; color: #7f1d1d; line-height: 1.4;">
+                        Hiện tại backend Supabase chỉ có chức năng tạo và khóa, chưa bổ sung quyền sửa mật khẩu của tài khoản khác.<br>
+                        Vui lòng chạy lệnh SQL (xem tin nhắn) trong <strong>Supabase SQL Editor</strong> hoặc cập nhật Edge Function là xong ngay.
+                    </div>
+                `;
+            } else {
+                errEl.textContent = 'Lỗi: ' + errText;
+            }
             errEl.style.display = 'block';
         } finally {
             btnLuu.disabled = false;
