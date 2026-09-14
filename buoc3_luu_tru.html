@@ -372,6 +372,40 @@
       background: #ecfdf5;
       color: var(--primary);
     }
+
+    @media print {
+      @page {
+        size: A4 landscape;
+        margin: 6mm 5mm;
+      }
+      body {
+        background: #ffffff !important;
+        padding: 0 !important;
+      }
+      .topbar, .stepper-card, .hero-banner, .panel-actions, .btn, .card-panel:nth-of-type(2) {
+        display: none !important;
+      }
+      .container {
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .card-panel {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+      }
+      .table-container {
+        border: none !important;
+        max-height: none !important;
+        overflow: visible !important;
+      }
+      .excel-table th, .excel-table td {
+        border: 1px solid #000000 !important;
+        font-size: 8.5px !important;
+        padding: 4px 3px !important;
+      }
+    }
   </style>
 </head>
 <body>

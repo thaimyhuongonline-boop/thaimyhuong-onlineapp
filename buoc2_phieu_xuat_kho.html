@@ -584,15 +584,16 @@
 
     /* ========================================================
        CHỈNH SỬA CSS IN ẤN CHUẨN A4 TRANG ĐỨNG (PORTRAIT): 
+       - Trang in khổ đứng A4 portrait vừa khít lề (HP LaserJet)
        - Cố định tfoot chỉ hiện 1 lần ở cuối bảng, KHÔNG lặp mỗi trang
-       - Trang in khổ đứng A4 portrait vừa khít lề
        - Giãn cách dòng lớn hơn và đều nhau cho đẹp, rõ ràng
+       - Chiều cao dòng tối thiểu đồng đều (30px) cho mọi hàng
        - Chỉ in đúng biểu mẫu đang hiển thị
        ======================================================== */
     @media print {
       @page {
-        size: A4 portrait;
-        margin: 6mm 5mm 6mm 5mm;
+        size: A4 portrait !important;
+        margin: 8mm 6mm 8mm 6mm !important;
       }
 
       body {
@@ -633,6 +634,32 @@
         width: 100% !important;
       }
 
+      /* Tiêu đề biểu mẫu khi in */
+      .doc-brand-header {
+        margin-bottom: 6px !important;
+      }
+      .doc-company-name {
+        font-size: 13px !important;
+        font-weight: 800 !important;
+        color: #000000 !important;
+      }
+      .doc-company-meta {
+        font-size: 10px !important;
+        color: #333333 !important;
+      }
+      .doc-title {
+        font-size: 15px !important;
+        font-weight: 800 !important;
+        margin-bottom: 8px !important;
+        color: #000000 !important;
+        text-align: center !important;
+      }
+      .doc-dispatch-meta {
+        font-size: 10.5px !important;
+        margin-bottom: 8px !important;
+        color: #000000 !important;
+      }
+
       /* Chỉ in đúng tab đang được kích hoạt */
       body.print-mode-bangke #tabContentBangKe {
         display: block !important;
@@ -669,19 +696,51 @@
         font-size: 9.5px !important;
       }
 
+      /* Hàng trong thân bảng: Chiều cao đồng đều, giãn cách dòng lớn đẹp mắt */
+      .doc-table tbody tr {
+        height: 29px !important;
+      }
+
       .doc-table th, .doc-table td {
-        border: 1px solid #0f172a !important;
-        padding: 6px 4px !important; /* Giãn cách dòng lớn hơn và đều nhau cho đẹp */
+        border: 1px solid #000000 !important;
+        padding: 5px 4px !important; /* Giãn cách đều nhau, rộng rãi, cân đối */
         vertical-align: middle !important;
-        line-height: 1.35 !important;
+        line-height: 1.4 !important;
         word-break: break-word !important;
+        color: #000000 !important;
+      }
+
+      .doc-table thead tr {
+        height: 32px !important;
       }
 
       .doc-table th {
         background-color: #f1f5f9 !important;
         color: #000000 !important;
         font-weight: 800 !important;
-        padding: 7px 4px !important;
+        padding: 6px 4px !important;
+        text-align: center !important;
+      }
+
+      .doc-table tfoot tr {
+        height: 32px !important;
+        background-color: #f1f5f9 !important;
+        font-weight: 800 !important;
+      }
+
+      .doc-table tfoot td {
+        padding: 6px 4px !important;
+        vertical-align: middle !important;
+        border: 1px solid #000000 !important;
+      }
+
+      .tag-km, .tag-hd {
+        border: 1px solid #000000 !important;
+        color: #000000 !important;
+        background: transparent !important;
+        font-size: 8px !important;
+        padding: 1px 3px !important;
+        font-weight: 700 !important;
       }
     }
 
@@ -912,16 +971,16 @@
 
             <table class="doc-table">
               <colgroup>
-                <col style="width: 5%;">
-                <col style="width: 12%;">
-                <col style="width: 12%;">
+                <col style="width: 4%;">
+                <col style="width: 11.5%;">
+                <col style="width: 11.5%;">
                 <col style="width: 23%;">
                 <col style="width: 16%;">
                 <col style="width: 8.5%;">
                 <col style="width: 6.5%;">
                 <col style="width: 5%;">
-                <col style="width: 9%;">
-                <col style="width: 3%;">
+                <col style="width: 9.5%;">
+                <col style="width: 4.5%;">
               </colgroup>
               <thead>
                 <tr>

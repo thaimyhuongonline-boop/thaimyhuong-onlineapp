@@ -387,59 +387,6 @@
       gap: 22px;
     }
 
-    /* KPI Summary Row (4 chỉ số ngắn gọn, đẹp mắt) */
-    .kpi-row {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 14px;
-    }
-
-    .kpi-box {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-md);
-      padding: 16px 20px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      box-shadow: var(--shadow-card);
-    }
-
-    .kpi-box-icon {
-      width: 42px;
-      height: 42px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 19px;
-      flex-shrink: 0;
-    }
-
-    .kpi-box-icon.green { background: #e8f5e9; color: var(--primary); }
-    .kpi-box-icon.amber { background: #fffbeb; color: #b45309; }
-    .kpi-box-icon.purple { background: #f5f3ff; color: #7c3aed; }
-    .kpi-box-icon.blue { background: #eff6ff; color: #2563eb; }
-
-    .kpi-box-info {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .kpi-box-info .kpi-label {
-      font-size: 11.5px;
-      color: var(--text-muted);
-      font-weight: 600;
-    }
-
-    .kpi-box-info .kpi-val {
-      font-size: 16.5px;
-      font-weight: 800;
-      color: var(--text-main);
-      line-height: 1.2;
-      margin-top: 2px;
-    }
-
     /* ========================================================
        TRỌNG TÂM DUY NHẤT: BẢNG TIẾN TRÌNH LIÊN HOÀN 7 BƯỚC
        (KHÔNG CÒN TRÙNG LẶP, GIAO DIỆN CỰC KỲ SẠCH VÀ SANG)
@@ -616,71 +563,6 @@
       cursor: not-allowed;
     }
 
-    /* Section Quản Trị & Cấu Hình */
-    .admin-quick-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 14px;
-    }
-
-    .admin-quick-card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-md);
-      padding: 16px 20px;
-      cursor: pointer;
-      transition: var(--transition);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
-      box-shadow: var(--shadow-card);
-      text-decoration: none;
-    }
-
-    .admin-quick-card:hover {
-      border-color: #cbd5e1;
-      transform: translateY(-2px);
-      background: #f8fafc;
-    }
-
-    .admin-card-left {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .admin-card-icon {
-      width: 38px;
-      height: 38px;
-      border-radius: 8px;
-      background: #f1f5f9;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      flex-shrink: 0;
-    }
-
-    .admin-card-text strong {
-      font-size: 13px;
-      font-weight: 800;
-      color: var(--text-main);
-      display: block;
-      margin-bottom: 2px;
-    }
-
-    .admin-card-text span {
-      font-size: 11.5px;
-      color: var(--text-muted);
-    }
-
-    .admin-card-arrow {
-      font-size: 14px;
-      color: var(--primary);
-      font-weight: 800;
-    }
-
     /* Container ẩn dành cho JS tương thích ngược */
     #luoiChucNang, #sidebarQuyTrinhItems, #sidebarQuanTriItems {
       display: none;
@@ -850,41 +732,6 @@
 
         <!-- Thân Trang Dashboard -->
         <main class="dashboard-body">
-          
-          <!-- Hàng 4 Thẻ Chỉ Số KPIs -->
-          <div class="kpi-row">
-            <div class="kpi-box">
-              <div class="kpi-box-icon green">📦</div>
-              <div class="kpi-box-info">
-                <div class="kpi-label">Quy trình nghiệp vụ</div>
-                <div class="kpi-val">7 Bước Liên Hoàn</div>
-              </div>
-            </div>
-
-            <div class="kpi-box">
-              <div class="kpi-box-icon amber">📚</div>
-              <div class="kpi-box-info">
-                <div class="kpi-label">Danh mục quản lý</div>
-                <div class="kpi-val">4 Bảng Dữ Liệu</div>
-              </div>
-            </div>
-
-            <div class="kpi-box">
-              <div class="kpi-box-icon purple">👤</div>
-              <div class="kpi-box-info">
-                <div class="kpi-label">Vai trò tài khoản</div>
-                <div class="kpi-val" id="kpiVaiTro">Nhân viên</div>
-              </div>
-            </div>
-
-            <div class="kpi-box">
-              <div class="kpi-box-icon blue">🏦</div>
-              <div class="kpi-box-info">
-                <div class="kpi-label">Tài khoản Vietcombank</div>
-                <div class="kpi-val" style="font-size: 15px; font-weight: 800; color: #1e3a8a;">0041000266096</div>
-              </div>
-            </div>
-          </div>
 
           <!-- TRỌNG TÂM DUY NHẤT: BẢNG TIẾN TRÌNH LIÊN HOÀN 7 BƯỚC -->
           <section class="workflow-master-card">
@@ -892,9 +739,9 @@
               <div>
                 <h2>
                   <span>⚡</span>
-                  <span>TIẾN TRÌNH XỬ LÝ LIÊN HOÀN 7 BƯỚC NGHIỆP VỤ</span>
+                  <span>TIẾN TRÌNH XỬ LÝ 7 BƯỚC LIÊN HOÀN (KIOTVIET ➡ MISA)</span>
                 </h2>
-                <span>Nhấn vào các bước sẵn sàng bên dưới để thực hiện quy trình theo thứ tự liên hoàn:</span>
+                <span>Nhấp vào nút thực hiện ở từng bước theo thứ tự nghiệp vụ:</span>
               </div>
             </div>
 
@@ -963,8 +810,7 @@
                   </div>
                 </div>
                 <div class="step-right-action">
-                  <span class="status-badge dev">⏳ Đang xây dựng</span>
-                  <button class="btn-step-action disabled">Chờ kết nối</button>
+                  <span class="status-badge dev">⏳ Sắp kết nối</span>
                 </div>
               </div>
 
@@ -980,8 +826,7 @@
                   </div>
                 </div>
                 <div class="step-right-action">
-                  <span class="status-badge dev">⏳ Đang xây dựng</span>
-                  <button class="btn-step-action disabled">Chờ kết nối</button>
+                  <span class="status-badge dev">⏳ Sắp kết nối</span>
                 </div>
               </div>
 
@@ -997,8 +842,7 @@
                   </div>
                 </div>
                 <div class="step-right-action">
-                  <span class="status-badge dev">⏳ Đang xây dựng</span>
-                  <button class="btn-step-action disabled">Chờ kết nối</button>
+                  <span class="status-badge dev">⏳ Sắp kết nối</span>
                 </div>
               </div>
 
@@ -1014,66 +858,29 @@
                   </div>
                 </div>
                 <div class="step-right-action">
-                  <span class="status-badge dev">⏳ Đang xây dựng</span>
-                  <button class="btn-step-action disabled">Chờ kết nối</button>
+                  <span class="status-badge dev">⏳ Sắp kết nối</span>
                 </div>
               </div>
 
             </div>
           </section>
 
-          <!-- Khu Vực Quản Trị Phụ Trợ (Gọn Gàng 3 Card) -->
-          <div class="admin-quick-grid">
-            <a href="danh_muc.html" class="admin-quick-card">
-              <div class="admin-card-left">
-                <div class="admin-card-icon">📚</div>
-                <div class="admin-card-text">
-                  <strong>Danh mục dữ liệu</strong>
-                  <span>Khách hàng, Hàng hóa, Xe, Định khoản</span>
-                </div>
-              </div>
-              <div class="admin-card-arrow">➡</div>
-            </a>
+          <!-- Phần tử ẩn giữ chỗ tương thích JS -->
+          <div style="display:none;" id="kpiVaiTro"></div>
 
-            <a href="quan_ly_taikhoan.html" class="admin-quick-card">
-              <div class="admin-card-left">
-                <div class="admin-card-icon">👤</div>
-                <div class="admin-card-text">
-                  <strong>Quản lý tài khoản</strong>
-                  <span>Cấp vai trò, phân quyền nhân viên</span>
-                </div>
-              </div>
-              <div class="admin-card-arrow">➡</div>
-            </a>
-
-            <div class="admin-quick-card" onclick="alert('Tính năng Theo dõi công nợ đang được phát triển.')">
-              <div class="admin-card-left">
-                <div class="admin-card-icon">💰</div>
-                <div class="admin-card-text">
-                  <strong>Theo dõi công nợ</strong>
-                  <span>Hạn mức thanh toán và đối chiếu công nợ</span>
-                </div>
-              </div>
-              <div class="admin-card-arrow">⏳</div>
-            </div>
-          </div>
-
-          <!-- Thông Tin Công Ty Chân Trang -->
+          <!-- Thông Tin Công Ty Chân Trang (Gọn gàng, tinh tế) -->
           <footer class="company-footer-card">
             <div>
               <strong>🌿 CÔNG TY TNHH THÁI MỸ HƯƠNG</strong>
-              <span>Mã số thuế: <b>4001085814</b></span><br>
-              <span>Địa chỉ: 291 Văn Tiến Dũng, P. Hòa Xuân, TP Đà Nẵng</span>
+              <span>Mã số thuế: <b>4001085814</b> — 291 Văn Tiến Dũng, P. Hòa Xuân, TP Đà Nẵng</span>
             </div>
             <div>
               <strong>📞 Kênh Hỗ Trợ Doanh Nghiệp</strong>
-              <span>Hotline: 090 580 1918 / 090 585 1918</span><br>
-              <span>Email: thaimyhuong.co@gmail.com</span>
+              <span>Hotline: 090 580 1918 / 090 585 1918 — Email: thaimyhuong.co@gmail.com</span>
             </div>
             <div>
-              <strong>🏦 Tài Khoản Ngân Hàng Doanh Nghiệp</strong>
-              <span>Số tài khoản: <b>0041000266096</b></span><br>
-              <span>Vietcombank Chi nhánh Đà Nẵng</span>
+              <strong>🏦 Tài Khoản Doanh Nghiệp</strong>
+              <span>Vietcombank: <b>0041000266096</b> — Chi nhánh Đà Nẵng</span>
             </div>
           </footer>
 
