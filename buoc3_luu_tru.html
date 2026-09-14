@@ -448,10 +448,10 @@
           <div class="step-num">3</div>
           <div class="step-label">3. Lưu trữ đợt</div>
         </div>
-        <div class="step-item" style="cursor: default;">
+        <a class="step-item" href="buoc4_kiem_don.html">
           <div class="step-num">4</div>
           <div class="step-label">4. Kiểm đơn về</div>
-        </div>
+        </a>
         <div class="step-item" style="cursor: default;">
           <div class="step-num">5</div>
           <div class="step-label">5. Lưu kiểm đơn</div>
@@ -532,15 +532,19 @@
       </div>
     </section>
 
-    <!-- Thẻ Lịch Sử Các Đợt Đã Lưu Trữ -->
+    <!-- Thẻ Kho Lưu Trữ Các Đợt Đã Lưu Trữ Dài Hạn -->
     <section class="card-panel">
       <div class="panel-header">
         <div class="panel-title">
-          <span>🗄️ LỊCH SỬ CÁC ĐỢT ĐIỀU ĐỘNG ĐÃ LƯU TRỮ TRONG CA</span>
+          <span>🗄️ KHO LƯU TRỮ CÁC ĐỢT ĐIỀU ĐỘNG (LƯU TRỮ DÀI HẠN)</span>
         </div>
         <div class="panel-actions">
-          <button type="button" class="btn btn-back" onclick="xoaTatCaLichSu()">
-            <span>🗑️</span> Xóa lịch sử tạm
+          <button type="button" class="btn btn-back" onclick="saoLuuLichSu()" title="Tải file dự phòng về máy">
+            <span>📥</span> Xuất file sao lưu (JSON)
+          </button>
+          <input type="file" id="fileKhoiPhuc" accept=".json" style="display:none;" onchange="khoiPhucLichSu(event)">
+          <button type="button" class="btn btn-back" onclick="document.getElementById('fileKhoiPhuc').click()" title="Nạp file dữ liệu sao lưu">
+            <span>📤</span> Phục hồi dữ liệu
           </button>
         </div>
       </div>
@@ -549,7 +553,7 @@
         <table class="excel-table">
           <thead>
             <tr>
-              <th>STT</th>
+              <th style="width: 45px;">STT</th>
               <th>Mã Đợt</th>
               <th>Ngày Giao</th>
               <th>Xe Giao</th>
@@ -557,7 +561,7 @@
               <th>Thu Tiền</th>
               <th>Số HĐ</th>
               <th>Thời Gian Tạo</th>
-              <th>Thao Tác</th>
+              <th style="min-width: 250px; text-align: center;">Thao Tác</th>
             </tr>
           </thead>
           <tbody id="tbodyLichSu"></tbody>
@@ -565,6 +569,48 @@
       </div>
     </section>
 
+    <!-- Modal Sửa Đợt Điều Động -->
+    <div id="modalSuaDot" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center;">
+      <div style="background: #ffffff; border-radius: 12px; width: 500px; max-width: 90%; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+        <h3 style="font-size: 16px; margin-bottom: 16px; color: #0f172a; display: flex; justify-content: space-between; align-items: center;">
+          <span>✏️ Chỉnh Sửa Thông Tin Đợt Điều Động</span>
+          <span style="cursor: pointer; font-size: 22px; font-weight: bold; color: #64748b;" onclick="dongModalSua()">&times;</span>
+        </h3>
+        <input type="hidden" id="editDotIndex">
+        <div style="margin-bottom: 12px;">
+          <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Mã Đợt</label>
+          <input type="text" id="editMaDot" class="search-input" style="width: 100%; background: #f1f5f9;" disabled>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Xe Giao</label>
+            <input type="text" id="editXe" class="search-input" style="width: 100%;">
+          </div>
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Tài Xế</label>
+            <input type="text" id="editTaiXe" class="search-input" style="width: 100%;">
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Nhân Viên Giao</label>
+            <input type="text" id="editGiaoHang" class="search-input" style="width: 100%;">
+          </div>
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Nhân Viên Thu Tiền</label>
+            <input type="text" id="editThuTien" class="search-input" style="width: 100%;">
+          </div>
+        </div>
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Ngày Giao</label>
+          <input type="text" id="editNgayGiao" class="search-input" style="width: 100%;">
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" class="btn btn-back" onclick="dongModalSua()">Hủy</button>
+          <button type="button" class="btn btn-primary" onclick="luuSuaDot()">💾 Lưu Thay Đổi</button>
+        </div>
+      </div>
+    </div>
   </main>
 
   <script>
@@ -756,7 +802,143 @@
     }
 
     function chuyenSangBuoc4() {
-      alert("🚧 Đang kết nối sang Bước 4: Kiểm đơn giao về (đối soát tiền mặt, chuyển khoản, trả về, nợ phát sinh).");
+      if (!dotHienTai) {
+        alert("Chưa có đợt điều động nào được chọn để kiểm đơn. Vui lòng chọn 1 đợt từ danh sách bên dưới!");
+        return;
+      }
+      localStorage.setItem("tmh_dot_kiem_don", JSON.stringify(dotHienTai));
+      window.location.href = "buoc4_kiem_don.html";
+    }
+
+    function kiemDonDot(idx) {
+      const d = lichSuDot[idx];
+      if (!d) return;
+      localStorage.setItem("tmh_dot_kiem_don", JSON.stringify(d));
+      window.location.href = "buoc4_kiem_don.html";
+    }
+
+    function xemDot(idx) {
+      const d = lichSuDot[idx];
+      if (!d) return;
+      dotHienTai = d;
+      localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(d));
+      hienThiDuLieu();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function moModalSuaDot(idx) {
+      const d = lichSuDot[idx];
+      if (!d) return;
+      document.getElementById('editDotIndex').value = idx;
+      document.getElementById('editMaDot').value = d.maDot || '';
+      document.getElementById('editXe').value = d.xe || '';
+      document.getElementById('editTaiXe').value = d.taiXe || '';
+      document.getElementById('editGiaoHang').value = d.nvGiao || '';
+      document.getElementById('editThuTien').value = d.nvThu || '';
+      document.getElementById('editNgayGiao').value = d.ngayGiao || '';
+      document.getElementById('modalSuaDot').style.display = 'flex';
+    }
+
+    function dongModalSua() {
+      document.getElementById('modalSuaDot').style.display = 'none';
+    }
+
+    function luuSuaDot() {
+      const idx = Number(document.getElementById('editDotIndex').value);
+      if (idx < 0 || idx >= lichSuDot.length) return;
+
+      const d = lichSuDot[idx];
+      d.xe = document.getElementById('editXe').value.trim();
+      d.taiXe = document.getElementById('editTaiXe').value.trim();
+      d.nvGiao = document.getElementById('editGiaoHang').value.trim();
+      d.nvThu = document.getElementById('editThuTien').value.trim();
+      d.ngayGiao = document.getElementById('editNgayGiao').value.trim();
+
+      // Cập nhật lại các dòng chi tiết nếu có
+      if (d.danhSachChiTiet && d.danhSachChiTiet.length > 0) {
+        d.danhSachChiTiet.forEach(r => {
+          r.xe = d.xe;
+          r.taiXe = d.taiXe;
+          r.giaoHang = d.nvGiao;
+          r.thuTien = d.nvThu;
+          r.ngay = d.ngayGiao;
+        });
+      }
+
+      // Lưu lại vào kho lưu trữ
+      localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSuDot));
+      if (dotHienTai && dotHienTai.maDot === d.maDot) {
+        dotHienTai = d;
+        localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(d));
+      }
+      dongModalSua();
+      hienThiDuLieu();
+      alert("✅ Đã cập nhật thành công thông tin đợt điều động!");
+    }
+
+    function xoaDot(idx) {
+      const d = lichSuDot[idx];
+      if (!d) return;
+      if (!confirm(`Bạn có chắc chắn muốn xóa đợt điều động "${d.maDot}" (Xe: ${d.xe}) khỏi kho lưu trữ không?`)) {
+        return;
+      }
+
+      lichSuDot.splice(idx, 1);
+      localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSuDot));
+
+      if (dotHienTai && dotHienTai.maDot === d.maDot) {
+        dotHienTai = lichSuDot.length > 0 ? lichSuDot[0] : null;
+        if (dotHienTai) {
+          localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dotHienTai));
+        } else {
+          localStorage.removeItem("tmh_dot_hien_tai");
+        }
+      }
+
+      hienThiDuLieu();
+      alert("🗑️ Đã xóa đợt điều động khỏi kho lưu trữ!");
+    }
+
+    function saoLuuLichSu() {
+      if (!lichSuDot || lichSuDot.length === 0) {
+        alert("Chưa có dữ liệu nào trong kho lưu trữ để sao lưu!");
+        return;
+      }
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(lichSuDot, null, 2));
+      const a = document.createElement('a');
+      a.setAttribute("href", dataStr);
+      a.setAttribute("download", `KhoLuuTru_ThaiMyHuong_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    function khoiPhucLichSu(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (Array.isArray(parsed)) {
+            lichSuDot = parsed;
+            localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSuDot));
+            if (lichSuDot.length > 0) {
+              dotHienTai = lichSuDot[0];
+              localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dotHienTai));
+            }
+            hienThiDuLieu();
+            alert(`✅ Đã phục hồi thành công ${parsed.length} đợt điều động vào kho lưu trữ!`);
+          } else {
+            alert("File không đúng cấu trúc dữ liệu sao lưu!");
+          }
+        } catch (err) {
+          alert("Lỗi đọc file sao lưu: " + err.message);
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = "";
     }
 
     function hienThiLichSu() {
@@ -764,16 +946,22 @@
       tbody.innerHTML = '';
 
       if (!lichSuDot || lichSuDot.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#94a3b8; padding:16px;">Chưa có đợt lưu trữ nào khác trong phiên làm việc.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#94a3b8; padding:20px;">Kho lưu trữ chưa có đợt điều động nào. Hãy hoàn tất Bước 2 để lưu trữ đợt mới.</td></tr>';
         return;
       }
 
       lichSuDot.forEach((d, idx) => {
         const tr = document.createElement('tr');
         const tg = d.thoiGianTao ? new Date(d.thoiGianTao).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '—';
+        const laDotDangXem = dotHienTai && dotHienTai.maDot === d.maDot;
+
+        if (laDotDangXem) {
+          tr.style.background = "#f0fdf4";
+        }
+
         tr.innerHTML = `
           <td class="text-center">${idx + 1}</td>
-          <td class="text-bold">${d.maDot}</td>
+          <td class="text-bold">${d.maDot} ${laDotDangXem ? '<span style="color:#16a34a; font-size:11px;">(Đang xem)</span>' : ''}</td>
           <td class="text-center">${d.ngayGiao || ''}</td>
           <td class="text-bold" style="color:#2563eb;">${d.xe || ''}</td>
           <td>${d.taiXe || ''}</td>
@@ -781,24 +969,24 @@
           <td class="text-center text-bold" style="color:#15803d;">${d.soLuongHD || (d.danhSachHD ? d.danhSachHD.length : 0)}</td>
           <td class="text-center" style="color:#64748b; font-size:11px;">${tg}</td>
           <td class="text-center">
-            <a href="buoc2_phieu_xuat_kho.html" class="btn btn-back" style="padding:4px 8px; font-size:11px;">
-              <span>📋</span> Mở Bước 2
-            </a>
+            <div style="display: inline-flex; gap: 4px; flex-wrap: wrap; justify-content: center;">
+              <button type="button" class="btn btn-back" style="padding:4px 8px; font-size:11px;" onclick="xemDot(${idx})" title="Xem chi tiết bảng 18 cột">
+                <span>👁️</span> Xem
+              </button>
+              <button type="button" class="btn btn-back" style="padding:4px 8px; font-size:11px; color:#2563eb;" onclick="moModalSuaDot(${idx})" title="Chỉnh sửa thông tin chuyến xe">
+                <span>✏️</span> Sửa
+              </button>
+              <button type="button" class="btn btn-blue" style="padding:4px 8px; font-size:11px;" onclick="kiemDonDot(${idx})" title="Chuyển sang Bước 4 đối soát">
+                <span>🚀</span> Kiểm Đơn (B4)
+              </button>
+              <button type="button" class="btn btn-back" style="padding:4px 8px; font-size:11px; color:#ef4444;" onclick="xoaDot(${idx})" title="Xóa vĩnh viễn đợt này khỏi kho lưu trữ">
+                <span>🗑️</span>
+              </button>
+            </div>
           </td>
         `;
         tbody.appendChild(tr);
       });
-    }
-
-    function xoaTatCaLichSu() {
-      if (confirm("Bạn có chắc muốn xóa lịch sử các đợt lưu trữ tạm này?")) {
-        localStorage.removeItem("tmh_dot_hien_tai");
-        localStorage.removeItem("tmh_lich_su_dot");
-        dotHienTai = null;
-        lichSuDot = [];
-        danhSach18CotHienThi = [];
-        hienThiDuLieu();
-      }
     }
 
     khoiTao();

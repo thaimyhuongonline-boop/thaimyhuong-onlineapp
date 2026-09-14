@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bước 4: Kiểm Đơn Giao Về — THÁI MỸ HƯƠNG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <script src="config.js"></script>
+  <style>
+    :root {
+      --primary: #d97706;
+      --primary-hover: #b45309;
+      --primary-light: #fef3c7;
+      --accent-blue: #2563eb;
+      --accent-green: #16a34a;
+      --accent-red: #dc2626;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+      --bg-page: #f8fafc;
+      --bg-surface: #ffffff;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 14px -2px rgba(0,0,0,0.08);
+      --transition: all 0.2s ease;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg-page);
+      color: var(--text-main);
+      min-height: 100vh;
+      padding-bottom: 80px;
+      font-size: 13px;
+    }
+
+    /* Topbar */
+    .topbar {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-color);
+      padding: 12px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 38px;
+      height: 38px;
+      background: #ffffff;
+      border-radius: 50%;
+      border: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .brand-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .brand-info h1 {
+      font-size: 15px;
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1.2;
+    }
+
+    .brand-info span {
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+
+    .topbar-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      padding: 8px 15px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 12.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      transition: var(--transition);
+      font-family: inherit;
+      white-space: nowrap;
+      text-decoration: none;
+    }
+
+    .btn-back {
+      background: #ffffff;
+      color: #334155;
+      border: 1px solid var(--border-color);
+    }
+    .btn-back:hover { background: #f8fafc; color: #0f172a; border-color: #cbd5e1; }
+
+    .btn-primary {
+      background: #d97706;
+      color: #ffffff;
+    }
+    .btn-primary:hover { background: #b45309; }
+
+    .btn-green {
+      background: #16a34a;
+      color: #ffffff;
+    }
+    .btn-green:hover { background: #15803d; }
+
+    .btn-blue {
+      background: #2563eb;
+      color: #ffffff;
+    }
+    .btn-blue:hover { background: #1d4ed8; }
+
+    /* Container */
+    .container {
+      max-width: 1440px;
+      margin: 18px auto 0;
+      padding: 0 20px;
+    }
+
+    /* Stepper Bar */
+    .stepper-card {
+      background: #ffffff;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-color);
+      padding: 12px 20px;
+      margin-bottom: 18px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .stepper-track {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    .step-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      text-decoration: none;
+      z-index: 2;
+    }
+
+    .step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #f1f5f9;
+      color: #64748b;
+      font-weight: 800;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #e2e8f0;
+    }
+
+    .step-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748b;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .step-item.active .step-num {
+      background: #d97706;
+      color: #ffffff;
+      border-color: #b45309;
+      box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.2);
+    }
+    .step-item.active .step-label {
+      color: #d97706;
+      font-weight: 800;
+    }
+
+    .step-item.done .step-num {
+      background: #ecfdf5;
+      color: #16a34a;
+      border-color: #22c55e;
+    }
+    .step-item.done .step-label {
+      color: #16a34a;
+    }
+
+    /* Hero Banner */
+    .hero-banner {
+      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+      border: 1.5px solid #fde68a;
+      border-radius: var(--radius-md);
+      padding: 16px 22px;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .hero-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .hero-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: #92400e;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hero-meta {
+      font-size: 12px;
+      color: #78350f;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Panel Card */
+    .card-panel {
+      background: #ffffff;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+
+    .panel-header {
+      padding: 14px 20px;
+      background: #ffffff;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .panel-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .search-input {
+      padding: 7px 12px;
+      border: 1.5px solid #cbd5e1;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      outline: none;
+      width: 240px;
+    }
+    .search-input:focus { border-color: var(--primary); }
+
+    /* BẢNG KIỂM ĐƠN CHUẨN THEO HÌNH 2 */
+    .table-container {
+      overflow-x: auto;
+      max-height: calc(100vh - 280px);
+    }
+
+    .kiemdon-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11.5px;
+      color: #000000;
+      white-space: nowrap;
+    }
+
+    /* Header màu vàng nhạt #FFF2CC theo Hình 2 */
+    .kiemdon-table th {
+      background-color: #fff2cc;
+      color: #000000;
+      font-weight: 800;
+      border: 1px solid #d0d7de;
+      padding: 8px 6px;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .kiemdon-table td {
+      border: 1px solid #e2e8f0;
+      padding: 6px 8px;
+      vertical-align: middle;
+    }
+
+    .kiemdon-table tbody tr:hover {
+      background-color: #f8fafc;
+    }
+
+    /* Cột Thành tiền: đóng khung tím, in đậm chuẩn Hình 2 */
+    .col-thanh-tien {
+      font-weight: 800;
+      color: #000000;
+      text-align: right;
+      background-color: #fffdf5;
+      border-left: 2px solid #7c3aed !important;
+      border-right: 2px solid #7c3aed !important;
+    }
+
+    .header-thanh-tien {
+      border-left: 2px solid #7c3aed !important;
+      border-right: 2px solid #7c3aed !important;
+      border-top: 2px solid #7c3aed !important;
+      border-bottom: 2px solid #7c3aed !important;
+      color: #5b21b6 !important;
+    }
+
+    /* Input số tiền trong bảng */
+    .input-tien {
+      width: 95px;
+      padding: 4px 6px;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      font-size: 11.5px;
+      font-weight: 700;
+      text-align: right;
+      font-family: inherit;
+      outline: none;
+    }
+    .input-tien:focus {
+      border-color: #2563eb;
+      background: #eff6ff;
+    }
+
+    /* Select tài khoản nhận */
+    .select-tk {
+      padding: 4px 6px;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      font-size: 11px;
+      background: #ffffff;
+      outline: none;
+      max-width: 140px;
+    }
+
+    /* Cột Giao lại (Checkbox màu đỏ nổi bật theo Hình 2) */
+    .col-giao-lai {
+      text-align: center;
+      background-color: #fff5f5;
+    }
+    .chk-giao-lai {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: #dc2626;
+    }
+
+    .header-giao-lai {
+      color: #b91c1c !important;
+      background-color: #fee2e2 !important;
+    }
+
+    /* Cảnh báo nợ */
+    .debt-badge {
+      font-weight: 800;
+      color: #dc2626;
+    }
+    .paid-badge {
+      font-weight: 700;
+      color: #16a34a;
+    }
+
+    /* Footer tổng cộng */
+    .kiemdon-table tfoot tr {
+      background-color: #fff2cc;
+      font-weight: 800;
+      position: sticky;
+      bottom: 0;
+      z-index: 10;
+    }
+    .kiemdon-table tfoot td {
+      border: 1px solid #d0d7de;
+      padding: 8px 6px;
+    }
+
+    @media print {
+      .topbar, .stepper-card, .panel-header .panel-controls, .hero-actions, .btn {
+        display: none !important;
+      }
+      body { background: #fff !important; }
+      .container { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+      .card-panel { border: none !important; box-shadow: none !important; }
+      .kiemdon-table { font-size: 10px !important; }
+      .input-tien { border: none !important; background: transparent !important; }
+      .select-tk { border: none !important; appearance: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="brand-wrap">
+      <div class="brand-logo">
+        <img src="logo.png" alt="Logo Thái Mỹ Hương">
+      </div>
+      <div class="brand-info">
+        <h1>CÔNG TY TNHH THÁI MỸ HƯƠNG</h1>
+        <span>Bước 4: Kiểm Đơn Giao Về & Quản Lý Đơn Giao Lại</span>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <a href="buoc3_luu_tru.html" class="btn btn-back">
+        <span>⬅</span> Quay lại Bước 3
+      </a>
+      <a href="trang_chu.html" class="btn btn-back">
+        <span>🏠</span> Bảng điều khiển
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- Stepper 7 bước -->
+    <div class="stepper-card">
+      <div class="stepper-track">
+        <a class="step-item done" href="buoc1_upload.html">
+          <div class="step-num">✓</div>
+          <div class="step-label">1. Tải KiotViet</div>
+        </a>
+        <a class="step-item done" href="buoc2_phieu_xuat_kho.html">
+          <div class="step-num">✓</div>
+          <div class="step-label">2. Phiếu thu & Xuất kho</div>
+        </a>
+        <a class="step-item done" href="buoc3_luu_tru.html">
+          <div class="step-num">✓</div>
+          <div class="step-label">3. Lưu trữ đợt</div>
+        </a>
+        <div class="step-item active">
+          <div class="step-num">4</div>
+          <div class="step-label">4. Kiểm đơn về</div>
+        </div>
+        <div class="step-item" style="cursor: default;">
+          <div class="step-num">5</div>
+          <div class="step-label">5. Báo cáo đối soát</div>
+        </div>
+        <div class="step-item" style="cursor: default;">
+          <div class="step-num">6</div>
+          <div class="step-label">6. Bảng kê nộp tiền</div>
+        </div>
+        <div class="step-item" style="cursor: default;">
+          <div class="step-num">7</div>
+          <div class="step-label">7. Xuất file MISA</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hero Thông Báo Đợt Kiểm Đơn -->
+    <section class="hero-banner">
+      <div class="hero-info">
+        <div class="hero-title">
+          <span>📋 KIỂM ĐƠN GIAO VỀ — ĐỐI SOÁT THỰC THU & HÀNG TRẢ</span>
+        </div>
+        <div class="hero-meta" id="heroMetaText">
+          <span>Đang tải thông tin đợt điều động...</span>
+        </div>
+      </div>
+      <div class="hero-actions">
+        <button type="button" class="btn btn-green" onclick="luuKetQuaKiemDon()">
+          <span>💾</span> Lưu Kết Quả Kiểm Đơn
+        </button>
+        <button type="button" class="btn btn-primary" onclick="xuatExcelKiemDon()">
+          <span>📥</span> Xuất Excel (Chuẩn Hình 2)
+        </button>
+        <button type="button" class="btn btn-back" onclick="window.print()">
+          <span>🖨️</span> In Phiếu
+        </button>
+      </div>
+    </section>
+
+    <!-- Khu vực Bảng Kiểm Đơn chuẩn Hình 2 -->
+    <section class="card-panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span>DANH SÁCH ĐỐI SOÁT HÓA ĐƠN</span>
+          <span style="font-size:12px; color:#16a34a; font-weight:700; background:#ecfdf5; padding:3px 8px; border-radius:12px;" id="badgeTongDon">0 hóa đơn</span>
+        </div>
+        <div class="panel-controls">
+          <button type="button" class="btn btn-back" style="font-size:11.5px; padding:5px 10px;" onclick="thuDuTienMat()">
+            <span>⚡</span> Thu đủ tiền mặt
+          </button>
+          <button type="button" class="btn btn-back" style="font-size:11.5px; padding:5px 10px;" onclick="datLaiTien()">
+            <span>🔄</span> Đặt lại 0đ
+          </button>
+          <input type="text" id="timKiemDon" class="search-input" placeholder="Tìm kiếm mã HĐ, tên khách..." oninput="locDanhSachDon()">
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="kiemdon-table" id="bangKiemDon">
+          <thead>
+            <tr>
+              <th style="width: 40px;">STT</th>
+              <th style="width: 100px;">Mã Hóa Đơn</th>
+              <th style="text-align: left; min-width: 220px;">Tên KH</th>
+              <th class="header-thanh-tien" style="width: 110px;">Thành Tiền</th>
+              <th style="width: 110px;">Tiền mặt</th>
+              <th style="width: 110px;">Chuyển khoản</th>
+              <th style="width: 140px;">Tài khoản nhận</th>
+              <th style="width: 100px;">Trả về</th>
+              <th style="width: 110px;">Còn nợ</th>
+              <th style="width: 95px;">Ngày Giao</th>
+              <th class="header-giao-lai" style="width: 75px;">Giao lại?</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyKiemDon">
+            <tr><td colspan="11" style="text-align:center; padding:30px; color:#94a3b8;">Đang nạp dữ liệu đợt kiểm đơn...</td></tr>
+          </tbody>
+          <tfoot id="tfootKiemDon"></tfoot>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    let dotHienTai = null;
+    let danhSachDon = []; // Dữ liệu kiểm đơn của từng hóa đơn
+    const danhSachTaiKhoanNhan = [
+      "Vietcombank (0041000266096)",
+      "BIDV",
+      "MB Bank",
+      "Tiền mặt lái xe",
+      "Chưa thanh toán"
+    ];
+
+    function formatTien(so) {
+      if (so === null || so === undefined || isNaN(so)) return "0";
+      return Math.round(Number(so)).toLocaleString('vi-VN');
+    }
+
+    function parseTien(str) {
+      if (typeof str === 'number') return str;
+      if (!str) return 0;
+      const clean = String(str).replace(/[^0-9]/g, '');
+      return Number(clean) || 0;
+    }
+
+    async function khoiTao() {
+      const nd = await baoVeTrang();
+      if (!nd) return;
+
+      // 1. Lấy thông tin đợt kiểm đơn từ localStorage
+      try {
+        dotHienTai = JSON.parse(localStorage.getItem("tmh_dot_kiem_don") || "null");
+        if (!dotHienTai) {
+          dotHienTai = JSON.parse(localStorage.getItem("tmh_dot_hien_tai") || "null");
+        }
+      } catch (e) {
+        dotHienTai = null;
+      }
+
+      if (!dotHienTai) {
+        alert("⚠️ Chưa có đợt điều động nào được chọn để kiểm đơn!\nĐang chuyển về Bước 3...");
+        window.location.href = "buoc3_luu_tru.html";
+        return;
+      }
+
+      // 2. Hiển thị thông tin Header
+      hienThiHeader();
+
+      // 3. Khởi tạo danh sách chi tiết hóa đơn cần kiểm
+      khoiTaoDanhSachChiTiet();
+    }
+
+    function hienThiHeader() {
+      const elMeta = document.getElementById('heroMetaText');
+      elMeta.innerHTML = `
+        <span><b>Mã đợt:</b> ${dotHienTai.maDot || '—'}</span>
+        <span><b>Xe:</b> ${dotHienTai.xe || '—'}</span>
+        <span><b>Tài xế:</b> ${dotHienTai.taiXe || '—'}</span>
+        <span><b>Thu tiền:</b> ${dotHienTai.nvThu || '—'}</span>
+        <span><b>Ngày giao:</b> ${dotHienTai.ngayGiao || '—'}</span>
+      `;
+    }
+
+    function khoiTaoDanhSachChiTiet() {
+      // Nếu đợt đã có dữ liệu đối soát trước đó thì dùng lại
+      const savedKiemDonKey = `tmh_kiemdon_${dotHienTai.maDot}`;
+      const savedKiemDon = localStorage.getItem(savedKiemDonKey);
+
+      if (savedKiemDon) {
+        try {
+          danhSachDon = JSON.parse(savedKiemDon);
+        } catch (e) {
+          danhSachDon = [];
+        }
+      }
+
+      if (!danhSachDon || danhSachDon.length === 0) {
+        // Lấy từ danhSachChiTiet của Bước 3
+        const nguon = dotHienTai.danhSachChiTiet || [];
+        danhSachDon = nguon.map((r, idx) => {
+          const tt = Number(r.thanhTien) || 0;
+          return {
+            stt: idx + 1,
+            maHD: r.maHD || '',
+            tenKH: r.tenKH || '',
+            maKH: r.maKH || '',
+            thanhTien: tt,
+            tienMat: 0,
+            chuyenKhoan: 0,
+            taiKhoanNhan: "Vietcombank (0041000266096)",
+            traVe: 0,
+            conNo: tt,
+            ngayGiao: dotHienTai.ngayGiao || '',
+            giaoLai: false
+          };
+        });
+      }
+
+      veBangKiemDon(danhSachDon);
+    }
+
+    function veBangKiemDon(ds) {
+      const tbody = document.getElementById('tbodyKiemDon');
+      tbody.innerHTML = '';
+
+      if (!ds || ds.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:30px; color:#94a3b8;">Không tìm thấy hóa đơn nào trong đợt này.</td></tr>';
+        return;
+      }
+
+      document.getElementById('badgeTongDon').textContent = `${ds.length} hóa đơn`;
+
+      let sumThanhTien = 0;
+      let sumTienMat = 0;
+      let sumChuyenKhoan = 0;
+      let sumTraVe = 0;
+      let sumConNo = 0;
+      let countGiaoLai = 0;
+
+      ds.forEach((item, idx) => {
+        // Tự động tính Còn nợ: Thành Tiền - (Tiền mặt + Chuyển khoản + Trả về)
+        item.conNo = Math.max(0, item.thanhTien - (item.tienMat + item.chuyenKhoan + item.traVe));
+
+        sumThanhTien += item.thanhTien;
+        sumTienMat += item.tienMat;
+        sumChuyenKhoan += item.chuyenKhoan;
+        sumTraVe += item.traVe;
+        sumConNo += item.conNo;
+        if (item.giaoLai) countGiaoLai++;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="text-center">${idx + 1}</td>
+          <td class="text-bold" style="color:#1e3a8a;">${item.maHD}</td>
+          <td>${item.tenKH}</td>
+          <td class="col-thanh-tien">${formatTien(item.thanhTien)}</td>
+          <td class="text-center">
+            <input type="text" class="input-tien" value="${formatTien(item.tienMat)}" 
+                   onfocus="onFocusTien(this)" onblur="onBlurTien(${idx}, 'tienMat', this.value)">
+          </td>
+          <td class="text-center">
+            <input type="text" class="input-tien" value="${formatTien(item.chuyenKhoan)}" 
+                   onfocus="onFocusTien(this)" onblur="onBlurTien(${idx}, 'chuyenKhoan', this.value)">
+          </td>
+          <td class="text-center">
+            <select class="select-tk" onchange="onChangeTK(${idx}, this.value)">
+              ${danhSachTaiKhoanNhan.map(tk => `<option value="${tk}" ${item.taiKhoanNhan === tk ? 'selected' : ''}>${tk}</option>`).join('')}
+            </select>
+          </td>
+          <td class="text-center">
+            <input type="text" class="input-tien" style="color:#dc2626;" value="${formatTien(item.traVe)}" 
+                   onfocus="onFocusTien(this)" onblur="onBlurTien(${idx}, 'traVe', this.value)">
+          </td>
+          <td class="text-right ${item.conNo > 0 ? 'debt-badge' : 'paid-badge'}">
+            ${formatTien(item.conNo)}
+          </td>
+          <td class="text-center" style="color:#64748b;">${item.ngayGiao}</td>
+          <td class="col-giao-lai">
+            <input type="checkbox" class="chk-giao-lai" ${item.giaoLai ? 'checked' : ''} 
+                   onchange="onChangeGiaoLai(${idx}, this.checked)" title="Đánh dấu để xếp chuyến giao lại ngày hôm sau">
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Tfoot tổng cộng chuẩn
+      document.getElementById('tfootKiemDon').innerHTML = `
+        <tr>
+          <td colspan="3" class="text-center">TỔNG CỘNG (${ds.length} ĐƠN)</td>
+          <td class="text-right" style="border-left: 2px solid #7c3aed; border-right: 2px solid #7c3aed; font-size:12.5px;">${formatTien(sumThanhTien)}</td>
+          <td class="text-right" style="color:#15803d; font-size:12px;">${formatTien(sumTienMat)}</td>
+          <td class="text-right" style="color:#2563eb; font-size:12px;">${formatTien(sumChuyenKhoan)}</td>
+          <td></td>
+          <td class="text-right" style="color:#dc2626; font-size:12px;">${formatTien(sumTraVe)}</td>
+          <td class="text-right" style="color:${sumConNo > 0 ? '#dc2626' : '#15803d'}; font-size:12.5px;">${formatTien(sumConNo)}</td>
+          <td></td>
+          <td class="text-center" style="color:#dc2626; font-size:11px;">${countGiaoLai} đơn</td>
+        </tr>
+      `;
+    }
+
+    function onFocusTien(input) {
+      const val = parseTien(input.value);
+      input.value = val === 0 ? '' : val;
+      input.select();
+    }
+
+    function onBlurTien(idx, field, valStr) {
+      const val = parseTien(valStr);
+      danhSachDon[idx][field] = val;
+
+      // Nếu có hàng trả về > 0, tự động gợi ý tích "Giao lại?" nếu người dùng chưa chọn
+      if (field === 'traVe' && val > 0 && !danhSachDon[idx].giaoLai) {
+        danhSachDon[idx].giaoLai = true;
+      }
+
+      veBangKiemDon(danhSachDon);
+    }
+
+    function onChangeTK(idx, val) {
+      danhSachDon[idx].taiKhoanNhan = val;
+    }
+
+    function onChangeGiaoLai(idx, val) {
+      danhSachDon[idx].giaoLai = val;
+      veBangKiemDon(danhSachDon);
+    }
+
+    // Thu đủ tiền mặt cho tất cả hóa đơn
+    function thuDuTienMat() {
+      if (confirm("Bạn có muốn điền toàn bộ số tiền còn lại vào 'Tiền mặt' cho các hóa đơn chưa thu?")) {
+        danhSachDon.forEach(item => {
+          const conLai = Math.max(0, item.thanhTien - item.chuyenKhoan - item.traVe);
+          item.tienMat = conLai;
+          item.conNo = 0;
+        });
+        veBangKiemDon(danhSachDon);
+      }
+    }
+
+    // Đặt lại 0đ
+    function datLaiTien() {
+      if (confirm("Đặt lại Tiền mặt, Chuyển khoản, Trả về về 0đ?")) {
+        danhSachDon.forEach(item => {
+          item.tienMat = 0;
+          item.chuyenKhoan = 0;
+          item.traVe = 0;
+          item.giaoLai = false;
+        });
+        veBangKiemDon(danhSachDon);
+      }
+    }
+
+    function locDanhSachDon() {
+      const q = document.getElementById('timKiemDon').value.toLowerCase().trim();
+      if (!q) {
+        veBangKiemDon(danhSachDon);
+        return;
+      }
+      const ketQua = danhSachDon.filter(d => 
+        (d.maHD && d.maHD.toLowerCase().includes(q)) ||
+        (d.tenKH && d.tenKH.toLowerCase().includes(q))
+      );
+      veBangKiemDon(ketQua);
+    }
+
+    // ========================================================
+    // LƯU KẾT QUẢ KIỂM ĐƠN & TỰ ĐỘNG LƯU ĐƠN GIAO LẠI
+    // ========================================================
+    function luuKetQuaKiemDon() {
+      if (!danhSachDon || danhSachDon.length === 0) {
+        alert("Không có dữ liệu đối soát để lưu!");
+        return;
+      }
+
+      // 1. Lưu kết quả đối soát của đợt này
+      const keyKiemDon = `tmh_kiemdon_${dotHienTai.maDot}`;
+      localStorage.setItem(keyKiemDon, JSON.stringify(danhSachDon));
+
+      // 2. Cập nhật lại vào Bước 3 (nếu cần đồng bộ 18 cột)
+      try {
+        let lichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
+        const dotIdx = lichSu.findIndex(d => d.maDot === dotHienTai.maDot);
+        if (dotIdx !== -1) {
+          // Cập nhật số tiền thực thu vào danhSachChiTiet
+          lichSu[dotIdx].danhSachChiTiet.forEach(r => {
+            const matched = danhSachDon.find(d => d.maHD === r.maHD);
+            if (matched) {
+              r.tienMat = matched.tienMat;
+              r.chuyenKhoan = matched.chuyenKhoan;
+              r.traVe = matched.traVe;
+              r.noPhatSinh = matched.conNo;
+            }
+          });
+          localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSu));
+        }
+      } catch (e) {
+        console.warn("Lỗi đồng bộ Bước 3:", e);
+      }
+
+      // 3. TRÍCH XUẤT VÀ LƯU ĐƠN CHỜ GIAO LẠI (Re-delivery logic)
+      const donGiaoLaiMoi = danhSachDon.filter(d => d.giaoLai);
+      let danhSachGiaoLaiHienCo = [];
+      try {
+        danhSachGiaoLaiHienCo = JSON.parse(localStorage.getItem("tmh_don_giao_lai") || "[]");
+      } catch (e) {
+        danhSachGiaoLaiHienCo = [];
+      }
+
+      let demThemGiaoLai = 0;
+      donGiaoLaiMoi.forEach(dg => {
+        // Kiểm tra xem đã có trong danh sách giao lại chưa
+        const tonTai = danhSachGiaoLaiHienCo.find(x => x.maHD === dg.maHD);
+        if (!tonTai) {
+          danhSachGiaoLaiHienCo.push({
+            maHD: dg.maHD,
+            tenKH: dg.tenKH,
+            maKH: dg.maKH,
+            thanhTien: dg.traVe > 0 ? dg.traVe : dg.thanhTien,
+            tienGoc: dg.thanhTien,
+            ngayDonGoc: dg.ngayGiao,
+            dotGoc: dotHienTai.maDot,
+            xeGoc: dotHienTai.xe,
+            ngayLuuGiaoLai: new Date().toISOString(),
+            trangThai: "cho_giao_lai"
+          });
+          demThemGiaoLai++;
+        }
+      });
+
+      localStorage.setItem("tmh_don_giao_lai", JSON.stringify(danhSachGiaoLaiHienCo));
+
+      let thongBao = `✅ ĐÃ LƯU THÀNH CÔNG KẾT QUẢ KIỂM ĐƠN CHO ĐỢT "${dotHienTai.maDot}"!`;
+      if (demThemGiaoLai > 0) {
+        thongBao += `\n\n🔄 Đã lưu ${demThemGiaoLai} đơn hàng vào mục "ĐƠN CHỜ GIAO LẠI". Chuyến xe tiếp theo ở Bước 2 sẽ tự động đề xuất các đơn này!`;
+      }
+
+      alert(thongBao);
+    }
+
+    // ========================================================
+    // XUẤT EXCEL CHUẨN 100% GIAO DIỆN HÌNH 2
+    // ========================================================
+    function xuatExcelKiemDon() {
+      if (typeof XLSX === 'undefined') {
+        alert("Thư viện xuất Excel đang khởi tạo, vui lòng thử lại sau giây lát.");
+        return;
+      }
+
+      const wb = XLSX.utils.book_new();
+      const wsData = [];
+
+      const borderThin = {
+        top: { style: "thin", color: { rgb: "D0D7DE" } },
+        bottom: { style: "thin", color: { rgb: "D0D7DE" } },
+        left: { style: "thin", color: { rgb: "D0D7DE" } },
+        right: { style: "thin", color: { rgb: "D0D7DE" } }
+      };
+
+      const borderPurple = {
+        top: { style: "medium", color: { rgb: "7C3AED" } },
+        bottom: { style: "medium", color: { rgb: "7C3AED" } },
+        left: { style: "medium", color: { rgb: "7C3AED" } },
+        right: { style: "medium", color: { rgb: "7C3AED" } }
+      };
+
+      // Header row (Vàng nhạt #FFF2CC)
+      const headerStyle = {
+        font: { bold: true, sz: 10, name: "Times New Roman" },
+        fill: { fgColor: { rgb: "FFF2CC" } },
+        alignment: { horizontal: "center", vertical: "center" },
+        border: borderThin
+      };
+
+      const headerPurpleStyle = {
+        font: { bold: true, sz: 10, name: "Times New Roman", color: { rgb: "5B21B6" } },
+        fill: { fgColor: { rgb: "FFF2CC" } },
+        alignment: { horizontal: "center", vertical: "center" },
+        border: borderPurple
+      };
+
+      const headerRedStyle = {
+        font: { bold: true, sz: 10, name: "Times New Roman", color: { rgb: "B91C1C" } },
+        fill: { fgColor: { rgb: "FEE2E2" } },
+        alignment: { horizontal: "center", vertical: "center" },
+        border: borderThin
+      };
+
+      const headers = [
+        { v: "STT", s: headerStyle },
+        { v: "Mã Hóa Đơn", s: headerStyle },
+        { v: "Tên KH", s: headerStyle },
+        { v: "Thành Tiền", s: headerPurpleStyle },
+        { v: "Tiền mặt", s: headerStyle },
+        { v: "Chuyển khoản", s: headerStyle },
+        { v: "Tài khoản nhận", s: headerStyle },
+        { v: "Trả về", s: headerStyle },
+        { v: "Còn nợ", s: headerStyle },
+        { v: "Ngày Giao", s: headerStyle },
+        { v: "Giao lại?", s: headerRedStyle }
+      ];
+      wsData.push(headers);
+
+      let sumThanhTien = 0, sumTienMat = 0, sumChuyenKhoan = 0, sumTraVe = 0, sumConNo = 0;
+      let stt = 1;
+
+      danhSachDon.forEach(item => {
+        sumThanhTien += item.thanhTien;
+        sumTienMat += item.tienMat;
+        sumChuyenKhoan += item.chuyenKhoan;
+        sumTraVe += item.traVe;
+        sumConNo += item.conNo;
+
+        const baseStyle = { font: { sz: 9.5, name: "Times New Roman" }, border: borderThin, alignment: { vertical: "center" } };
+
+        wsData.push([
+          { v: stt++, t: "n", s: { ...baseStyle, alignment: { horizontal: "center", vertical: "center" } } },
+          { v: item.maHD, t: "s", s: { ...baseStyle, font: { bold: true, sz: 9.5, name: "Times New Roman", color: { rgb: "1E3A8A" } }, alignment: { horizontal: "left", vertical: "center" } } },
+          { v: item.tenKH, t: "s", s: { ...baseStyle, alignment: { horizontal: "left", vertical: "center" } } },
+          { v: item.thanhTien, t: "n", z: "#,##0", s: { ...baseStyle, font: { bold: true, sz: 9.5, name: "Times New Roman" }, alignment: { horizontal: "right", vertical: "center" }, border: borderPurple } },
+          { v: item.tienMat, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right", vertical: "center" } } },
+          { v: item.chuyenKhoan, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right", vertical: "center" } } },
+          { v: item.taiKhoanNhan || "", t: "s", s: { ...baseStyle, alignment: { horizontal: "left", vertical: "center" } } },
+          { v: item.traVe, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right", vertical: "center" } } },
+          { v: item.conNo, t: "n", z: "#,##0", s: { ...baseStyle, font: { bold: item.conNo > 0, sz: 9.5, name: "Times New Roman", color: { rgb: item.conNo > 0 ? "DC2626" : "15803D" } }, alignment: { horizontal: "right", vertical: "center" } } },
+          { v: item.ngayGiao || "", t: "s", s: { ...baseStyle, alignment: { horizontal: "center", vertical: "center" } } },
+          { v: item.giaoLai ? "☑ Có" : "☐", t: "s", s: { ...baseStyle, font: { bold: true, sz: 10, color: { rgb: item.giaoLai ? "DC2626" : "94A3B8" } }, alignment: { horizontal: "center", vertical: "center" } } }
+        ]);
+      });
+
+      // Total row
+      const totalStyle = {
+        font: { bold: true, sz: 10, name: "Times New Roman" },
+        fill: { fgColor: { rgb: "FFF2CC" } },
+        border: borderThin,
+        alignment: { vertical: "center" }
+      };
+
+      wsData.push([
+        { v: "TỔNG CỘNG", s: { ...totalStyle, alignment: { horizontal: "center", vertical: "center" } } },
+        { v: "", s: totalStyle },
+        { v: "", s: totalStyle },
+        { v: sumThanhTien, t: "n", z: "#,##0", s: { ...totalStyle, font: { bold: true, sz: 10, name: "Times New Roman" }, border: borderPurple, alignment: { horizontal: "right", vertical: "center" } } },
+        { v: sumTienMat, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right", vertical: "center" } } },
+        { v: sumChuyenKhoan, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right", vertical: "center" } } },
+        { v: "", s: totalStyle },
+        { v: sumTraVe, t: "n", z: "#,##0", s: { ...totalStyle, font: { color: { rgb: "DC2626" } }, alignment: { horizontal: "right", vertical: "center" } } },
+        { v: sumConNo, t: "n", z: "#,##0", s: { ...totalStyle, font: { bold: true, color: { rgb: sumConNo > 0 ? "DC2626" : "15803D" } }, alignment: { horizontal: "right", vertical: "center" } } },
+        { v: "", s: totalStyle },
+        { v: "", s: totalStyle }
+      ]);
+
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      ws['!merges'] = [
+        { s: { r: wsData.length - 1, c: 0 }, e: { r: wsData.length - 1, c: 2 } }
+      ];
+      ws['!cols'] = [
+        { wch: 6 }, { wch: 14 }, { wch: 34 }, { wch: 15 }, { wch: 13 },
+        { wch: 14 }, { wch: 22 }, { wch: 12 }, { wch: 14 }, { wch: 13 }, { wch: 11 }
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, "KiemDonGiaoVe");
+      const xeTen = dotHienTai ? dotHienTai.xe.replace(/[^a-zA-Z0-9]/g, '_') : 'XE';
+      XLSX.writeFile(wb, `Kiem_Don_Giao_Ve_${xeTen}_${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
+
+    khoiTao();
+  </script>
+</body>
+</html>
