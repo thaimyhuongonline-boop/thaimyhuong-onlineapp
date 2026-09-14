@@ -15,11 +15,17 @@
         .btn-back { background-color: #64748b; }
         .btn-action { background-color: #16a34a; }
         .btn-template { background-color: #f59e0b; }
-        .controls { display: flex; gap: 15px; margin-bottom: 20px; align-items: center; }
+        .btn-add { background-color: #3b82f6; }
+        .controls { display: flex; gap: 15px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
         select { padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 15px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
         th { background-color: #f8f9fa; }
+        /* CSS cho form nhập thủ công */
+        #formThemMoi { background: #f8f9fa; padding: 20px; border: 1px solid #ddd; margin-bottom: 20px; border-radius: 6px; display: none; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; }
+        .form-group input { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -37,10 +43,16 @@
             <option value="dinh_khoan_hang_hoa">Định khoản hàng hóa</option>
             <option value="danh_sach_xe">Danh sách xe</option>
         </select>
+        
+        <button class="btn btn-add" onclick="moFormThem()">➕ Thêm</button>
         <button class="btn btn-template" onclick="taiTemplate()">📄 Tải File Mẫu</button>
+        
         <input type="file" id="fileExcel" accept=".xlsx, .xls, .csv" style="display: none;" onchange="docFileExcel(event)">
         <button class="btn btn-action" onclick="document.getElementById('fileExcel').click()">📥 Upload từ Excel</button>
     </div>
+
+    <!-- Khu vực Form nhập thủ công (Ẩn mặc định) -->
+    <div id="formThemMoi"></div>
 
     <table>
         <thead id="bangHead">
@@ -65,6 +77,9 @@
     }
 
     async function taiDuLieu() {
+        // Ẩn form thêm khi đổi bảng
+        document.getElementById('formThemMoi').style.display = 'none';
+
         const tenBang = document.getElementById('chonBang').value;
         const thead = document.getElementById('bangHead');
         const tbody = document.getElementById('bangBody');
@@ -100,6 +115,76 @@
         });
         tbody.innerHTML = htmlBody;
     }
+
+    // --- CÁC HÀM XỬ LÝ NHẬP THỦ CÔNG ---
+    function moFormThem() {
+        const form = document.getElementById('formThemMoi');
+        const tenBang = document.getElementById('chonBang').value;
+        const tenBangHienThi = document.getElementById('chonBang').options[document.getElementById('chonBang').selectedIndex].text;
+        
+        let html = `<h3 style="margin-top:0;">Thêm mới - ${tenBangHienThi}</h3>`;
+
+        if (tenBang === 'khach_hang') {
+            html += taoInput('ma_kh', 'Mã Khách Hàng (Bắt buộc)') + taoInput('ten_kh', 'Tên Khách Hàng');
+        } else if (tenBang === 'hang_hoa') {
+            html += taoInput('ma_hang', 'Mã Hàng (Bắt buộc)') + taoInput('ten_hang', 'Tên Hàng') + taoInput('quy_cach', 'Quy Cách (Nhập số, VD: 24)');
+        } else if (tenBang === 'dinh_khoan_hang_hoa') {
+            html += taoInput('ma_hang', 'Mã Hàng (Bắt buộc)') + taoInput('thue_suat', 'Thuế Suất (Nhập số, VD: 8)') + taoInput('tk_doanh_thu', 'TK Doanh Thu') + taoInput('tk_gia_von', 'TK Giá Vốn') + taoInput('ma_kho', 'Mã Kho') + taoInput('tk_kho', 'TK Kho');
+        } else if (tenBang === 'danh_sach_xe') {
+            html += taoInput('ma_xe', 'Mã Xe (Bắt buộc)') + taoInput('bien_so', 'Biển Số') + taoInput('ten_tai_xe', 'Tên Tài Xế');
+        }
+
+        html += `<div style="margin-top: 15px;">
+                    <button class="btn btn-action" onclick="luuThuCong('${tenBang}')">💾 Lưu Dữ Liệu</button> 
+                    <button class="btn btn-back" onclick="document.getElementById('formThemMoi').style.display='none'">Hủy</button>
+                 </div>`;
+        
+        form.innerHTML = html;
+        form.style.display = 'block';
+    }
+
+    function taoInput(id, label) {
+        return `<div class="form-group"><label>${label}</label><input type="text" id="input_${id}"></div>`;
+    }
+
+    function layGiaTri(id, batBuoc = false) {
+        const val = document.getElementById(`input_${id}`).value.trim();
+        if (batBuoc && !val) throw new Error(`Vui lòng nhập đầy đủ trường Bắt buộc!`);
+        return val;
+    }
+
+    async function luuThuCong(tenBang) {
+        try {
+            let dataObj = {};
+            if (tenBang === 'khach_hang') {
+                dataObj = { ma_kh: layGiaTri('ma_kh', true), ten_kh: layGiaTri('ten_kh') };
+            } else if (tenBang === 'hang_hoa') {
+                dataObj = { ma_hang: layGiaTri('ma_hang', true), ten_hang: layGiaTri('ten_hang'), quy_cach: Number(layGiaTri('quy_cach')) || null };
+            } else if (tenBang === 'dinh_khoan_hang_hoa') {
+                dataObj = { 
+                    ma_hang: layGiaTri('ma_hang', true), 
+                    thue_suat: Number(layGiaTri('thue_suat')) || 0, 
+                    tk_doanh_thu: layGiaTri('tk_doanh_thu'), 
+                    tk_gia_von: layGiaTri('tk_gia_von'), 
+                    ma_kho: layGiaTri('ma_kho'), 
+                    tk_kho: layGiaTri('tk_kho') 
+                };
+            } else if (tenBang === 'danh_sach_xe') {
+                dataObj = { ma_xe: layGiaTri('ma_xe', true), bien_so: layGiaTri('bien_so'), ten_tai_xe: layGiaTri('ten_tai_xe') };
+            }
+
+            // Dùng lệnh upsert: Nếu mã đã có sẽ cập nhật, chưa có sẽ thêm mới
+            const { error } = await sb.from(tenBang).upsert([dataObj]);
+            if (error) throw error;
+            
+            alert("Đã lưu thành công!");
+            document.getElementById('formThemMoi').style.display = 'none';
+            taiDuLieu(); // Tải lại bảng để thấy dòng mới
+        } catch (err) {
+            alert("Lỗi: " + err.message);
+        }
+    }
+    // --- HẾT PHẦN HÀM XỬ LÝ NHẬP THỦ CÔNG ---
 
     // Tạo và tải file mẫu tương ứng với bảng đang chọn
     function taiTemplate() {
