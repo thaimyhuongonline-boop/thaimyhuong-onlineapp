@@ -3,75 +3,612 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Đăng nhập — THÁI MỸ HƯƠNG</title>
+  <title>Đăng nhập — CÔNG TY TNHH THÁI MỸ HƯƠNG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
+    :root {
+      --primary: #16a34a;
+      --primary-dark: #15803d;
+      --primary-deep: #14532d;
+      --primary-light: #22c55e;
+      --accent-gold: #eab308;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --bg-gradient: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 45%, #d1fae5 100%);
+      --card-bg: rgba(255, 255, 255, 0.98);
+      --card-border: rgba(22, 163, 74, 0.12);
+      --shadow-lg: 0 20px 40px -15px rgba(22, 163, 74, 0.15), 0 0 1px 1px rgba(0, 0, 0, 0.04);
+      --shadow-card: 0 12px 32px rgba(15, 23, 42, 0.08);
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      font-family: Arial, "Segoe UI", sans-serif;
-      min-height: 100vh; display: flex; align-items: center; justify-content: center;
-      background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 50%, #a7f3d0 100%);
-      padding: 16px;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg-gradient);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      position: relative;
+      overflow-x: hidden;
     }
-    .card {
-      background: #fff; width: 100%; max-width: 400px; border-radius: 16px;
-      box-shadow: 0 10px 40px rgba(16,185,129,.18); padding: 32px 28px; text-align: center;
+
+    /* Trang trí background */
+    .bg-circle-1 {
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(34, 197, 94, 0.12) 0%, rgba(255, 255, 255, 0) 70%);
+      top: -100px;
+      left: -100px;
+      pointer-events: none;
     }
-    .logo { width: 96px; height: 96px; margin: 0 auto 10px; }
-    h1 { color: #15803d; font-size: 22px; letter-spacing: 1px; }
-    .sub { color: #6b7280; font-size: 13px; margin: 4px 0 22px; }
-    label { display: block; text-align: left; font-size: 13px; font-weight: bold; color: #374151; margin: 14px 0 6px; }
+
+    .bg-circle-2 {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, rgba(255, 255, 255, 0) 70%);
+      bottom: -150px;
+      right: -100px;
+      pointer-events: none;
+    }
+
+    /* Khung chứa dạng 2 cột lớn */
+    .auth-container {
+      width: 100%;
+      max-width: 1160px;
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border-radius: 24px;
+      border: 1px solid var(--card-border);
+      box-shadow: var(--shadow-lg);
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      overflow: hidden;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Cột trái: Thông tin doanh nghiệp & Sứ mệnh, Tầm nhìn */
+    .brand-side {
+      background: linear-gradient(155deg, #064e3b 0%, #065f46 40%, #047857 100%);
+      color: #ffffff;
+      padding: 48px 42px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .brand-side::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 10% 20%, rgba(74, 222, 128, 0.18) 0%, transparent 60%),
+                  radial-gradient(circle at 90% 80%, rgba(234, 179, 8, 0.15) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .brand-side-content {
+      position: relative;
+      z-index: 2;
+    }
+
+    .brand-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .brand-logo-wrap {
+      width: 62px;
+      height: 62px;
+      background: #ffffff;
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+      flex-shrink: 0;
+    }
+
+    .brand-logo-svg {
+      width: 48px;
+      height: 48px;
+    }
+
+    .company-title {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: #ffffff;
+      line-height: 1.25;
+      text-transform: uppercase;
+    }
+
+    .company-sub {
+      font-size: 12px;
+      color: #a7f3d0;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+
+    /* Tagline nổi bật */
+    .tagline-box {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-left: 4px solid #facc15;
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin-bottom: 24px;
+      backdrop-filter: blur(8px);
+    }
+
+    .tagline-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fef08a;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+
+    .tagline-quote {
+      font-size: 14px;
+      line-height: 1.5;
+      color: #f0fdf4;
+      font-weight: 500;
+    }
+
+    /* Khối Sứ mệnh & Tầm nhìn */
+    .vision-mission-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 26px;
+    }
+
+    .vm-card {
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 14px;
+      padding: 16px 14px;
+      transition: all 0.2s ease;
+    }
+
+    .vm-card:hover {
+      background: rgba(255, 255, 255, 0.12);
+      transform: translateY(-2px);
+    }
+
+    .vm-title {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: #4ade80;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .vm-desc {
+      font-size: 12px;
+      line-height: 1.5;
+      color: #e2e8f0;
+      font-weight: 400;
+    }
+
+    /* Thông tin pháp lý & Liên hệ */
+    .company-info-list {
+      background: rgba(0, 0, 0, 0.18);
+      border-radius: 14px;
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .info-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      line-height: 1.4;
+      color: #d1fae5;
+    }
+
+    .info-item strong {
+      color: #ffffff;
+      font-weight: 600;
+      min-width: 60px;
+    }
+
+    .info-item .icon {
+      font-size: 14px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .info-item a {
+      color: #6ee7b7;
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    .info-item a:hover {
+      color: #a7f3d0;
+      text-decoration: underline;
+    }
+
+    .brand-footer {
+      position: relative;
+      z-index: 2;
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: #a7f3d0;
+    }
+
+    /* Cột phải: Form Đăng Nhập */
+    .login-side {
+      padding: 56px 44px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      background: #ffffff;
+    }
+
+    .login-header {
+      margin-bottom: 30px;
+      text-align: left;
+    }
+
+    .login-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      background: #ecfdf5;
+      color: #15803d;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .login-title {
+      font-size: 26px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+
+    .login-sub {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      color: #334155;
+      margin-bottom: 8px;
+    }
+
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 14px;
+      color: #94a3b8;
+      font-size: 16px;
+      pointer-events: none;
+    }
+
     input {
-      width: 100%; padding: 12px 14px; font-size: 15px; border: 1px solid #d1d5db;
-      border-radius: 8px; outline: none; transition: .15s;
+      width: 100%;
+      padding: 13px 14px 13px 42px;
+      font-size: 15px;
+      font-family: inherit;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 12px;
+      outline: none;
+      transition: all 0.2s ease;
+      background: #f8fafc;
+      color: #0f172a;
     }
-    input:focus { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,.15); }
-    button {
-      width: 100%; margin-top: 22px; padding: 13px; font-size: 16px; font-weight: bold;
-      color: #fff; background: #16a34a; border: none; border-radius: 8px; cursor: pointer; transition: .15s;
+
+    input:focus {
+      background: #ffffff;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.12);
     }
-    button:hover { background: #15803d; }
-    button:disabled { background: #9ca3af; cursor: default; }
+
+    .btn-toggle-pwd {
+      position: absolute;
+      right: 12px;
+      background: none;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 16px;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+
+    .btn-toggle-pwd:hover {
+      color: #475569;
+    }
+
+    button#btnDangNhap {
+      width: 100%;
+      margin-top: 10px;
+      padding: 14px 20px;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: inherit;
+      color: #ffffff;
+      background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(22, 163, 74, 0.28);
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    button#btnDangNhap:hover:not(:disabled) {
+      background: linear-gradient(135deg, #15803d 0%, #14532d 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(22, 163, 74, 0.36);
+    }
+
+    button#btnDangNhap:disabled {
+      background: #94a3b8;
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+    }
+
     #thongBao {
-      display: none; margin-top: 18px; padding: 12px; border-radius: 8px;
-      font-size: 13px; line-height: 1.5; white-space: pre-line;
+      display: none;
+      margin-top: 18px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      line-height: 1.5;
+      text-align: left;
     }
-    .loi { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
-    .ok  { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
-    .chan { margin-top: 20px; font-size: 11px; color: #9ca3af; }
+
+    .loi {
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+    }
+
+    .ok {
+      background: #f0fdf4;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+    }
+
+    .login-footer-text {
+      margin-top: 32px;
+      font-size: 12px;
+      color: #94a3b8;
+      text-align: center;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 960px) {
+      .auth-container {
+        grid-template-columns: 1fr;
+        max-width: 540px;
+        border-radius: 20px;
+      }
+
+      .brand-side {
+        padding: 36px 28px;
+      }
+
+      .login-side {
+        padding: 36px 28px;
+      }
+
+      .vision-mission-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 14px;
+      }
+
+      .brand-side {
+        padding: 26px 18px;
+      }
+
+      .login-side {
+        padding: 26px 18px;
+      }
+
+      .company-title {
+        font-size: 17px;
+      }
+
+      .login-title {
+        font-size: 22px;
+      }
+    }
   </style>
 </head>
 <body>
-  <div class="card">
-    <!-- LOGO cây may mắn. Muốn dùng logo thật: tải logo.png lên repo rồi thay khối <svg> bằng <img src="logo.png" class="logo"> -->
-    <svg class="logo" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="100" cy="100" r="94" fill="none" stroke="#8bc34a" stroke-width="6"/>
-      <g transform="translate(100,92)">
-        <path d="M0,-6 C-8,-40 -46,-40 -46,-14 C-46,2 -22,6 0,-6 Z" fill="#22c55e"/>
-        <path d="M0,-6 C8,-40 46,-40 46,-14 C46,2 22,6 0,-6 Z" fill="#16a34a"/>
-        <path d="M-6,0 C-40,-8 -40,-46 -14,-46 C2,-46 6,-22 -6,0 Z" fill="#4ade80"/>
-        <path d="M6,0 C40,-8 40,-46 14,-46 C-2,-46 -6,-22 6,0 Z" fill="#15803d"/>
-      </g>
-      <path d="M100,96 C96,120 90,140 78,158" fill="none" stroke="#0e7490" stroke-width="7" stroke-linecap="round"/>
-    </svg>
+  <div class="bg-circle-1"></div>
+  <div class="bg-circle-2"></div>
 
-    <h1>THÁI MỸ HƯƠNG</h1>
-    <p class="sub">Hệ thống xử lý dữ liệu · Đăng nhập</p>
+  <main class="auth-container">
+    <!-- CỘT THƯƠNG HIỆU & SỨ MỆNH (Bên trái) -->
+    <section class="brand-side">
+      <div class="brand-side-content">
+        <div class="brand-header">
+          <div class="brand-logo-wrap">
+            <!-- Logo Cỏ 4 Lá Thái Mỹ Hương SVG tinh xảo theo nhận diện thương hiệu -->
+            <svg class="brand-logo-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="100" cy="100" r="94" fill="#ffffff" stroke="#8bc34a" stroke-width="6"/>
+              <g transform="translate(100,92)">
+                <path d="M0,-6 C-8,-40 -46,-40 -46,-14 C-46,2 -22,6 0,-6 Z" fill="#22c55e"/>
+                <path d="M0,-6 C8,-40 46,-40 46,-14 C46,2 22,6 0,-6 Z" fill="#16a34a"/>
+                <path d="M-6,0 C-40,-8 -40,-46 -14,-46 C2,-46 6,-22 -6,0 Z" fill="#4ade80"/>
+                <path d="M6,0 C40,-8 40,-46 14,-46 C-2,-46 -6,-22 6,0 Z" fill="#15803d"/>
+              </g>
+              <path d="M100,96 C96,120 90,140 78,158" fill="none" stroke="#0e7490" stroke-width="7" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div>
+            <h1 class="company-title">CÔNG TY TNHH THÁI MỸ HƯƠNG</h1>
+            <p class="company-sub">Thai My Huong Limited</p>
+          </div>
+        </div>
 
-    <label for="taiKhoan">Tài khoản (Email hoặc Số điện thoại)</label>
-    <input id="taiKhoan" type="text" placeholder="vd: 0905123456" autocomplete="username">
+        <!-- Khẩu hiệu triết lý -->
+        <div class="tagline-box">
+          <div class="tagline-badge">
+            <span>✨</span> Kiến tạo hiện thực phụng sự
+          </div>
+          <p class="tagline-quote">
+            “Mang đến cho mỗi ngày sống của chúng ta những điều tử tế, thiết thực và đáng tin cậy”
+          </p>
+        </div>
 
-    <label for="matKhau">Mật khẩu</label>
-    <input id="matKhau" type="password" placeholder="Nhập mật khẩu" autocomplete="current-password">
+        <!-- Sứ Mệnh & Tầm Nhìn -->
+        <div class="vision-mission-grid">
+          <div class="vm-card">
+            <div class="vm-title">🌿 Sứ Mệnh</div>
+            <p class="vm-desc">
+              Thái Mỹ Hương cam kết phụng sự sức khỏe cộng đồng.
+            </p>
+          </div>
+          <div class="vm-card">
+            <div class="vm-title">🚀 Tầm Nhìn</div>
+            <p class="vm-desc">
+              Tiến bước trở thành doanh nghiệp phụng sự sức khỏe cộng đồng hàng đầu Việt Nam, vươn tầm thế giới.
+            </p>
+          </div>
+        </div>
 
-    <button id="btnDangNhap">ĐĂNG NHẬP</button>
+        <!-- Thông tin pháp lý & liên hệ -->
+        <div class="company-info-list">
+          <div class="info-item">
+            <span class="icon">📜</span>
+            <span><strong>GPKD/MST:</strong> 4001085814</span>
+          </div>
+          <div class="info-item">
+            <span class="icon">📍</span>
+            <span><strong>Địa chỉ:</strong> 291 Văn Tiến Dũng, P. Hòa Xuân, TP. Đà Nẵng, Việt Nam</span>
+          </div>
+          <div class="info-item">
+            <span class="icon">📞</span>
+            <span><strong>Hotline:</strong> +84 90 580 1918 / 090 585 1918</span>
+          </div>
+          <div class="info-item">
+            <span class="icon">✉️</span>
+            <span><strong>Email:</strong> <a href="mailto:thaimyhuong.co@gmail.com">thaimyhuong.co@gmail.com</a></span>
+          </div>
+          <div class="info-item">
+            <span class="icon">🏦</span>
+            <span><strong>Tài khoản:</strong> 0041000266096 — Vietcombank CN Đà Nẵng</span>
+          </div>
+        </div>
+      </div>
 
-    <div id="thongBao"></div>
+      <div class="brand-footer">
+        <span>Hệ thống quản trị nội bộ</span>
+        <span>Niên khóa 2026</span>
+      </div>
+    </section>
 
-    <div class="chan">© THÁI MỸ HƯƠNG LIMITED</div>
-  </div>
+    <!-- CỘT ĐĂNG NHẬP (Bên phải) -->
+    <section class="login-side">
+      <div class="login-header">
+        <div class="login-badge">
+          <span>🔒</span> Cổng Dữ Liệu An Toàn
+        </div>
+        <h2 class="login-title">ĐĂNG NHẬP</h2>
+        <p class="login-sub">Chào mừng bạn quay trở lại. Vui lòng nhập tài khoản để vào hệ thống xử lý dữ liệu.</p>
+      </div>
 
-  <!-- Cấu hình chung: chứa khóa Supabase + hàm dùng chung -->
+      <form onsubmit="return false;" autocomplete="on">
+        <div class="form-group">
+          <label for="taiKhoan">Tài khoản (Email hoặc Số điện thoại)</label>
+          <div class="input-wrapper">
+            <span class="input-icon">👤</span>
+            <input id="taiKhoan" type="text" placeholder="vd: 0903160116 hoặc email..." autocomplete="username" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="matKhau">Mật khẩu</label>
+          <div class="input-wrapper">
+            <span class="input-icon">🔑</span>
+            <input id="matKhau" type="password" placeholder="Nhập mật khẩu..." autocomplete="current-password" required>
+            <button type="button" class="btn-toggle-pwd" id="btnTogglePwd" title="Ẩn/Hiện mật khẩu">👁️</button>
+          </div>
+        </div>
+
+        <button id="btnDangNhap" type="button">
+          <span>ĐĂNG NHẬP HỆ THỐNG</span>
+          <span>→</span>
+        </button>
+
+        <div id="thongBao"></div>
+      </form>
+
+      <p class="login-footer-text">
+        © 2026 CÔNG TY TNHH THÁI MỸ HƯƠNG. Bảo lưu mọi quyền.
+      </p>
+    </section>
+  </main>
+
+  <!-- Cấu hình chung Supabase: giữ nguyên 100% -->
   <script src="config.js"></script>
   <script>
     function bao(text, loai) {
@@ -81,49 +618,86 @@
       el.style.display = "block";
     }
 
+    // Toggle ẩn / hiện mật khẩu
+    var btnToggle = document.getElementById("btnTogglePwd");
+    var inputPwd = document.getElementById("matKhau");
+    if (btnToggle && inputPwd) {
+      btnToggle.addEventListener("click", function () {
+        if (inputPwd.type === "password") {
+          inputPwd.type = "text";
+          btnToggle.textContent = "🙈";
+        } else {
+          inputPwd.type = "password";
+          btnToggle.textContent = "👁️";
+        }
+      });
+    }
+
     // Nếu đã đăng nhập sẵn thì vào thẳng trang chủ
     (async function () {
-      var phien = await sb.auth.getSession();
-      if (phien.data && phien.data.session) window.location.href = "trang_chu.html";
+      try {
+        var phien = await sb.auth.getSession();
+        if (phien.data && phien.data.session) {
+          window.location.href = "trang_chu.html";
+        }
+      } catch (err) {
+        console.warn("Chưa có phiên làm việc:", err);
+      }
     })();
 
     async function dangNhap() {
       var tk = document.getElementById("taiKhoan").value;
       var mk = document.getElementById("matKhau").value;
-      if (!tk || !mk) { bao("Vui lòng nhập đủ tài khoản và mật khẩu.", "loi"); return; }
+      if (!tk || !mk) {
+        bao("⚠️ Vui lòng nhập đầy đủ tài khoản và mật khẩu.", "loi");
+        return;
+      }
 
       var btn = document.getElementById("btnDangNhap");
-      btn.disabled = true; btn.textContent = "Đang đăng nhập…";
+      btn.disabled = true;
+      btn.innerHTML = '<span>⏳ Đang xác thực…</span>';
 
       try {
         var email = taiKhoanThanhEmail(tk);
         var res = await sb.auth.signInWithPassword({ email: email, password: mk });
-        if (res.error) { bao("❌ Sai tài khoản hoặc mật khẩu.", "loi"); return; }
+        if (res.error) {
+          bao("❌ Sai tài khoản hoặc mật khẩu.", "loi");
+          return;
+        }
 
         var uid = res.data.user.id;
         var hs = await sb.from("ho_so").select("vai_tro, trang_thai").eq("id", uid).single();
 
         if (hs.error || !hs.data) {
           await sb.auth.signOut();
-          bao("⚠️ Tài khoản chưa được cấp hồ sơ/quyền. Báo quản trị viên.", "loi"); return;
+          bao("⚠️ Tài khoản chưa được cấp hồ sơ/quyền. Vui lòng báo quản trị viên.", "loi");
+          return;
         }
-        if (hs.data.trang_thai === "khoa") {
+        if (hs.data.trang_thai === "khoa" || hs.data.trang_thai === "bi_khoa") {
           await sb.auth.signOut();
-          bao("🔒 Tài khoản đang bị KHÓA. Liên hệ quản trị viên.", "loi"); return;
+          bao("🔒 Tài khoản đang bị KHÓA. Vui lòng liên hệ quản trị viên.", "loi");
+          return;
         }
 
-        window.location.href = "trang_chu.html";   // ✅ vào trang chủ
+        bao("✅ Đăng nhập thành công! Đang chuyển hướng...", "ok");
+        window.location.href = "trang_chu.html";
 
       } catch (e) {
         bao("❌ Lỗi kết nối: " + e.message, "loi");
       } finally {
-        btn.disabled = false; btn.textContent = "ĐĂNG NHẬP";
+        btn.disabled = false;
+        btn.innerHTML = '<span>ĐĂNG NHẬP HỆ THỐNG</span><span>→</span>';
       }
     }
 
     document.getElementById("btnDangNhap").addEventListener("click", dangNhap);
     document.getElementById("matKhau").addEventListener("keydown", function (e) {
       if (e.key === "Enter") dangNhap();
+    });
+    document.getElementById("taiKhoan").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        document.getElementById("matKhau").focus();
+      }
     });
   </script>
 </body>

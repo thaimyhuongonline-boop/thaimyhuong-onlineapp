@@ -3,130 +3,1207 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Trang chủ — THÁI MỸ HƯƠNG</title>
+  <title>Bảng điều khiển — CÔNG TY TNHH THÁI MỸ HƯƠNG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
+    :root {
+      --primary: #16a34a;
+      --primary-hover: #15803d;
+      --primary-dark: #14532d;
+      --primary-light: #dcfce7;
+      --accent: #0ea5e9;
+      --sidebar-width: 280px;
+      --sidebar-collapsed-width: 76px;
+      --topbar-height: 68px;
+      --bg-main: #f8fafc;
+      --bg-surface: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 18px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 12px -2px rgba(0,0,0,0.08);
+      --shadow-lg: 0 10px 25px -5px rgba(0,0,0,0.08);
+      --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Arial, "Segoe UI", sans-serif; background: #f1f5f9; color: #1f2937; }
 
-    /* Thanh trên */
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg-main);
+      color: var(--text-main);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Loading Screen */
+    #dangTai {
+      position: fixed;
+      inset: 0;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      gap: 16px;
+    }
+
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 4px solid #e2e8f0;
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Layout Wrapper */
+    .app-layout {
+      display: flex;
+      min-height: 100vh;
+      width: 100%;
+      position: relative;
+    }
+
+    /* ========================================================
+       SIDEBAR (THANH ĐIỀU HƯỚNG BÊN TRÁI)
+       ======================================================== */
+    .sidebar {
+      width: var(--sidebar-width);
+      background: #064e3b;
+      background: linear-gradient(180deg, #064e3b 0%, #065f46 60%, #047857 100%);
+      color: #ffffff;
+      height: 100vh;
+      position: fixed;
+      left: 0;
+      top: 0;
+      display: flex;
+      flex-direction: column;
+      z-index: 50;
+      transition: var(--transition);
+      box-shadow: 4px 0 20px rgba(0, 0, 0, 0.12);
+      overflow-x: hidden;
+    }
+
+    .sidebar-header {
+      height: var(--topbar-height);
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      flex-shrink: 0;
+    }
+
+    .sidebar-logo {
+      width: 40px;
+      height: 40px;
+      background: #ffffff;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    }
+
+    .sidebar-logo svg {
+      width: 30px;
+      height: 30px;
+    }
+
+    .sidebar-brand-text {
+      white-space: nowrap;
+      overflow: hidden;
+      transition: var(--transition);
+    }
+
+    .sidebar-brand-text h2 {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: #ffffff;
+      line-height: 1.2;
+    }
+
+    .sidebar-brand-text span {
+      font-size: 11px;
+      color: #a7f3d0;
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+
+    /* Sidebar User Snippet */
+    .sidebar-user {
+      padding: 16px 20px;
+      margin: 12px 14px 8px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      white-space: nowrap;
+      transition: var(--transition);
+    }
+
+    .user-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 15px;
+      flex-shrink: 0;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .user-meta {
+      overflow: hidden;
+      transition: var(--transition);
+    }
+
+    .user-meta .name {
+      font-size: 13px;
+      font-weight: 700;
+      color: #ffffff;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .badge-role {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-top: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .badge-role.admin { background: #8b5cf6; color: #fff; }
+    .badge-role.quanly { background: #0ea5e9; color: #fff; }
+    .badge-role.nhanvien { background: #10b981; color: #fff; }
+
+    /* Navigation Menu */
+    .sidebar-menu {
+      flex: 1;
+      padding: 10px 12px;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .sidebar-menu::-webkit-scrollbar {
+      width: 4px;
+    }
+    .sidebar-menu::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+    }
+
+    .menu-category {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #a7f3d0;
+      padding: 14px 12px 6px;
+      font-weight: 700;
+      white-space: nowrap;
+      transition: var(--transition);
+    }
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      color: #ecfdf5;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      margin-bottom: 4px;
+      white-space: nowrap;
+      position: relative;
+    }
+
+    .menu-item:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+      transform: translateX(3px);
+    }
+
+    .menu-item.active {
+      background: #16a34a;
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(22, 163, 74, 0.4);
+    }
+
+    .menu-item .menu-ic {
+      font-size: 18px;
+      width: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .menu-item .menu-label {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: var(--transition);
+    }
+
+    .menu-item .menu-tag {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      font-weight: 700;
+    }
+
+    /* Sidebar Footer */
+    .sidebar-footer {
+      padding: 16px 14px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      flex-shrink: 0;
+    }
+
+    .company-pill {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+      font-size: 11px;
+      line-height: 1.4;
+      color: #d1fae5;
+    }
+
+    .company-pill b {
+      color: #ffffff;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    /* ========================================================
+       COLLAPSED STATE CHO SIDEBAR (THỤT RA THỤT VÀO)
+       ======================================================== */
+    .app-layout.sidebar-collapsed .sidebar {
+      width: var(--sidebar-collapsed-width);
+    }
+
+    .app-layout.sidebar-collapsed .sidebar-brand-text,
+    .app-layout.sidebar-collapsed .user-meta,
+    .app-layout.sidebar-collapsed .menu-label,
+    .app-layout.sidebar-collapsed .menu-tag,
+    .app-layout.sidebar-collapsed .menu-category,
+    .app-layout.sidebar-collapsed .company-pill {
+      opacity: 0;
+      pointer-events: none;
+      display: none;
+    }
+
+    .app-layout.sidebar-collapsed .sidebar-user {
+      padding: 10px;
+      justify-content: center;
+      margin: 8px 6px;
+    }
+
+    .app-layout.sidebar-collapsed .menu-item {
+      justify-content: center;
+      padding: 12px;
+    }
+
+    .app-layout.sidebar-collapsed .main-wrapper {
+      margin-left: var(--sidebar-collapsed-width);
+    }
+
+    /* ========================================================
+       MAIN CONTENT WRAPPER
+       ======================================================== */
+    .main-wrapper {
+      flex: 1;
+      margin-left: var(--sidebar-width);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      transition: var(--transition);
+    }
+
+    /* Topbar */
     .topbar {
-      background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.06);
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 20px; position: sticky; top: 0; z-index: 10;
+      height: var(--topbar-height);
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      box-shadow: var(--shadow-sm);
     }
-    .brand { display: flex; align-items: center; gap: 10px; }
-    .brand svg { width: 40px; height: 40px; }
-    .brand b { color: #15803d; font-size: 18px; letter-spacing: .5px; }
-    .user { display: flex; align-items: center; gap: 12px; }
-    .user .info { text-align: right; line-height: 1.3; }
-    .user .ten { font-weight: bold; font-size: 14px; }
-    .badge { font-size: 11px; color: #fff; background: #16a34a; padding: 2px 10px; border-radius: 999px; }
-    .badge.admin { background: #7c3aed; } .badge.quanly { background: #0ea5e9; } .badge.nhanvien { background: #16a34a; }
-    .btn-out {
-      background: #ef4444; color: #fff; border: none; padding: 8px 14px; border-radius: 8px;
-      font-size: 13px; font-weight: bold; cursor: pointer;
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
     }
-    .btn-out:hover { background: #dc2626; }
 
-    /* Nội dung */
-    .wrap { max-width: 1000px; margin: 0 auto; padding: 24px 20px; }
-    .wrap h2 { color: #334155; font-size: 20px; margin-bottom: 4px; }
-    .wrap .hd { color: #64748b; font-size: 13px; margin-bottom: 20px; }
+    /* Nút Hamburger */
+    .btn-hamburger {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      background: #ffffff;
+      color: #334155;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      cursor: pointer;
+      transition: var(--transition);
+    }
 
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+    .btn-hamburger:hover {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+      color: var(--primary);
+    }
+
+    .btn-hamburger span {
+      width: 20px;
+      height: 2px;
+      background: currentColor;
+      border-radius: 2px;
+      transition: var(--transition);
+    }
+
+    .breadcrumbs {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .breadcrumbs strong {
+      color: var(--text-main);
+      font-weight: 700;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .cloud-status {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: #ecfdf5;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .cloud-status .dot {
+      width: 8px;
+      height: 8px;
+      background: #22c55e;
+      border-radius: 50%;
+      box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.3);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6); }
+      70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+
+    .btn-logout {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #fee2e2;
+      color: #dc2626;
+      border: 1px solid #fecaca;
+      padding: 8px 16px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: var(--transition);
+      font-family: inherit;
+    }
+
+    .btn-logout:hover {
+      background: #ef4444;
+      color: #ffffff;
+      border-color: #ef4444;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+    }
+
+    /* Content Body */
+    .dashboard-content {
+      flex: 1;
+      padding: 32px 28px;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* Welcome Hero Card */
+    .hero-banner {
+      background: linear-gradient(135deg, #065f46 0%, #047857 50%, #059669 100%);
+      border-radius: 20px;
+      padding: 32px 36px;
+      color: #ffffff;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 28px;
+      box-shadow: 0 10px 30px rgba(6, 95, 70, 0.18);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-banner::after {
+      content: "";
+      position: absolute;
+      width: 300px;
+      height: 300px;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, transparent 70%);
+      right: -50px;
+      top: -50px;
+      pointer-events: none;
+    }
+
+    .hero-text h1 {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .hero-text p {
+      font-size: 14px;
+      color: #d1fae5;
+      max-width: 680px;
+      line-height: 1.6;
+    }
+
+    .hero-badge-tag {
+      display: inline-block;
+      margin-top: 12px;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #fef08a;
+    }
+
+    .hero-date {
+      text-align: right;
+      font-size: 13px;
+      color: #a7f3d0;
+      flex-shrink: 0;
+    }
+
+    .hero-date .date-val {
+      font-size: 18px;
+      font-weight: 800;
+      color: #ffffff;
+      margin-top: 4px;
+    }
+
+    /* Stat KPI Cards */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+      margin-bottom: 32px;
+    }
+
+    .kpi-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 20px 22px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: var(--transition);
+    }
+
+    .kpi-card:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-md);
+      border-color: #cbd5e1;
+    }
+
+    .kpi-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    .kpi-icon.blue { background: #eff6ff; color: #2563eb; }
+    .kpi-icon.green { background: #ecfdf5; color: #16a34a; }
+    .kpi-icon.purple { background: #f5f3ff; color: #7c3aed; }
+    .kpi-icon.amber { background: #fffbeb; color: #d97706; }
+
+    .kpi-info h3 {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .kpi-info .kpi-num {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    /* Feature Grid Section */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #1e293b;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-sub {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Tiles Grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+      margin-bottom: 36px;
+    }
+
     .tile {
-      background: #fff; border-radius: 14px; padding: 20px 18px; cursor: pointer;
-      box-shadow: 0 2px 8px rgba(0,0,0,.06); transition: .15s; border-left: 5px solid #16a34a;
-      display: flex; flex-direction: column; gap: 8px;
+      background: var(--bg-surface);
+      border-radius: var(--radius-lg);
+      padding: 24px 22px;
+      cursor: pointer;
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-sm);
+      transition: var(--transition);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
     }
-    .tile:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,.10); }
-    .tile .ic { font-size: 30px; }
-    .tile .tn { font-weight: bold; font-size: 15px; color: #1f2937; }
-    .tile .st { font-size: 12px; color: #94a3b8; }
 
-    #dangTai { text-align: center; padding: 60px; color: #94a3b8; }
+    .tile::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: var(--tile-color, #16a34a);
+      opacity: 0.85;
+      transition: var(--transition);
+    }
+
+    .tile:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
+      border-color: rgba(22, 163, 74, 0.3);
+    }
+
+    .tile:hover::before {
+      height: 6px;
+    }
+
+    .tile-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .tile-ic-bubble {
+      width: 50px;
+      height: 50px;
+      border-radius: 14px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      transition: var(--transition);
+    }
+
+    .tile:hover .tile-ic-bubble {
+      transform: scale(1.08);
+      background: #f0fdf4;
+    }
+
+    .tile-status-tag {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
+
+    .status-ready {
+      background: #ecfdf5;
+      color: #15803d;
+      border: 1px solid #bbf7d0;
+    }
+
+    .status-dev {
+      background: #f1f5f9;
+      color: #64748b;
+      border: 1px solid #e2e8f0;
+    }
+
+    .tile-tn {
+      font-size: 16px;
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1.35;
+      margin-bottom: 8px;
+    }
+
+    .tile-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      flex: 1;
+      margin-bottom: 16px;
+    }
+
+    .tile-action {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--primary);
+      padding-top: 12px;
+      border-top: 1px solid #f1f5f9;
+    }
+
+    .tile:hover .tile-action {
+      color: var(--primary-hover);
+    }
+
+    /* Enterprise Footer Card */
+    .company-summary-card {
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 24px 28px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .company-summary-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #475569;
+    }
+
+    .company-summary-item strong {
+      color: #0f172a;
+      font-size: 14px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 2px;
+    }
+
+    /* Mobile Backdrop */
+    .sidebar-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      z-index: 45;
+    }
+
+    /* ========================================================
+       RESPONSIVE DESIGN
+       ======================================================== */
+    @media (max-width: 1024px) {
+      .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .company-summary-card {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .sidebar {
+        transform: translateX(-100%);
+      }
+
+      .app-layout.sidebar-mobile-open .sidebar {
+        transform: translateX(0);
+      }
+
+      .app-layout.sidebar-mobile-open .sidebar-backdrop {
+        display: block;
+      }
+
+      .main-wrapper {
+        margin-left: 0 !important;
+      }
+
+      .kpi-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-banner {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 24px;
+      }
+
+      .hero-date {
+        text-align: left;
+      }
+
+      .topbar {
+        padding: 0 16px;
+      }
+
+      .dashboard-content {
+        padding: 20px 16px;
+      }
+    }
   </style>
 </head>
 <body>
-  <div id="dangTai">⏳ Đang tải…</div>
+
+  <!-- Màn hình tải -->
+  <div id="dangTai">
+    <div class="spinner"></div>
+    <div style="font-weight: 700; color: #16a34a; font-size: 15px;">Đang tải Bảng điều khiển Thái Mỹ Hương…</div>
+  </div>
 
   <div id="appMain" style="display:none">
-    <div class="topbar">
-      <div class="brand">
-        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="100" cy="100" r="94" fill="none" stroke="#8bc34a" stroke-width="8"/>
-          <g transform="translate(100,92)">
-            <path d="M0,-6 C-8,-40 -46,-40 -46,-14 C-46,2 -22,6 0,-6 Z" fill="#22c55e"/>
-            <path d="M0,-6 C8,-40 46,-40 46,-14 C46,2 22,6 0,-6 Z" fill="#16a34a"/>
-            <path d="M-6,0 C-40,-8 -40,-46 -14,-46 C2,-46 6,-22 -6,0 Z" fill="#4ade80"/>
-            <path d="M6,0 C40,-8 40,-46 14,-46 C-2,-46 -6,-22 6,0 Z" fill="#15803d"/>
-          </g>
-          <path d="M100,96 C96,120 90,140 78,158" fill="none" stroke="#0e7490" stroke-width="9" stroke-linecap="round"/>
-        </svg>
-        <b>THÁI MỸ HƯƠNG</b>
-      </div>
-      <div class="user">
-        <div class="info">
-          <div class="ten" id="tenNguoiDung">—</div>
-          <span class="badge" id="vaiTroBadge">—</span>
-        </div>
-        <button class="btn-out" onclick="dangXuat()">Đăng xuất</button>
-      </div>
-    </div>
+    <div class="app-layout" id="appLayout">
+      
+      <!-- Backdrop cho mobile khi mở sidebar -->
+      <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
-    <div class="wrap">
-      <h2>Bảng điều khiển</h2>
-      <div class="hd">Chọn chức năng để bắt đầu. Các ô hiện ra tùy theo quyền của bạn.</div>
-      <div class="grid" id="luoiChucNang"></div>
+      <!-- ====================================================
+           SIDEBAR (THANH ĐIỀU HƯỚNG BÊN TRÁI)
+           ==================================================== -->
+      <aside class="sidebar" id="sidebar">
+        <!-- Header Sidebar -->
+        <div class="sidebar-header">
+          <div class="sidebar-logo">
+            <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="100" cy="100" r="94" fill="#ffffff" stroke="#8bc34a" stroke-width="6"/>
+              <g transform="translate(100,92)">
+                <path d="M0,-6 C-8,-40 -46,-40 -46,-14 C-46,2 -22,6 0,-6 Z" fill="#22c55e"/>
+                <path d="M0,-6 C8,-40 46,-40 46,-14 C46,2 22,6 0,-6 Z" fill="#16a34a"/>
+                <path d="M-6,0 C-40,-8 -40,-46 -14,-46 C2,-46 6,-22 -6,0 Z" fill="#4ade80"/>
+                <path d="M6,0 C40,-8 40,-46 14,-46 C-2,-46 -6,-22 6,0 Z" fill="#15803d"/>
+              </g>
+              <path d="M100,96 C96,120 90,140 78,158" fill="none" stroke="#0e7490" stroke-width="7" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="sidebar-brand-text">
+            <h2>THÁI MỸ HƯƠNG</h2>
+            <span>DATA PORTAL v2.0</span>
+          </div>
+        </div>
+
+        <!-- Khối người dùng thu nhỏ -->
+        <div class="sidebar-user">
+          <div class="user-avatar" id="userInitials">TMH</div>
+          <div class="user-meta">
+            <div class="name" id="sidebarTenNguoiDung">—</div>
+            <span class="badge-role" id="sidebarVaiTroBadge">—</span>
+          </div>
+        </div>
+
+        <!-- Menu Điều hướng -->
+        <div class="sidebar-menu">
+          <div class="menu-category">Chức năng chính</div>
+          
+          <a class="menu-item active" href="trang_chu.html">
+            <span class="menu-ic">🏠</span>
+            <span class="menu-label">Bảng điều khiển</span>
+          </a>
+
+          <div class="menu-category">Quy trình xử lý</div>
+          <div id="sidebarQuyTrinhItems"></div>
+
+          <div class="menu-category">Quản trị & Cấu hình</div>
+          <div id="sidebarQuanTriItems"></div>
+        </div>
+
+        <!-- Chân Sidebar -->
+        <div class="sidebar-footer">
+          <div class="company-pill">
+            <b>CÔNG TY THÁI MỸ HƯƠNG</b>
+            MST: 4001085814<br>
+            Hotline: 090 580 1918
+          </div>
+        </div>
+      </aside>
+
+      <!-- ====================================================
+           MAIN CONTENT AREA
+           ==================================================== -->
+      <div class="main-wrapper">
+        <!-- Topbar -->
+        <header class="topbar">
+          <div class="topbar-left">
+            <!-- Nút Hamburger Thụt ra Thụt vào -->
+            <button class="btn-hamburger" id="btnHamburger" title="Mở rộng / Thu gọn thanh công cụ">
+              <span></span>
+              <span></span>
+              <span></span>
+            </button>
+
+            <div class="breadcrumbs">
+              <span>Hệ thống</span>
+              <span>/</span>
+              <strong>Bảng điều khiển trung tâm</strong>
+            </div>
+          </div>
+
+          <div class="topbar-right">
+            <div class="cloud-status">
+              <span class="dot"></span>
+              <span>Supabase Cloud Online</span>
+            </div>
+
+            <button class="btn-logout" onclick="dangXuat()">
+              <span>Đăng xuất</span>
+              <span>🚪</span>
+            </button>
+          </div>
+        </header>
+
+        <!-- Dashboard Content -->
+        <main class="dashboard-content">
+          <!-- Hero Banner Chào mừng -->
+          <div class="hero-banner">
+            <div class="hero-text">
+              <h1>
+                <span>Xin chào,</span>
+                <span id="tenNguoiDungBanner">Đang tải...</span>
+                <span>👋</span>
+              </h1>
+              <p>
+                Chào mừng bạn đến với Hệ thống xử lý dữ liệu CÔNG TY TNHH THÁI MỸ HƯƠNG.
+                Chọn nghiệp vụ bên dưới để thao tác nhanh chóng và chính xác.
+              </p>
+              <div class="hero-badge-tag">
+                ✨ “Kiến tạo hiện thực phụng sự — Mang đến cho mỗi ngày sống những điều tử tế”
+              </div>
+            </div>
+
+            <div class="hero-date">
+              <div>Thời gian hiện tại</div>
+              <div class="date-val" id="currentDateStr">Đang lấy ngày…</div>
+            </div>
+          </div>
+
+          <!-- Các Thẻ Thống Kê Nhanh (KPIs) -->
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <div class="kpi-icon blue">📦</div>
+              <div class="kpi-info">
+                <h3>Quy Trình Nghiệp Vụ</h3>
+                <div class="kpi-num">7 Bước</div>
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-icon green">📚</div>
+              <div class="kpi-info">
+                <h3>Danh Mục Quản Lý</h3>
+                <div class="kpi-num">4 Bảng</div>
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-icon purple">👤</div>
+              <div class="kpi-info">
+                <h3>Vai Trò Tài Khoản</h3>
+                <div class="kpi-num" id="kpiVaiTro">Nhân viên</div>
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-icon amber">🏦</div>
+              <div class="kpi-info">
+                <h3>Tài Khoản VCB</h3>
+                <div class="kpi-num" style="font-size: 15px; margin-top: 3px;">0041000266096</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Khu Vực Danh Sách Chức Năng -->
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">
+                <span>⚡</span>
+                <span>Danh sách chức năng nghiệp vụ</span>
+              </h2>
+              <p class="section-sub">
+                Các ô chức năng được phân quyền tự động theo hồ sơ tài khoản của bạn.
+              </p>
+            </div>
+          </div>
+
+          <!-- Lưới chức năng chính -->
+          <div class="grid" id="luoiChucNang"></div>
+
+          <!-- Thẻ Thông Tin Doanh Nghiệp & Liên Hệ (Đồng bộ từ hình ảnh) -->
+          <div class="company-summary-card">
+            <div class="company-summary-item">
+              <strong>🌿 CÔNG TY TNHH THÁI MỸ HƯƠNG</strong>
+              <span>GPKD/MST: <b>4001085814</b></span>
+              <span>Địa chỉ: 291 Văn Tiến Dũng, P. Hòa Xuân, TP. Đà Nẵng</span>
+            </div>
+            <div class="company-summary-item">
+              <strong>📞 Kênh Liên Hệ Hỗ Trợ</strong>
+              <span>Hotline: +84 90 580 1918 / 090 585 1918</span>
+              <span>Email: thaimyhuong.co@gmail.com</span>
+            </div>
+            <div class="company-summary-item">
+              <strong>🏦 Tài Khoản Ngân Hàng Doanh Nghiệp</strong>
+              <span>Số tài khoản: <b>0041000266096</b></span>
+              <span>Ngân hàng Vietcombank (Chi nhánh Đà Nẵng)</span>
+            </div>
+          </div>
+        </main>
+      </div>
+
     </div>
   </div>
 
+  <!-- Cấu hình chung Supabase: giữ nguyên 100% -->
   <script src="config.js"></script>
   <script>
-    // Danh sách chức năng. trang=null nghĩa là CHƯA dựng (bấm vào báo "đang xây dựng").
+    // Danh sách chức năng đầy đủ - Giữ nguyên toàn bộ thuộc tính và đường dẫn
     var CHUC_NANG = [
-      { ic:"📥", tn:"1. Tải dữ liệu KiotViet", trang:"buoc1_upload.html", quyen:["admin","quanly","nhanvien"], mau:"#3b82f6" },
-      { ic:"📊", tn:"2. Tạo phiếu thu tiền & xuất kho", trang:null, quyen:["admin","quanly","nhanvien"], mau:"#8b5cf6" },
-      { ic:"🗄️", tn:"3. Lưu trữ",                      trang:null, quyen:["admin","quanly","nhanvien"], mau:"#0ea5e9" },
-      { ic:"📋", tn:"4. Kiểm đơn giao về",             trang:null, quyen:["admin","quanly","nhanvien"], mau:"#f59e0b" },
-      { ic:"💾", tn:"5. Lưu kết quả kiểm đơn",         trang:null, quyen:["admin","quanly","nhanvien"], mau:"#10b981" },
-      { ic:"📗", tn:"6. Bảng kê nộp tiền",             trang:null, quyen:["admin","quanly","nhanvien"], mau:"#14b8a6" },
-      { ic:"📤", tn:"7. Xuất file bán hàng MISA",      trang:null, quyen:["admin","quanly","nhanvien"], mau:"#22c55e" },
-      { ic:"💰", tn:"Theo dõi công nợ",                trang:null, quyen:["admin","quanly"],            mau:"#ef4444" },
-      { ic:"📚", tn:"Danh mục dữ liệu", trang:"danh_muc.html", quyen:["admin","quanly"], mau:"#64748b" },
-      { ic:"👤", tn:"Quản lý tài khoản", trang:"quan_ly_taikhoan.html", quyen:["admin"], mau:"#7c3aed" }
+      { ic:"📥", tn:"1. Tải dữ liệu KiotViet", trang:"buoc1_upload.html", quyen:["admin","quanly","nhanvien"], mau:"#3b82f6", moTa:"Đọc file xuất từ KiotViet và tự động cập nhật danh mục mới." },
+      { ic:"📊", tn:"2. Tạo phiếu thu tiền & xuất kho", trang:null, quyen:["admin","quanly","nhanvien"], mau:"#8b5cf6", moTa:"Tự động hóa lập phiếu thu ngân hàng và chứng từ xuất kho." },
+      { ic:"🗄️", tn:"3. Lưu trữ",                      trang:null, quyen:["admin","quanly","nhanvien"], mau:"#0ea5e9", moTa:"Quản lý kho dữ liệu lịch sử và chứng từ số hóa nội bộ." },
+      { ic:"📋", tn:"4. Kiểm đơn giao về",             trang:null, quyen:["admin","quanly","nhanvien"], mau:"#f59e0b", moTa:"Đối soát số lượng đơn hàng thực giao từ đội ngũ vận chuyển." },
+      { ic:"💾", tn:"5. Lưu kết quả kiểm đơn",         trang:null, quyen:["admin","quanly","nhanvien"], mau:"#10b981", moTa:"Lưu trữ kết quả đối soát và ghi nhận các chênh lệch giao hàng." },
+      { ic:"📗", tn:"6. Bảng kê nộp tiền",             trang:null, quyen:["admin","quanly","nhanvien"], mau:"#14b8a6", moTa:"Lập bảng tổng hợp các khoản tiền thu nộp về tài khoản công ty." },
+      { ic:"📤", tn:"7. Xuất file bán hàng MISA",      trang:null, quyen:["admin","quanly","nhanvien"], mau:"#22c55e", moTa:"Kết xuất dữ liệu chuẩn định dạng nhập vào phần mềm kế toán MISA." },
+      { ic:"💰", tn:"Theo dõi công nợ",                trang:null, quyen:["admin","quanly"],            mau:"#ef4444", moTa:"Theo dõi hạn mức thanh toán và đối chiếu công nợ khách hàng." },
+      { ic:"📚", tn:"Danh mục dữ liệu", trang:"danh_muc.html", quyen:["admin","quanly"], mau:"#64748b", moTa:"Quản lý Khách hàng, Hàng hóa, Định khoản và Danh sách xe." },
+      { ic:"👤", tn:"Quản lý tài khoản", trang:"quan_ly_taikhoan.html", quyen:["admin"], mau:"#7c3aed", moTa:"Tạo mới tài khoản nhân viên, cấp vai trò và quản lý khóa/mở khóa." }
     ];
 
     function moChucNang(cn) {
-      if (cn.trang) window.location.href = cn.trang;
-      else alert("🚧 Chức năng \"" + cn.tn + "\" đang được xây dựng.\nSẽ có ở bước kế tiếp.");
+      if (cn.trang) {
+        window.location.href = cn.trang;
+      } else {
+        alert("🚧 Chức năng \"" + cn.tn + "\" đang được xây dựng.\nSẽ có ở bước kế tiếp.");
+      }
     }
 
+    // Hiển thị ngày tháng tiếng Việt
+    function capNhatNgayHienTai() {
+      var now = new Date();
+      var days = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
+      var str = days[now.getDay()] + ", " + 
+                String(now.getDate()).padStart(2, '0') + "/" + 
+                String(now.getMonth() + 1).padStart(2, '0') + "/" + 
+                now.getFullYear();
+      var el = document.getElementById("currentDateStr");
+      if (el) el.textContent = str;
+    }
+
+    // Xử lý cơ chế Hamburger Thụt ra Thụt vào
+    function khoiTaoHamburger() {
+      var layout = document.getElementById("appLayout");
+      var btn = document.getElementById("btnHamburger");
+      var backdrop = document.getElementById("sidebarBackdrop");
+
+      // Khôi phục trạng thái đã lưu trước đó (nếu có)
+      var saved = localStorage.getItem("tmh_sidebar_collapsed");
+      if (saved === "true" && window.innerWidth > 768) {
+        layout.classList.add("sidebar-collapsed");
+      }
+
+      btn.addEventListener("click", function () {
+        if (window.innerWidth <= 768) {
+          layout.classList.toggle("sidebar-mobile-open");
+        } else {
+          layout.classList.toggle("sidebar-collapsed");
+          var isCollapsed = layout.classList.contains("sidebar-collapsed");
+          localStorage.setItem("tmh_sidebar_collapsed", isCollapsed ? "true" : "false");
+        }
+      });
+
+      backdrop.addEventListener("click", function () {
+        layout.classList.remove("sidebar-mobile-open");
+      });
+    }
+
+    // Khởi tạo ứng dụng & Kiểm tra đăng nhập
     (async function () {
+      capNhatNgayHienTai();
+      khoiTaoHamburger();
+
       var nd = await baoVeTrang();     // kiểm tra đăng nhập + lấy hồ sơ
       if (!nd) return;                 // chưa đăng nhập → đã tự chuyển về index.html
 
-      // Hiện thông tin người dùng
-      document.getElementById("tenNguoiDung").textContent = nd.ho_ten || "(chưa đặt tên)";
-      var badge = document.getElementById("vaiTroBadge");
-      badge.textContent = TEN_VAI_TRO[nd.vai_tro] || nd.vai_tro;
-      badge.className = "badge " + nd.vai_tro;
+      var tenNguoiDung = nd.ho_ten || "Quý nhân viên";
+      var tenVaiTro = TEN_VAI_TRO[nd.vai_tro] || nd.vai_tro;
 
-      // Vẽ các ô chức năng theo quyền
+      // Cập nhật thông tin lên giao diện
+      document.getElementById("tenNguoiDungBanner").textContent = tenNguoiDung;
+      document.getElementById("sidebarTenNguoiDung").textContent = tenNguoiDung;
+      document.getElementById("kpiVaiTro").textContent = tenVaiTro;
+
+      // Avatar chữ cái đầu
+      var initials = tenNguoiDung.trim().split(" ").map(function (w) { return w[0]; }).slice(-2).join("").toUpperCase() || "TMH";
+      document.getElementById("userInitials").textContent = initials;
+
+      // Badge vai trò
+      var sbBadge = document.getElementById("sidebarVaiTroBadge");
+      sbBadge.textContent = tenVaiTro;
+      sbBadge.className = "badge-role " + nd.vai_tro;
+
+      // Lọc danh sách chức năng theo quyền hạn
+      var cacChucNangDuocPhep = CHUC_NANG.filter(function (c) { 
+        return c.quyen.indexOf(nd.vai_tro) !== -1; 
+      });
+
+      // 1. Vẽ các thẻ ô chức năng trên Lưới chính
       var luoi = document.getElementById("luoiChucNang");
-      CHUC_NANG.filter(function (c) { return c.quyen.indexOf(nd.vai_tro) !== -1; })
-               .forEach(function (c) {
+      luoi.innerHTML = "";
+
+      cacChucNangDuocPhep.forEach(function (c) {
         var div = document.createElement("div");
         div.className = "tile";
-        div.style.borderLeftColor = c.mau;
-        div.innerHTML = '<div class="ic">' + c.ic + '</div>' +
-                        '<div class="tn">' + c.tn + '</div>' +
-                        '<div class="st">' + (c.trang ? "Sẵn sàng" : "🚧 Đang xây dựng") + '</div>';
-        div.addEventListener("click", function () { moChucNang(c); });
+        div.style.setProperty("--tile-color", c.mau);
+        
+        var isReady = !!c.trang;
+        var statusTag = isReady 
+          ? '<span class="tile-status-tag status-ready">✓ Sẵn sàng</span>' 
+          : '<span class="tile-status-tag status-dev">🚧 Đang xây dựng</span>';
+
+        div.innerHTML = 
+          '<div class="tile-top">' +
+            '<div class="tile-ic-bubble">' + c.ic + '</div>' +
+            statusTag +
+          '</div>' +
+          '<div class="tile-tn">' + c.tn + '</div>' +
+          '<div class="tile-desc">' + (c.moTa || "Chọn để mở giao diện làm việc.") + '</div>' +
+          '<div class="tile-action">' +
+            '<span>' + (isReady ? "Truy cập chức năng" : "Chờ cập nhật") + '</span>' +
+            '<span>' + (isReady ? "→" : "⏳") + '</span>' +
+          '</div>';
+
+        div.addEventListener("click", function () { 
+          moChucNang(c); 
+        });
+
         luoi.appendChild(div);
       });
 
+      // 2. Vẽ các mục liên kết tương ứng trên thanh Sidebar
+      var sidebarQuyTrinh = document.getElementById("sidebarQuyTrinhItems");
+      var sidebarQuanTri = document.getElementById("sidebarQuanTriItems");
+
+      cacChucNangDuocPhep.forEach(function (c) {
+        var a = document.createElement("a");
+        a.className = "menu-item";
+        a.innerHTML = 
+          '<span class="menu-ic">' + c.ic + '</span>' +
+          '<span class="menu-label">' + c.tn + '</span>' +
+          (c.trang ? '<span class="menu-tag">Mở</span>' : '');
+
+        a.addEventListener("click", function (e) {
+          e.preventDefault();
+          moChucNang(c);
+        });
+
+        // Phân loại vào nhóm menu bên sidebar
+        if (c.tn.startsWith("1.") || c.tn.startsWith("2.") || c.tn.startsWith("3.") || 
+            c.tn.startsWith("4.") || c.tn.startsWith("5.") || c.tn.startsWith("6.") || c.tn.startsWith("7.")) {
+          sidebarQuyTrinh.appendChild(a);
+        } else {
+          sidebarQuanTri.appendChild(a);
+        }
+      });
+
+      // Ẩn màn hình tải và hiển thị ứng dụng
       document.getElementById("dangTai").style.display = "none";
       document.getElementById("appMain").style.display = "block";
     })();
