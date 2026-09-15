@@ -133,7 +133,10 @@
         <span>Ngày giao: <b id="lblNgayGiao">...</b></span>
         <span>Số lượng HĐ: <b id="lblSoHD" style="color:var(--primary); font-weight:800;">0</b></span>
       </div>
-      <div style="display: flex; gap: 8px; align-items: center;">
+      <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        <button type="button" class="btn btn-amber btn-sm" onclick="xemLaiPhieuThuVaXuatKho()" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;">
+          <span>📄</span> Xem lại Phiếu Thu & Xuất Kho
+        </button>
         <button type="button" class="btn btn-outline btn-sm" onclick="xuatExcel18Cot()">
           <span>📊</span> Xuất Excel 18 cột
         </button>
@@ -486,7 +489,8 @@
           </td>
           <td class="text-center">
             <div style="display: inline-flex; gap: 4px;">
-              <button type="button" class="btn btn-outline btn-sm" onclick="xemDot(${idx})" title="Xem đợt này">👁️ Xem</button>
+              <button type="button" class="btn btn-outline btn-sm" onclick="xemDot(${idx})" title="Xem 18 cột đợt này">👁️ 18 cột</button>
+              <button type="button" class="btn btn-outline btn-sm" style="color:#d97706; font-weight:700; border-color:#fde68a; background:#fffbeb;" onclick="xemPhieuThuVaXuatKho(${idx})" title="Xem lại Phiếu Thu & Xuất Kho">📄 2 Phiếu</button>
               <button type="button" class="btn btn-outline btn-sm" onclick="moModalSuaDot(${idx})" title="Sửa thông tin">✏️ Sửa</button>
               <button type="button" class="btn btn-primary btn-sm" onclick="kiemDonDot(${idx})" title="Chuyển sang Bước 4">📋 B4</button>
               <button type="button" class="btn btn-outline btn-sm" style="color:#dc2626;" onclick="xoaDot(${idx})" title="Xóa đợt">🗑️</button>
@@ -495,6 +499,20 @@
         `;
         tbody.appendChild(tr);
       });
+    }
+
+    function xemLaiPhieuThuVaXuatKho() {
+      if (dotHienTai && dotHienTai.maDot) {
+        window.location.href = `buoc2_phieu_xuat_kho.html?maDot=${encodeURIComponent(dotHienTai.maDot)}`;
+      } else {
+        window.location.href = 'buoc2_phieu_xuat_kho.html';
+      }
+    }
+
+    function xemPhieuThuVaXuatKho(idx) {
+      const d = lichSuDot[idx];
+      if (!d || !d.maDot) return;
+      window.location.href = `buoc2_phieu_xuat_kho.html?maDot=${encodeURIComponent(d.maDot)}`;
     }
 
     function xemDot(idx) {
