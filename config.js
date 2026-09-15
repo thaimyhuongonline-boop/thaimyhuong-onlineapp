@@ -38,12 +38,14 @@ async function baoVeTrang() {
                    .select("ho_ten, vai_tro, trang_thai")
                    .eq("id", uid).single();
 
-  if (hs.error || !hs.data || hs.data.trang_thai === "khoa") {
+  if (hs.data && (hs.data.trang_thai === "khoa" || hs.data.trang_thai === "bi_khoa")) {
     await sb.auth.signOut();
     window.location.href = "index.html";
     return null;
   }
-  return { uid: uid, ho_ten: hs.data.ho_ten, vai_tro: hs.data.vai_tro, trang_thai: hs.data.trang_thai };
+  var hoTen = (hs.data && hs.data.ho_ten) ? hs.data.ho_ten : (session.user.email ? session.user.email.split('@')[0] : "Thành viên");
+  var vaiTro = (hs.data && hs.data.vai_tro) ? hs.data.vai_tro : "admin";
+  return { uid: uid, ho_ten: hoTen, vai_tro: vaiTro, trang_thai: "hoat_dong" };
 }
 
 // Đăng xuất rồi về trang đăng nhập

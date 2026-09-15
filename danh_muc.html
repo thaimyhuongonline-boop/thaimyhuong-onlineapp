@@ -116,11 +116,7 @@
       });
       if (!layoutData) return;
 
-      if (layoutData.vaiTro !== 'admin' && layoutData.vaiTro !== 'quanly') {
-        alert("Bạn không có quyền truy cập trang này!");
-        window.location.href = 'trang_chu.html';
-        return;
-      }
+      // Cho phép tất cả tài khoản truy cập và thao tác danh mục
       taiDuLieu();
     }
 

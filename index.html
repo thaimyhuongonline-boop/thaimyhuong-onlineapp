@@ -662,12 +662,7 @@
         var uid = res.data.user.id;
         var hs = await sb.from("ho_so").select("vai_tro, trang_thai").eq("id", uid).single();
 
-        if (hs.error || !hs.data) {
-          await sb.auth.signOut();
-          bao("⚠️ Tài khoản chưa được cấp hồ sơ/quyền. Vui lòng báo quản trị viên.", "loi");
-          return;
-        }
-        if (hs.data.trang_thai === "khoa" || hs.data.trang_thai === "bi_khoa") {
+        if (hs.data && (hs.data.trang_thai === "khoa" || hs.data.trang_thai === "bi_khoa")) {
           await sb.auth.signOut();
           bao("🔒 Tài khoản đang bị KHÓA. Vui lòng liên hệ quản trị viên.", "loi");
           return;

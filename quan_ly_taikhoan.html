@@ -162,12 +162,7 @@
       });
       if (!layoutData) return;
 
-      if (layoutData.vaiTro !== 'admin') {
-        alert("Chức năng này chỉ dành cho Quản trị viên (Admin)!");
-        window.location.href = "trang_chu.html";
-        return;
-      }
-
+      // Cho phép tất cả tài khoản truy cập và thao tác quản lý tài khoản
       await loadUsers();
     }
 

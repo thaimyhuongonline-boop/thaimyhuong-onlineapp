@@ -91,7 +91,7 @@ async function khoiTaoLayout(options = {}) {
         }).join('')}
 
         <div class="tmh-menu-cat">Quản trị & Sổ sách</div>
-        ${MENU_QUAN_TRI.filter(m => !m.roles || m.roles.includes(vaiTro)).map(m => {
+        ${MENU_QUAN_TRI.map(m => {
           const isActive = currentPath === m.href || options.activeMenuId === m.id;
           return `
             <a href="${m.href}" class="tmh-menu-item ${isActive ? 'active' : ''}">

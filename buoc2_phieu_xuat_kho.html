@@ -181,16 +181,19 @@
 
     /* Bảng Mẫu */
     .doc-table {
-      width: 100%;
+      width: 100% !important;
       border-collapse: collapse;
-      margin-top: 10px;
+      margin-top: 8px;
       font-size: 10.5px;
+      table-layout: fixed !important;
     }
     .doc-table th, .doc-table td {
       border: 1px solid #b0c4de;
       padding: 5px 6px;
       vertical-align: middle;
       line-height: 1.35;
+      word-break: break-word;
+      overflow-wrap: break-word;
     }
 
     /* Bảng Kê Thu Tiền: Header #b8cce4 */
@@ -238,20 +241,73 @@
       font-style: italic;
     }
 
-    /* Khi In Khổ A4 */
+    /* Khi In Khổ A4 - Tự căn vừa vặn toàn bộ bề ngang giấy A4 */
+    @page {
+      size: A4 portrait;
+      margin: 8mm 6mm 10mm 6mm;
+      @bottom-right {
+        content: "Trang " counter(page) " / " counter(pages);
+        font-size: 10px;
+        color: #475569;
+        font-family: inherit;
+      }
+    }
+
     @media print {
-      body * { visibility: hidden; }
-      #tmhSidebar, .tmh-topbar, .tmh-footer, .dispatch-card, .preview-tabs, .tmh-page-header { display: none !important; }
-      .paper-a4, .paper-a4 * { visibility: visible; }
-      .paper-a4 {
-        position: absolute;
-        left: 0;
-        top: 0;
+      html, body {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+      }
+
+      body * {
+        visibility: hidden;
+      }
+
+      #tmhSidebar, .tmh-topbar, .tmh-footer, .dispatch-card, .preview-tabs, .tmh-page-header, .no-print, .xuatkho-filter-bar {
+        display: none !important;
+      }
+
+      /* Kích hoạt tab đang in hiển thị toàn bộ 100% bề ngang A4 */
+      .print-active, .print-active * {
+        visibility: visible;
+      }
+
+      .print-active {
+        display: block !important;
+        position: static !important;
         width: 100% !important;
         max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      .print-active .paper-a4 {
+        position: static !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
         border: none !important;
         box-shadow: none !important;
-        padding: 0 !important;
+        box-sizing: border-box !important;
+      }
+
+      .print-active .doc-table {
+        width: 100% !important;
+        table-layout: fixed !important;
+        border-collapse: collapse !important;
+      }
+
+      .print-active .doc-table th, .print-active .doc-table td {
+        word-break: break-word !important;
+        overflow-wrap: break-word !important;
+      }
+
+      /* Tránh trình duyệt tự lặp lại tfoot trên từng trang */
+      tfoot {
+        display: table-row-group !important;
       }
     }
   </style>
@@ -289,22 +345,51 @@
 
         <div class="form-group">
           <label>Tài xế lái xe:</label>
-          <input type="text" id="taiXe" class="form-control" value="SINH" placeholder="Nhập tên tài xế">
+          <select id="taiXe" class="form-control">
+            <option value="SINH">SINH</option>
+            <option value="HẢI">HẢI</option>
+            <option value="ĐẠT">ĐẠT</option>
+            <option value="NAM">NAM</option>
+            <option value="TUẤN">TUẤN</option>
+          </select>
         </div>
 
         <div class="form-group">
           <label>Ngày giao hàng:</label>
-          <input type="date" id="ngayGiaoHang" class="form-control">
+          <input type="date" id="ngayGiaoHang" class="form-control" onchange="onDoiNgay()">
         </div>
 
         <div class="form-group">
           <label>Nhân viên giao hàng:</label>
-          <input type="text" id="nvGiaoHang" class="form-control" placeholder="Tên nhân viên giao">
+          <select id="nvGiaoHang" class="form-control">
+            <option value="">-- Chọn nhân viên giao hàng --</option>
+            <option value="ĐẠT">ĐẠT</option>
+            <option value="SINH">SINH</option>
+            <option value="HẢI">HẢI</option>
+            <option value="NAM">NAM</option>
+            <option value="TUẤN">TUẤN</option>
+          </select>
         </div>
 
         <div class="form-group">
           <label>Nhân viên thu tiền:</label>
-          <input type="text" id="nvThuTien" class="form-control" value="ĐẠT" placeholder="Tên người thu tiền">
+          <select id="nvThuTien" class="form-control">
+            <option value="ĐẠT">ĐẠT</option>
+            <option value="SINH">SINH</option>
+            <option value="HẢI">HẢI</option>
+            <option value="NAM">NAM</option>
+            <option value="TUẤN">TUẤN</option>
+          </select>
+        </div>
+
+        <!-- Hộp Thông Báo Tự Động Ghép Dữ Liệu Khi Chọn Trùng Tuyến Xe Đã Có Lưu Trữ Bước 3 -->
+        <div id="boxThongBaoGhepDon" style="display: none; background: #eff6ff; border: 1px solid #93c5fd; border-radius: 6px; padding: 10px; font-size: 12px; color: #1e40af; line-height: 1.45;">
+          <div style="font-weight: 800; display: flex; align-items: center; gap: 5px; color: #1d4ed8;">
+            <span>ℹ️</span> Tuyến xe đã có dữ liệu lưu trữ Bước 3!
+          </div>
+          <div id="boxThongBaoGhepDonNoiDung" style="margin-top: 4px;">
+            Đã có sẵn <b id="lblSoHDDaLuu">0</b> hóa đơn. Khi bấm tạo phiếu, hệ thống sẽ <b>tự động ghép</b> với các hóa đơn bổ sung mới.
+          </div>
         </div>
 
         <!-- Hóa đơn đợt này -->
@@ -324,7 +409,7 @@
         </div>
 
         <!-- Nút Tạo Phiếu & Lưu Bước 3 -->
-        <button type="button" class="btn btn-primary" onclick="chayTaoPhieu()" style="width: 100%; justify-content: center; padding: 10px;">
+        <button type="button" class="btn btn-primary" id="btnTaoPhieu" onclick="chayTaoPhieu()" style="width: 100%; justify-content: center; padding: 10px;">
           <span>⚡</span> Tạo 2 Biểu Mẫu Phiếu
         </button>
 
@@ -386,21 +471,27 @@
             <table class="doc-table table-bangke">
               <thead>
                 <tr>
-                  <th style="width:30px;">STT</th>
-                  <th style="width:85px;">Mã Hoá Đơn</th>
-                  <th style="width:80px;">Mã KH</th>
-                  <th>Tên Khách Hàng</th>
-                  <th style="width:90px;">Người Bán</th>
-                  <th style="width:75px;">Doanh Số</th>
-                  <th style="width:65px;">Giảm SP</th>
-                  <th style="width:65px;">Giảm HĐ</th>
-                  <th style="width:80px;">Thành Tiền</th>
-                  <th style="width:70px;">Ghi Chú</th>
+                  <th style="width:4%;">STT</th>
+                  <th style="width:13%;">Mã Hoá Đơn</th>
+                  <th style="width:11%;">Mã KH</th>
+                  <th style="width:25%;">Tên Khách Hàng</th>
+                  <th style="width:12%;">Người Bán</th>
+                  <th style="width:9%;">Doanh Số</th>
+                  <th style="width:6%;">Giảm SP</th>
+                  <th style="width:6%;">Giảm HĐ</th>
+                  <th style="width:9%;">Thành Tiền</th>
+                  <th style="width:5%;">Ghi Chú</th>
                 </tr>
               </thead>
               <tbody id="tbodyBangKe"></tbody>
-              <tfoot id="tfootBangKe"></tfoot>
+              <tfoot id="tfootBangKe" style="display:none;"></tfoot>
             </table>
+
+            <!-- Đánh dấu trang cho danh sách thu tiền khi số lượng tờ > 2 -->
+            <div id="footerTrangBangKe" style="display: none; margin-top: 10px; font-size: 10.5px; color: #475569; justify-content: space-between; border-top: 1px dashed #cbd5e1; padding-top: 6px;">
+              <span>📑 Bảng kê gồm <b id="soHDTextBangKe">0</b> hóa đơn (chia làm ~<b id="soToTextBangKe">1</b> tờ). Vui lòng kiểm tra đối chiếu đủ các tờ.</span>
+              <span>Đánh dấu: <b>BẢNG KÊ THU TIỀN HÀNG (Tờ đa trang)</b></span>
+            </div>
           </div>
         </div>
 
@@ -424,24 +515,43 @@
               <div>Thu tiền: <b id="lblThuTienXuatKho">...</b></div>
             </div>
 
+            <!-- Thanh Tiêu Đề Bộ Lọc & Nút Copy 2 Cột (Mã Hàng & Tổng SL) - Ẩn khi In -->
+            <div class="xuatkho-filter-bar no-print" style="margin-top: 10px; margin-bottom: 8px; padding: 8px 12px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between;">
+              <div style="display: flex; gap: 8px; align-items: center; flex: 1; min-width: 280px;">
+                <span style="font-weight: 700; font-size: 12px; color: #334155;">🔍 Lọc phiếu:</span>
+                <input type="text" id="filterXuatKhoText" class="form-control" placeholder="Lọc theo mã hàng, tên hàng..." oninput="locDuLieuXuatKho()" style="flex: 1; padding: 5px 10px; font-size: 12px;">
+                <select id="filterXuatKhoLoai" class="form-control" onchange="locDuLieuXuatKho()" style="width: 145px; padding: 5px 8px; font-size: 12px; font-weight: 600;">
+                  <option value="tat_ca">Tất cả mặt hàng</option>
+                  <option value="hang_ban">Chỉ hàng bán</option>
+                  <option value="khuyen_mai">Chỉ khuyến mãi (KM)</option>
+                </select>
+              </div>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <span id="badgeSoDongLocXuatKho" style="font-size: 11px; font-weight: 700; color: var(--primary);"></span>
+                <button type="button" class="btn btn-primary btn-sm" onclick="copy2CotXuatKho()" style="font-weight: 700; background: #16a34a; border-color: #16a34a; padding: 6px 12px; display: flex; align-items: center; gap: 5px;">
+                  <span>📋</span> Copy 2 cột (Mã hàng & Tổng SL)
+                </button>
+              </div>
+            </div>
+
             <table class="doc-table table-xuatkho">
               <thead>
                 <tr>
-                  <th style="width:28px;">STT</th>
-                  <th style="width:70px;">Mã Hàng</th>
-                  <th>Tên Hàng Hóa</th>
-                  <th style="width:35px;">QC</th>
-                  <th style="width:38px;">ĐVT</th>
-                  <th style="width:48px;">Tổng SL</th>
-                  <th style="width:42px;">Chẵn</th>
-                  <th style="width:42px;">Lẻ</th>
-                  <th style="width:65px;">Đơn Giá</th>
-                  <th style="width:80px;">Thành Tiền</th>
-                  <th style="width:90px;">Ghi Chú</th>
+                  <th style="width:4%;">STT</th>
+                  <th style="width:10%;">Mã Hàng</th>
+                  <th style="width:28%;">Tên Hàng Hóa</th>
+                  <th style="width:5%;">QC</th>
+                  <th style="width:6%;">ĐVT</th>
+                  <th style="width:7%;">Tổng SL</th>
+                  <th style="width:6%;">Chẵn</th>
+                  <th style="width:5%;">Lẻ</th>
+                  <th style="width:9%;">Đơn Giá</th>
+                  <th style="width:10%;">Thành Tiền</th>
+                  <th style="width:10%;">Ghi Chú</th>
                 </tr>
               </thead>
               <tbody id="tbodyXuatKho"></tbody>
-              <tfoot id="tfootXuatKho"></tfoot>
+              <tfoot id="tfootXuatKho" style="display:none;"></tfoot>
             </table>
           </div>
         </div>
@@ -459,6 +569,9 @@
     let danhSachHangHoaXuatKhoToanCuc = {};
     let mapQuyCach = new Map();
     let tabHienTai = 'bangke';
+    let dotLuuTruHienCo = null;
+    let danhSachXeDanhMuc = [];
+    let danhSachNhanVienDanhMuc = [];
 
     function formatTien(so) {
       if (so === null || so === undefined || isNaN(so)) return '0';
@@ -526,11 +639,118 @@
         return;
       }
 
-      // Tải quy cách từ Supabase
+      // 1. Tải danh mục xe và nhân sự từ Danh mục dữ liệu (Yêu cầu 1)
+      await taiDanhMucXeVaNhanSu();
+
+      // 2. Tải quy cách từ Supabase
       await taiDanhMucQuyCach();
 
-      // Trích xuất danh sách hóa đơn duy nhất
+      // 3. Trích xuất danh sách hóa đơn duy nhất (Ẩn các hóa đơn đã lưu ở Bước 3 - Yêu cầu 5)
       await trichXuatDanhSachHoaDon();
+
+      // 4. Kiểm tra chuyến xe hiện tại đã có lưu trữ chưa để sẵn sàng tự động ghép
+      kiemTraVaNapDonXeLuuTru();
+    }
+
+    // Tải danh sách Xe và Nhân sự từ Danh mục dữ liệu
+    async function taiDanhMucXeVaNhanSu() {
+      // 1. Lấy danh sách xe
+      let dsXe = [];
+      try {
+        if (typeof sb !== 'undefined') {
+          const { data } = await sb.from('danh_sach_xe').select('*');
+          if (data && data.length > 0) dsXe = data;
+        }
+      } catch (e) {
+        console.warn("Chưa tải xe từ Supabase:", e);
+      }
+
+      if (dsXe.length === 0) {
+        try {
+          const localXe = JSON.parse(localStorage.getItem('tmh_danh_muc_danh_sach_xe') || '[]');
+          if (localXe && localXe.length > 0) dsXe = localXe;
+        } catch (e) {}
+      }
+
+      if (dsXe.length === 0) {
+        dsXe = [
+          { ma_xe: "HD1 SÁNG", bien_so: "43C-12345", loai_xe: "Xe tải 1.4 tấn", tai_xe_mac_dinh: "SINH" },
+          { ma_xe: "HD1 CHIỀU", bien_so: "43C-12345", loai_xe: "Xe tải 1.4 tấn", tai_xe_mac_dinh: "SINH" },
+          { ma_xe: "HD2 SÁNG", bien_so: "43C-67890", loai_xe: "Xe tải 2.5 tấn", tai_xe_mac_dinh: "HẢI" },
+          { ma_xe: "HD2 CHIỀU", bien_so: "43C-67890", loai_xe: "Xe tải 2.5 tấn", tai_xe_mac_dinh: "HẢI" }
+        ];
+      }
+      danhSachXeDanhMuc = dsXe;
+
+      // Đổ danh sách vào select xeVanChuyen
+      const selXe = document.getElementById('xeVanChuyen');
+      const valCuXe = selXe.value || "HD1 SÁNG";
+      selXe.innerHTML = '';
+      dsXe.forEach(x => {
+        const opt = document.createElement('option');
+        opt.value = x.ma_xe;
+        const moTa = [x.loai_xe || x.bien_so, x.tai_xe_mac_dinh].filter(Boolean).join(' - ');
+        opt.textContent = moTa ? `${x.ma_xe} (${moTa})` : x.ma_xe;
+        selXe.appendChild(opt);
+      });
+      if (dsXe.some(x => x.ma_xe === valCuXe)) {
+        selXe.value = valCuXe;
+      }
+
+      // 2. Lấy danh sách nhân sự (Hồ sơ người dùng & Tài xế)
+      const setNhanSu = new Set(['SINH', 'HẢI', 'ĐẠT', 'NAM', 'TUẤN']);
+      dsXe.forEach(x => {
+        if (x.tai_xe_mac_dinh) setNhanSu.add(String(x.tai_xe_mac_dinh).trim());
+      });
+
+      try {
+        if (typeof sb !== 'undefined') {
+          const { data } = await sb.from('ho_so').select('ho_ten, so_dien_thoai');
+          if (data && data.length > 0) {
+            data.forEach(u => {
+              if (u.ho_ten) setNhanSu.add(String(u.ho_ten).trim());
+            });
+          }
+        }
+      } catch (e) {
+        console.warn("Chưa tải hồ sơ từ Supabase:", e);
+      }
+
+      danhSachNhanVienDanhMuc = Array.from(setNhanSu).sort((a, b) => a.localeCompare(b, 'vi'));
+
+      // Đổ vào select taiXe
+      const selTaiXe = document.getElementById('taiXe');
+      selTaiXe.innerHTML = '';
+      danhSachNhanVienDanhMuc.forEach(ten => {
+        const opt = document.createElement('option');
+        opt.value = ten;
+        opt.textContent = ten;
+        selTaiXe.appendChild(opt);
+      });
+
+      // Đổ vào select nvGiaoHang
+      const selGiao = document.getElementById('nvGiaoHang');
+      selGiao.innerHTML = '<option value="">-- Chọn nhân viên giao hàng --</option>';
+      danhSachNhanVienDanhMuc.forEach(ten => {
+        const opt = document.createElement('option');
+        opt.value = ten;
+        opt.textContent = ten;
+        selGiao.appendChild(opt);
+      });
+
+      // Đổ vào select nvThuTien
+      const selThu = document.getElementById('nvThuTien');
+      selThu.innerHTML = '';
+      danhSachNhanVienDanhMuc.forEach(ten => {
+        const opt = document.createElement('option');
+        opt.value = ten;
+        opt.textContent = ten;
+        selThu.appendChild(opt);
+      });
+      if (danhSachNhanVienDanhMuc.includes('ĐẠT')) selThu.value = 'ĐẠT';
+
+      // Tự động gán tài xế khớp với xe đang chọn
+      onDoiXe();
     }
 
     async function taiDanhMucQuyCach() {
@@ -549,18 +769,28 @@
     }
 
     async function trichXuatDanhSachHoaDon() {
-      // 1. Lấy thông tin các hóa đơn đã từng lưu trữ ở Bước 3 để nhận diện đơn giao lại
+      // 1. Lấy thông tin các hóa đơn đã từng lưu trữ ở Bước 3
       const tapHopBuoc3 = new Map();
+      const tapHopMaDaLuuBuoc3 = new Set();
+
       try {
         const lichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
         lichSu.forEach(dot => {
           if (Array.isArray(dot.danhSachChiTiet)) {
             dot.danhSachChiTiet.forEach(c => {
-              if (c.maHD) tapHopBuoc3.set(String(c.maHD).trim(), { maDot: dot.maDot, xe: dot.xe, ngay: dot.ngayGiao });
+              if (c.maHD) {
+                const m = String(c.maHD).trim();
+                tapHopBuoc3.set(m, { maDot: dot.maDot, xe: dot.xe, ngay: dot.ngayGiao });
+                tapHopMaDaLuuBuoc3.add(m);
+              }
             });
           } else if (Array.isArray(dot.danhSachHD)) {
             dot.danhSachHD.forEach(m => {
-              if (m) tapHopBuoc3.set(String(m).trim(), { maDot: dot.maDot, xe: dot.xe, ngay: dot.ngayGiao });
+              if (m) {
+                const ms = String(m).trim();
+                tapHopBuoc3.set(ms, { maDot: dot.maDot, xe: dot.xe, ngay: dot.ngayGiao });
+                tapHopMaDaLuuBuoc3.add(ms);
+              }
             });
           }
         });
@@ -571,13 +801,26 @@
           const { data } = await sb.from('luu_tru').select('ma_hd, ma_dot, xe, ngay_giao');
           if (data && data.length > 0) {
             data.forEach(r => {
-              if (r.ma_hd) tapHopBuoc3.set(String(r.ma_hd).trim(), { maDot: r.ma_dot, xe: r.xe, ngay: r.ngay_giao });
+              if (r.ma_hd) {
+                const ms = String(r.ma_hd).trim();
+                tapHopBuoc3.set(ms, { maDot: r.ma_dot, xe: r.xe, ngay: r.ngay_giao });
+                tapHopMaDaLuuBuoc3.add(ms);
+              }
             });
           }
         }
       } catch (e) {
         console.warn("Chưa tải được bảng luu_tru từ Supabase:", e);
       }
+
+      // Lấy danh sách các đơn giao lại đang chờ giao (từ Bước 4)
+      const tapHopChoGiaoLai = new Set();
+      try {
+        const danhSachGiaoLai = JSON.parse(localStorage.getItem("tmh_don_giao_lai") || "[]");
+        danhSachGiaoLai.filter(x => x.trangThai === "cho_giao_lai").forEach(dg => {
+          if (dg.maHD) tapHopChoGiaoLai.add(String(dg.maHD).trim());
+        });
+      } catch (e) {}
 
       const mapHD = new Map();
 
@@ -586,15 +829,22 @@
         if (!maHD) return;
         const maHDStr = String(maHD).trim();
 
+        // YÊU CẦU 5: Hóa đơn đã lưu vào Bước 3 sẽ không xuất hiện nữa
+        // (Trừ trường hợp đơn giao lại được kích hoạt từ Bước 4)
+        if (tapHopMaDaLuuBuoc3.has(maHDStr) && !tapHopChoGiaoLai.has(maHDStr)) {
+          return;
+        }
+
         if (!mapHD.has(maHDStr)) {
           const maKH = layGiaTri(row, ['Mã khách hàng', 'Mã KH', 'Mã đối tác']);
           const tenKH = layGiaTri(row, ['Tên khách hàng', 'Tên KH', 'Khách hàng']);
           let diaChi = layGiaTri(row, ['Địa chỉ', 'Khu vực', 'Địa chỉ giao hàng']) || '';
 
-          const laGiaoLai = tapHopBuoc3.has(maHDStr);
+          const laGiaoLai = tapHopChoGiaoLai.has(maHDStr) || tapHopBuoc3.has(maHDStr);
           if (laGiaoLai) {
             const b3Info = tapHopBuoc3.get(maHDStr);
-            diaChi = diaChi ? `${diaChi} (Đơn giao lại từ chuyến ${b3Info.xe || ''})` : `(Đơn giao lại từ chuyến ${b3Info.xe || ''})`;
+            const tenXeCu = b3Info ? b3Info.xe : '';
+            diaChi = diaChi ? `${diaChi} (Đơn giao lại${tenXeCu ? ' từ chuyến ' + tenXeCu : ''})` : `(Đơn giao lại${tenXeCu ? ' từ chuyến ' + tenXeCu : ''})`;
           }
 
           mapHD.set(maHDStr, {
@@ -689,17 +939,72 @@
 
     function onDoiXe() {
       const xe = document.getElementById('xeVanChuyen').value;
-      const taiXeSelect = document.getElementById('taiXe');
-      if (xe.includes('HD1')) taiXeSelect.value = 'SINH';
-      else if (xe.includes('HD2')) taiXeSelect.value = 'HẢI';
+      const itemXe = danhSachXeDanhMuc.find(x => x.ma_xe === xe);
+      const selTaiXe = document.getElementById('taiXe');
+
+      if (itemXe && itemXe.tai_xe_mac_dinh) {
+        selTaiXe.value = itemXe.tai_xe_mac_dinh;
+      } else if (xe.includes('HD1')) {
+        selTaiXe.value = 'SINH';
+      } else if (xe.includes('HD2')) {
+        selTaiXe.value = 'HẢI';
+      }
+
+      // Kiểm tra xem tuyến xe này đã có lưu trữ chưa để thông báo tự động ghép
+      kiemTraVaNapDonXeLuuTru();
+    }
+
+    function onDoiNgay() {
+      kiemTraVaNapDonXeLuuTru();
+    }
+
+    // YÊU CẦU 5: Tự động kiểm tra và nạp dữ liệu lưu trữ đợt cũ nếu chọn đúng tuyến xe
+    function kiemTraVaNapDonXeLuuTru() {
+      const xe = document.getElementById('xeVanChuyen').value || '';
+      const ngayRaw = document.getElementById('ngayGiaoHang').value || '';
+      let ngayDinhDang = ngayRaw;
+      if (ngayRaw) {
+        const parts = ngayRaw.split('-');
+        if (parts.length === 3) ngayDinhDang = `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+
+      let lichSu = [];
+      try {
+        lichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
+      } catch (e) {}
+
+      const dotTimDuoc = lichSu.find(d => 
+        String(d.xe).trim() === xe.trim() && 
+        (d.ngayRaw === ngayRaw || d.ngayGiao === ngayDinhDang)
+      );
+
+      const boxGhep = document.getElementById('boxThongBaoGhepDon');
+      const btnTao = document.getElementById('btnTaoPhieu');
+      const btnLuu = document.getElementById('btnLuuBuoc3Side');
+
+      if (dotTimDuoc && Array.isArray(dotTimDuoc.danhSachChiTiet) && dotTimDuoc.danhSachChiTiet.length > 0) {
+        dotLuuTruHienCo = dotTimDuoc;
+        if (boxGhep) {
+          boxGhep.style.display = 'block';
+          const lblSo = document.getElementById('lblSoHDDaLuu');
+          if (lblSo) lblSo.textContent = dotTimDuoc.danhSachChiTiet.length;
+        }
+        if (btnTao) btnTao.innerHTML = `<span>⚡</span> Tạo 2 Biểu Mẫu Phiếu (Ghép ${dotTimDuoc.danhSachChiTiet.length} HĐ cũ + Mới)`;
+        if (btnLuu) btnLuu.innerHTML = `<span>💾</span> Lưu bổ sung vào Bước 3 ➡`;
+      } else {
+        dotLuuTruHienCo = null;
+        if (boxGhep) boxGhep.style.display = 'none';
+        if (btnTao) btnTao.innerHTML = `<span>⚡</span> Tạo 2 Biểu Mẫu Phiếu`;
+        if (btnLuu) btnLuu.innerHTML = `<span>💾</span> Lưu đợt này sang Bước 3 ➡`;
+      }
     }
 
     // ========================================================
-    // TÍNH TOÁN VÀ TẠO 2 BIỂU MẪU
+    // TÍNH TOÁN VÀ TẠO 2 BIỂU MẪU (Có hỗ trợ tự động ghép dữ liệu)
     // ========================================================
     function chayTaoPhieu() {
       const hoaDonDuocChon = new Set(danhSachHoaDon.filter(h => h.chon).map(h => h.maHD));
-      if (hoaDonDuocChon.size === 0) {
+      if (hoaDonDuocChon.size === 0 && (!dotLuuTruHienCo || !dotLuuTruHienCo.danhSachChiTiet || dotLuuTruHienCo.danhSachChiTiet.length === 0)) {
         alert("Vui lòng chọn ít nhất 1 hóa đơn để tạo phiếu!");
         return;
       }
@@ -736,10 +1041,10 @@
         return maHD && hoaDonDuocChon.has(String(maHD).trim());
       });
 
-      // Tạo Mẫu 1: Bảng kê thu tiền
+      // Tạo Mẫu 1: Bảng kê thu tiền (tự ghép dữ liệu lưu trữ cũ nếu có)
       taoBangKeThuTien(cacDongTheoXe);
 
-      // Tạo Mẫu 2: Phiếu xuất kho tổng hợp (quy tắc KM lên trên, HĐ xuống dưới, kiện Chẵn/Lẻ)
+      // Tạo Mẫu 2: Phiếu xuất kho tổng hợp (tự ghép dữ liệu lưu trữ cũ nếu có)
       taoPhieuXuatKhoTongHop(cacDongTheoXe);
 
       // Hiển thị khung kết quả & nút lưu Bước 3
@@ -754,6 +1059,30 @@
     function taoBangKeThuTien(dongKiotViet) {
       const mapHoaDonChiTiet = new Map();
 
+      // YÊU CẦU 5: Tự động ghép các hóa đơn đã lưu trữ trước của chuyến xe này
+      if (dotLuuTruHienCo && Array.isArray(dotLuuTruHienCo.danhSachChiTiet)) {
+        dotLuuTruHienCo.danhSachChiTiet.forEach(dCu => {
+          if (dCu.maHD) {
+            const m = String(dCu.maHD).trim();
+            mapHoaDonChiTiet.set(m, {
+              maHD: m,
+              maKH: dCu.maKH || '',
+              tenKH: dCu.tenKH || '',
+              nguoiBan: dCu.nguoiBan || '',
+              doanhSo: Number(dCu.doanhSo) || 0,
+              giamGiaSP: Number(dCu.giamGiaSP) || 0,
+              giamGiaHD: Number(dCu.giamGiaHD) || 0,
+              tongLineThanhTien: Number(dCu.doanhSo) || Number(dCu.thanhTien) || 0,
+              thanhTien: Number(dCu.thanhTien) || 0,
+              ghiChu: dCu.ghiChu || '',
+              laDonGiaoLai: !!dCu.laGiaoLai,
+              daLuuDotTruoc: true
+            });
+          }
+        });
+      }
+
+      // Xử lý các hóa đơn bổ sung mới được chọn
       dongKiotViet.forEach(r => {
         const maHD = String(layGiaTri(r, ['Mã hóa đơn', 'Mã HĐ', 'Mã chứng từ', 'Số hóa đơn', 'Ma hoa don'])).trim();
         const soLuong = parseSoLuongChuan(layGiaTri(r, ['Số lượng', 'SL', 'SoLuong']));
@@ -784,7 +1113,8 @@
             tongLineThanhTien: 0,
             thanhTien: 0,
             ghiChu: laGiaoLai ? 'Đơn giao lại' : (layGiaTri(r, ['Ghi chú', 'Diễn giải']) || ''),
-            laDonGiaoLai: laGiaoLai
+            laDonGiaoLai: laGiaoLai,
+            daLuuDotTruoc: false
           });
         }
 
@@ -808,7 +1138,8 @@
             tongLineThanhTien: hd.soTien || 0,
             thanhTien: hd.soTien || 0,
             ghiChu: 'Đơn giao lại từ chuyến trước',
-            laDonGiaoLai: true
+            laDonGiaoLai: true,
+            daLuuDotTruoc: false
           });
         } else {
           mapHoaDonChiTiet.get(hd.maHD).laDonGiaoLai = true;
@@ -817,26 +1148,33 @@
 
       const tbody = document.getElementById('tbodyBangKe');
       tbody.innerHTML = '';
+      document.getElementById('tfootBangKe').innerHTML = '';
 
       let tongDoanhSo = 0, tongGiamSP = 0, tongGiamHD = 0, tongThanhTien = 0;
       let stt = 1;
       danhSachHoaDonChiTietToanCuc = Array.from(mapHoaDonChiTiet.values());
 
       danhSachHoaDonChiTietToanCuc.forEach(hd => {
-        hd.thanhTien = hd.tongLineThanhTien - hd.giamGiaHD;
+        if (!hd.daLuuDotTruoc) {
+          hd.thanhTien = hd.tongLineThanhTien - hd.giamGiaHD;
+        }
         tongDoanhSo += hd.doanhSo;
         tongGiamSP += hd.giamGiaSP;
         tongGiamHD += hd.giamGiaHD;
         tongThanhTien += hd.thanhTien;
 
         const badgeGL = hd.laDonGiaoLai 
-          ? `<span style="background:#fee2e2; color:#b91c1c; font-size:10px; font-weight:800; padding:1px 5px; border-radius:4px; margin-left:4px;">🔄 Giao lại</span>` 
+          ? `<span style="background:#fee2e2; color:#b91c1c; font-size:10px; font-weight:800; padding:1px 4px; border-radius:3px; margin-left:3px;">🔄 Giao lại</span>` 
+          : '';
+
+        const badgeCu = hd.daLuuDotTruoc
+          ? `<span style="background:#e0f2fe; color:#0369a1; font-size:10px; font-weight:800; padding:1px 4px; border-radius:3px; margin-left:3px;" title="Hóa đơn đã lưu trữ trước">Đã lưu</span>`
           : '';
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td class="text-center">${stt++}</td>
-          <td class="text-bold">${hd.maHD} ${badgeGL}</td>
+          <td class="text-bold">${hd.maHD} ${badgeGL}${badgeCu}</td>
           <td>${hd.maKH}</td>
           <td>${hd.tenKH}</td>
           <td>${hd.nguoiBan}</td>
@@ -849,16 +1187,35 @@
         tbody.appendChild(tr);
       });
 
-      document.getElementById('tfootBangKe').innerHTML = `
-        <tr style="background-color: #b8cce4; font-weight:800;">
-          <td colspan="5" class="text-center">TỔNG CỘNG</td>
-          <td class="text-right">${formatTien(tongDoanhSo)}</td>
-          <td class="text-right">${formatTien(tongGiamSP)}</td>
-          <td class="text-right">${formatTien(tongGiamHD)}</td>
-          <td class="text-right text-bold">${formatTien(tongThanhTien)}</td>
-          <td></td>
-        </tr>
+      // YÊU CẦU 4: Dòng TỔNG CỘNG được đưa vào cuối tbody (KHÔNG để trong tfoot) để không bao giờ bị lặp lại nhiều lần trên từng trang khi in
+      const trTong = document.createElement('tr');
+      trTong.className = 'row-tong-bangke';
+      trTong.style.backgroundColor = '#b8cce4';
+      trTong.style.fontWeight = '800';
+      trTong.innerHTML = `
+        <td colspan="5" class="text-center" style="font-weight:800; text-align:center;">TỔNG CỘNG</td>
+        <td class="text-right" style="font-weight:800; text-align:right;">${formatTien(tongDoanhSo)}</td>
+        <td class="text-right" style="font-weight:800; text-align:right;">${formatTien(tongGiamSP)}</td>
+        <td class="text-right" style="font-weight:800; text-align:right;">${formatTien(tongGiamHD)}</td>
+        <td class="text-right text-bold" style="font-weight:800; text-align:right;">${formatTien(tongThanhTien)}</td>
+        <td></td>
       `;
+      tbody.appendChild(trTong);
+
+      // YÊU CẦU 4: Đánh dấu số tờ khi số lượng tờ ước tính > 2
+      const soToUocTinh = Math.max(1, Math.ceil(danhSachHoaDonChiTietToanCuc.length / 26));
+      const footerTrang = document.getElementById('footerTrangBangKe');
+      if (footerTrang) {
+        if (soToUocTinh >= 2) {
+          footerTrang.style.display = 'flex';
+          const spanHD = document.getElementById('soHDTextBangKe');
+          const spanTo = document.getElementById('soToTextBangKe');
+          if (spanHD) spanHD.textContent = danhSachHoaDonChiTietToanCuc.length;
+          if (spanTo) spanTo.textContent = soToUocTinh;
+        } else {
+          footerTrang.style.display = 'none';
+        }
+      }
     }
 
     // ========================================================
@@ -871,7 +1228,12 @@
     function taoPhieuXuatKhoTongHop(dongKiotViet) {
       const mapHangHoa = new Map();
 
-      dongKiotViet.forEach(r => {
+      // YÊU CẦU 5: Tự động ghép chi tiết hàng hóa của đợt lưu trữ cũ nếu có
+      const tatCaDongKiotViet = (dotLuuTruHienCo && Array.isArray(dotLuuTruHienCo.cacDongChiTietKiotViet))
+        ? [...dotLuuTruHienCo.cacDongChiTietKiotViet, ...dongKiotViet]
+        : dongKiotViet;
+
+      tatCaDongKiotViet.forEach(r => {
         const maHangRaw = layGiaTri(r, ['Mã hàng', 'Mã hàng hóa', 'Mã SP', 'MaHang']);
         if (!maHangRaw) return;
         const maHang = String(maHangRaw).trim().toUpperCase();
@@ -966,7 +1328,14 @@
           laKhuyenMai: h.laKhuyenMai
         });
 
+        // YÊU CẦU 2: Gán class row-item-hang và các data-attribute để bộ lọc & nút copy 2 cột trích xuất
         const tr = document.createElement('tr');
+        tr.className = 'row-item-hang';
+        tr.setAttribute('data-mahang', h.maHang);
+        tr.setAttribute('data-tenhang', (h.tenHang || '').toLowerCase());
+        tr.setAttribute('data-tongsl', h.tongSL);
+        tr.setAttribute('data-km', h.laKhuyenMai ? '1' : '0');
+
         tr.innerHTML = `
           <td class="text-center">${stt++}</td>
           <td class="text-bold">${h.maHang}</td>
@@ -1039,6 +1408,100 @@
         tongTien: tongTien,
         soLuongHD: countHD
       };
+
+      // Cập nhật bộ lọc và badge số dòng
+      locDuLieuXuatKho();
+    }
+
+    // ========================================================
+    // YÊU CẦU 2: BỘ LỌC PHIẾU XUẤT KHO VÀ COPY 2 CỘT CHO EXCEL
+    // ========================================================
+    function locDuLieuXuatKho() {
+      const tuKhoa = (document.getElementById('filterXuatKhoText')?.value || '').trim().toLowerCase();
+      const loai = document.getElementById('filterXuatKhoLoai')?.value || 'tat_ca';
+      const rows = document.querySelectorAll('#tbodyXuatKho tr.row-item-hang');
+      let demHien = 0;
+
+      rows.forEach(tr => {
+        const mahang = (tr.getAttribute('data-mahang') || '').toLowerCase();
+        const tenhang = (tr.getAttribute('data-tenhang') || '').toLowerCase();
+        const laKM = tr.getAttribute('data-km') === '1';
+
+        let khopTuKhoa = !tuKhoa || mahang.includes(tuKhoa) || tenhang.includes(tuKhoa);
+        let khopLoai = true;
+        if (loai === 'hang_ban') khopLoai = !laKM;
+        else if (loai === 'khuyen_mai') khopLoai = laKM;
+
+        if (khopTuKhoa && khopLoai) {
+          tr.style.display = '';
+          demHien++;
+        } else {
+          tr.style.display = 'none';
+        }
+      });
+
+      const badge = document.getElementById('badgeSoDongLocXuatKho');
+      if (badge) {
+        if (tuKhoa || loai !== 'tat_ca') {
+          badge.textContent = `Hiện ${demHien} / ${rows.length} mặt hàng`;
+        } else {
+          badge.textContent = `Tổng: ${rows.length} mặt hàng`;
+        }
+      }
+    }
+
+    function copy2CotXuatKho() {
+      const rows = document.querySelectorAll('#tbodyXuatKho tr.row-item-hang');
+      const hangDuocLoc = [];
+
+      rows.forEach(tr => {
+        if (tr.style.display !== 'none') {
+          const maHang = tr.getAttribute('data-mahang');
+          const tongSL = tr.getAttribute('data-tongsl');
+          if (maHang && tongSL !== null && tongSL !== undefined) {
+            hangDuocLoc.push({ maHang, tongSL });
+          }
+        }
+      });
+
+      if (hangDuocLoc.length === 0) {
+        alert("Không có dòng hàng hóa nào đang hiển thị để copy!");
+        return;
+      }
+
+      // Ghép định dạng chuẩn: Mã Hàng [TAB] Tổng SL (Dán ngay vào Excel thành 2 cột)
+      const noiDungCopy = hangDuocLoc.map(h => `${h.maHang}\t${h.tongSL}`).join('\r\n');
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(noiDungCopy).then(() => {
+          thongBaoCopyThanhCong(hangDuocLoc.length);
+        }).catch(err => {
+          fallbackCopyText(noiDungCopy, hangDuocLoc.length);
+        });
+      } else {
+        fallbackCopyText(noiDungCopy, hangDuocLoc.length);
+      }
+    }
+
+    function fallbackCopyText(text, count) {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        thongBaoCopyThanhCong(count);
+      } catch (err) {
+        alert("Không thể copy tự động, vui lòng thử lại!");
+      }
+      document.body.removeChild(textArea);
+    }
+
+    function thongBaoCopyThanhCong(count) {
+      alert(`📋 ĐÃ COPY THÀNH CÔNG!\n\nĐã copy ${count} dòng gồm 2 cột (Mã hàng và Tổng SL) vào bộ nhớ tạm.\nBây giờ bạn có thể mở Excel và nhấn Ctrl+V để dán trực tiếp!`);
     }
 
     function chuyenTab(tab) {
@@ -1053,12 +1516,34 @@
         document.getElementById('tabBtn2').classList.add('active');
         document.getElementById('tabContentBangKe').style.display = 'none';
         document.getElementById('tabContentXuatKho').style.display = 'block';
+        locDuLieuXuatKho();
       }
     }
 
+    // YÊU CẦU 3: Kích hoạt in A4 tự động căn toàn bộ bề ngang giấy A4
     function inPhieuHienTai() {
+      document.getElementById('tabContentBangKe').classList.remove('print-active');
+      document.getElementById('tabContentXuatKho').classList.remove('print-active');
+
+      if (tabHienTai === 'bangke') {
+        document.getElementById('tabContentBangKe').classList.add('print-active');
+      } else {
+        document.getElementById('tabContentXuatKho').classList.add('print-active');
+      }
+
       window.print();
     }
+
+    window.onbeforeprint = () => {
+      document.getElementById('tabContentBangKe').classList.remove('print-active');
+      document.getElementById('tabContentXuatKho').classList.remove('print-active');
+
+      if (tabHienTai === 'bangke') {
+        document.getElementById('tabContentBangKe').classList.add('print-active');
+      } else {
+        document.getElementById('tabContentXuatKho').classList.add('print-active');
+      }
+    };
 
     // ========================================================
     // XUẤT FILE EXCEL ĐẦY ĐỦ MÀU SẮC CHUẨN
@@ -1250,8 +1735,8 @@
     }
 
     async function luuVaChuyenSangBuoc3() {
-      const hoaDonDuocChon = danhSachHoaDon.filter(h => h.chon);
-      if (!hoaDonDuocChon || hoaDonDuocChon.length === 0) {
+      const hoaDonMoiChon = danhSachHoaDon.filter(h => h.chon);
+      if (hoaDonMoiChon.length === 0 && (!dotLuuTruHienCo || !dotLuuTruHienCo.danhSachChiTiet || dotLuuTruHienCo.danhSachChiTiet.length === 0)) {
         alert("Vui lòng chọn ít nhất 1 hóa đơn để lưu!");
         return;
       }
@@ -1270,6 +1755,7 @@
 
       const maDot = `DOT_${ngayRaw.replace(/-/g, '')}_${xe.replace(/[^a-zA-Z0-9]/g, '_')}`;
 
+      // Danh sách chi tiết hợp nhất toàn cục (bao gồm cả cũ đã lưu và mới bổ sung)
       let sttIndex = 1;
       const danhSachChiTietLuu = danhSachHoaDonChiTietToanCuc.map(hd => ({
         stt: sttIndex++,
@@ -1286,13 +1772,25 @@
         giamGiaSP: hd.giamGiaSP || 0,
         giamGiaHD: hd.giamGiaHD || 0,
         thanhTien: hd.thanhTien || 0,
-        tienMat: hd.thanhTien || 0, // Tạm ghi nhận, bước 4 sẽ kiểm tra thực tế
+        tienMat: hd.thanhTien || 0,
         chuyenKhoan: 0,
         traVe: 0,
         noPhatSinh: 0,
         laGiaoLai: !!hd.laDonGiaoLai,
         ghiChu: hd.laDonGiaoLai ? (hd.ghiChu || 'Đơn giao lại') : (hd.ghiChu || '')
       }));
+
+      // Gom dòng chi tiết sản phẩm mới từ duLieuGoc
+      const cacMaHDMoi = new Set(hoaDonMoiChon.map(h => String(h.maHD).trim()));
+      const cacDongKiotVietMoi = duLieuGoc.filter(r => {
+        const maHD = layGiaTri(r, ['Mã hóa đơn', 'Mã HĐ', 'Mã chứng từ', 'Số hóa đơn', 'Ma hoa don']);
+        return maHD && cacMaHDMoi.has(String(maHD).trim());
+      });
+
+      // Kết hợp toàn bộ dòng chi tiết sản phẩm cũ + mới để lưu trữ
+      const cacDongKiotVietTongHop = (dotLuuTruHienCo && Array.isArray(dotLuuTruHienCo.cacDongChiTietKiotViet))
+        ? [...dotLuuTruHienCo.cacDongChiTietKiotViet, ...cacDongKiotVietMoi]
+        : cacDongKiotVietMoi;
 
       const dotHienTai = {
         maDot: maDot,
@@ -1302,15 +1800,16 @@
         taiXe: taiXe,
         nvGiao: nvGiao,
         nvThu: nvThu,
-        soLuongHD: hoaDonDuocChon.length,
-        danhSachHD: hoaDonDuocChon.map(h => h.maHD),
+        soLuongHD: danhSachChiTietLuu.length,
+        danhSachHD: danhSachChiTietLuu.map(h => h.maHD),
         danhSachChiTiet: danhSachChiTietLuu,
+        cacDongChiTietKiotViet: cacDongKiotVietTongHop,
         thoiGianTao: new Date().toISOString()
       };
 
-      // Xác định tập hợp các mã hóa đơn giao lại được chọn trong chuyến này
+      // Xác định tập hợp các mã hóa đơn giao lại
       const cacHDGiaoLaiDuocChon = new Set(
-        hoaDonDuocChon.filter(h => h.laDonGiaoLai).map(h => String(h.maHD).trim())
+        danhSachChiTietLuu.filter(h => h.laGiaoLai).map(h => String(h.maHD).trim())
       );
 
       // 1. SỬA DỮ LIỆU LƯU TRỮ Ở BƯỚC 3 & LƯU VÀO LOCALSTORAGE
@@ -1328,7 +1827,7 @@
               dCu.danhSachChiTiet = dCu.danhSachChiTiet.filter(c => {
                 if (cacHDGiaoLaiDuocChon.has(String(c.maHD).trim())) {
                   coThayDoi = true;
-                  return false; // loại bỏ khỏi đợt cũ để chuyển hẳn sang đợt mới
+                  return false;
                 }
                 return true;
               });
@@ -1370,7 +1869,7 @@
           xe: d.xe,
           tai_xe: d.taiXe,
           giao_hang: d.giaoHang,
-          thu_tien: d.thuThu || d.thuTien,
+          thu_tien: d.thuTien,
           ten_kh: d.tenKH,
           nguoi_ban: d.nguoiBan,
           ma_kh: d.maKH,
@@ -1386,10 +1885,8 @@
           cap_nhat_luc: new Date().toISOString()
         }));
 
-        // Sửa / cập nhật bảng luu_tru ở Bước 3 (upsert theo ma_hd)
         await sb.from('luu_tru').upsert(dongLuuTru, { onConflict: 'ma_hd' });
 
-        // Đối với các hóa đơn giao lại, xóa chi tiết cũ trong chi_tiet_hoa_don để nạp lại chi tiết mới
         if (cacHDGiaoLaiDuocChon.size > 0) {
           const arrGL = Array.from(cacHDGiaoLaiDuocChon);
           await sb.from('chi_tiet_hoa_don').delete().in('ma_hd', arrGL);
@@ -1400,11 +1897,8 @@
           }).in('ma_hd', arrGL);
         }
 
-        // Gom chi tiết từng dòng hàng hóa của các hóa đơn này để archive vĩnh viễn vào chi_tiet_hoa_don
-        const cacDongChiTietHDBan = duLieuGoc.filter(r => {
-          const maHD = layGiaTri(r, ['Mã hóa đơn', 'Mã HĐ', 'Mã chứng từ', 'Số hóa đơn']);
-          return maHD && dotHienTai.danhSachHD.includes(String(maHD).trim());
-        }).map(r => {
+        // Gom chi tiết từng dòng hàng hóa của đợt này
+        const cacDongChiTietHDBan = cacDongKiotVietTongHop.map(r => {
           const maHD = String(layGiaTri(r, ['Mã hóa đơn', 'Mã HĐ', 'Mã chứng từ', 'Số hóa đơn'])).trim();
           const maHang = String(layGiaTri(r, ['Mã hàng', 'Mã hàng hóa', 'Mã SP'])).trim();
           const tenHang = layGiaTri(r, ['Tên hàng', 'Tên hàng hóa', 'Tên SP']) || '';
@@ -1433,14 +1927,17 @@
         });
 
         if (cacDongChiTietHDBan.length > 0) {
+          // Xóa chi tiết cũ của các đơn mới trước khi insert để tránh trùng
+          const arrMaHD = Array.from(new Set(cacDongChiTietHDBan.map(x => x.ma_hd)));
+          await sb.from('chi_tiet_hoa_don').delete().in('ma_hd', arrMaHD);
           await sb.from('chi_tiet_hoa_don').insert(cacDongChiTietHDBan);
         }
       } catch (errSupabase) {
         console.warn("Lưu Supabase nền:", errSupabase);
       }
 
-      // 3. XÓA CÁC HÓA ĐƠN ĐÃ XỬ LÝ VÀ LƯU TRỮ KHỎI KHO TẠM BƯỚC 1 (Chỉ xóa những đơn đã chọn và hoàn thành)
-      const dsMaHDDaXuLy = new Set(hoaDonDuocChon.map(h => String(h.maHD).trim()));
+      // 3. YÊU CẦU 5: XÓA CÁC HÓA ĐƠN ĐÃ XỬ LÝ KHỎI KHO TẠM BƯỚC 1 VÀ BƯỚC 2 ĐỂ KHÔNG XUẤT HIỆN LẠI
+      const dsMaHDDaXuLy = new Set(danhSachChiTietLuu.map(h => String(h.maHD).trim()));
       try {
         const rawTam = localStorage.getItem("tmh_kiotviet_data") || sessionStorage.getItem("tmh_kiotviet_data");
         if (rawTam) {
@@ -1452,11 +1949,21 @@
           localStorage.setItem("tmh_kiotviet_data", JSON.stringify(conLaiTam));
           sessionStorage.setItem("tmh_kiotviet_data", JSON.stringify(conLaiTam));
         }
+
+        // Đồng thời cập nhật lại duLieuGoc ngay trên trang
+        duLieuGoc = duLieuGoc.filter(r => {
+          const mhd = layGiaTri(r, ['Mã hóa đơn', 'Mã HĐ', 'Mã chứng từ', 'Số hóa đơn', 'Ma hoa don']);
+          return !mhd || !dsMaHDDaXuLy.has(String(mhd).trim());
+        });
       } catch (e) {
         console.warn("Lỗi khi cập nhật kho tạm Bước 1:", e);
       }
 
-      alert(`✅ Đã lưu thành công đợt điều động xe "${xe}" (${hoaDonDuocChon.length} hóa đơn)!\nĐang chuyển tiếp sang Bước 3: Lưu trữ.`);
+      const thongDiep = dotLuuTruHienCo 
+        ? `✅ ĐÃ GHÉP VÀ LƯU THÀNH CÔNG!\nChuyến xe "${xe}" hiện có tổng cộng ${danhSachChiTietLuu.length} hóa đơn.\nĐang chuyển tiếp sang Bước 3: Lưu trữ.`
+        : `✅ ĐÃ LƯU THÀNH CÔNG!\nĐợt điều động xe "${xe}" (${danhSachChiTietLuu.length} hóa đơn).\nĐang chuyển tiếp sang Bước 3: Lưu trữ.`;
+
+      alert(thongDiep);
       window.location.href = "buoc3_luu_tru.html";
     }
 
