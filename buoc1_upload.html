@@ -197,9 +197,15 @@
 
     <!-- Bảng xem trước dữ liệu -->
     <div class="tmh-card" id="previewWrap" style="display: none;">
-      <div class="tmh-card-header">
-        <div class="tmh-card-title"><span>👁️</span> Xem trước dữ liệu vừa nạp (30 dòng đầu tiên)</div>
-        <span id="soDongHienThiText" style="font-size: 12px; color: var(--text-muted);"></span>
+      <div class="tmh-card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div class="tmh-card-title"><span>👁️</span> <span id="lblTieuDePreview">Xem trước dữ liệu vừa nạp (10 dòng đầu tiên)</span></div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span id="soDongHienThiText" style="font-size: 12.5px; color: var(--text-muted); font-weight: 500;"></span>
+          <button type="button" class="btn btn-outline btn-sm" id="btnTogglePreview" onclick="toggleXemToanBo()">
+            <span id="btnTogglePreviewIcon">🔍</span>
+            <span id="btnTogglePreviewText">Xem toàn bộ dữ liệu</span>
+          </button>
+        </div>
       </div>
       <div class="tmh-table-wrap">
         <table class="tmh-table">
@@ -214,6 +220,7 @@
   <script src="layout.js"></script>
   <script>
     let duLieuKiotViet = [];
+    let xemToanBo = false;
 
     // Helper an toàn trích xuất số lượng lẻ (Tránh lỗi 0.5 biến thành 5 do parse hàng nghìn)
     function parseSoLuongChuan(val) {
@@ -318,6 +325,7 @@
           document.getElementById('thongTinFile').innerHTML = 
             `<span style="color:#16a34a;">✅ Đã đọc thành công file "${file.name}" (${duLieuKiotViet.length} dòng dữ liệu).</span>`;
 
+          xemToanBo = false;
           capNhatGiaoDienSauKhiCoDuLieu();
 
         } catch (error) {
@@ -355,7 +363,6 @@
 
       // Vẽ bảng xem trước
       const thead = document.getElementById('bangHead');
-      const tbody = document.getElementById('bangBody');
       const cacCot = Object.keys(duLieuKiotViet[0]);
 
       let htmlHead = '<tr><th>STT</th>';
@@ -363,12 +370,43 @@
       htmlHead += '</tr>';
       thead.innerHTML = htmlHead;
 
-      let htmlBody = '';
-      const soDongHienThi = Math.min(duLieuKiotViet.length, 30);
-      document.getElementById('soDongHienThiText').textContent = `Hiển thị ${soDongHienThi} / ${duLieuKiotViet.length} dòng`;
+      veBangXemTruoc();
+    }
 
+    function veBangXemTruoc() {
+      if (!duLieuKiotViet || duLieuKiotViet.length === 0) return;
+      const cacCot = Object.keys(duLieuKiotViet[0]);
+      const tbody = document.getElementById('bangBody');
+      const tongSoDong = duLieuKiotViet.length;
+      const soDongHienThi = xemToanBo ? tongSoDong : Math.min(tongSoDong, 10);
+
+      const lblTieuDe = document.getElementById('lblTieuDePreview');
+      if (lblTieuDe) {
+        lblTieuDe.textContent = xemToanBo 
+          ? `Xem toàn bộ dữ liệu vừa nạp (${tongSoDong} dòng)` 
+          : `Xem trước dữ liệu vừa nạp (${soDongHienThi} dòng đầu tiên)`;
+      }
+
+      const txtSoDong = document.getElementById('soDongHienThiText');
+      if (txtSoDong) {
+        txtSoDong.textContent = `Hiển thị ${soDongHienThi} / ${tongSoDong} dòng`;
+      }
+
+      const btnIcon = document.getElementById('btnTogglePreviewIcon');
+      const btnText = document.getElementById('btnTogglePreviewText');
+      if (btnText && btnIcon) {
+        if (xemToanBo) {
+          btnIcon.textContent = '▲';
+          btnText.textContent = 'Thu gọn 10 dòng đầu';
+        } else {
+          btnIcon.textContent = '🔍';
+          btnText.textContent = `Mở rộng xem toàn bộ (${tongSoDong} dòng)`;
+        }
+      }
+
+      let htmlBody = '';
       for (let i = 0; i < soDongHienThi; i++) {
-        htmlBody += `<tr><td style="font-weight:bold; color:#64748b;">${i + 1}</td>`;
+        htmlBody += `<tr><td style="font-weight:bold; color:#64748b; text-align:center;">${i + 1}</td>`;
         cacCot.forEach(cot => {
           let val = duLieuKiotViet[i][cot];
           htmlBody += `<td>${val !== null && val !== undefined ? val : ''}</td>`;
@@ -376,6 +414,11 @@
         htmlBody += '</tr>';
       }
       tbody.innerHTML = htmlBody;
+    }
+
+    function toggleXemToanBo() {
+      xemToanBo = !xemToanBo;
+      veBangXemTruoc();
     }
 
     function chuyenSangBuoc2() {
