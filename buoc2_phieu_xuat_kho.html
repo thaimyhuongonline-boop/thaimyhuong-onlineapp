@@ -528,8 +528,8 @@
               </div>
               <div style="display: flex; gap: 8px; align-items: center;">
                 <span id="badgeSoDongLocXuatKho" style="font-size: 11px; font-weight: 700; color: var(--primary);"></span>
-                <button type="button" class="btn btn-primary btn-sm" onclick="copy2CotXuatKho()" style="font-weight: 700; background: #16a34a; border-color: #16a34a; padding: 6px 12px; display: flex; align-items: center; gap: 5px;">
-                  <span>📋</span> Copy 2 cột (Mã hàng & Tổng SL)
+                <button type="button" class="btn btn-primary btn-sm" onclick="copy3CotXuatKho()" style="font-weight: 700; background: #16a34a; border-color: #16a34a; padding: 6px 12px; display: flex; align-items: center; gap: 5px;">
+                  <span>📋</span> Copy 3 cột (Mã hàng, Chẵn, Lẻ)
                 </button>
               </div>
             </div>
@@ -1328,12 +1328,14 @@
           laKhuyenMai: h.laKhuyenMai
         });
 
-        // YÊU CẦU 2: Gán class row-item-hang và các data-attribute để bộ lọc & nút copy 2 cột trích xuất
+        // Gán class row-item-hang và các data-attribute để bộ lọc & nút copy 3 cột trích xuất
         const tr = document.createElement('tr');
         tr.className = 'row-item-hang';
         tr.setAttribute('data-mahang', h.maHang);
         tr.setAttribute('data-tenhang', (h.tenHang || '').toLowerCase());
         tr.setAttribute('data-tongsl', h.tongSL);
+        tr.setAttribute('data-chan', chan);
+        tr.setAttribute('data-le', le);
         tr.setAttribute('data-km', h.laKhuyenMai ? '1' : '0');
 
         tr.innerHTML = `
@@ -1450,16 +1452,17 @@
       }
     }
 
-    function copy2CotXuatKho() {
+    function copy3CotXuatKho() {
       const rows = document.querySelectorAll('#tbodyXuatKho tr.row-item-hang');
       const hangDuocLoc = [];
 
       rows.forEach(tr => {
         if (tr.style.display !== 'none') {
           const maHang = tr.getAttribute('data-mahang');
-          const tongSL = tr.getAttribute('data-tongsl');
-          if (maHang && tongSL !== null && tongSL !== undefined) {
-            hangDuocLoc.push({ maHang, tongSL });
+          const chan = tr.getAttribute('data-chan') !== null ? tr.getAttribute('data-chan') : '0';
+          const le = tr.getAttribute('data-le') !== null ? tr.getAttribute('data-le') : '0';
+          if (maHang) {
+            hangDuocLoc.push({ maHang, chan, le });
           }
         }
       });
@@ -1469,8 +1472,8 @@
         return;
       }
 
-      // Ghép định dạng chuẩn: Mã Hàng [TAB] Tổng SL (Dán ngay vào Excel thành 2 cột)
-      const noiDungCopy = hangDuocLoc.map(h => `${h.maHang}\t${h.tongSL}`).join('\r\n');
+      // Ghép định dạng chuẩn: Mã Hàng [TAB] Chẵn [TAB] Lẻ (Dán ngay vào Excel thành 3 cột)
+      const noiDungCopy = hangDuocLoc.map(h => `${h.maHang}\t${h.chan}\t${h.le}`).join('\r\n');
 
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(noiDungCopy).then(() => {
@@ -1481,6 +1484,11 @@
       } else {
         fallbackCopyText(noiDungCopy, hangDuocLoc.length);
       }
+    }
+
+    // Alias hỗ trợ nếu có nơi gọi hàm cũ
+    function copy2CotXuatKho() {
+      copy3CotXuatKho();
     }
 
     function fallbackCopyText(text, count) {
@@ -1501,7 +1509,7 @@
     }
 
     function thongBaoCopyThanhCong(count) {
-      alert(`📋 ĐÃ COPY THÀNH CÔNG!\n\nĐã copy ${count} dòng gồm 2 cột (Mã hàng và Tổng SL) vào bộ nhớ tạm.\nBây giờ bạn có thể mở Excel và nhấn Ctrl+V để dán trực tiếp!`);
+      alert(`📋 ĐÃ COPY THÀNH CÔNG!\n\nĐã copy ${count} dòng gồm 3 cột (Mã hàng, Chẵn, Lẻ) vào bộ nhớ tạm.\nBây giờ bạn có thể mở Excel và nhấn Ctrl+V để dán trực tiếp 3 cột này!`);
     }
 
     function chuyenTab(tab) {
