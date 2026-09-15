@@ -1,584 +1,323 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quản lý Tài khoản - Thái Mỹ Hương</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="config.js"></script>
-    <style>
-        * { box-sizing: border-box; }
-        body { 
-            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-            background-color: #f8fafc; 
-            padding: 24px 16px; 
-            color: #1e293b;
-            margin: 0;
-        }
-        .container { 
-            max-width: 960px; 
-            margin: 0 auto; 
-            background: white; 
-            padding: 28px; 
-            border-radius: 12px; 
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05); 
-            border: 1px solid #e2e8f0;
-        }
-        .header { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            border-bottom: 1px solid #f1f5f9; 
-            padding-bottom: 16px; 
-            margin-bottom: 24px; 
-        }
-        .header h2 {
-            margin: 0;
-            font-size: 22px;
-            font-weight: 800;
-            color: #0f172a;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .btn { 
-            padding: 8px 16px; 
-            border: none; 
-            border-radius: 6px; 
-            cursor: pointer; 
-            color: white; 
-            font-weight: 600;
-            font-size: 13px;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            transition: all 0.2s;
-        }
-        .btn-back { background-color: #64748b; }
-        .btn-back:hover { background-color: #475569; }
-        .btn-add { background-color: #16a34a; }
-        .btn-add:hover { background-color: #15803d; }
-        .btn-pwd { background-color: #0284c7; padding: 5px 10px; font-size: 12px; }
-        .btn-pwd:hover { background-color: #0369a1; }
-        .btn-lock { background-color: #dc2626; padding: 5px 10px; font-size: 12px; }
-        .btn-lock:hover { background-color: #b91c1c; }
-        .btn-unlock { background-color: #0d9488; padding: 5px 10px; font-size: 12px; }
-        .btn-unlock:hover { background-color: #0f766e; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản Lý Tài Khoản — THÁI MỸ HƯƠNG</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <link rel="stylesheet" href="layout.css">
+  <style>
+    .badge-role { padding: 4px 8px; border-radius: 4px; font-size: 11.5px; font-weight: 700; display: inline-block; }
+    .badge-admin { background: #fef3c7; color: #b45309; }
+    .badge-quanly { background: #e0f2fe; color: #0369a1; }
+    .badge-nhanvien { background: #f1f5f9; color: #475569; }
 
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #e2e8f0; padding: 12px 14px; text-align: left; font-size: 14px; }
-        th { background-color: #f8fafc; font-weight: 700; color: #475569; }
-        tr:hover td { background-color: #f8fafc; }
-        
-        .badge-role { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; display: inline-block; }
-        .badge-admin { background: #fef3c7; color: #b45309; }
-        .badge-quanly { background: #e0f2fe; color: #0369a1; }
-        .badge-nhanvien { background: #f1f5f9; color: #475569; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; margin-bottom: 5px; font-size: 12px; font-weight: 700; color: var(--text-main); }
+    .form-group input, .form-group select { 
+      width: 100%; 
+      padding: 8px 12px; 
+      border: 1px solid var(--border-color); 
+      border-radius: var(--radius-sm);
+      font-size: 13.5px;
+      font-family: inherit;
+    }
+    #addForm { 
+      background: #f8fafc; 
+      padding: 20px; 
+      border: 1px solid var(--border-color); 
+      border-radius: var(--radius-md); 
+      margin-bottom: 24px; 
+      display: none; 
+    }
 
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: #334155; }
-        .form-group input, .form-group select { 
-            width: 100%; 
-            padding: 9px 12px; 
-            box-sizing: border-box; 
-            border: 1px solid #cbd5e1; 
-            border-radius: 6px;
-            font-size: 14px;
-            font-family: inherit;
-        }
-        .form-group input:focus, .form-group select:focus {
-            outline: none;
-            border-color: #16a34a;
-            box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
-        }
-        #addForm { 
-            background: #f8fafc; 
-            padding: 20px; 
-            border: 1px solid #e2e8f0; 
-            border-radius: 8px; 
-            margin-bottom: 24px; 
-            display: none; 
-        }
-        #addForm h3 { margin-top: 0; margin-bottom: 16px; font-size: 16px; color: #0f172a; }
-
-        /* Modal Đổi mật khẩu */
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(15, 23, 42, 0.55);
-            backdrop-filter: blur(4px);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-            padding: 16px;
-        }
-        .modal-card {
-            background: white;
-            border-radius: 14px;
-            width: 100%;
-            max-width: 440px;
-            padding: 24px;
-            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);
-            position: relative;
-            animation: modalFadeIn 0.2s ease-out;
-        }
-        @keyframes modalFadeIn {
-            from { opacity: 0; transform: translateY(-10px) scale(0.98); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #e2e8f0;
-            padding-bottom: 12px;
-            margin-bottom: 16px;
-        }
-        .modal-header h3 {
-            margin: 0;
-            font-size: 17px;
-            font-weight: 700;
-            color: #0f172a;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .btn-close {
-            background: none;
-            border: none;
-            font-size: 20px;
-            cursor: pointer;
-            color: #94a3b8;
-            padding: 4px;
-            line-height: 1;
-        }
-        .btn-close:hover { color: #334155; }
-        .input-pwd-wrap {
-            position: relative;
-        }
-        .input-pwd-wrap input {
-            padding-right: 42px;
-        }
-        .btn-eye {
-            position: absolute;
-            right: 8px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 16px;
-            color: #64748b;
-            padding: 4px 6px;
-        }
-    </style>
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(3px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-card {
+      background: white;
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 440px;
+      padding: 24px;
+      box-shadow: var(--shadow-lg);
+    }
+  </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="header">
-        <h2>Quản lý Tài khoản</h2>
-        <div style="display: flex; gap: 8px;">
-            <button class="btn btn-back" onclick="window.location.href='trang_chu.html'">⬅ Quay lại</button>
-            <button class="btn btn-add" onclick="toggleForm()">+ Tạo tài khoản</button>
-        </div>
-    </div>
-
-    <!-- Form tạo tài khoản mới -->
-    <div id="addForm">
-        <h3>Thêm nhân viên mới</h3>
-        <div class="form-group">
-            <label>Họ và Tên:</label>
-            <input type="text" id="hoten" placeholder="Nhập họ và tên..." required>
-        </div>
-        <div class="form-group">
-            <label>Số điện thoại (dùng để đăng nhập):</label>
-            <input type="text" id="sdt" placeholder="vd: 0903160116" required>
-        </div>
-        <div class="form-group">
-            <label>Mật khẩu:</label>
-            <div class="input-pwd-wrap">
-                <input type="password" id="matkhau" placeholder="Nhập mật khẩu khởi tạo (tối thiểu 6 ký tự)..." required>
-                <button type="button" class="btn-eye" onclick="toggleShowPwd('matkhau', this)" title="Ẩn/Hiện">👁️</button>
-            </div>
-        </div>
-        <div class="form-group">
-            <label>Vai trò:</label>
-            <select id="vaitro">
-                <option value="nhanvien">Nhân viên</option>
-                <option value="quanly">Cấp Quản lý</option>
-                <option value="admin">Quản trị (Admin)</option>
-            </select>
-        </div>
-        <div style="display: flex; gap: 10px; margin-top: 16px;">
-            <button class="btn btn-add" onclick="taoTaiKhoan()">Lưu tài khoản</button>
-            <button class="btn btn-back" onclick="toggleForm()">Hủy</button>
-        </div>
-    </div>
-
-    <!-- Bảng danh sách tài khoản -->
-    <table>
-        <thead>
-            <tr>
-                <th>Họ tên</th>
-                <th>SĐT / Tài khoản</th>
-                <th>Vai trò</th>
-                <th>Trạng thái</th>
-                <th style="min-width: 170px;">Thao tác</th>
-            </tr>
-        </thead>
-        <tbody id="danhSachUser">
-            <tr><td colspan="5" style="text-align: center; color: #64748b; padding: 20px;">Đang tải danh sách tài khoản...</td></tr>
-        </tbody>
-    </table>
-</div>
-
-<!-- Modal Đổi Mật Khẩu -->
-<div id="modalDoiMatKhau" class="modal-overlay">
-    <div class="modal-card">
-        <div class="modal-header">
-            <h3><span>🔑</span> Đổi Mật Khẩu Tài Khoản</h3>
-            <button class="btn-close" onclick="dongModalDoiMatKhau()">✕</button>
-        </div>
-
-        <input type="hidden" id="modalUserId">
-
-        <div class="form-group">
-            <label>Tài khoản người dùng:</label>
-            <div id="modalUserInfo" style="background: #f1f5f9; padding: 10px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; font-weight: 600; color: #0f172a;">
-                -
-            </div>
-        </div>
-
-        <div class="form-group">
-            <label for="matKhauMoi">Mật khẩu mới:</label>
-            <div class="input-pwd-wrap">
-                <input type="password" id="matKhauMoi" placeholder="Nhập tối thiểu 6 ký tự..." autocomplete="new-password">
-                <button type="button" class="btn-eye" onclick="toggleShowPwd('matKhauMoi', this)" title="Ẩn/Hiện">👁️</button>
-            </div>
-        </div>
-
-        <div class="form-group">
-            <label for="xacNhanMatKhau">Xác nhận mật khẩu mới:</label>
-            <div class="input-pwd-wrap">
-                <input type="password" id="xacNhanMatKhau" placeholder="Nhập lại mật khẩu mới..." autocomplete="new-password">
-                <button type="button" class="btn-eye" onclick="toggleShowPwd('xacNhanMatKhau', this)" title="Ẩn/Hiện">👁️</button>
-            </div>
-        </div>
-
-        <div id="modalErrorMsg" style="display: none; padding: 8px 12px; background: #fee2e2; border: 1px solid #fca5a5; color: #b91c1c; border-radius: 6px; font-size: 13px; margin-bottom: 14px;"></div>
-
-        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px;">
-            <button type="button" class="btn btn-back" onclick="dongModalDoiMatKhau()">Hủy</button>
-            <button type="button" id="btnLuuMatKhau" class="btn" onclick="thucHienDoiMatKhau()" style="background-color: #0284c7;">
-                💾 Lưu Mật Khẩu
-            </button>
-        </div>
-    </div>
-</div>
-
-<script>
-    let nguoiDungHienTai = null;
-
-    // 1. Kiểm tra đăng nhập và quyền admin
-    async function kiemTraQuyen() {
-        const nd = await baoVeTrang();
-        if (!nd) return;
-        
-        if (nd.vai_tro !== 'admin') {
-            alert("Bạn không có quyền truy cập trang này!");
-            window.location.href = 'trang_chu.html';
-            return;
-        }
-        nguoiDungHienTai = nd;
-        taiDanhSachUser();
-    }
-
-    // 2. Tải danh sách người dùng từ bảng ho_so
-    async function taiDanhSachUser() {
-        const { data, error } = await sb.from('ho_so').select('*').order('tao_luc', { ascending: false });
-        if (error) {
-            alert("Lỗi tải danh sách: " + error.message);
-            return;
-        }
-        
-        const tbody = document.getElementById('danhSachUser');
-        tbody.innerHTML = '';
-        if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #64748b; padding: 20px;">Chưa có tài khoản nào.</td></tr>';
-            return;
-        }
-
-        data.forEach(u => {
-            const tenVaiTro = (typeof TEN_VAI_TRO !== 'undefined' && TEN_VAI_TRO[u.vai_tro]) ? TEN_VAI_TRO[u.vai_tro] : u.vai_tro;
-            const sdtHienThi = u.so_dien_thoai || '(null)';
-            const hoTenSafe = (u.ho_ten || '').replace(/'/g, "\\'");
-            const sdtSafe = (u.so_dien_thoai || '').replace(/'/g, "\\'");
-
-            const row = `<tr>
-                <td><strong>${u.ho_ten || 'Chưa đặt tên'}</strong></td>
-                <td>${sdtHienThi}</td>
-                <td><span class="badge-role badge-${u.vai_tro}">${tenVaiTro}</span></td>
-                <td>${u.trang_thai === 'hoat_dong' ? '<span style="color:#16a34a; font-weight:600;">🟢 Hoạt động</span>' : '<span style="color:#dc2626; font-weight:600;">🔴 Bị khóa</span>'}</td>
-                <td>
-                    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-                        <button class="btn btn-pwd" onclick="moModalDoiMatKhau('${u.id}', '${hoTenSafe}', '${sdtSafe}')" title="Đổi mật khẩu tài khoản này">
-                            🔑 Sửa MK
-                        </button>
-                        ${u.trang_thai === 'hoat_dong' 
-                            ? `<button class="btn btn-lock" onclick="doiTrangThai('${u.id}', 'bi_khoa')">Khóa</button>`
-                            : `<button class="btn btn-unlock" onclick="doiTrangThai('${u.id}', 'hoat_dong')">Mở khóa</button>`
-                        }
-                    </div>
-                </td>
-            </tr>`;
-            tbody.innerHTML += row;
-        });
-    }
-
-    // Mở/đóng form nhập tạo mới
-    function toggleForm() {
-        const form = document.getElementById('addForm');
-        form.style.display = form.style.display === 'block' ? 'none' : 'block';
-    }
-
-    // 3. Gọi Edge Function để tạo tài khoản
-    async function taoTaiKhoan() {
-        const hoten = document.getElementById('hoten').value.trim();
-        const sdt = document.getElementById('sdt').value.trim();
-        const matkhau = document.getElementById('matkhau').value.trim();
-        const vaitro = document.getElementById('vaitro').value;
-
-        if (!hoten || !sdt || !matkhau) return alert("Vui lòng điền đủ thông tin!");
-        if (matkhau.length < 6) return alert("Mật khẩu phải có ít nhất 6 ký tự!");
-
-        try {
-            const { data, error } = await sb.functions.invoke('dynamic-responder', {
-                body: { action: 'create', ho_ten: hoten, sdt: sdt, mat_khau: matkhau, vai_tro: vaitro }
-            });
-
-            if (error) throw error;
-            if (data.error) throw new Error(data.error);
-
-            alert("Tạo tài khoản thành công!");
-            document.getElementById('hoten').value = '';
-            document.getElementById('sdt').value = '';
-            document.getElementById('matkhau').value = '';
-            toggleForm();
-            taiDanhSachUser();
-        } catch (err) {
-            alert("Lỗi: " + err.message);
-        }
-    }
-
-    // 4. Gọi Edge Function để Khóa/Mở tài khoản
-    async function doiTrangThai(userId, trangThaiMoi) {
-        if (!confirm(`Bạn có chắc muốn ${trangThaiMoi === 'bi_khoa' ? 'KHÓA' : 'MỞ KHÓA'} tài khoản này?`)) return;
-
-        try {
-            const { data, error } = await sb.functions.invoke('dynamic-responder', {
-                body: { action: 'toggle_status', user_id: userId, trang_thai: trangThaiMoi }
-            });
-
-            if (error) throw error;
-            if (data.error) throw new Error(data.error);
-
-            taiDanhSachUser();
-        } catch (err) {
-            alert("Lỗi: " + err.message);
-        }
-    }
-
-    // 5. Mở Modal Đổi Mật Khẩu
-    function moModalDoiMatKhau(id, hoTen, sdt) {
-        document.getElementById('modalUserId').value = id;
-        document.getElementById('modalUserInfo').innerHTML = `<strong>${hoTen}</strong> ${sdt ? `(${sdt})` : ''}`;
-        document.getElementById('matKhauMoi').value = '';
-        document.getElementById('xacNhanMatKhau').value = '';
-        document.getElementById('modalErrorMsg').style.display = 'none';
-        document.getElementById('modalErrorMsg').textContent = '';
-        
-        const modal = document.getElementById('modalDoiMatKhau');
-        modal.style.display = 'flex';
-        setTimeout(() => document.getElementById('matKhauMoi').focus(), 100);
-    }
-
-    // Đóng Modal Đổi Mật Khẩu
-    function dongModalDoiMatKhau() {
-        document.getElementById('modalDoiMatKhau').style.display = 'none';
-    }
-
-    // Ẩn/Hiện mật khẩu
-    function toggleShowPwd(inputId, btn) {
-        const input = document.getElementById(inputId);
-        if (input.type === 'password') {
-            input.type = 'text';
-            btn.textContent = '🙈';
-        } else {
-            input.type = 'password';
-            btn.textContent = '👁️';
-        }
-    }
-
-    // 6. Thực hiện Đổi Mật Khẩu
-    async function thucHienDoiMatKhau() {
-        const userId = document.getElementById('modalUserId').value;
-        const matKhauMoi = document.getElementById('matKhauMoi').value.trim();
-        const xacNhan = document.getElementById('xacNhanMatKhau').value.trim();
-        const errEl = document.getElementById('modalErrorMsg');
-        const btnLuu = document.getElementById('btnLuuMatKhau');
-
-        if (!matKhauMoi) {
-            errEl.textContent = 'Vui lòng nhập mật khẩu mới!';
-            errEl.style.display = 'block';
-            return;
-        }
-        if (matKhauMoi.length < 6) {
-            errEl.textContent = 'Mật khẩu phải có ít nhất 6 ký tự!';
-            errEl.style.display = 'block';
-            return;
-        }
-        if (matKhauMoi !== xacNhan) {
-            errEl.textContent = 'Xác nhận mật khẩu không khớp!';
-            errEl.style.display = 'block';
-            return;
-        }
-
-        errEl.style.display = 'none';
-        btnLuu.disabled = true;
-        btnLuu.textContent = '⏳ Đang lưu...';
-
-        try {
-            // Trường hợp 1: Nếu người dùng đang đổi mật khẩu cho chính tài khoản đang đăng nhập
-            if (nguoiDungHienTai && nguoiDungHienTai.uid === userId) {
-                const { error } = await sb.auth.updateUser({ password: matKhauMoi });
-                if (error) throw error;
-                alert('✅ Đã đổi mật khẩu cho tài khoản của bạn thành công!');
-                dongModalDoiMatKhau();
-                return;
-            }
-
-            // Trường hợp 2: Thử gọi qua Database RPC (nếu đã kích hoạt trên Supabase SQL Editor)
-            try {
-                const { data: rpcData, error: rpcError } = await sb.rpc('doi_mat_khau_admin', {
-                    target_user_id: userId,
-                    mat_khau_moi: matKhauMoi
-                });
-                if (!rpcError && rpcData && rpcData.success) {
-                    alert('✅ Đã cập nhật mật khẩu mới thành công!');
-                    dongModalDoiMatKhau();
-                    return;
-                }
-            } catch (eRpc) {
-                console.warn("RPC doi_mat_khau_admin chưa khả dụng, thử tiếp Edge Function...", eRpc);
-            }
-
-            // Trường hợp 3: Đổi mật khẩu cho tài khoản khác thông qua Edge Function dynamic-responder
-            let res = await sb.functions.invoke('dynamic-responder', {
-                body: {
-                    action: 'update_password',
-                    user_id: userId,
-                    mat_khau: matKhauMoi,
-                    password: matKhauMoi
-                }
-            });
-
-            // Nếu trả về lỗi tên action, thử các alias: change_password, reset_password
-            if (res.error || (res.data && res.data.error)) {
-                const errStr = ((res.error && res.error.message) || '') + ' ' + ((res.data && res.data.error) || '');
-                if (errStr.toLowerCase().includes('action') || errStr.toLowerCase().includes('hành động') || errStr.toLowerCase().includes('không hợp lệ')) {
-                    const altRes = await sb.functions.invoke('dynamic-responder', {
-                        body: {
-                            action: 'change_password',
-                            user_id: userId,
-                            mat_khau: matKhauMoi,
-                            password: matKhauMoi
-                        }
-                    });
-                    if (!altRes.error && (!altRes.data || !altRes.data.error)) {
-                        res = altRes;
-                    }
-                }
-            }
-
-            if (res.error) throw res.error;
-            if (res.data && res.data.error) throw new Error(res.data.error);
-
-            alert('✅ Đã cập nhật mật khẩu mới thành công!');
-            dongModalDoiMatKhau();
-        } catch (err) {
-            const errText = err.message || '';
-            if (errText.includes('không hợp lệ') || errText.includes('action')) {
-                errEl.innerHTML = `
-                    <div style="font-weight:700; margin-bottom: 6px; font-size: 13px; color: #991b1b;">
-                        ⚠️ Supabase cần 1 bước kích hoạt quyền sửa mật khẩu (chỉ làm 1 lần duy nhất)
-                    </div>
-                    <div style="font-size: 12px; color: #7f1d1d; line-height: 1.5; margin-bottom: 10px;">
-                        Do cơ chế bảo mật của Supabase, để Admin đổi được mật khẩu nhân viên, bạn chỉ cần bấm nút bên dưới để <strong>Copy lệnh SQL</strong> rồi dán vào <strong>SQL Editor</strong> của Supabase và bấm <strong>RUN</strong> là xong vĩnh viễn!
-                    </div>
-                    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;">
-                        <button type="button" onclick="saoChepLenhSQL()" style="background: #e11d48; color: white; border: none; padding: 7px 12px; border-radius: 6px; font-weight: 700; font-size: 12px; cursor: pointer;">
-                            📋 Bấm để Copy lệnh SQL
-                        </button>
-                        <a href="https://supabase.com/dashboard/project/oedidnctnteeegkdcwaa/sql/new" target="_blank" style="background: #0f172a; color: white; padding: 7px 12px; border-radius: 6px; font-weight: 700; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
-                            🚀 Mở Supabase SQL Editor ↗
-                        </a>
-                    </div>
-                    <div id="copySuccessMsg" style="display: none; color: #15803d; font-weight: 700; font-size: 12px; margin-top: 6px;">
-                        ✅ Đã copy lệnh SQL! Giờ bạn mở Supabase -> Dán (Ctrl+V) -> bấm RUN.
-                    </div>
-                `;
-            } else {
-                errEl.textContent = 'Lỗi: ' + errText;
-            }
-            errEl.style.display = 'block';
-        } finally {
-            btnLuu.disabled = false;
-            btnLuu.textContent = '💾 Lưu Mật Khẩu';
-        }
-    }
-
-    const SQL_DOI_MAT_KHAU = `-- Cho phép Admin sửa mật khẩu người dùng
-CREATE OR REPLACE FUNCTION public.doi_mat_khau_admin(target_user_id uuid, mat_khau_moi text)
-RETURNS json
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-BEGIN
-    UPDATE auth.users
-    SET encrypted_password = crypt(mat_khau_moi, gen_salt('bf'))
-    WHERE id = target_user_id;
+  <main id="mainContent" style="display:none;">
     
-    RETURN json_build_object('success', true);
-END;
-$$;
+    <!-- Page Header -->
+    <div class="tmh-page-header">
+      <div>
+        <h1 class="tmh-page-header-title"><span>👤</span> Quản Lý Tài Khoản Nhân Viên</h1>
+        <p class="tmh-page-header-sub">Tạo tài khoản mới, phân quyền (Quản trị, Cấp quản lý, Nhân viên) và khóa/mở khóa truy cập hệ thống.</p>
+      </div>
+      <button type="button" class="btn btn-primary" onclick="toggleAddForm()">
+        <span>➕</span> Thêm Tài Khoản Mới
+      </button>
+    </div>
 
-GRANT EXECUTE ON FUNCTION public.doi_mat_khau_admin(uuid, text) TO authenticated;`;
+    <!-- Form Thêm Tài Khoản (Ẩn Mặc Định) -->
+    <div class="tmh-card" id="addForm">
+      <h3 style="margin-top: 0; margin-bottom: 14px; font-size: 15px; font-weight: 800;">Tạo tài khoản người dùng mới</h3>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px;">
+        <div class="form-group">
+          <label>Họ và tên (*):</label>
+          <input type="text" id="newHoTen" placeholder="VD: Nguyễn Văn A">
+        </div>
+        <div class="form-group">
+          <label>Số điện thoại / Tên đăng nhập (*):</label>
+          <input type="text" id="newSDT" placeholder="VD: 0905123456">
+        </div>
+        <div class="form-group">
+          <label>Mật khẩu khởi tạo (*):</label>
+          <input type="password" id="newPassword" placeholder="Ít nhất 6 ký tự">
+        </div>
+        <div class="form-group">
+          <label>Vai trò hệ thống (*):</label>
+          <select id="newVaiTro">
+            <option value="nhanvien">Nhân viên (Xem, nhập đơn)</option>
+            <option value="quanly">Cấp quản lý (Xem công nợ, quản lý danh mục)</option>
+            <option value="admin">Quản trị viên (Toàn quyền hệ thống)</option>
+          </select>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px; margin-top: 6px;">
+        <button type="button" class="btn btn-primary" onclick="taoTaiKhoan()">Tạo tài khoản</button>
+        <button type="button" class="btn btn-outline" onclick="toggleAddForm()">Hủy bỏ</button>
+      </div>
+      <div id="addMessage" style="margin-top: 10px; font-size: 13px; font-weight: 700;"></div>
+    </div>
 
-    function saoChepLenhSQL() {
-        navigator.clipboard.writeText(SQL_DOI_MAT_KHAU).then(() => {
-            const msg = document.getElementById('copySuccessMsg');
-            if (msg) msg.style.display = 'block';
-        }).catch(() => {
-            alert("Lệnh SQL:\n\n" + SQL_DOI_MAT_KHAU);
-        });
+    <!-- Bảng Danh Sách Tài Khoản -->
+    <div class="tmh-card">
+      <div class="tmh-card-header">
+        <div class="tmh-card-title"><span>👥</span> Danh sách người dùng hệ thống</div>
+      </div>
+
+      <div class="tmh-table-wrap">
+        <table class="tmh-table">
+          <thead>
+            <tr>
+              <th style="width:30px;">STT</th>
+              <th>Họ và Tên</th>
+              <th>Tên Đăng Nhập / SĐT</th>
+              <th>Vai Trò</th>
+              <th>Trạng Thái</th>
+              <th>Ngày Tạo</th>
+              <th class="text-center">Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="userTableBody">
+            <tr><td colspan="7" class="text-center" style="padding:20px;">Đang tải danh sách người dùng…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Modal Đổi Mật Khẩu -->
+    <div class="modal-overlay" id="pwdModal">
+      <div class="modal-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 14px;">
+          <h3 style="margin: 0; font-size: 15px; font-weight: 800;">🔑 Đổi mật khẩu tài khoản</h3>
+          <button type="button" class="btn btn-outline btn-sm" onclick="closePwdModal()">✕</button>
+        </div>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Đổi mật khẩu cho: <b id="pwdModalUser" style="color: var(--text-main);"></b></p>
+        <input type="hidden" id="pwdUserId">
+        <div class="form-group">
+          <label>Mật khẩu mới (ít nhất 6 ký tự):</label>
+          <input type="password" id="modalNewPassword" placeholder="Nhập mật khẩu mới">
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px;">
+          <button type="button" class="btn btn-outline" onclick="closePwdModal()">Hủy</button>
+          <button type="button" class="btn btn-primary" onclick="submitChangePassword()">Xác nhận đổi</button>
+        </div>
+        <div id="pwdModalMsg" style="margin-top: 10px; font-size: 12.5px; font-weight: 700;"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="layout.js"></script>
+  <script>
+    let danhSachUser = [];
+
+    async function khoiTaoTrang() {
+      const layoutData = await khoiTaoLayout({
+        pageTitle: "Quản Lý Tài Khoản",
+        breadcrumb: "Quản trị & Sổ sách",
+        activeMenuId: "taikhoan"
+      });
+      if (!layoutData) return;
+
+      if (layoutData.vaiTro !== 'admin') {
+        alert("Chức năng này chỉ dành cho Quản trị viên (Admin)!");
+        window.location.href = "trang_chu.html";
+        return;
+      }
+
+      await loadUsers();
     }
 
-    // Đóng modal khi bấm phím Escape hoặc click vùng ngoài
-    window.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') dongModalDoiMatKhau();
-    });
-    document.getElementById('modalDoiMatKhau').addEventListener('click', (e) => {
-        if (e.target.id === 'modalDoiMatKhau') dongModalDoiMatKhau();
-    });
+    async function loadUsers() {
+      const tbody = document.getElementById("userTableBody");
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding:20px;">Đang tải danh sách...</td></tr>`;
 
-    // Chạy khi mở trang
-    kiemTraQuyen();
-</script>
+      const { data, error } = await sb.from("ho_so").select("*").order("tao_luc", { ascending: true });
 
+      if (error) {
+        tbody.innerHTML = `<tr><td colspan="7" style="color:red; padding:20px;">Lỗi: ${error.message}</td></tr>`;
+        return;
+      }
+
+      danhSachUser = data || [];
+      if (danhSachUser.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding:20px;">Chưa có người dùng nào.</td></tr>`;
+        return;
+      }
+
+      let html = "";
+      danhSachUser.forEach((u, index) => {
+        const isLocked = u.trang_thai === "khoa";
+        const roleName = TEN_VAI_TRO[u.vai_tro] || u.vai_tro;
+        const roleBadgeClass = `badge-${u.vai_tro}`;
+        const sdt = u.so_dien_thoai || "—";
+        const dateStr = u.tao_luc ? new Date(u.tao_luc).toLocaleDateString("vi-VN") : "—";
+
+        html += `
+          <tr>
+            <td class="text-center">${index + 1}</td>
+            <td class="text-bold">${u.ho_ten}</td>
+            <td>${sdt}</td>
+            <td><span class="badge-role ${roleBadgeClass}">${roleName}</span></td>
+            <td>
+              ${isLocked ? '<span style="color:#dc2626; font-weight:700;">🔒 Đã khóa</span>' : '<span style="color:#16a34a; font-weight:700;">✓ Hoạt động</span>'}
+            </td>
+            <td>${dateStr}</td>
+            <td class="text-center" style="white-space:nowrap;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="openPwdModal('${u.id}', '${u.ho_ten}')" title="Đổi mật khẩu">🔑 Đổi MK</button>
+              ${isLocked 
+                ? `<button type="button" class="btn btn-outline btn-sm" style="color:#0d9488;" onclick="toggleLock('${u.id}', 'hoat_dong')" title="Mở khóa">🔓 Mở</button>` 
+                : `<button type="button" class="btn btn-outline btn-sm" style="color:#dc2626;" onclick="toggleLock('${u.id}', 'khoa')" title="Khóa tài khoản">🔒 Khóa</button>`
+              }
+            </td>
+          </tr>
+        `;
+      });
+      tbody.innerHTML = html;
+    }
+
+    function toggleAddForm() {
+      const f = document.getElementById("addForm");
+      f.style.display = f.style.display === "none" || f.style.display === "" ? "block" : "none";
+    }
+
+    async function taoTaiKhoan() {
+      const hoTen = document.getElementById("newHoTen").value.trim();
+      const sdt = document.getElementById("newSDT").value.trim();
+      const pwd = document.getElementById("newPassword").value.trim();
+      const vaiTro = document.getElementById("newVaiTro").value;
+      const msg = document.getElementById("addMessage");
+
+      if (!hoTen || !sdt || !pwd) {
+        msg.style.color = "#dc2626";
+        msg.textContent = "Vui lòng điền đầy đủ Họ tên, Số điện thoại và Mật khẩu!";
+        return;
+      }
+
+      msg.style.color = "#2563eb";
+      msg.textContent = "⏳ Đang tạo tài khoản...";
+
+      try {
+        const { data, error } = await sb.functions.invoke("quan-ly-taikhoan", {
+          body: { action: "create_user", sdt: sdt, password: pwd, ho_ten: hoTen, vai_tro: vaiTro }
+        });
+
+        if (error || (data && data.error)) {
+          throw new Error(error ? error.message : data.error);
+        }
+
+        msg.style.color = "#16a34a";
+        msg.textContent = "✅ Đã tạo tài khoản thành công!";
+        document.getElementById("newHoTen").value = "";
+        document.getElementById("newSDT").value = "";
+        document.getElementById("newPassword").value = "";
+        setTimeout(() => { toggleAddForm(); msg.textContent = ""; }, 1500);
+        await loadUsers();
+      } catch (err) {
+        msg.style.color = "#dc2626";
+        msg.textContent = "Lỗi: " + err.message;
+      }
+    }
+
+    async function toggleLock(uid, trangThaiMoi) {
+      const actionName = trangThaiMoi === "khoa" ? "khóa" : "mở khóa";
+      if (!confirm(`Bạn có chắc muốn ${actionName} tài khoản này?`)) return;
+
+      const { error } = await sb.from("ho_so").update({ trang_thai: trangThaiMoi }).eq("id", uid);
+      if (error) {
+        alert("Lỗi: " + error.message);
+      } else {
+        alert(`✅ Đã ${actionName} tài khoản thành công!`);
+        await loadUsers();
+      }
+    }
+
+    function openPwdModal(uid, hoTen) {
+      document.getElementById("pwdUserId").value = uid;
+      document.getElementById("pwdModalUser").textContent = hoTen;
+      document.getElementById("modalNewPassword").value = "";
+      document.getElementById("pwdModalMsg").textContent = "";
+      document.getElementById("pwdModal").style.display = "flex";
+    }
+
+    function closePwdModal() {
+      document.getElementById("pwdModal").style.display = "none";
+    }
+
+    async function submitChangePassword() {
+      const uid = document.getElementById("pwdUserId").value;
+      const newPwd = document.getElementById("modalNewPassword").value.trim();
+      const msg = document.getElementById("pwdModalMsg");
+
+      if (!newPwd || newPwd.length < 6) {
+        msg.style.color = "#dc2626";
+        msg.textContent = "Mật khẩu mới phải có ít nhất 6 ký tự!";
+        return;
+      }
+
+      msg.style.color = "#2563eb";
+      msg.textContent = "⏳ Đang đổi mật khẩu...";
+
+      try {
+        const { data, error } = await sb.functions.invoke("quan-ly-taikhoan", {
+          body: { action: "change_password", target_uid: uid, new_password: newPwd }
+        });
+
+        if (error || (data && data.error)) throw new Error(error ? error.message : data.error);
+
+        msg.style.color = "#16a34a";
+        msg.textContent = "✅ Đổi mật khẩu thành công!";
+        setTimeout(closePwdModal, 1500);
+      } catch (err) {
+        msg.style.color = "#dc2626";
+        msg.textContent = "Lỗi: " + err.message;
+      }
+    }
+
+    khoiTaoTrang();
+  </script>
 </body>
 </html>

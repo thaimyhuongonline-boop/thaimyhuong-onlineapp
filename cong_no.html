@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Theo Dõi Công Nợ — THÁI MỸ HƯƠNG</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="config.js"></script>
+  <link rel="stylesheet" href="layout.css">
+  <style>
+    .debt-badge-red { color: #dc2626; font-weight: 800; }
+    .debt-badge-green { color: #16a34a; font-weight: 800; }
+    .nav-tabs-cn {
+      display: flex;
+      gap: 6px;
+      border-bottom: 2px solid var(--border-color);
+      margin-bottom: 18px;
+    }
+    .nav-tab-btn {
+      padding: 8px 18px;
+      border: none;
+      background: transparent;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .nav-tab-btn:hover { color: var(--text-main); }
+    .nav-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+    
+    /* Modal ghi nợ / thu nợ */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.5);
+      backdrop-filter: blur(3px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-card {
+      background: #ffffff;
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 480px;
+      padding: 24px;
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .form-group label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+    .form-control {
+      padding: 8px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-family: inherit;
+    }
+  </style>
+</head>
+<body>
+
+  <main id="mainContent" style="display:none;">
+    
+    <!-- Page Header -->
+    <div class="tmh-page-header">
+      <div>
+        <h1 class="tmh-page-header-title"><span>💰</span> Sổ Theo Dõi Công Nợ Khách Hàng</h1>
+        <p class="tmh-page-header-sub">Công nợ tổng hợp = Nợ phát sinh chuyến xe (Lưu Trữ) + Nợ khác phát sinh − Các khoản thu nợ. Khóa theo Mã Khách Hàng.</p>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-primary" onclick="moModalThuNo()">
+          <span>💵</span> + Ghi Nhận Thu Nợ
+        </button>
+        <button type="button" class="btn btn-amber" onclick="moModalNoKhac()">
+          <span>📝</span> + Ghi Nhận Nợ Khác
+        </button>
+        <button type="button" class="btn btn-outline" onclick="xuatExcelCongNo()">
+          <span>📊</span> Xuất Excel
+        </button>
+      </div>
+    </div>
+
+    <!-- Tabs Sổ Sách Công Nợ -->
+    <div class="nav-tabs-cn">
+      <button type="button" class="nav-tab-btn active" id="tabBtn1" onclick="chuyenTab('tonghop')">
+        <span>📊</span> 1. Tổng Hợp Công Nợ
+      </button>
+      <button type="button" class="nav-tab-btn" id="tabBtn2" onclick="chuyenTab('thuno')">
+        <span>💵</span> 2. Nhật Ký Thu Nợ
+      </button>
+      <button type="button" class="nav-tab-btn" id="tabBtn3" onclick="chuyenTab('nokhac')">
+        <span>📝</span> 3. Nhật Ký Nợ Khác
+      </button>
+    </div>
+
+    <!-- TAB 1: TỔNG HỢP CÔNG NỢ -->
+    <div id="tabTongHop" class="tmh-card">
+      <div class="tmh-card-header">
+        <div class="tmh-card-title"><span>👥</span> Bảng Tổng Hợp Số Dư Công Nợ Theo Khách Hàng</div>
+        <input type="text" id="timKiemKH" class="form-control" placeholder="🔍 Tìm mã KH, tên khách..." oninput="locCongNoTongHop()" style="width: 240px; font-size: 12px; padding: 6px 10px;">
+      </div>
+
+      <div class="tmh-table-wrap">
+        <table class="tmh-table">
+          <thead>
+            <tr>
+              <th style="width:30px;">STT</th>
+              <th>Mã Khách Hàng</th>
+              <th>Tên Khách Hàng</th>
+              <th class="text-right">Nợ Từ Chuyến Xe</th>
+              <th class="text-right">Nợ Khác Phát Sinh</th>
+              <th class="text-right">Đã Thu Nợ</th>
+              <th class="text-right">Số Dư Nợ Hiện Tại</th>
+              <th class="text-center">Trạng Thái</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyCongNoTongHop"></tbody>
+          <tfoot id="tfootCongNoTongHop"></tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 2: NHẬT KÝ THU NỢ -->
+    <div id="tabThuNo" class="tmh-card" style="display: none;">
+      <div class="tmh-card-header">
+        <div class="tmh-card-title"><span>💵</span> Lịch Sử Ghi Nhận Thu Nợ</div>
+      </div>
+      <div class="tmh-table-wrap">
+        <table class="tmh-table">
+          <thead>
+            <tr>
+              <th style="width:30px;">STT</th>
+              <th>Ngày Thu</th>
+              <th>Mã Khách Hàng</th>
+              <th>Tên Khách Hàng</th>
+              <th class="text-right">Số Tiền Thu</th>
+              <th>Hình Thức</th>
+              <th>Tài Khoản Nhận</th>
+              <th>Người Thu</th>
+              <th>Ghi Chú</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyNhatKyThuNo"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 3: NHẬT KÝ NỢ KHÁC -->
+    <div id="tabNoKhac" class="tmh-card" style="display: none;">
+      <div class="tmh-card-header">
+        <div class="tmh-card-title"><span>📝</span> Lịch Sử Ghi Nhận Nợ Khác</div>
+      </div>
+      <div class="tmh-table-wrap">
+        <table class="tmh-table">
+          <thead>
+            <tr>
+              <th style="width:30px;">STT</th>
+              <th>Ngày Ghi</th>
+              <th>Mã Khách Hàng</th>
+              <th>Tên Khách Hàng</th>
+              <th class="text-right">Số Tiền Nợ</th>
+              <th>Nội Dung / Diễn Giải</th>
+              <th>Người Tạo</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyNhatKyNoKhac"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- MODAL GHI NHẬN THU NỢ -->
+    <div class="modal-overlay" id="modalThuNo">
+      <div class="modal-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+          <h3 style="font-size: 15px; font-weight: 800; margin: 0;">💵 Ghi nhận phiếu thu nợ</h3>
+          <button type="button" class="btn btn-outline btn-sm" onclick="dongModal()">✕</button>
+        </div>
+        <div class="form-group">
+          <label>Mã Khách Hàng (*):</label>
+          <input type="text" id="tn_maKH" class="form-control" placeholder="Nhập mã KH...">
+        </div>
+        <div class="form-group">
+          <label>Tên Khách Hàng:</label>
+          <input type="text" id="tn_tenKH" class="form-control" placeholder="Tên khách...">
+        </div>
+        <div class="form-group">
+          <label>Số tiền thu (VNĐ) (*):</label>
+          <input type="number" id="tn_soTien" class="form-control" placeholder="Nhập số tiền thu...">
+        </div>
+        <div class="form-group">
+          <label>Hình thức thu:</label>
+          <select id="tn_hinhThuc" class="form-control">
+            <option value="TienMat">Tiền mặt</option>
+            <option value="ChuyenKhoan">Chuyển khoản</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Tài khoản nhận (nếu CK):</label>
+          <input type="text" id="tn_taiKhoan" class="form-control" value="VCB - 0041000266096">
+        </div>
+        <div class="form-group">
+          <label>Ghi chú:</label>
+          <input type="text" id="tn_ghiChu" class="form-control" placeholder="Diễn giải...">
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px;">
+          <button type="button" class="btn btn-outline" onclick="dongModal()">Hủy</button>
+          <button type="button" class="btn btn-primary" onclick="luuPhieuThuNo()">Lưu phiếu thu</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL GHI NHẬN NỢ KHÁC -->
+    <div class="modal-overlay" id="modalNoKhac">
+      <div class="modal-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+          <h3 style="font-size: 15px; font-weight: 800; margin: 0;">📝 Ghi nhận khoản nợ khác</h3>
+          <button type="button" class="btn btn-outline btn-sm" onclick="dongModal()">✕</button>
+        </div>
+        <div class="form-group">
+          <label>Mã Khách Hàng (*):</label>
+          <input type="text" id="nk_maKH" class="form-control" placeholder="Nhập mã KH...">
+        </div>
+        <div class="form-group">
+          <label>Tên Khách Hàng:</label>
+          <input type="text" id="nk_tenKH" class="form-control" placeholder="Tên khách...">
+        </div>
+        <div class="form-group">
+          <label>Số tiền nợ phát sinh (VNĐ) (*):</label>
+          <input type="number" id="nk_soTien" class="form-control" placeholder="Nhập số tiền nợ...">
+        </div>
+        <div class="form-group">
+          <label>Nội dung / Diễn giải:</label>
+          <input type="text" id="nk_noiDung" class="form-control" placeholder="Lý do phát sinh nợ...">
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px;">
+          <button type="button" class="btn btn-outline" onclick="dongModal()">Hủy</button>
+          <button type="button" class="btn btn-amber" onclick="luuKhoanNoKhac()">Lưu khoản nợ</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="layout.js"></script>
+  <script>
+    let danhSachCongNo = [];
+    let danhSachThuNo = [];
+    let danhSachNoKhac = [];
+    let userHienTai = null;
+
+    function formatTien(so) {
+      if (so === null || so === undefined || isNaN(so)) return '0';
+      return Math.round(Number(so)).toLocaleString('vi-VN');
+    }
+
+    async function khoiTaoTrang() {
+      const layoutData = await khoiTaoLayout({
+        pageTitle: "Theo Dõi Công Nợ",
+        breadcrumb: "Quản trị & Sổ sách",
+        activeMenuId: "congno"
+      });
+      if (!layoutData) return;
+      userHienTai = layoutData;
+
+      await taiDuLieuCongNo();
+    }
+
+    async function taiDuLieuCongNo() {
+      // 1. Kéo dữ liệu nợ phát sinh từ bảng luu_tru
+      const mapTongHop = new Map();
+
+      try {
+        const { data: ltData } = await sb.from('luu_tru').select('ma_kh, ten_kh, no_phat_sinh');
+        if (ltData) {
+          ltData.forEach(r => {
+            const mkh = (r.ma_kh || '').trim();
+            if (!mkh) return;
+            if (!mapTongHop.has(mkh)) {
+              mapTongHop.set(mkh, { maKH: mkh, tenKH: r.ten_kh || '', noChuyenXe: 0, noKhac: 0, thuNo: 0, duNo: 0 });
+            }
+            mapTongHop.get(mkh).noChuyenXe += Number(r.no_phat_sinh) || 0;
+          });
+        }
+      } catch (e) {}
+
+      // 2. Kéo nợ khác
+      try {
+        const { data: nkData } = await sb.from('no_khac').select('*').order('tao_luc', { ascending: false });
+        danhSachNoKhac = nkData || [];
+        danhSachNoKhac.forEach(r => {
+          const mkh = (r.ma_kh || '').trim();
+          if (!mapTongHop.has(mkh)) {
+            mapTongHop.set(mkh, { maKH: mkh, tenKH: r.ten_kh || '', noChuyenXe: 0, noKhac: 0, thuNo: 0, duNo: 0 });
+          }
+          mapTongHop.get(mkh).noKhac += Number(r.so_tien) || 0;
+        });
+      } catch (e) {}
+
+      // 3. Kéo thu nợ
+      try {
+        const { data: tnData } = await sb.from('thu_no').select('*').order('tao_luc', { ascending: false });
+        danhSachThuNo = tnData || [];
+        danhSachThuNo.forEach(r => {
+          const mkh = (r.ma_kh || '').trim();
+          if (!mapTongHop.has(mkh)) {
+            mapTongHop.set(mkh, { maKH: mkh, tenKH: r.ten_kh || '', noChuyenXe: 0, noKhac: 0, thuNo: 0, duNo: 0 });
+          }
+          mapTongHop.get(mkh).thuNo += Number(r.so_tien) || 0;
+        });
+      } catch (e) {}
+
+      // 4. Tính dư nợ = Nợ chuyến xe + Nợ khác - Thu nợ
+      mapTongHop.forEach(item => {
+        item.duNo = item.noChuyenXe + item.noKhac - item.thuNo;
+      });
+
+      danhSachCongNo = Array.from(mapTongHop.values());
+      veBangCongNoTongHop(danhSachCongNo);
+      veBangNhatKyThuNo();
+      veBangNhatKyNoKhac();
+    }
+
+    function veBangCongNoTongHop(list) {
+      const tbody = document.getElementById('tbodyCongNoTongHop');
+      tbody.innerHTML = '';
+
+      if (!list || list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center" style="padding:28px; color:var(--text-muted);">Chưa có dữ liệu công nợ phát sinh.</td></tr>';
+        return;
+      }
+
+      let sumNoXe = 0, sumNoKhac = 0, sumThuNo = 0, sumDuNo = 0;
+
+      list.forEach((item, idx) => {
+        sumNoXe += item.noChuyenXe;
+        sumNoKhac += item.noKhac;
+        sumThuNo += item.thuNo;
+        sumDuNo += item.duNo;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="text-center">${idx + 1}</td>
+          <td class="text-bold" style="color:var(--primary);">${item.maKH}</td>
+          <td>${item.tenKH}</td>
+          <td class="text-right">${formatTien(item.noChuyenXe)}</td>
+          <td class="text-right">${formatTien(item.noKhac)}</td>
+          <td class="text-right" style="color:#16a34a;">${formatTien(item.thuNo)}</td>
+          <td class="text-right ${item.duNo > 0 ? 'debt-badge-red' : 'debt-badge-green'}">${formatTien(item.duNo)}</td>
+          <td class="text-center">
+            ${item.duNo > 0 ? '<span style="background:#fee2e2; color:#b91c1c; padding:2px 8px; border-radius:9999px; font-size:10.5px; font-weight:700;">Còn Nợ</span>' : '<span style="background:#dcfce7; color:#15803d; padding:2px 8px; border-radius:9999px; font-size:10.5px; font-weight:700;">Đã Hết Nợ</span>'}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('tfootCongNoTongHop').innerHTML = `
+        <tr style="background:#f8fafc; font-weight:800;">
+          <td colspan="3" class="text-center">TỔNG CỘNG</td>
+          <td class="text-right">${formatTien(sumNoXe)}</td>
+          <td class="text-right">${formatTien(sumNoKhac)}</td>
+          <td class="text-right" style="color:#16a34a;">${formatTien(sumThuNo)}</td>
+          <td class="text-right ${sumDuNo > 0 ? 'debt-badge-red' : 'debt-badge-green'}">${formatTien(sumDuNo)}</td>
+          <td></td>
+        </tr>
+      `;
+    }
+
+    function veBangNhatKyThuNo() {
+      const tbody = document.getElementById('tbodyNhatKyThuNo');
+      tbody.innerHTML = '';
+      if (danhSachThuNo.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center" style="padding:20px; color:var(--text-muted);">Chưa có phiếu thu nợ nào.</td></tr>';
+        return;
+      }
+      danhSachThuNo.forEach((r, idx) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="text-center">${idx + 1}</td>
+          <td>${r.ngay_thu || ''}</td>
+          <td class="text-bold">${r.ma_kh}</td>
+          <td>${r.ten_kh || ''}</td>
+          <td class="text-right text-bold" style="color:#16a34a;">${formatTien(r.so_tien)}</td>
+          <td>${r.hinh_thuc === 'ChuyenKhoan' ? 'Chuyển khoản' : 'Tiền mặt'}</td>
+          <td>${r.tai_khoan_nhan || '—'}</td>
+          <td>${r.nguoi_thu || '—'}</td>
+          <td>${r.ghi_chu || '—'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function veBangNhatKyNoKhac() {
+      const tbody = document.getElementById('tbodyNhatKyNoKhac');
+      tbody.innerHTML = '';
+      if (danhSachNoKhac.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center" style="padding:20px; color:var(--text-muted);">Chưa có khoản nợ khác nào.</td></tr>';
+        return;
+      }
+      danhSachNoKhac.forEach((r, idx) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="text-center">${idx + 1}</td>
+          <td>${r.ngay_ct || ''}</td>
+          <td class="text-bold">${r.ma_kh}</td>
+          <td>${r.ten_kh || ''}</td>
+          <td class="text-right text-bold" style="color:#dc2626;">${formatTien(r.so_tien)}</td>
+          <td>${r.noi_dung || '—'}</td>
+          <td>${r.nguoi_tao || '—'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function chuyenTab(tab) {
+      document.querySelectorAll('.nav-tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('tabTongHop').style.display = tab === 'tonghop' ? 'block' : 'none';
+      document.getElementById('tabThuNo').style.display = tab === 'thuno' ? 'block' : 'none';
+      document.getElementById('tabNoKhac').style.display = tab === 'nokhac' ? 'block' : 'none';
+
+      if (tab === 'tonghop') document.getElementById('tabBtn1').classList.add('active');
+      if (tab === 'thuno') document.getElementById('tabBtn2').classList.add('active');
+      if (tab === 'nokhac') document.getElementById('tabBtn3').classList.add('active');
+    }
+
+    function locCongNoTongHop() {
+      const q = document.getElementById('timKiemKH').value.toLowerCase().trim();
+      if (!q) {
+        veBangCongNoTongHop(danhSachCongNo);
+        return;
+      }
+      const kq = danhSachCongNo.filter(d => 
+        (d.maKH && d.maKH.toLowerCase().includes(q)) ||
+        (d.tenKH && d.tenKH.toLowerCase().includes(q))
+      );
+      veBangCongNoTongHop(kq);
+    }
+
+    // Modal
+    function moModalThuNo() { document.getElementById('modalThuNo').style.display = 'flex'; }
+    function moModalNoKhac() { document.getElementById('modalNoKhac').style.display = 'flex'; }
+    function dongModal() {
+      document.getElementById('modalThuNo').style.display = 'none';
+      document.getElementById('modalNoKhac').style.display = 'none';
+    }
+
+    async function luuPhieuThuNo() {
+      const maKH = document.getElementById('tn_maKH').value.trim();
+      const tenKH = document.getElementById('tn_tenKH').value.trim();
+      const soTien = Number(document.getElementById('tn_soTien').value) || 0;
+      if (!maKH || soTien <= 0) {
+        alert("Vui lòng nhập Mã Khách Hàng và Số Tiền Thu hợp lệ!");
+        return;
+      }
+
+      const dongMoi = {
+        ngay_thu: new Date().toISOString().slice(0, 10),
+        ma_kh: maKH,
+        ten_kh: tenKH,
+        so_tien: soTien,
+        hinh_thuc: document.getElementById('tn_hinhThuc').value,
+        tai_khoan_nhan: document.getElementById('tn_taiKhoan').value,
+        nguoi_thu: userHienTai ? userHienTai.tenNguoiDung : '',
+        ghi_chu: document.getElementById('tn_ghiChu').value
+      };
+
+      try {
+        await sb.from('thu_no').insert([dongMoi]);
+        alert("✅ Đã lưu thành công phiếu thu nợ!");
+        dongModal();
+        await taiDuLieuCongNo();
+      } catch (err) {
+        alert("Lỗi lưu phiếu thu: " + err.message);
+      }
+    }
+
+    async function luuKhoanNoKhac() {
+      const maKH = document.getElementById('nk_maKH').value.trim();
+      const tenKH = document.getElementById('nk_tenKH').value.trim();
+      const soTien = Number(document.getElementById('nk_soTien').value) || 0;
+      if (!maKH || soTien <= 0) {
+        alert("Vui lòng nhập Mã Khách Hàng và Số Tiền Nợ hợp lệ!");
+        return;
+      }
+
+      const dongMoi = {
+        ngay_ct: new Date().toISOString().slice(0, 10),
+        ma_kh: maKH,
+        ten_kh: tenKH,
+        so_tien: soTien,
+        noi_dung: document.getElementById('nk_noiDung').value,
+        nguoi_tao: userHienTai ? userHienTai.tenNguoiDung : ''
+      };
+
+      try {
+        await sb.from('no_khac').insert([dongMoi]);
+        alert("✅ Đã lưu thành công khoản nợ khác!");
+        dongModal();
+        await taiDuLieuCongNo();
+      } catch (err) {
+        alert("Lỗi lưu nợ khác: " + err.message);
+      }
+    }
+
+    function xuatExcelCongNo() {
+      if (typeof XLSX === 'undefined') return;
+      const wb = XLSX.utils.book_new();
+
+      const wsData = [
+        [{ v: "SỔ TỔNG HỢP CÔNG NỢ KHÁCH HÀNG — THÁI MỸ HƯƠNG", s: { font: { bold: true, sz: 14 } } }],
+        [{ v: `Ngày xuất: ${new Date().toLocaleDateString('vi-VN')}` }],
+        []
+      ];
+
+      const headers = ["STT", "Mã Khách Hàng", "Tên Khách Hàng", "Nợ Chuyến Xe", "Nợ Khác Phát Sinh", "Đã Thu Nợ", "Dư Nợ Hiện Tại"];
+      wsData.push(headers.map(h => ({ v: h, s: { font: { bold: true } } })));
+
+      danhSachCongNo.forEach((item, idx) => {
+        wsData.push([
+          idx + 1, item.maKH, item.tenKH,
+          item.noChuyenXe, item.noKhac, item.thuNo, item.duNo
+        ]);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      XLSX.utils.book_append_sheet(wb, ws, "CongNoTongHop");
+      XLSX.writeFile(wb, `So_Theo_Doi_Cong_No_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    }
+
+    khoiTaoTrang();
+  </script>
+</body>
+</html>
