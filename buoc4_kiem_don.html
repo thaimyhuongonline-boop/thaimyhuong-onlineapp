@@ -4,766 +4,312 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bước 4: Kiểm Đơn Giao Về — THÁI MỸ HƯƠNG</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <script src="config.js"></script>
+  <link rel="stylesheet" href="layout.css">
   <style>
-    :root {
-      --primary: #d97706;
-      --primary-hover: #b45309;
-      --primary-light: #fef3c7;
-      --accent-blue: #2563eb;
-      --accent-green: #16a34a;
-      --accent-red: #dc2626;
-      --text-main: #0f172a;
-      --text-muted: #64748b;
-      --border-color: #e2e8f0;
-      --bg-page: #f8fafc;
-      --bg-surface: #ffffff;
-      --radius-sm: 8px;
-      --radius-md: 12px;
-      --radius-lg: 16px;
-      --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
-      --shadow-md: 0 4px 14px -2px rgba(0,0,0,0.08);
-      --transition: all 0.2s ease;
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: var(--bg-page);
-      color: var(--text-main);
-      min-height: 100vh;
-      padding-bottom: 80px;
-      font-size: 13px;
-    }
-
-    /* Topbar */
-    .topbar {
-      background: var(--bg-surface);
-      border-bottom: 1px solid var(--border-color);
-      padding: 12px 28px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      position: sticky;
-      top: 0;
-      z-index: 50;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .brand-wrap {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .brand-logo {
-      width: 38px;
-      height: 38px;
-      background: #ffffff;
-      border-radius: 50%;
-      border: 1px solid var(--border-color);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      flex-shrink: 0;
-    }
-
-    .brand-logo img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    .brand-info h1 {
-      font-size: 15px;
-      font-weight: 800;
-      color: #0f172a;
-      line-height: 1.2;
-    }
-
-    .brand-info span {
-      font-size: 11.5px;
-      color: var(--text-muted);
-    }
-
-    .topbar-actions {
-      display: flex;
-      gap: 10px;
-    }
-
-    .btn {
-      padding: 8px 15px;
-      border: none;
-      border-radius: var(--radius-sm);
-      font-size: 12.5px;
-      font-weight: 700;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      transition: var(--transition);
-      font-family: inherit;
-      white-space: nowrap;
-      text-decoration: none;
-    }
-
-    .btn-back {
-      background: #ffffff;
-      color: #334155;
-      border: 1px solid var(--border-color);
-    }
-    .btn-back:hover { background: #f8fafc; color: #0f172a; border-color: #cbd5e1; }
-
-    .btn-primary {
-      background: #d97706;
-      color: #ffffff;
-    }
-    .btn-primary:hover { background: #b45309; }
-
-    .btn-green {
-      background: #16a34a;
-      color: #ffffff;
-    }
-    .btn-green:hover { background: #15803d; }
-
-    .btn-blue {
-      background: #2563eb;
-      color: #ffffff;
-    }
-    .btn-blue:hover { background: #1d4ed8; }
-
-    /* Container */
-    .container {
-      max-width: 1440px;
-      margin: 18px auto 0;
-      padding: 0 20px;
-    }
-
-    /* Stepper Bar */
-    .stepper-card {
-      background: #ffffff;
-      border-radius: var(--radius-md);
-      border: 1px solid var(--border-color);
-      padding: 12px 20px;
-      margin-bottom: 18px;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .stepper-track {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      position: relative;
-    }
-
-    .step-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 5px;
-      text-decoration: none;
-      z-index: 2;
-    }
-
-    .step-num {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      background: #f1f5f9;
-      color: #64748b;
-      font-weight: 800;
-      font-size: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 2px solid #e2e8f0;
-    }
-
-    .step-label {
-      font-size: 11px;
-      font-weight: 700;
-      color: #64748b;
-      text-align: center;
-      white-space: nowrap;
-    }
-
-    .step-item.active .step-num {
-      background: #d97706;
-      color: #ffffff;
-      border-color: #b45309;
-      box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.2);
-    }
-    .step-item.active .step-label {
-      color: #d97706;
-      font-weight: 800;
-    }
-
-    .step-item.done .step-num {
-      background: #ecfdf5;
-      color: #16a34a;
-      border-color: #22c55e;
-    }
-    .step-item.done .step-label {
-      color: #16a34a;
-    }
-
-    /* Hero Banner */
-    .hero-banner {
-      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-      border: 1.5px solid #fde68a;
-      border-radius: var(--radius-md);
-      padding: 16px 22px;
-      margin-bottom: 18px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 16px;
-    }
-
-    .hero-info {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .hero-title {
-      font-size: 16px;
-      font-weight: 800;
-      color: #92400e;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .hero-meta {
-      font-size: 12px;
-      color: #78350f;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 16px;
-    }
-
-    .hero-actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    /* Panel Card */
-    .card-panel {
-      background: #ffffff;
-      border-radius: var(--radius-md);
-      border: 1px solid var(--border-color);
-      box-shadow: var(--shadow-sm);
-      overflow: hidden;
-      margin-bottom: 24px;
-    }
-
-    .panel-header {
-      padding: 14px 20px;
-      background: #ffffff;
-      border-bottom: 1px solid var(--border-color);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-
-    .panel-title {
-      font-size: 14px;
-      font-weight: 800;
-      color: #0f172a;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .panel-controls {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .search-input {
-      padding: 7px 12px;
-      border: 1.5px solid #cbd5e1;
-      border-radius: var(--radius-sm);
-      font-size: 12px;
-      outline: none;
-      width: 240px;
-    }
-    .search-input:focus { border-color: var(--primary); }
-
-    /* BẢNG KIỂM ĐƠN CHUẨN THEO HÌNH 2 */
-    .table-container {
-      overflow-x: auto;
-      max-height: calc(100vh - 280px);
-    }
-
-    .kiemdon-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 11.5px;
-      color: #000000;
-      white-space: nowrap;
-    }
-
-    /* Header màu vàng nhạt #FFF2CC theo Hình 2 */
-    .kiemdon-table th {
-      background-color: #fff2cc;
-      color: #000000;
-      font-weight: 800;
-      border: 1px solid #d0d7de;
-      padding: 8px 6px;
-      text-align: center;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-
-    .kiemdon-table td {
-      border: 1px solid #e2e8f0;
-      padding: 6px 8px;
-      vertical-align: middle;
-    }
-
-    .kiemdon-table tbody tr:hover {
-      background-color: #f8fafc;
-    }
-
-    /* Cột Thành tiền: đóng khung tím, in đậm chuẩn Hình 2 */
-    .col-thanh-tien {
-      font-weight: 800;
-      color: #000000;
-      text-align: right;
-      background-color: #fffdf5;
-      border-left: 2px solid #7c3aed !important;
-      border-right: 2px solid #7c3aed !important;
-    }
-
-    .header-thanh-tien {
-      border-left: 2px solid #7c3aed !important;
-      border-right: 2px solid #7c3aed !important;
-      border-top: 2px solid #7c3aed !important;
-      border-bottom: 2px solid #7c3aed !important;
-      color: #5b21b6 !important;
-    }
-
-    /* Input số tiền trong bảng */
+    /* Bảng Đối Soát Kiểm Đơn */
     .input-tien {
-      width: 95px;
-      padding: 4px 6px;
-      border: 1px solid #cbd5e1;
+      width: 100%;
+      min-width: 90px;
+      padding: 6px 8px;
+      border: 1px solid var(--border-color);
       border-radius: 4px;
-      font-size: 11.5px;
-      font-weight: 700;
+      font-size: 12.5px;
       text-align: right;
+      font-weight: 700;
       font-family: inherit;
       outline: none;
+      transition: var(--transition);
     }
     .input-tien:focus {
-      border-color: #2563eb;
-      background: #eff6ff;
+      border-color: var(--primary);
+      background: #f0fdf4;
+      box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.15);
     }
 
-    /* Select tài khoản nhận */
     .select-tk {
-      padding: 4px 6px;
-      border: 1px solid #cbd5e1;
+      width: 100%;
+      min-width: 130px;
+      padding: 6px 8px;
+      border: 1px solid var(--border-color);
       border-radius: 4px;
-      font-size: 11px;
+      font-size: 11.5px;
+      font-family: inherit;
       background: #ffffff;
       outline: none;
-      max-width: 140px;
     }
 
-    /* Cột Giao lại (Checkbox màu đỏ nổi bật theo Hình 2) */
-    .col-giao-lai {
-      text-align: center;
-      background-color: #fff5f5;
-    }
     .chk-giao-lai {
       width: 18px;
       height: 18px;
-      cursor: pointer;
       accent-color: #dc2626;
+      cursor: pointer;
     }
 
-    .header-giao-lai {
-      color: #b91c1c !important;
-      background-color: #fee2e2 !important;
+    /* KPI tóm tắt kiểm đơn */
+    .kpi-kiemdon-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
     }
-
-    /* Cảnh báo nợ */
-    .debt-badge {
-      font-weight: 800;
-      color: #dc2626;
+    .kpi-kd-card {
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      box-shadow: var(--shadow-sm);
     }
-    .paid-badge {
+    .kpi-kd-card .lbl {
+      font-size: 11px;
       font-weight: 700;
-      color: #16a34a;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 3px;
     }
-
-    /* Footer tổng cộng */
-    .kiemdon-table tfoot tr {
-      background-color: #fff2cc;
+    .kpi-kd-card .val {
+      font-size: 16px;
       font-weight: 800;
-      position: sticky;
-      bottom: 0;
-      z-index: 10;
-    }
-    .kiemdon-table tfoot td {
-      border: 1px solid #d0d7de;
-      padding: 8px 6px;
+      color: var(--text-main);
     }
 
-    @media print {
-      .topbar, .stepper-card, .panel-header .panel-controls, .hero-actions, .btn {
-        display: none !important;
-      }
-      body { background: #fff !important; }
-      .container { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
-      .card-panel { border: none !important; box-shadow: none !important; }
-      .kiemdon-table { font-size: 10px !important; }
-      .input-tien { border: none !important; background: transparent !important; }
-      .select-tk { border: none !important; appearance: none !important; }
-    }
+    /* Đổi màu theo trạng thái */
+    .paid-badge { color: #16a34a; font-weight: 800; }
+    .debt-badge { color: #dc2626; font-weight: 800; }
   </style>
 </head>
 <body>
 
-  <!-- Topbar -->
-  <header class="topbar">
-    <div class="brand-wrap">
-      <div class="brand-logo">
-        <img src="logo.png" alt="Logo Thái Mỹ Hương">
+  <main id="mainContent" style="display:none;">
+    
+    <!-- Page Header -->
+    <div class="tmh-page-header">
+      <div>
+        <h1 class="tmh-page-header-title"><span>📋</span> Bước 4: Kiểm Đơn Giao Về & Phân Loại Thanh Toán</h1>
+        <p class="tmh-page-header-sub">Đối soát thực tế khi lái xe về bến: Nhập số tiền mặt thu được, chọn tài khoản nhận chuyển khoản (đối chiếu mã MISA), ghi nhận hàng trả về và tách đơn giao lại.</p>
       </div>
-      <div class="brand-info">
-        <h1>CÔNG TY TNHH THÁI MỸ HƯƠNG</h1>
-        <span>Bước 4: Kiểm Đơn Giao Về & Quản Lý Đơn Giao Lại</span>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-outline" onclick="datLaiTien()">
+          <span>🔄</span> Đặt lại 0đ
+        </button>
+        <button type="button" class="btn btn-outline" onclick="xuatExcelKiemDon()">
+          <span>📊</span> Xuất Excel
+        </button>
+        <button type="button" class="btn btn-primary" onclick="luuKetQuaKiemDon()">
+          <span>💾</span> Lưu kết quả & Sang Bước 5 ➡
+        </button>
       </div>
     </div>
-    <div class="topbar-actions">
-      <a href="buoc3_luu_tru.html" class="btn btn-back">
-        <span>⬅</span> Quay lại Bước 3
-      </a>
-      <a href="trang_chu.html" class="btn btn-back">
-        <span>🏠</span> Bảng điều khiển
-      </a>
-    </div>
-  </header>
 
-  <main class="container">
-
-    <!-- Stepper 7 bước -->
-    <div class="stepper-card">
-      <div class="stepper-track">
-        <a class="step-item done" href="buoc1_upload.html">
-          <div class="step-num">✓</div>
-          <div class="step-label">1. Tải KiotViet</div>
-        </a>
-        <a class="step-item done" href="buoc2_phieu_xuat_kho.html">
-          <div class="step-num">✓</div>
-          <div class="step-label">2. Phiếu thu & Xuất kho</div>
-        </a>
-        <a class="step-item done" href="buoc3_luu_tru.html">
-          <div class="step-num">✓</div>
-          <div class="step-label">3. Lưu trữ đợt</div>
-        </a>
-        <div class="step-item active">
-          <div class="step-num">4</div>
-          <div class="step-label">4. Kiểm đơn về</div>
+    <!-- Thanh Thông Tin Đợt Đang Kiểm -->
+    <div class="tmh-card" style="padding: 16px 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 13px;">
+          <span>Chuyến xe: <b style="color:var(--primary); font-size:14px;" id="lblXe">...</b></span>
+          <span>Tài xế: <b id="lblTaiXe">...</b></span>
+          <span>Thu tiền: <b id="lblThuTien">...</b></span>
+          <span>Ngày giao: <b id="lblNgay">...</b></span>
+          <span>Đợt: <b id="lblMaDot" style="color:#64748b;">...</b></span>
         </div>
-        <a class="step-item" href="buoc5_bao_cao.html">
-          <div class="step-num">5</div>
-          <div class="step-label">5. Báo cáo đối soát</div>
-        </a>
-        <div class="step-item" style="cursor: default;">
-          <div class="step-num">6</div>
-          <div class="step-label">6. Bảng kê nộp tiền</div>
-        </div>
-        <div class="step-item" style="cursor: default;">
-          <div class="step-num">7</div>
-          <div class="step-label">7. Xuất file MISA</div>
+        <div>
+          <select id="selectDoiDot" class="form-control" onchange="doiDotKiemDon(this.value)" style="padding: 6px 12px; font-size: 12.5px;">
+            <option value="">(Chọn chuyến xe khác để kiểm)</option>
+          </select>
         </div>
       </div>
     </div>
 
-    <!-- Hero Thông Báo Đợt Kiểm Đơn -->
-    <section class="hero-banner">
-      <div class="hero-info">
-        <div class="hero-title">
-          <span>📋 KIỂM ĐƠN GIAO VỀ — ĐỐI SOÁT THỰC THU & HÀNG TRẢ</span>
-        </div>
-        <div class="hero-meta" id="heroMetaText">
-          <span>Đang tải thông tin đợt điều động...</span>
-        </div>
+    <!-- KPI Thống Kê Nhanh -->
+    <div class="kpi-kiemdon-grid">
+      <div class="kpi-kd-card">
+        <div class="lbl">Tổng Thành Tiền</div>
+        <div class="val" id="kpiThanhTien" style="color:#2563eb;">0 đ</div>
       </div>
-      <div class="hero-actions">
-        <button type="button" class="btn btn-green" onclick="luuKetQuaKiemDon()">
-          <span>💾</span> Lưu Kết Quả Kiểm Đơn
-        </button>
-        <button type="button" class="btn btn-blue" onclick="chuyenSangBuoc5()" title="Chuyển sang Bước 5 Báo Cáo Đối Soát">
-          <span>📊</span> Báo Cáo Đối Soát (B5) ➡️
-        </button>
-        <button type="button" class="btn btn-primary" onclick="xuatExcelKiemDon()">
-          <span>📥</span> Xuất Excel (Chuẩn Hình 2)
-        </button>
-        <button type="button" class="btn btn-back" onclick="window.print()">
-          <span>🖨️</span> In Phiếu
-        </button>
+      <div class="kpi-kd-card">
+        <div class="lbl">Tiền Mặt Đã Thu</div>
+        <div class="val" id="kpiTienMat" style="color:#16a34a;">0 đ</div>
       </div>
-    </section>
+      <div class="kpi-kd-card">
+        <div class="lbl">Chuyển Khoản</div>
+        <div class="val" id="kpiChuyenKhoan" style="color:#7c3aed;">0 đ</div>
+      </div>
+      <div class="kpi-kd-card">
+        <div class="lbl">Hàng Trả Về</div>
+        <div class="val" id="kpiTraVe" style="color:#d97706;">0 đ</div>
+      </div>
+      <div class="kpi-kd-card">
+        <div class="lbl">Còn Nợ Phát Sinh</div>
+        <div class="val" id="kpiConNo" style="color:#dc2626;">0 đ</div>
+      </div>
+      <div class="kpi-kd-card">
+        <div class="lbl">Đơn Giao Lại</div>
+        <div class="val" id="kpiGiaoLai" style="color:#b91c1c;">0 đơn</div>
+      </div>
+    </div>
 
-    <!-- Khu vực Bảng Kiểm Đơn chuẩn Hình 2 -->
-    <section class="card-panel">
-      <div class="panel-header">
-        <div class="panel-title">
-          <span>DANH SÁCH ĐỐI SOÁT HÓA ĐƠN</span>
-          <span style="font-size:12px; color:#16a34a; font-weight:700; background:#ecfdf5; padding:3px 8px; border-radius:12px;" id="badgeTongDon">0 hóa đơn</span>
-        </div>
-        <div class="panel-controls">
-          <button type="button" class="btn btn-back" style="font-size:11.5px; padding:5px 10px;" onclick="moModalCaiDatTK()" title="Cài đặt và sửa danh sách tài khoản ngân hàng nhận tiền">
-            <span>⚙️</span> Cài đặt TK nhận
-          </button>
-          <button type="button" class="btn btn-back" style="font-size:11.5px; padding:5px 10px;" onclick="datLaiTien()">
-            <span>🔄</span> Đặt lại 0đ
-          </button>
-          <input type="text" id="timKiemDon" class="search-input" placeholder="Tìm kiếm mã HĐ, tên khách..." oninput="locDanhSachDon()">
+    <!-- Bảng Đối Soát Hóa Đơn -->
+    <div class="tmh-card">
+      <div class="tmh-card-header">
+        <div class="tmh-card-title"><span>📝</span> Chi tiết đối soát thanh toán từng hóa đơn</div>
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="timKiemDon" class="form-control" placeholder="🔍 Tìm mã HĐ, tên khách..." oninput="locDanhSachDon()" style="width: 220px; font-size: 12px; padding: 6px 10px;">
         </div>
       </div>
 
-      <div class="table-container">
-        <table class="kiemdon-table" id="bangKiemDon">
+      <div class="tmh-table-wrap" style="max-height: 560px;">
+        <table class="tmh-table">
           <thead>
             <tr>
-              <th style="width: 40px;">STT</th>
-              <th style="width: 100px;">Mã Hóa Đơn</th>
-              <th style="text-align: left; min-width: 220px;">Tên KH</th>
-              <th class="header-thanh-tien" style="width: 110px;">Thành Tiền</th>
-              <th style="width: 110px;">Tiền mặt</th>
-              <th style="width: 110px;">Chuyển khoản</th>
-              <th style="width: 140px;">Tài khoản nhận</th>
-              <th style="width: 100px;">Trả về</th>
-              <th style="width: 110px;">Còn nợ</th>
-              <th style="width: 95px;">Ngày Giao</th>
-              <th class="header-giao-lai" style="width: 75px;">Giao lại?</th>
+              <th style="width:30px;">STT</th>
+              <th style="width:85px;">Mã HĐ</th>
+              <th>Tên Khách Hàng</th>
+              <th class="text-right" style="width:95px;">Thành Tiền</th>
+              <th style="width:110px;">Tiền Mặt</th>
+              <th style="width:110px;">Chuyển Khoản</th>
+              <th style="width:150px;">Tài Khoản Nhận</th>
+              <th style="width:100px;">Hàng Trả Về</th>
+              <th class="text-right" style="width:95px;">Còn Nợ</th>
+              <th style="width:45px;" class="text-center" title="Đánh dấu để gỡ khỏi lưu trữ và xếp chuyến giao lại">Giao Lại?</th>
             </tr>
           </thead>
-          <tbody id="tbodyKiemDon">
-            <tr><td colspan="11" style="text-align:center; padding:30px; color:#94a3b8;">Đang nạp dữ liệu đợt kiểm đơn...</td></tr>
-          </tbody>
+          <tbody id="tbodyKiemDon"></tbody>
           <tfoot id="tfootKiemDon"></tfoot>
         </table>
       </div>
-    </section>
-
-  <!-- Modal Cài đặt Danh sách Tài khoản nhận & Mã MISA -->
-  <div id="modalCaiDatTK" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.6); backdrop-filter:blur(4px); z-index:9999; align-items:center; justify-content:center; padding:16px;">
-    <div style="background:#ffffff; border-radius:16px; width:100%; max-width:580px; max-height:90vh; display:flex; flex-direction:column; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); border:1px solid #e2e8f0;">
-      <div style="padding:18px 22px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
-        <div>
-          <h3 style="margin:0; font-size:16px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
-            <span>⚙️</span> Cài đặt Danh sách Tài khoản nhận & Mã MISA
-          </h3>
-          <p style="margin:4px 0 0; font-size:12px; color:#64748b;">
-            Quản lý số tài khoản ngân hàng và mã định danh TK MISA (dùng cho Bước 7).
-          </p>
-        </div>
-        <button onclick="dongModalCaiDatTK()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#94a3b8; line-height:1; padding:4px;">✕</button>
-      </div>
-
-      <div style="padding:18px 22px; overflow-y:auto; flex:1;">
-        <!-- Khối thêm tài khoản mới -->
-        <div style="background:#f8fafc; border:1.5px dashed #cbd5e1; border-radius:10px; padding:12px 14px; margin-bottom:16px;">
-          <label style="font-size:12px; font-weight:700; color:#334155; display:block; margin-bottom:6px;">
-            ➕ Thêm tài khoản ngân hàng mới & Gán TK MISA:
-          </label>
-          <div style="display:flex; gap:8px;">
-            <input type="text" id="inputThemTK" placeholder="Tên & Số TK (vd: ACB - 12345678)" style="flex:1; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:12.5px; outline:none; font-family:inherit;">
-            <input type="text" id="inputThemMISA" placeholder="TK MISA (1121x)" style="width:130px; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; outline:none; font-family:inherit; font-weight:700; color:#1e3a8a;">
-            <button type="button" class="btn btn-green" onclick="themTaiKhoanMoi()" style="padding:8px 14px; font-size:12px;">
-              Thêm
-            </button>
-          </div>
-        </div>
-
-        <!-- Tiêu đề cột danh sách -->
-        <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:800; color:#475569; margin-bottom:6px; padding:0 36px 0 28px;">
-          <span>TÊN TÀI KHOẢN / SỐ TÀI KHOẢN</span>
-          <span style="width:100px; text-align:center;">MÃ TK MISA</span>
-        </div>
-
-        <!-- Danh sách tài khoản hiện tại -->
-        <div id="danhSachTKInputs" style="display:flex; flex-direction:column; gap:8px;">
-          <!-- Render danh sách tài khoản -->
-        </div>
-      </div>
-
-      <div style="padding:14px 22px; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border-radius:0 0 16px 16px;">
-        <button type="button" class="btn btn-back" onclick="khoiPhucTKMaoDinh()" style="font-size:11.5px; padding:6px 12px;" title="Khôi phục về bảng chuẩn (VCB, TCB, SCB, MB...)">
-          🔄 Mặc định
-        </button>
-        <div style="display:flex; gap:8px;">
-          <button type="button" class="btn btn-back" onclick="dongModalCaiDatTK()">Hủy</button>
-          <button type="button" class="btn btn-blue" onclick="luuDanhSachTK()">💾 Lưu danh sách</button>
-        </div>
-      </div>
     </div>
-  </div>
 
   </main>
 
+  <script src="layout.js"></script>
   <script>
     let dotHienTai = null;
-    let danhSachDon = []; // Dữ liệu kiểm đơn của từng hóa đơn
+    let danhSachDon = [];
+    let lichSuDot = [];
 
     const DEFAULT_TK_NHAN = [
       { tenTK: "Tiền mặt lái xe", tkMISA: "1111" },
-      { tenTK: "VCB - 0041000266096", tkMISA: "11211" },
-      { tenTK: "VCB - 3704376789", tkMISA: "11212" },
-      { tenTK: "TCB - 20166789", tkMISA: "11213" },
-      { tenTK: "SCB - 040089722561", tkMISA: "11214" },
-      { tenTK: "MB - 2016056789", tkMISA: "11215" },
-      { tenTK: "Chưa thanh toán", tkMISA: "131" }
+      { tenTK: "VCB - 0041000266096 (Thái Mỹ Hương)", tkMISA: "11211" },
+      { tenTK: "VCB - 0041000123456 (Cá nhân Đạt)", tkMISA: "11212" },
+      { tenTK: "MBBank - 0905801918 (Cá nhân)", tkMISA: "11213" }
     ];
-
-    function layDanhSachTaiKhoan() {
-      try {
-        const saved = localStorage.getItem("tmh_danh_sach_tk_nhan");
-        if (saved) {
-          const arr = JSON.parse(saved);
-          if (Array.isArray(arr) && arr.length > 0) {
-            return arr.map((item, idx) => {
-              if (typeof item === 'string') {
-                const matchDefault = DEFAULT_TK_NHAN.find(d => d.tenTK === item);
-                return matchDefault ? matchDefault : { tenTK: item, tkMISA: "1121" + (idx + 1) };
-              }
-              return { tenTK: item.tenTK || '', tkMISA: item.tkMISA || '11211' };
-            });
-          }
-        }
-      } catch (e) {}
-      return [...DEFAULT_TK_NHAN];
-    }
-
-    let danhSachTaiKhoanNhan = layDanhSachTaiKhoan();
+    let danhSachTaiKhoanNhan = [...DEFAULT_TK_NHAN];
 
     function formatTien(so) {
-      if (so === null || so === undefined || isNaN(so)) return "0";
+      if (so === null || so === undefined || isNaN(so)) return '0';
       return Math.round(Number(so)).toLocaleString('vi-VN');
     }
 
-    function parseTien(str) {
-      if (typeof str === 'number') return str;
-      if (!str) return 0;
-      const clean = String(str).replace(/[^0-9]/g, '');
-      return Number(clean) || 0;
+    function parseTien(valStr) {
+      if (!valStr) return 0;
+      const clean = String(valStr).replace(/[^0-9]/g, '');
+      return clean ? parseInt(clean, 10) : 0;
     }
 
-    async function khoiTao() {
-      const nd = await baoVeTrang();
-      if (!nd) return;
+    async function khoiTaoTrang() {
+      const layoutData = await khoiTaoLayout({
+        pageTitle: "Bước 4: Kiểm Đơn Giao Về",
+        breadcrumb: "Quy trình 7 bước",
+        activeMenuId: "buoc4"
+      });
+      if (!layoutData) return;
 
-      // 1. Lấy thông tin đợt kiểm đơn từ localStorage
+      // Nạp tài khoản ngân hàng từ Supabase
+      try {
+        const { data: tkData } = await sb.from('tai_khoan_ngan_hang').select('ten_tk, tk_misa');
+        if (tkData && tkData.length > 0) {
+          danhSachTaiKhoanNhan = tkData.map(t => ({ tenTK: t.ten_tk, tkMISA: t.tk_misa || '11211' }));
+        }
+      } catch (e) {}
+
+      // Nạp danh sách đợt
+      try {
+        lichSuDot = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
+      } catch (e) {}
+
+      // Lấy đợt cần kiểm
       try {
         dotHienTai = JSON.parse(localStorage.getItem("tmh_dot_kiem_don") || "null");
-        if (!dotHienTai) {
+      } catch (e) {}
+
+      if (!dotHienTai) {
+        try {
           dotHienTai = JSON.parse(localStorage.getItem("tmh_dot_hien_tai") || "null");
-        }
-      } catch (e) {
-        dotHienTai = null;
+        } catch (e) {}
+      }
+
+      if (!dotHienTai && lichSuDot.length > 0) {
+        dotHienTai = lichSuDot[0];
       }
 
       if (!dotHienTai) {
-        alert("⚠️ Chưa có đợt điều động nào được chọn để kiểm đơn!\nĐang chuyển về Bước 3...");
-        window.location.href = "buoc3_luu_tru.html";
+        alert("Chưa có chuyến xe nào để kiểm đơn. Vui lòng hoàn tất Bước 2 để tạo chuyến xe!");
+        window.location.href = "buoc2_phieu_xuat_kho.html";
         return;
       }
 
-      // 2. Hiển thị thông tin Header
-      hienThiHeader();
-
-      // 3. Khởi tạo danh sách chi tiết hóa đơn cần kiểm
-      khoiTaoDanhSachChiTiet();
+      renderDropdownChonDot();
+      napDuLieuDot(dotHienTai);
     }
 
-    function hienThiHeader() {
-      const elMeta = document.getElementById('heroMetaText');
-      elMeta.innerHTML = `
-        <span><b>Mã đợt:</b> ${dotHienTai.maDot || '—'}</span>
-        <span><b>Xe:</b> ${dotHienTai.xe || '—'}</span>
-        <span><b>Tài xế:</b> ${dotHienTai.taiXe || '—'}</span>
-        <span><b>Thu tiền:</b> ${dotHienTai.nvThu || '—'}</span>
-        <span><b>Ngày giao:</b> ${dotHienTai.ngayGiao || '—'}</span>
-      `;
+    function renderDropdownChonDot() {
+      const sel = document.getElementById('selectDoiDot');
+      sel.innerHTML = '<option value="">-- Đổi sang chuyến xe khác --</option>';
+      lichSuDot.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.maDot;
+        opt.textContent = `${d.xe || 'Xe'} — ${d.ngayGiao || ''} (${d.maDot})`;
+        if (dotHienTai && d.maDot === dotHienTai.maDot) opt.selected = true;
+        sel.appendChild(opt);
+      });
     }
 
-    function khoiTaoDanhSachChiTiet() {
-      danhSachTaiKhoanNhan = layDanhSachTaiKhoan();
+    function doiDotKiemDon(maDot) {
+      if (!maDot) return;
+      const timThay = lichSuDot.find(d => d.maDot === maDot);
+      if (timThay) {
+        dotHienTai = timThay;
+        localStorage.setItem("tmh_dot_kiem_don", JSON.stringify(timThay));
+        localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(timThay));
+        napDuLieuDot(timThay);
+      }
+    }
 
-      // Nếu đợt đã có dữ liệu đối soát trước đó thì dùng lại
-      const savedKiemDonKey = `tmh_kiemdon_${dotHienTai.maDot}`;
-      const savedKiemDon = localStorage.getItem(savedKiemDonKey);
+    function napDuLieuDot(dot) {
+      document.getElementById('lblXe').textContent = dot.xe || '—';
+      document.getElementById('lblTaiXe').textContent = dot.taiXe || '—';
+      document.getElementById('lblThuTien').textContent = dot.nvThu || '—';
+      document.getElementById('lblNgay').textContent = dot.ngayGiao || '—';
+      document.getElementById('lblMaDot').textContent = dot.maDot || '—';
 
-      if (savedKiemDon) {
+      // Đọc kết quả đã kiểm đơn trước đó nếu có
+      const keyKiemDon = `tmh_kiemdon_${dot.maDot}`;
+      const daLuu = localStorage.getItem(keyKiemDon);
+
+      if (daLuu) {
         try {
-          danhSachDon = JSON.parse(savedKiemDon);
+          danhSachDon = JSON.parse(daLuu);
         } catch (e) {
           danhSachDon = [];
         }
-      }
-
-      // Kiểm tra xem dữ liệu đã có số liệu thực thu chưa (nếu chưa có hoặc toàn bộ tiền mặt/CK/trả về đều 0 thì tự động điền tiền mặt)
-      const chuaKiemDonThucTe = !danhSachDon || danhSachDon.length === 0 || 
-        danhSachDon.every(d => (!d.tienMat || Number(d.tienMat) === 0) && (!d.chuyenKhoan || Number(d.chuyenKhoan) === 0) && (!d.traVe || Number(d.traVe) === 0));
-
-      if (chuaKiemDonThucTe) {
-        // TỰ ĐỘNG ĐIỀN ĐỦ TIỀN MẶT vì hầu như khách hàng trả tiền mặt
-        const nguon = (dotHienTai.danhSachChiTiet && dotHienTai.danhSachChiTiet.length > 0) ? dotHienTai.danhSachChiTiet : (danhSachDon || []);
-        const firstTK = danhSachTaiKhoanNhan[0] || { tenTK: "Tiền mặt lái xe", tkMISA: "1111" };
-        const tkMacDinh = firstTK.tenTK;
-        const misaMacDinh = firstTK.tkMISA || "1111";
-
-        danhSachDon = nguon.map((r, idx) => {
-          const tt = Number(r.thanhTien) || 0;
-          return {
-            stt: idx + 1,
-            maHD: r.maHD || '',
-            tenKH: r.tenKH || '',
-            maKH: r.maKH || '',
-            thanhTien: tt,
-            tienMat: tt, // TỰ ĐỘNG ĐIỀN ĐỦ TIỀN MẶT
-            chuyenKhoan: 0,
-            taiKhoanNhan: tkMacDinh,
-            tkMISA: misaMacDinh,
-            traVe: 0,
-            conNo: 0, // Đã thu đủ tiền mặt nên còn nợ = 0
-            ngayGiao: dotHienTai.ngayGiao || '',
-            giaoLai: false
-          };
-        });
+      } else if (dot.danhSachChiTiet && dot.danhSachChiTiet.length > 0) {
+        danhSachDon = dot.danhSachChiTiet.map((hd, idx) => ({
+          stt: idx + 1,
+          maHD: hd.maHD,
+          tenKH: hd.tenKH,
+          maKH: hd.maKH,
+          thanhTien: hd.thanhTien || 0,
+          tienMat: hd.thanhTien || 0, // Mặc định đề xuất thu đủ tiền mặt
+          chuyenKhoan: 0,
+          taiKhoanNhan: "Tiền mặt lái xe",
+          tkMISA: "1111",
+          traVe: 0,
+          conNo: 0,
+          ngayGiao: hd.ngay || dot.ngayGiao,
+          giaoLai: false
+        }));
       } else {
-        // Đảm bảo mọi hóa đơn đã nạp từ trước đều có gắn mã MISA tương ứng
-        danhSachDon.forEach(item => {
-          if (!item.tkMISA) {
-            const m = danhSachTaiKhoanNhan.find(t => t.tenTK === item.taiKhoanNhan);
-            if (m) item.tkMISA = m.tkMISA;
-            else if (item.chuyenKhoan > 0) item.tkMISA = "11211";
-            else if (item.tienMat > 0) item.tkMISA = "1111";
-            else item.tkMISA = "131";
-          }
-        });
+        danhSachDon = [];
       }
 
       veBangKiemDon(danhSachDon);
@@ -773,23 +319,10 @@
       const tbody = document.getElementById('tbodyKiemDon');
       tbody.innerHTML = '';
 
-      if (!ds || ds.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:30px; color:#94a3b8;">Không tìm thấy hóa đơn nào trong đợt này.</td></tr>';
-        return;
-      }
-
-      document.getElementById('badgeTongDon').textContent = `${ds.length} hóa đơn`;
-
-      let sumThanhTien = 0;
-      let sumTienMat = 0;
-      let sumChuyenKhoan = 0;
-      let sumTraVe = 0;
-      let sumConNo = 0;
-      let countGiaoLai = 0;
+      let sumThanhTien = 0, sumTienMat = 0, sumChuyenKhoan = 0, sumTraVe = 0, sumConNo = 0, countGiaoLai = 0;
 
       ds.forEach((item, idx) => {
-        // Tự động tính Còn nợ: Thành Tiền - (Tiền mặt + Chuyển khoản + Trả về)
-        item.conNo = Math.max(0, item.thanhTien - (item.tienMat + item.chuyenKhoan + item.traVe));
+        item.conNo = Math.max(0, item.thanhTien - item.tienMat - item.chuyenKhoan - item.traVe);
 
         sumThanhTien += item.thanhTien;
         sumTienMat += item.tienMat;
@@ -803,90 +336,87 @@
           <td class="text-center">${idx + 1}</td>
           <td class="text-bold" style="color:#1e3a8a;">${item.maHD}</td>
           <td>${item.tenKH}</td>
-          <td class="col-thanh-tien">${formatTien(item.thanhTien)}</td>
-          <td class="text-center">
+          <td class="text-right text-bold">${formatTien(item.thanhTien)}</td>
+          <td>
             <input type="text" class="input-tien" value="${formatTien(item.tienMat)}" 
                    onfocus="onFocusTien(this)" onblur="onBlurTien(${idx}, 'tienMat', this.value)">
           </td>
-          <td class="text-center">
-            <input type="text" class="input-tien" value="${formatTien(item.chuyenKhoan)}" 
+          <td>
+            <input type="text" class="input-tien" style="color:#7c3aed;" value="${formatTien(item.chuyenKhoan)}" 
                    onfocus="onFocusTien(this)" onblur="onBlurTien(${idx}, 'chuyenKhoan', this.value)">
           </td>
-          <td class="text-center">
+          <td>
             <select class="select-tk" onchange="onChangeTK(${idx}, this.value)">
-              ${danhSachTaiKhoanNhan.map(tk => {
-                const safeVal = (tk.tenTK || '').replace(/"/g, '&quot;');
-                const isSelected = item.taiKhoanNhan === tk.tenTK;
-                return `<option value="${safeVal}" ${isSelected ? 'selected' : ''}>${tk.tenTK} (${tk.tkMISA || ''})</option>`;
-              }).join('')}
-              <option value="__config__" style="color:#2563eb; font-weight:700;">⚙️ Thêm/Sửa tài khoản & MISA...</option>
+              ${danhSachTaiKhoanNhan.map(tk => `
+                <option value="${tk.tenTK}" ${item.taiKhoanNhan === tk.tenTK ? 'selected' : ''}>${tk.tenTK}</option>
+              `).join('')}
             </select>
           </td>
-          <td class="text-center">
-            <input type="text" class="input-tien" style="color:#dc2626;" value="${formatTien(item.traVe)}" 
+          <td>
+            <input type="text" class="input-tien" style="color:#d97706;" value="${formatTien(item.traVe)}" 
                    onfocus="onFocusTien(this)" onblur="onBlurTien(${idx}, 'traVe', this.value)">
           </td>
           <td class="text-right ${item.conNo > 0 ? 'debt-badge' : 'paid-badge'}">
             ${formatTien(item.conNo)}
           </td>
-          <td class="text-center" style="color:#64748b;">${item.ngayGiao}</td>
-          <td class="col-giao-lai">
-            <input type="checkbox" class="chk-giao-lai" ${item.giaoLai ? 'checked' : ''} 
-                   onchange="onChangeGiaoLai(${idx}, this.checked)" title="Đánh dấu để xếp chuyến giao lại ngày hôm sau">
+          <td class="text-center">
+            <input type="checkbox" class="chk-giao-lai" ${item.giaoLai ? 'checked' : ''} onchange="onChangeGiaoLai(${idx}, this.checked)" title="Tách để giao lại chuyến sau">
           </td>
         `;
         tbody.appendChild(tr);
       });
 
-      // Tfoot tổng cộng chuẩn
+      // Tfoot
       document.getElementById('tfootKiemDon').innerHTML = `
-        <tr>
-          <td colspan="3" class="text-center">TỔNG CỘNG (${ds.length} ĐƠN)</td>
-          <td class="text-right" style="border-left: 2px solid #7c3aed; border-right: 2px solid #7c3aed; font-size:12.5px;">${formatTien(sumThanhTien)}</td>
-          <td class="text-right" style="color:#15803d; font-size:12px;">${formatTien(sumTienMat)}</td>
-          <td class="text-right" style="color:#2563eb; font-size:12px;">${formatTien(sumChuyenKhoan)}</td>
+        <tr style="background:#f8fafc; font-weight:800;">
+          <td colspan="3" class="text-center">TỔNG CỘNG (${ds.length} HÓA ĐƠN)</td>
+          <td class="text-right" style="color:#2563eb;">${formatTien(sumThanhTien)}</td>
+          <td class="text-right" style="color:#16a34a;">${formatTien(sumTienMat)}</td>
+          <td class="text-right" style="color:#7c3aed;">${formatTien(sumChuyenKhoan)}</td>
           <td></td>
-          <td class="text-right" style="color:#dc2626; font-size:12px;">${formatTien(sumTraVe)}</td>
-          <td class="text-right" style="color:${sumConNo > 0 ? '#dc2626' : '#15803d'}; font-size:12.5px;">${formatTien(sumConNo)}</td>
-          <td></td>
+          <td class="text-right" style="color:#d97706;">${formatTien(sumTraVe)}</td>
+          <td class="text-right ${sumConNo > 0 ? 'debt-badge' : 'paid-badge'}">${formatTien(sumConNo)}</td>
           <td class="text-center" style="color:#dc2626; font-size:11px;">${countGiaoLai} đơn</td>
         </tr>
       `;
+
+      // Cập nhật KPI cards
+      document.getElementById('kpiThanhTien').textContent = formatTien(sumThanhTien) + ' đ';
+      document.getElementById('kpiTienMat').textContent = formatTien(sumTienMat) + ' đ';
+      document.getElementById('kpiChuyenKhoan').textContent = formatTien(sumChuyenKhoan) + ' đ';
+      document.getElementById('kpiTraVe').textContent = formatTien(sumTraVe) + ' đ';
+      document.getElementById('kpiConNo').textContent = formatTien(sumConNo) + ' đ';
+      document.getElementById('kpiGiaoLai').textContent = `${countGiaoLai} đơn`;
     }
 
-    function onFocusTien(input) {
-      const val = parseTien(input.value);
-      input.value = val === 0 ? '' : val;
-      input.select();
+    function onFocusTien(inp) {
+      const num = parseTien(inp.value);
+      inp.value = num === 0 ? '' : num;
+      inp.select();
     }
 
     function onBlurTien(idx, field, valStr) {
       const val = parseTien(valStr);
       danhSachDon[idx][field] = val;
 
-      // Thông minh: Nếu nhập Chuyển khoản > 0 mà tài khoản nhận vẫn đang là tiền mặt, tự động chuyển sang tài khoản ngân hàng đầu tiên
+      // Logic thông minh: nếu có chuyển khoản > 0, tự động chọn tài khoản VCB công ty
       if (field === 'chuyenKhoan' && val > 0) {
         if (!danhSachDon[idx].taiKhoanNhan || danhSachDon[idx].taiKhoanNhan === 'Tiền mặt lái xe') {
-          const firstBank = danhSachTaiKhoanNhan.find(t => t.tenTK !== 'Tiền mặt lái xe' && t.tenTK !== 'Chưa thanh toán');
-          if (firstBank) {
-            danhSachDon[idx].taiKhoanNhan = firstBank.tenTK;
-            danhSachDon[idx].tkMISA = firstBank.tkMISA;
+          const vcb = danhSachTaiKhoanNhan.find(t => t.tenTK.includes('0041000266096'));
+          if (vcb) {
+            danhSachDon[idx].taiKhoanNhan = vcb.tenTK;
+            danhSachDon[idx].tkMISA = vcb.tkMISA;
           }
         }
       }
 
-      // Thông minh: Nếu nhập Tiền mặt > 0 và Chuyển khoản == 0, tự động chuyển về Tiền mặt lái xe
-      if (field === 'tienMat' && val > 0 && Number(danhSachDon[idx].chuyenKhoan || 0) === 0) {
-        if (danhSachDon[idx].taiKhoanNhan && danhSachDon[idx].taiKhoanNhan !== 'Tiền mặt lái xe') {
-          const cashTK = danhSachTaiKhoanNhan.find(t => t.tenTK === 'Tiền mặt lái xe');
-          if (cashTK) {
-            danhSachDon[idx].taiKhoanNhan = cashTK.tenTK;
-            danhSachDon[idx].tkMISA = cashTK.tkMISA;
-          }
-        }
+      // Nếu tiền mặt > 0 và CK == 0
+      if (field === 'tienMat' && val > 0 && danhSachDon[idx].chuyenKhoan === 0) {
+        danhSachDon[idx].taiKhoanNhan = 'Tiền mặt lái xe';
+        danhSachDon[idx].tkMISA = '1111';
       }
 
-      // Nếu có hàng trả về > 0, tự động gợi ý tích "Giao lại?" nếu người dùng chưa chọn
+      // Nếu có hàng trả về > 0, gợi ý tích "Giao lại?"
       if (field === 'traVe' && val > 0 && !danhSachDon[idx].giaoLai) {
         danhSachDon[idx].giaoLai = true;
       }
@@ -895,14 +425,9 @@
     }
 
     function onChangeTK(idx, val) {
-      if (val === '__config__') {
-        moModalCaiDatTK();
-        veBangKiemDon(danhSachDon);
-        return;
-      }
       danhSachDon[idx].taiKhoanNhan = val;
       const matched = danhSachTaiKhoanNhan.find(t => t.tenTK === val);
-      danhSachDon[idx].tkMISA = matched ? matched.tkMISA : '';
+      danhSachDon[idx].tkMISA = matched ? matched.tkMISA : '11211';
     }
 
     function onChangeGiaoLai(idx, val) {
@@ -910,133 +435,16 @@
       veBangKiemDon(danhSachDon);
     }
 
-    // Đặt lại 0đ
     function datLaiTien() {
-      if (confirm("Đặt lại Tiền mặt, Chuyển khoản, Trả về về 0đ?")) {
-        danhSachDon.forEach(item => {
-          item.tienMat = 0;
-          item.chuyenKhoan = 0;
-          item.traVe = 0;
-          item.conNo = item.thanhTien;
-          item.giaoLai = false;
-        });
-        veBangKiemDon(danhSachDon);
-      }
-    }
-
-    // ========================================================
-    // QUẢN LÝ CÀI ĐẶT DANH SÁCH TÀI KHOẢN NHẬN & MÃ MISA
-    // ========================================================
-    function moModalCaiDatTK() {
-      danhSachTaiKhoanNhan = layDanhSachTaiKhoan();
-      renderDanhSachTKTrongModal();
-      document.getElementById('inputThemTK').value = '';
-      document.getElementById('inputThemMISA').value = '';
-      const modal = document.getElementById('modalCaiDatTK');
-      modal.style.display = 'flex';
-      setTimeout(() => document.getElementById('inputThemTK').focus(), 100);
-    }
-
-    function dongModalCaiDatTK() {
-      document.getElementById('modalCaiDatTK').style.display = 'none';
-    }
-
-    function renderDanhSachTKTrongModal() {
-      const container = document.getElementById('danhSachTKInputs');
-      container.innerHTML = '';
-      danhSachTaiKhoanNhan.forEach((tk, idx) => {
-        const row = document.createElement('div');
-        row.style.cssText = "display:flex; gap:8px; align-items:center;";
-        row.innerHTML = `
-          <span style="font-size:12px; font-weight:700; color:#94a3b8; width:20px; text-align:right;">${idx + 1}.</span>
-          <input type="text" class="tk-ten-input" value="${(tk.tenTK || '').replace(/"/g, '&quot;')}" 
-                 placeholder="Tên tài khoản / số TK..."
-                 style="flex:1; padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; font-family:inherit; outline:none;"
-                 onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#cbd5e1'">
-          <input type="text" class="tk-misa-input" value="${(tk.tkMISA || '').replace(/"/g, '&quot;')}" 
-                 placeholder="Mã MISA"
-                 style="width:95px; padding:7px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; font-family:inherit; outline:none; font-weight:700; text-align:center; color:#1e3a8a;"
-                 onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#cbd5e1'">
-          <button type="button" onclick="xoaTaiKhoan(${idx})" style="background:#fee2e2; color:#dc2626; border:1px solid #fecaca; border-radius:6px; padding:6px 10px; cursor:pointer; font-size:12px;" title="Xóa tài khoản này">
-            🗑️
-          </button>
-        `;
-        container.appendChild(row);
+      if (!confirm("Đặt lại Tiền mặt, Chuyển khoản, Trả về về 0đ cho toàn bộ đơn?")) return;
+      danhSachDon.forEach(item => {
+        item.tienMat = 0;
+        item.chuyenKhoan = 0;
+        item.traVe = 0;
+        item.conNo = item.thanhTien;
+        item.giaoLai = false;
       });
-    }
-
-    function themTaiKhoanMoi() {
-      const inpTen = document.getElementById('inputThemTK');
-      const inpMISA = document.getElementById('inputThemMISA');
-      const valTen = inpTen.value.trim();
-      const valMISA = inpMISA.value.trim() || '11211';
-      if (!valTen) {
-        alert("Vui lòng nhập tên hoặc số tài khoản mới!");
-        inpTen.focus();
-        return;
-      }
-      if (danhSachTaiKhoanNhan.some(t => t.tenTK === valTen)) {
-        alert("Tài khoản này đã có trong danh sách!");
-        return;
-      }
-      danhSachTaiKhoanNhan.push({ tenTK: valTen, tkMISA: valMISA });
-      inpTen.value = '';
-      inpMISA.value = '';
-      renderDanhSachTKTrongModal();
-    }
-
-    function xoaTaiKhoan(idx) {
-      if (danhSachTaiKhoanNhan.length <= 1) {
-        alert("Danh sách phải có ít nhất 1 tài khoản!");
-        return;
-      }
-      const ten = danhSachTaiKhoanNhan[idx].tenTK;
-      if (confirm(`Bạn có chắc muốn xóa "${ten}" khỏi danh sách?`)) {
-        danhSachTaiKhoanNhan.splice(idx, 1);
-        renderDanhSachTKTrongModal();
-      }
-    }
-
-    function khoiPhucTKMaoDinh() {
-      if (confirm("Bạn có muốn khôi phục về danh sách tài khoản chuẩn theo Hình 3?")) {
-        danhSachTaiKhoanNhan = [...DEFAULT_TK_NHAN];
-        renderDanhSachTKTrongModal();
-      }
-    }
-
-    function luuDanhSachTK() {
-      const rows = document.querySelectorAll('#danhSachTKInputs > div');
-      const danhSachMoi = [];
-      rows.forEach(r => {
-        const ten = r.querySelector('.tk-ten-input').value.trim();
-        const misa = r.querySelector('.tk-misa-input').value.trim() || '11211';
-        if (ten && !danhSachMoi.some(x => x.tenTK === ten)) {
-          danhSachMoi.push({ tenTK: ten, tkMISA: misa });
-        }
-      });
-
-      if (danhSachMoi.length === 0) {
-        alert("Vui lòng giữ ít nhất 1 tài khoản!");
-        return;
-      }
-
-      danhSachTaiKhoanNhan = danhSachMoi;
-      localStorage.setItem("tmh_danh_sach_tk_nhan", JSON.stringify(danhSachTaiKhoanNhan));
-
-      // Cập nhật lại các dòng nếu tài khoản cũ bị đổi hoặc xóa
-      danhSachDon.forEach(d => {
-        const found = danhSachTaiKhoanNhan.find(t => t.tenTK === d.taiKhoanNhan);
-        if (found) {
-          d.tkMISA = found.tkMISA;
-        } else {
-          d.taiKhoanNhan = danhSachTaiKhoanNhan[0].tenTK;
-          d.tkMISA = danhSachTaiKhoanNhan[0].tkMISA;
-        }
-      });
-
       veBangKiemDon(danhSachDon);
-      dongModalCaiDatTK();
-      alert("✅ Đã lưu và cập nhật danh sách tài khoản nhận & mã MISA thành công!");
     }
 
     function locDanhSachDon() {
@@ -1045,23 +453,23 @@
         veBangKiemDon(danhSachDon);
         return;
       }
-      const ketQua = danhSachDon.filter(d => 
+      const kq = danhSachDon.filter(d => 
         (d.maHD && d.maHD.toLowerCase().includes(q)) ||
         (d.tenKH && d.tenKH.toLowerCase().includes(q))
       );
-      veBangKiemDon(ketQua);
+      veBangKiemDon(kq);
     }
 
     // ========================================================
-    // LƯU KẾT QUẢ KIỂM ĐƠN & TỰ ĐỘNG LƯU ĐƠN GIAO LẠI
+    // LƯU KẾT QUẢ KIỂM ĐƠN VÀ ĐƠN GIAO LẠI
     // ========================================================
-    function luuKetQuaKiemDon() {
+    async function luuKetQuaKiemDon() {
       if (!danhSachDon || danhSachDon.length === 0) {
         alert("Không có dữ liệu đối soát để lưu!");
         return;
       }
 
-      // 1. Lưu kết quả đối soát của đợt này
+      // 1. Lưu kết quả kiểm đơn vào localStorage
       const keyKiemDon = `tmh_kiemdon_${dotHienTai.maDot}`;
       localStorage.setItem(keyKiemDon, JSON.stringify(danhSachDon));
 
@@ -1070,14 +478,12 @@
       localStorage.setItem("tmh_dot_kiem_don", JSON.stringify(dotHienTai));
       localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dotHienTai));
 
-      // 2. Cập nhật lại vào Bước 3 (đồng bộ 18 cột và đánh dấu đã kiểm đơn)
+      // 2. Cập nhật lại vào lịch sử đợt (Bước 3)
       try {
         let lichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
         const dotIdx = lichSu.findIndex(d => d.maDot === dotHienTai.maDot);
         if (dotIdx !== -1) {
           lichSu[dotIdx].daKiemDon = true;
-          lichSu[dotIdx].ngayKiemDon = new Date().toISOString();
-          // Cập nhật số tiền thực thu vào danhSachChiTiet
           lichSu[dotIdx].danhSachChiTiet.forEach(r => {
             const matched = danhSachDon.find(d => d.maHD === r.maHD);
             if (matched) {
@@ -1091,12 +497,10 @@
           });
           localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSu));
         }
-      } catch (e) {
-        console.warn("Lỗi đồng bộ Bước 3:", e);
-      }
+      } catch (e) {}
 
-      // 3. TRÍCH XUẤT VÀ LƯU ĐƠN CHỜ GIAO LẠI (Re-delivery logic)
-      const donGiaoLaiMoi = danhSachDon.filter(d => d.giaoLai);
+      // 3. Tách và lưu các đơn giao lại vào Supabase & localStorage
+      const donGiaoLaiList = danhSachDon.filter(d => d.giaoLai);
       let danhSachGiaoLaiHienCo = [];
       try {
         danhSachGiaoLaiHienCo = JSON.parse(localStorage.getItem("tmh_don_giao_lai") || "[]");
@@ -1104,11 +508,10 @@
         danhSachGiaoLaiHienCo = [];
       }
 
-      let demThemGiaoLai = 0;
-      donGiaoLaiMoi.forEach(dg => {
-        // Kiểm tra xem đã có trong danh sách giao lại chưa
-        const tonTai = danhSachGiaoLaiHienCo.find(x => x.maHD === dg.maHD);
-        if (!tonTai) {
+      let demMoi = 0;
+      donGiaoLaiList.forEach(dg => {
+        const daCo = danhSachGiaoLaiHienCo.find(x => x.maHD === dg.maHD);
+        if (!daCo) {
           danhSachGiaoLaiHienCo.push({
             maHD: dg.maHD,
             tenKH: dg.tenKH,
@@ -1118,160 +521,106 @@
             ngayDonGoc: dg.ngayGiao,
             dotGoc: dotHienTai.maDot,
             xeGoc: dotHienTai.xe,
-            ngayLuuGiaoLai: new Date().toISOString(),
             trangThai: "cho_giao_lai"
           });
-          demThemGiaoLai++;
+          demMoi++;
         }
       });
-
       localStorage.setItem("tmh_don_giao_lai", JSON.stringify(danhSachGiaoLaiHienCo));
 
-      let thongBao = `✅ ĐÃ LƯU THÀNH CÔNG KẾT QUẢ KIỂM ĐƠN ĐỢT "${dotHienTai.maDot}"!\n\nDữ liệu đã được lưu trữ vĩnh viễn vào hệ thống và kho lưu trữ Bước 3.`;
-      if (demThemGiaoLai > 0) {
-        thongBao += `\n\n🔄 Đã lưu ${demThemGiaoLai} đơn hàng vào mục "ĐƠN CHỜ GIAO LẠI" cho chuyến tiếp theo.`;
-      }
-      thongBao += `\n\n👉 Bạn có muốn chuyển sang BƯỚC 5: BÁO CÁO ĐỐI SOÁT ngay bây giờ không?`;
+      // 4. Lưu vào Supabase bảng kiem_don & don_giao_lai
+      try {
+        const dongKiemDon = danhSachDon.map(d => ({
+          ma_dot: dotHienTai.maDot,
+          ma_hd: d.maHD,
+          xe: dotHienTai.xe,
+          ngay_giao: d.ngayGiao,
+          thanh_tien: d.thanhTien,
+          tien_mat: d.tienMat,
+          chuyen_khoan: d.chuyenKhoan,
+          tai_khoan_nhan: d.taiKhoanNhan,
+          tk_misa: d.tkMISA,
+          tra_ve: d.traVe,
+          con_no: d.conNo,
+          giao_lai: d.giaoLai
+        }));
+        await sb.from('kiem_don').insert(dongKiemDon);
 
-      if (confirm(thongBao)) {
-        chuyenSangBuoc5();
+        if (donGiaoLaiList.length > 0) {
+          const dongGiaoLaiSB = donGiaoLaiList.map(dg => ({
+            ma_hd: dg.maHD,
+            ma_kh: dg.maKH,
+            ten_kh: dg.tenKH,
+            thanh_tien: dg.traVe > 0 ? dg.traVe : dg.thanhTien,
+            tien_goc: dg.thanhTien,
+            ngay_don_goc: dg.ngayGiao,
+            dot_goc: dotHienTai.maDot,
+            xe_goc: dotHienTai.xe,
+            trang_thai: "cho_giao_lai"
+          }));
+          await sb.from('don_giao_lai').upsert(dongGiaoLaiSB, { onConflict: 'ma_hd' });
+        }
+      } catch (errSupabase) {
+        console.warn("Lưu Supabase kiểm đơn:", errSupabase);
       }
-    }
 
-    function chuyenSangBuoc5() {
-      if (!dotHienTai) return;
+      alert(`✅ ĐÃ LƯU THÀNH CÔNG KẾT QUẢ KIỂM ĐƠN ĐỢT "${dotHienTai.maDot}"!\n\nĐã ghi nhận số tiền thực thu.${demMoi > 0 ? '\n🔄 Đã tách ' + demMoi + ' đơn vào danh sách ĐƠN CHỜ GIAO LẠI.' : ''}\n\nĐang chuyển sang Bước 5: Báo cáo đối soát.`);
+      
       localStorage.setItem("tmh_dot_bao_cao", JSON.stringify(dotHienTai));
-      localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dotHienTai));
       window.location.href = "buoc5_bao_cao.html";
     }
 
-    // ========================================================
-    // XUẤT EXCEL CHUẨN 100% GIAO DIỆN HÌNH 2
-    // ========================================================
     function xuatExcelKiemDon() {
       if (typeof XLSX === 'undefined') {
-        alert("Thư viện xuất Excel đang khởi tạo, vui lòng thử lại sau giây lát.");
+        alert("Thư viện Excel đang tải...");
         return;
       }
 
-      const wb = XLSX.utils.book_new();
-      const wsData = [];
-
-      const borderThin = {
-        top: { style: "thin", color: { rgb: "D0D7DE" } },
-        bottom: { style: "thin", color: { rgb: "D0D7DE" } },
-        left: { style: "thin", color: { rgb: "D0D7DE" } },
-        right: { style: "thin", color: { rgb: "D0D7DE" } }
-      };
-
-      const borderPurple = {
-        top: { style: "medium", color: { rgb: "7C3AED" } },
-        bottom: { style: "medium", color: { rgb: "7C3AED" } },
-        left: { style: "medium", color: { rgb: "7C3AED" } },
-        right: { style: "medium", color: { rgb: "7C3AED" } }
-      };
-
-      // Header row (Vàng nhạt #FFF2CC)
-      const headerStyle = {
-        font: { bold: true, sz: 10, name: "Times New Roman" },
-        fill: { fgColor: { rgb: "FFF2CC" } },
-        alignment: { horizontal: "center", vertical: "center" },
-        border: borderThin
-      };
-
-      const headerPurpleStyle = {
-        font: { bold: true, sz: 10, name: "Times New Roman", color: { rgb: "5B21B6" } },
-        fill: { fgColor: { rgb: "FFF2CC" } },
-        alignment: { horizontal: "center", vertical: "center" },
-        border: borderPurple
-      };
-
-      const headerRedStyle = {
-        font: { bold: true, sz: 10, name: "Times New Roman", color: { rgb: "B91C1C" } },
-        fill: { fgColor: { rgb: "FEE2E2" } },
-        alignment: { horizontal: "center", vertical: "center" },
-        border: borderThin
-      };
-
-      const headers = [
-        { v: "STT", s: headerStyle },
-        { v: "Mã Hóa Đơn", s: headerStyle },
-        { v: "Tên KH", s: headerStyle },
-        { v: "Thành Tiền", s: headerPurpleStyle },
-        { v: "Tiền mặt", s: headerStyle },
-        { v: "Chuyển khoản", s: headerStyle },
-        { v: "Tài khoản nhận", s: headerStyle },
-        { v: "Trả về", s: headerStyle },
-        { v: "Còn nợ", s: headerStyle },
-        { v: "Ngày Giao", s: headerStyle },
-        { v: "Giao lại?", s: headerRedStyle }
+      const wsData = [
+        [{ v: "KẾT QUẢ KIỂM ĐƠN GIAO VỀ — " + (dotHienTai.xe || 'XE'), s: { font: { bold: true, sz: 14 } } }],
+        [{ v: `Đợt: ${dotHienTai.maDot} | Ngày: ${dotHienTai.ngayGiao} | Tài xế: ${dotHienTai.taiXe} | Thu tiền: ${dotHienTai.nvThu}` }],
+        []
       ];
-      wsData.push(headers);
 
-      let sumThanhTien = 0, sumTienMat = 0, sumChuyenKhoan = 0, sumTraVe = 0, sumConNo = 0;
-      let stt = 1;
+      const headers = ["STT", "Mã Hóa Đơn", "Tên Khách Hàng", "Thành Tiền", "Tiền Mặt", "Chuyển Khoản", "Tài Khoản Nhận", "Trả Về", "Còn Nợ", "Giao Lại?"];
+      wsData.push(headers.map(h => ({ v: h, s: { font: { bold: true }, fill: { fgColor: { rgb: "FFF2CC" } } } })));
 
-      danhSachDon.forEach(item => {
-        sumThanhTien += item.thanhTien;
-        sumTienMat += item.tienMat;
-        sumChuyenKhoan += item.chuyenKhoan;
-        sumTraVe += item.traVe;
-        sumConNo += item.conNo;
-
-        const baseStyle = { font: { sz: 9.5, name: "Times New Roman" }, border: borderThin, alignment: { vertical: "center" } };
-
+      let sumTT = 0, sumTM = 0, sumCK = 0, sumTV = 0, sumCN = 0;
+      danhSachDon.forEach((item, idx) => {
+        sumTT += item.thanhTien; sumTM += item.tienMat; sumCK += item.chuyenKhoan; sumTV += item.traVe; sumCN += item.conNo;
         wsData.push([
-          { v: stt++, t: "n", s: { ...baseStyle, alignment: { horizontal: "center", vertical: "center" } } },
-          { v: item.maHD, t: "s", s: { ...baseStyle, font: { bold: true, sz: 9.5, name: "Times New Roman", color: { rgb: "1E3A8A" } }, alignment: { horizontal: "left", vertical: "center" } } },
-          { v: item.tenKH, t: "s", s: { ...baseStyle, alignment: { horizontal: "left", vertical: "center" } } },
-          { v: item.thanhTien, t: "n", z: "#,##0", s: { ...baseStyle, font: { bold: true, sz: 9.5, name: "Times New Roman" }, alignment: { horizontal: "right", vertical: "center" }, border: borderPurple } },
-          { v: item.tienMat, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right", vertical: "center" } } },
-          { v: item.chuyenKhoan, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right", vertical: "center" } } },
-          { v: item.taiKhoanNhan || "", t: "s", s: { ...baseStyle, alignment: { horizontal: "left", vertical: "center" } } },
-          { v: item.traVe, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right", vertical: "center" } } },
-          { v: item.conNo, t: "n", z: "#,##0", s: { ...baseStyle, font: { bold: item.conNo > 0, sz: 9.5, name: "Times New Roman", color: { rgb: item.conNo > 0 ? "DC2626" : "15803D" } }, alignment: { horizontal: "right", vertical: "center" } } },
-          { v: item.ngayGiao || "", t: "s", s: { ...baseStyle, alignment: { horizontal: "center", vertical: "center" } } },
-          { v: item.giaoLai ? "☑ Có" : "☐", t: "s", s: { ...baseStyle, font: { bold: true, sz: 10, color: { rgb: item.giaoLai ? "DC2626" : "94A3B8" } }, alignment: { horizontal: "center", vertical: "center" } } }
+          { v: idx + 1, t: "n" },
+          { v: item.maHD, t: "s" },
+          { v: item.tenKH, t: "s" },
+          { v: item.thanhTien, t: "n", z: "#,##0" },
+          { v: item.tienMat, t: "n", z: "#,##0" },
+          { v: item.chuyenKhoan, t: "n", z: "#,##0" },
+          { v: item.taiKhoanNhan || "", t: "s" },
+          { v: item.traVe, t: "n", z: "#,##0" },
+          { v: item.conNo, t: "n", z: "#,##0" },
+          { v: item.giaoLai ? "Có" : "Không", t: "s" }
         ]);
       });
 
-      // Total row
-      const totalStyle = {
-        font: { bold: true, sz: 10, name: "Times New Roman" },
-        fill: { fgColor: { rgb: "FFF2CC" } },
-        border: borderThin,
-        alignment: { vertical: "center" }
-      };
-
       wsData.push([
-        { v: "TỔNG CỘNG", s: { ...totalStyle, alignment: { horizontal: "center", vertical: "center" } } },
-        { v: "", s: totalStyle },
-        { v: "", s: totalStyle },
-        { v: sumThanhTien, t: "n", z: "#,##0", s: { ...totalStyle, font: { bold: true, sz: 10, name: "Times New Roman" }, border: borderPurple, alignment: { horizontal: "right", vertical: "center" } } },
-        { v: sumTienMat, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right", vertical: "center" } } },
-        { v: sumChuyenKhoan, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right", vertical: "center" } } },
-        { v: "", s: totalStyle },
-        { v: sumTraVe, t: "n", z: "#,##0", s: { ...totalStyle, font: { color: { rgb: "DC2626" } }, alignment: { horizontal: "right", vertical: "center" } } },
-        { v: sumConNo, t: "n", z: "#,##0", s: { ...totalStyle, font: { bold: true, color: { rgb: sumConNo > 0 ? "DC2626" : "15803D" } }, alignment: { horizontal: "right", vertical: "center" } } },
-        { v: "", s: totalStyle },
-        { v: "", s: totalStyle }
+        { v: "TỔNG CỘNG", s: { font: { bold: true } } },
+        null, null,
+        { v: sumTT, t: "n", z: "#,##0" },
+        { v: sumTM, t: "n", z: "#,##0" },
+        { v: sumCK, t: "n", z: "#,##0" },
+        null,
+        { v: sumTV, t: "n", z: "#,##0" },
+        { v: sumCN, t: "n", z: "#,##0" },
+        null
       ]);
 
       const ws = XLSX.utils.aoa_to_sheet(wsData);
-      ws['!merges'] = [
-        { s: { r: wsData.length - 1, c: 0 }, e: { r: wsData.length - 1, c: 2 } }
-      ];
-      ws['!cols'] = [
-        { wch: 6 }, { wch: 14 }, { wch: 34 }, { wch: 15 }, { wch: 13 },
-        { wch: 14 }, { wch: 22 }, { wch: 12 }, { wch: 14 }, { wch: 13 }, { wch: 11 }
-      ];
-
+      const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "KiemDonGiaoVe");
-      const xeTen = dotHienTai ? dotHienTai.xe.replace(/[^a-zA-Z0-9]/g, '_') : 'XE';
-      XLSX.writeFile(wb, `Kiem_Don_Giao_Ve_${xeTen}_${new Date().toISOString().slice(0,10)}.xlsx`);
+      XLSX.writeFile(wb, `Kiem_Don_Giao_Ve_${(dotHienTai.xe || 'XE').replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`);
     }
 
-    khoiTao();
+    khoiTaoTrang();
   </script>
 </body>
 </html>
