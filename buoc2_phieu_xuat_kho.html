@@ -184,16 +184,30 @@
       width: 100% !important;
       border-collapse: collapse;
       margin-top: 8px;
-      font-size: 10.5px;
+      font-size: 10px;
       table-layout: fixed !important;
     }
     .doc-table th, .doc-table td {
       border: 1px solid #b0c4de;
-      padding: 5px 6px;
+      padding: 4px 3.5px;
       vertical-align: middle;
-      line-height: 1.35;
+      line-height: 1.28;
       word-break: break-word;
       overflow-wrap: break-word;
+    }
+
+    /* Các cột số liệu tuyệt đối không bao giờ rớt xuống dòng */
+    .doc-table td.text-right,
+    .doc-table th.text-right,
+    .doc-table td.cell-num,
+    .table-bangke td.text-right,
+    .table-bangke th.text-right,
+    .table-xuatkho td.text-right,
+    .table-xuatkho th.text-right {
+      white-space: nowrap !important;
+      word-break: normal !important;
+      overflow-wrap: normal !important;
+      font-variant-numeric: tabular-nums;
     }
 
     /* Bảng Kê Thu Tiền: Header #b8cce4 */
@@ -303,6 +317,21 @@
       .print-active .doc-table th, .print-active .doc-table td {
         word-break: break-word !important;
         overflow-wrap: break-word !important;
+      }
+
+      /* Khi in: Cột số tuyệt đối không rớt dòng */
+      .print-active .doc-table td.text-right,
+      .print-active .doc-table th.text-right,
+      .print-active .doc-table td.cell-num,
+      .print-active .table-bangke td.text-right,
+      .print-active .table-bangke th.text-right,
+      .print-active .table-xuatkho td.text-right,
+      .print-active .table-xuatkho th.text-right {
+        white-space: nowrap !important;
+        word-break: normal !important;
+        overflow-wrap: normal !important;
+        padding-left: 2px !important;
+        padding-right: 2px !important;
       }
 
       /* Tránh trình duyệt tự lặp lại tfoot trên từng trang */
@@ -479,16 +508,16 @@
             <table class="doc-table table-bangke">
               <thead>
                 <tr>
-                  <th style="width:4%;">STT</th>
-                  <th style="width:13%;">Mã Hoá Đơn</th>
-                  <th style="width:11%;">Mã KH</th>
-                  <th style="width:25%;">Tên Khách Hàng</th>
-                  <th style="width:12%;">Người Bán</th>
-                  <th style="width:9%;">Doanh Số</th>
-                  <th style="width:6%;">Giảm SP</th>
-                  <th style="width:6%;">Giảm HĐ</th>
-                  <th style="width:9%;">Thành Tiền</th>
-                  <th style="width:5%;">Ghi Chú</th>
+                  <th style="width:3.5%;">STT</th>
+                  <th style="width:10%;">Mã Hoá Đơn</th>
+                  <th style="width:8.5%;">Mã KH</th>
+                  <th style="width:21%;">Tên Khách Hàng</th>
+                  <th style="width:10.5%;">Người Bán</th>
+                  <th style="width:11.5%;">Doanh Số</th>
+                  <th style="width:8%;">Giảm SP</th>
+                  <th style="width:7%;">Giảm HĐ</th>
+                  <th style="width:12%;">Thành Tiền</th>
+                  <th style="width:8%;">Ghi Chú</th>
                 </tr>
               </thead>
               <tbody id="tbodyBangKe"></tbody>
@@ -1384,10 +1413,10 @@
           <td>${hd.maKH}</td>
           <td>${hd.tenKH}</td>
           <td>${hd.nguoiBan}</td>
-          <td class="text-right">${formatTien(hd.doanhSo)}</td>
-          <td class="text-right">${formatTien(hd.giamGiaSP)}</td>
-          <td class="text-right">${formatTien(hd.giamGiaHD)}</td>
-          <td class="text-right text-bold">${formatTien(hd.thanhTien)}</td>
+          <td class="text-right cell-num" style="white-space:nowrap;">${formatTien(hd.doanhSo)}</td>
+          <td class="text-right cell-num" style="white-space:nowrap;">${formatTien(hd.giamGiaSP)}</td>
+          <td class="text-right cell-num" style="white-space:nowrap;">${formatTien(hd.giamGiaHD)}</td>
+          <td class="text-right text-bold cell-num" style="white-space:nowrap;">${formatTien(hd.thanhTien)}</td>
           <td>${hd.ghiChu}</td>
         `;
         tbody.appendChild(tr);
@@ -1400,10 +1429,10 @@
       trTong.style.fontWeight = '800';
       trTong.innerHTML = `
         <td colspan="5" class="text-center" style="font-weight:800; text-align:center;">TỔNG CỘNG</td>
-        <td class="text-right" style="font-weight:800; text-align:right;">${formatTien(tongDoanhSo)}</td>
-        <td class="text-right" style="font-weight:800; text-align:right;">${formatTien(tongGiamSP)}</td>
-        <td class="text-right" style="font-weight:800; text-align:right;">${formatTien(tongGiamHD)}</td>
-        <td class="text-right text-bold" style="font-weight:800; text-align:right;">${formatTien(tongThanhTien)}</td>
+        <td class="text-right cell-num" style="font-weight:800; text-align:right; white-space:nowrap;">${formatTien(tongDoanhSo)}</td>
+        <td class="text-right cell-num" style="font-weight:800; text-align:right; white-space:nowrap;">${formatTien(tongGiamSP)}</td>
+        <td class="text-right cell-num" style="font-weight:800; text-align:right; white-space:nowrap;">${formatTien(tongGiamHD)}</td>
+        <td class="text-right text-bold cell-num" style="font-weight:800; text-align:right; white-space:nowrap;">${formatTien(tongThanhTien)}</td>
         <td></td>
       `;
       tbody.appendChild(trTong);
@@ -1548,13 +1577,13 @@
           <td class="text-center">${stt++}</td>
           <td class="text-bold">${h.maHang}</td>
           <td>${h.tenHang}</td>
-          <td class="text-center">${qc}</td>
-          <td class="text-center">${h.dvt}</td>
-          <td class="text-center text-bold">${h.tongSL}</td>
-          <td class="text-center">${chan}</td>
-          <td class="text-center">${le}</td>
-          <td class="text-right">${formatTien(h.donGia)}</td>
-          <td class="text-right text-bold">${formatTien(h.thanhTien)}</td>
+          <td class="text-center" style="white-space:nowrap;">${qc}</td>
+          <td class="text-center" style="white-space:nowrap;">${h.dvt}</td>
+          <td class="text-center text-bold" style="white-space:nowrap;">${h.tongSL}</td>
+          <td class="text-center" style="white-space:nowrap;">${chan}</td>
+          <td class="text-center" style="white-space:nowrap;">${le}</td>
+          <td class="text-right cell-num" style="white-space:nowrap;">${formatTien(h.donGia)}</td>
+          <td class="text-right text-bold cell-num" style="white-space:nowrap;">${formatTien(h.thanhTien)}</td>
           <td class="text-center">${h.laKhuyenMai ? '<span class="tag-km">HÀNG KHUYẾN MÃI</span>' : ''}</td>
         `;
         tbody.appendChild(tr);
@@ -1565,10 +1594,10 @@
       trTong.className = 'row-tong-hang';
       trTong.innerHTML = `
         <td colspan="6" class="text-center" style="font-weight:800;">TỔNG CỘNG HÀNG HÓA</td>
-        <td class="text-center" style="font-weight:800;">${tongChan}</td>
-        <td class="text-center" style="font-weight:800;">${tongLe}</td>
+        <td class="text-center" style="font-weight:800; white-space:nowrap;">${tongChan}</td>
+        <td class="text-center" style="font-weight:800; white-space:nowrap;">${tongLe}</td>
         <td></td>
-        <td class="text-right" style="font-weight:800;">${formatTien(tongTien)}</td>
+        <td class="text-right cell-num" style="font-weight:800; white-space:nowrap;">${formatTien(tongTien)}</td>
         <td></td>
       `;
       tbody.appendChild(trTong);
