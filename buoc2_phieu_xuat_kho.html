@@ -4,1058 +4,398 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bước 2: Tạo Phiếu Thu Tiền & Phiếu Xuất Kho — THÁI MỸ HƯƠNG</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <script src="config.js"></script>
+  <link rel="stylesheet" href="layout.css">
   <style>
-    :root {
-      --primary: #16a34a;
-      --primary-hover: #15803d;
-      --primary-dark: #14532d;
-      --primary-light: #ecfdf5;
-      --accent-blue: #2563eb;
-      --accent-amber: #d97706;
-      --text-main: #0f172a;
-      --text-muted: #64748b;
-      --border-color: #e2e8f0;
-      --bg-page: #f8fafc;
-      --radius-sm: 8px;
-      --radius-md: 12px;
-      --radius-lg: 18px;
-      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
-      --shadow-md: 0 4px 14px -2px rgba(0,0,0,0.08);
-      --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: var(--bg-page);
-      color: var(--text-main);
-      min-height: 100vh;
-      padding-bottom: 80px;
-    }
-
-    /* Topbar */
-    .topbar {
-      background: #ffffff;
-      border-bottom: 1px solid var(--border-color);
-      padding: 14px 28px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      position: sticky;
-      top: 0;
-      z-index: 50;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .brand-wrap {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .brand-logo {
-      width: 40px;
-      height: 40px;
-      background: #ffffff;
-      border-radius: 10px;
-      padding: 2px;
-      border: 1px solid var(--border-color);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-    }
-
-    .brand-logo img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      border-radius: 50%;
-    }
-
-    .brand-info h1 {
-      font-size: 16px;
-      font-weight: 800;
-      color: #14532d;
-      letter-spacing: 0.5px;
-      line-height: 1.2;
-    }
-
-    .brand-info span {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-
-    .topbar-actions {
-      display: flex;
-      gap: 10px;
-    }
-
-    .btn {
-      padding: 9px 16px;
-      border: none;
-      border-radius: var(--radius-md);
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      transition: var(--transition);
-      font-family: inherit;
-      white-space: nowrap;
-    }
-
-    .btn-back {
-      background: #f1f5f9;
-      color: #334155;
-      border: 1px solid var(--border-color);
-    }
-    .btn-back:hover { background: #e2e8f0; color: #0f172a; }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
-      color: #ffffff;
-      box-shadow: 0 4px 12px rgba(22, 163, 74, 0.28);
-    }
-    .btn-primary:hover {
-      background: linear-gradient(135deg, #15803d 0%, #14532d 100%);
-      transform: translateY(-1px);
-    }
-
-    .btn-save-step3 {
-      background: linear-gradient(135deg, #059669 0%, #047857 100%);
-      color: #ffffff;
-      box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
-    }
-    .btn-save-step3:hover {
-      background: linear-gradient(135deg, #047857 0%, #064e3b 100%);
-      transform: translateY(-1px);
-    }
-
-    .btn-blue {
-      background: #2563eb;
-      color: #ffffff;
-      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
-    }
-    .btn-blue:hover { background: #1d4ed8; }
-
-    .btn-amber {
-      background: #d97706;
-      color: #ffffff;
-    }
-    .btn-amber:hover { background: #b45309; }
-
-    .btn-red {
-      background: #ef4444;
-      color: #ffffff;
-    }
-    .btn-red:hover { background: #dc2626; }
-
-    /* Container */
-    .container {
-      max-width: 1380px;
-      margin: 20px auto 0;
-      padding: 0 20px;
-    }
-
-    /* Stepper Bar */
-    .stepper-card {
-      background: #ffffff;
-      border-radius: var(--radius-lg);
-      border: 1px solid var(--border-color);
-      padding: 16px 24px;
-      margin-bottom: 20px;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .stepper-track {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      overflow-x: auto;
-      padding: 2px 0;
-    }
-
-    .step-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-      min-width: 125px;
-      text-decoration: none;
-    }
-
-    .step-num {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      background: #f1f5f9;
-      color: #64748b;
-      font-weight: 800;
-      font-size: 13px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 2px solid #e2e8f0;
-      transition: var(--transition);
-    }
-
-    .step-label {
-      font-size: 11px;
-      font-weight: 700;
-      color: #64748b;
-      text-align: center;
-      white-space: nowrap;
-    }
-
-    .step-item.active .step-num {
-      background: #2563eb;
-      color: #ffffff;
-      border-color: #1d4ed8;
-      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
-    }
-    .step-item.active .step-label {
-      color: #2563eb;
-      font-weight: 800;
-    }
-
-    .step-item.done .step-num {
-      background: #ecfdf5;
-      color: #16a34a;
-      border-color: #22c55e;
-    }
-    .step-item.done .step-label {
-      color: #16a34a;
-    }
-
-    /* Layout 2 cột: Cột trái (Form điều động) - Cột phải (Kết quả xem trước vừa khít A4 dọc) */
-    .dispatch-layout {
+    /* Bố cục 2 cột: Cột trái (Thiết lập điều động) + Cột phải (Xem trước phiếu) */
+    .b2-grid {
       display: grid;
       grid-template-columns: 360px 1fr;
-      gap: 16px;
+      gap: 20px;
       align-items: start;
     }
 
-    /* Form Điều động xe (Cột trái) */
+    @media (max-width: 1024px) {
+      .b2-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Form điều khiển bên trái */
     .dispatch-card {
-      background: #ffffff;
-      border-radius: var(--radius-lg);
+      background: var(--bg-surface);
       border: 1px solid var(--border-color);
-      box-shadow: var(--shadow-md);
-      overflow: hidden;
-      position: sticky;
-      top: 86px;
-    }
-
-    .dispatch-header {
-      background: #f8fafc;
-      border-bottom: 1px solid var(--border-color);
-      padding: 16px 20px;
-    }
-
-    .dispatch-header h2 {
-      font-size: 15px;
-      font-weight: 800;
-      color: #0f172a;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .dispatch-header .sub {
-      font-size: 12px;
-      font-weight: 700;
-      color: #2563eb;
-      margin-top: 3px;
-    }
-
-    .dispatch-body {
-      padding: 18px 20px;
-      max-height: calc(100vh - 180px);
-      overflow-y: auto;
-    }
-
-    .form-group {
-      margin-bottom: 14px;
-    }
-
-    .form-group label {
-      display: block;
-      font-size: 12px;
-      font-weight: 700;
-      color: #334155;
-      margin-bottom: 5px;
-    }
-
-    .form-control {
-      width: 100%;
-      padding: 9px 12px;
-      font-size: 13px;
-      font-family: inherit;
-      border: 1.5px solid #cbd5e1;
-      border-radius: var(--radius-sm);
-      outline: none;
-      transition: var(--transition);
-      background: #ffffff;
-      color: #0f172a;
-    }
-
-    .form-control:focus {
-      border-color: #2563eb;
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
-    }
-
-    .invoice-search-row {
-      display: flex;
-      gap: 6px;
-      margin-bottom: 8px;
-    }
-
-    .btn-filter-sm {
-      padding: 6px 10px;
-      font-size: 11px;
-      font-weight: 700;
-      border-radius: 6px;
-      background: #f1f5f9;
-      border: 1px solid #cbd5e1;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    .btn-filter-sm:hover { background: #e2e8f0; }
-
-    .invoice-box {
-      max-height: 220px;
-      overflow-y: auto;
-      border: 1.5px solid #cbd5e1;
-      border-radius: var(--radius-sm);
-      background: #f8fafc;
-      padding: 6px;
-    }
-
-    .invoice-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
-      padding: 7px 9px;
-      border-radius: 6px;
-      font-size: 12px;
-      cursor: pointer;
-      transition: var(--transition);
-      margin-bottom: 2px;
-      border-bottom: 1px solid #f1f5f9;
-    }
-
-    .invoice-item:hover {
-      background: #e2e8f0;
-    }
-
-    .invoice-item input[type="checkbox"] {
-      margin-top: 2px;
-      width: 16px;
-      height: 16px;
-      cursor: pointer;
-      accent-color: #2563eb;
-    }
-
-    .invoice-item-info {
-      flex: 1;
-      line-height: 1.35;
-    }
-
-    .invoice-item-info strong {
-      color: #1e3a8a;
-    }
-
-    .invoice-count-badge {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      font-weight: 700;
-      color: #15803d;
-      margin: 8px 0 14px;
-    }
-
-    .dispatch-actions {
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      box-shadow: var(--shadow-card);
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 16px;
     }
-
-    .dispatch-actions .btn {
-      width: 100%;
-      justify-content: center;
-      padding: 11px;
-      font-size: 13px;
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
     }
-
-    /* Khung kết quả hiển thị 2 biểu mẫu (Cột phải) */
-    .results-card {
-      background: #ffffff;
-      border-radius: var(--radius-lg);
+    .form-group label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .form-control {
+      padding: 8px 12px;
       border: 1px solid var(--border-color);
-      box-shadow: var(--shadow-sm);
-      padding: 22px;
-      min-width: 0;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-family: inherit;
+      background: #ffffff;
+      outline: none;
+      transition: var(--transition);
+    }
+    .form-control:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(35, 100, 70, 0.12);
     }
 
-    /* ========================================================
-       CỐ ĐỊNH TAB HEADER: KHÔNG BAO GIỜ NHẢY DÒNG LÊN XUỐNG
-       ======================================================== */
-    .tab-header {
+    /* Danh sách Hóa đơn Checkbox */
+    .invoice-selector-box {
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      max-height: 280px;
+      overflow-y: auto;
+      padding: 6px;
+      background: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .invoice-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 4px;
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .invoice-item:hover {
+      background: #f1f5f9;
+    }
+    .invoice-item input[type="checkbox"] {
+      cursor: pointer;
+    }
+    .invoice-item-info {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Tabs Xem Trước */
+    .preview-tabs {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 2px solid #e2e8f0;
-      margin-bottom: 18px;
-      gap: 12px;
-      flex-wrap: nowrap; /* CỐ ĐỊNH: Không bao giờ rớt dòng */
-      min-height: 48px;
+      border-bottom: 2px solid var(--border-color);
+      margin-bottom: 16px;
+      gap: 10px;
+      flex-wrap: wrap;
     }
-
-    .tab-buttons {
+    .tab-group {
       display: flex;
-      gap: 6px;
-      flex-shrink: 0;
-      margin-bottom: -2px; /* Ghép liền với đường viền dưới */
+      gap: 4px;
     }
-
     .tab-btn {
-      padding: 0 16px;
+      padding: 8px 16px;
+      border: none;
+      background: transparent;
       font-size: 13px;
       font-weight: 700;
-      border: 1.5px solid transparent;
-      border-bottom: 2px solid transparent;
-      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-      background: #f1f5f9;
       color: var(--text-muted);
       cursor: pointer;
-      transition: none;
-      font-family: inherit;
-      white-space: nowrap;
-      height: 42px;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      outline: none;
-      box-sizing: border-box;
+      border-bottom: 3px solid transparent;
       margin-bottom: -2px;
-    }
-
-    .tab-btn:hover {
-      background: #e2e8f0;
-      color: var(--text-main);
-    }
-
-    .tab-btn.active {
-      background: #ffffff;
-      color: #2563eb;
-      border: 1.5px solid #cbd5e1;
-      border-bottom: 2px solid #ffffff;
-      margin-bottom: -2px;
-    }
-
-    .tab-actions {
+      transition: var(--transition);
       display: flex;
       align-items: center;
-      gap: 8px;
-      flex-shrink: 0;
-      white-space: nowrap;
+      gap: 6px;
+    }
+    .tab-btn:hover {
+      color: var(--text-main);
+    }
+    .tab-btn.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
     }
 
-    /* Paper Document Wrapper (Định dạng trang giấy xem trước chuẩn khổ A4 dọc) */
-    .paper-doc {
+    /* Trang Giấy A4 Xem Trước */
+    .paper-a4 {
       background: #ffffff;
-      border: 1px solid #cbd5e1;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
-      padding: 22px 16px;
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-lg);
+      padding: 24px;
       border-radius: var(--radius-sm);
-      margin-bottom: 20px;
-      max-width: 820px;
-      margin-left: auto;
-      margin-right: auto;
+      margin: 0 auto;
+      max-width: 860px;
       box-sizing: border-box;
-      overflow-x: visible;
+      font-size: 11px;
+      color: #000000;
     }
 
     .doc-brand-header {
       margin-bottom: 6px;
     }
-
     .doc-company-name {
-      font-size: 13.5px;
+      font-size: 13px;
       font-weight: 800;
       color: #000000;
-      letter-spacing: 0.2px;
       text-transform: uppercase;
     }
-
     .doc-company-meta {
       font-size: 10px;
-      color: #334155;
+      color: #475569;
       font-style: italic;
-      margin-top: 2px;
     }
-
     .doc-title {
       text-align: center;
-      font-size: 16.5px;
+      font-size: 16px;
       font-weight: 800;
       color: #000000;
-      letter-spacing: 0.5px;
-      margin-top: 8px;
-      margin-bottom: 8px;
+      margin: 10px 0;
       text-transform: uppercase;
+      letter-spacing: 0.3px;
     }
-
-    .doc-dispatch-meta {
-      font-size: 11px;
-      margin-bottom: 10px;
-      color: #000000;
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
-
-    .doc-dispatch-meta .meta-row {
+    .doc-meta-row {
       display: flex;
       justify-content: space-between;
       flex-wrap: wrap;
       gap: 12px;
+      font-size: 11.5px;
+      margin-bottom: 4px;
+      font-weight: 600;
     }
 
-    /* Bảng chung: Cố định độ rộng và cỡ chữ vừa khít A4 dọc */
+    /* Bảng Mẫu */
     .doc-table {
       width: 100%;
       border-collapse: collapse;
-      table-layout: fixed;
-      font-size: 9.5px;
-      color: #000000;
-      margin-bottom: 16px;
+      margin-top: 10px;
+      font-size: 10.5px;
     }
-
     .doc-table th, .doc-table td {
       border: 1px solid #b0c4de;
-      padding: 5px 3px;
+      padding: 5px 6px;
       vertical-align: middle;
       line-height: 1.35;
-      word-break: break-word;
-      overflow-wrap: break-word;
     }
 
-    /* Phong cách riêng của BẢNG KÊ THU TIỀN: Header xanh nhạt #b8cce4 */
-    .bangke-table th {
+    /* Bảng Kê Thu Tiền: Header #b8cce4 */
+    .table-bangke th {
       background-color: #b8cce4;
       color: #000000;
       font-weight: 800;
       text-align: center;
-      border: 1px solid #7f9bb8;
-      padding: 6px 3px;
     }
-    .bangke-table td {
-      border: 1px solid #b0c4de;
-    }
-    .bangke-table tr:nth-child(even) td {
+    .table-bangke tr:nth-child(even) td {
       background-color: #f7f9fc;
     }
 
-    /* Phong cách riêng của PHIẾU XUẤT KHO: Header vàng nhạt #fff2cc */
-    .xuatkho-table th {
+    /* Phiếu Xuất Kho: Header #fff2cc */
+    .table-xuatkho th {
       background-color: #fff2cc;
       color: #000000;
       font-weight: 800;
       text-align: center;
-      border: 1px solid #d6b656;
-      padding: 6px 3px;
     }
-    .xuatkho-table td {
-      border: 1px solid #b0c4de;
-    }
-    .xuatkho-table tr:nth-child(even) td {
+    .table-xuatkho tr:nth-child(even) td {
       background-color: #fcfdfd;
     }
 
-    /* Hàng Tổng cộng Hàng Hóa (Xanh bạc hà #e2efda) */
-    .row-tong-hang {
-      background-color: #e2efda !important;
-      font-weight: 800 !important;
-    }
+    /* Dòng Tổng Cộng Hàng Hóa (#e2efda) */
     .row-tong-hang td {
       background-color: #e2efda !important;
-    }
-
-    /* Dòng Banner Chứng từ / Giấy tờ đi kèm (Xanh lavender #d9e1f2) */
-    .row-banner-doc {
-      background-color: #d9e1f2 !important;
       font-weight: 800 !important;
     }
+
+    /* Dòng Banner Chứng từ (#d9e1f2) */
     .row-banner-doc td {
       background-color: #d9e1f2 !important;
-    }
-
-    /* Dòng Cộng chứng từ (Xanh lavender #d9e1f2) */
-    .row-cong-doc {
-      background-color: #d9e1f2 !important;
       font-weight: 800 !important;
+      text-align: center;
     }
     .row-cong-doc td {
       background-color: #d9e1f2 !important;
-    }
-
-    /* Dòng Tổng cộng Bảng kê (Xanh nhạt #b8cce4) */
-    .row-tong-bangke {
-      background-color: #b8cce4 !important;
       font-weight: 800 !important;
-    }
-    .row-tong-bangke td {
-      background-color: #b8cce4 !important;
     }
 
     .tag-km {
       color: #c00000;
       font-weight: 800;
-      font-size: 9px;
+      font-style: italic;
     }
 
-    .tag-hd {
-      color: #2563eb;
-      font-weight: 800;
-      font-size: 9px;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 60px 20px;
-      color: var(--text-muted);
-    }
-
-    .empty-state .icon {
-      font-size: 48px;
-      margin-bottom: 12px;
-    }
-
-    /* ========================================================
-       CHỈNH SỬA CSS IN ẤN CHUẨN A4 TRANG ĐỨNG (PORTRAIT): 
-       - Vừa khít chiều ngang trang in khổ đứng A4 portrait (198mm)
-       - Giữ nguyên màu sắc theo đúng mẫu Hình 1 và Hình 2
-       - Chiều cao dòng tối thiểu đồng đều cho mọi hàng
-       ======================================================== */
+    /* Khi In Khổ A4 */
     @media print {
-      @page {
-        size: A4 portrait !important;
-        margin: 6mm 5mm 6mm 5mm !important;
-      }
-
-      body {
-        background: #ffffff !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-
-      .topbar, .stepper-card, .dispatch-card, .tab-header, .btn, .btn-print-hide {
-        display: none !important;
-      }
-
-      .container {
-        max-width: 100% !important;
+      body * { visibility: hidden; }
+      #tmhSidebar, .tmh-topbar, .tmh-footer, .dispatch-card, .preview-tabs, .tmh-page-header { display: none !important; }
+      .paper-a4, .paper-a4 * { visibility: visible; }
+      .paper-a4 {
+        position: absolute;
+        left: 0;
+        top: 0;
         width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-      }
-
-      .dispatch-layout {
-        display: block !important;
-      }
-
-      .results-card {
+        max-width: 100% !important;
         border: none !important;
         box-shadow: none !important;
         padding: 0 !important;
-        margin: 0 !important;
-      }
-
-      .paper-doc {
-        border: none !important;
-        box-shadow: none !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        width: 100% !important;
-        max-width: 100% !important;
-      }
-
-      /* Tiêu đề biểu mẫu khi in */
-      .doc-brand-header {
-        margin-bottom: 5px !important;
-      }
-      .doc-company-name {
-        font-size: 13px !important;
-        font-weight: 800 !important;
-        color: #000000 !important;
-      }
-      .doc-company-meta {
-        font-size: 9.5px !important;
-        font-style: italic !important;
-        color: #333333 !important;
-      }
-      .doc-title {
-        font-size: 15px !important;
-        font-weight: 800 !important;
-        margin-top: 6px !important;
-        margin-bottom: 6px !important;
-        color: #000000 !important;
-        text-align: center !important;
-      }
-      .doc-dispatch-meta {
-        font-size: 10px !important;
-        margin-bottom: 8px !important;
-        color: #000000 !important;
-      }
-
-      /* Chỉ in đúng tab đang được kích hoạt */
-      body.print-mode-bangke #tabContentBangKe {
-        display: block !important;
-      }
-      body.print-mode-bangke #tabContentXuatKho {
-        display: none !important;
-      }
-
-      body.print-mode-xuatkho #tabContentXuatKho {
-        display: block !important;
-      }
-      body.print-mode-xuatkho #tabContentBangKe {
-        display: none !important;
-      }
-
-      thead {
-        display: table-header-group !important;
-      }
-
-      tfoot {
-        display: table-row-group !important;
-      }
-
-      tr {
-        page-break-inside: avoid !important;
-        break-inside: avoid !important;
-      }
-
-      .doc-table {
-        width: 100% !important;
-        border-collapse: collapse !important;
-        table-layout: fixed !important;
-        font-size: 9px !important;
-      }
-
-      .doc-table tbody tr {
-        height: 24px !important;
-      }
-
-      .doc-table th, .doc-table td {
-        border: 1px solid #7f9bb8 !important;
-        padding: 3px 2px !important;
-        vertical-align: middle !important;
-        line-height: 1.3 !important;
-        word-break: break-word !important;
-        color: #000000 !important;
-      }
-
-      .bangke-table th {
-        background-color: #b8cce4 !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-
-      .xuatkho-table th {
-        background-color: #fff2cc !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-
-      .row-tong-hang td {
-        background-color: #e2efda !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-
-      .row-banner-doc td, .row-cong-doc td {
-        background-color: #d9e1f2 !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-
-      .row-tong-bangke td {
-        background-color: #b8cce4 !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-
-      .tag-km {
-        color: #c00000 !important;
-        font-weight: 700 !important;
-        font-size: 8.5px !important;
-      }
-    }
-
-    @media (max-width: 992px) {
-      .dispatch-layout {
-        grid-template-columns: 1fr;
-      }
-      .dispatch-card {
-        position: static;
-      }
-      .tab-header {
-        flex-wrap: wrap;
       }
     }
   </style>
 </head>
 <body>
 
-  <!-- Topbar -->
-  <header class="topbar">
-    <div class="brand-wrap">
-      <div class="brand-logo">
-        <img src="logo.png" alt="Logo Thái Mỹ Hương">
-      </div>
-      <div class="brand-info">
-        <h1>THÁI MỸ HƯƠNG</h1>
-        <span>Bước 2: Điều động xe & Tạo phiếu thu, xuất kho</span>
-      </div>
-    </div>
-    <div class="topbar-actions">
-      <button class="btn btn-back" onclick="window.location.href='buoc1_upload.html'">
-        <span>⬅</span> Bước 1: Nạp KiotViet
-      </button>
-      <button class="btn btn-back" onclick="window.location.href='trang_chu.html'">
-        <span>🏠</span> Bảng điều khiển
-      </button>
-    </div>
-  </header>
-
-  <main class="container">
-
-    <!-- THANH TIẾN TRÌNH LIÊN HOÀN 7 BƯỚC -->
-    <div class="stepper-card">
-      <div class="stepper-track">
-        <a class="step-item done" href="buoc1_upload.html">
-          <div class="step-num">✓</div>
-          <div class="step-label">1. Tải KiotViet</div>
-        </a>
-        <div class="step-item active">
-          <div class="step-num">2</div>
-          <div class="step-label">2. Phiếu thu & Xuất kho</div>
-        </div>
-        <a class="step-item" href="buoc3_luu_tru.html">
-          <div class="step-num">3</div>
-          <div class="step-label">3. Lưu trữ đợt</div>
-        </a>
-        <a class="step-item" href="buoc4_kiem_don.html">
-          <div class="step-num">4</div>
-          <div class="step-label">4. Kiểm đơn về</div>
-        </a>
-        <div class="step-item">
-          <div class="step-num">5</div>
-          <div class="step-label">5. Lưu kiểm đơn</div>
-        </div>
-        <div class="step-item">
-          <div class="step-num">6</div>
-          <div class="step-label">6. Bảng kê nộp tiền</div>
-        </div>
-        <div class="step-item">
-          <div class="step-num">7</div>
-          <div class="step-label">7. Xuất file MISA</div>
-        </div>
+  <main id="mainContent" style="display:none;">
+    
+    <!-- Page Header -->
+    <div class="tmh-page-header">
+      <div>
+        <h1 class="tmh-page-header-title"><span>📊</span> Bước 2: Tạo Phiếu Thu Tiền & Xuất Kho</h1>
+        <p class="tmh-page-header-sub">Thiết lập điều động xe & nhân sự, phân nhóm hàng khuyến mãi lên đầu, sắp xếp hàng bán A→Z, tính số kiện Chẵn/Lẻ theo quy cách và đồng bộ khớp 100% số tiền.</p>
       </div>
     </div>
 
-    <!-- BỐ CỤC 2 CỘT: CỘT ĐIỀU ĐỘNG & CỘT BẢNG BIỂU -->
-    <div class="dispatch-layout">
+    <!-- Layout 2 cột -->
+    <div class="b2-grid">
       
-      <!-- CỘT TRÁI: FORM ĐIỀU ĐỘNG XE & NHÂN VIÊN -->
-      <aside class="dispatch-card">
-        <div class="dispatch-header">
-          <h2>ĐIỀU ĐỘNG XE & NHÂN VIÊN</h2>
-          <div class="sub">TẠO DANH SÁCH THU TIỀN & PHIẾU XUẤT KHO</div>
+      <!-- Cột Trái: Thiết Lập Điều Động -->
+      <div class="dispatch-card">
+        <h3 style="font-size: 14px; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 6px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+          <span>🚚</span> Thiết lập chuyến xe
+        </h3>
+
+        <div class="form-group">
+          <label>Xe vận chuyển:</label>
+          <select id="xeVanChuyen" class="form-control" onchange="onDoiXe()">
+            <option value="HD1 SÁNG">HD1 SÁNG (Xe 1.4 tấn - Đạt/Sinh)</option>
+            <option value="HD1 CHIỀU">HD1 CHIỀU (Xe 1.4 tấn - Đạt/Sinh)</option>
+            <option value="HD2 SÁNG">HD2 SÁNG (Xe 2.5 tấn - Hải)</option>
+            <option value="HD2 CHIỀU">HD2 CHIỀU (Xe 2.5 tấn - Hải)</option>
+          </select>
         </div>
 
-        <div class="dispatch-body">
-          <div class="form-group">
-            <label for="ngayGiaoHang">1. Ngày giao hàng:</label>
-            <input type="date" id="ngayGiaoHang" class="form-control">
-          </div>
-
-          <div class="form-group">
-            <label for="xeVanChuyen">2. Xe vận chuyển:</label>
-            <select id="xeVanChuyen" class="form-control" onchange="onDoiXe()">
-              <option value="HD1 SÁNG">HD1 SÁNG</option>
-              <option value="HD2 SÁNG">HD2 SÁNG</option>
-              <option value="HD1 CHIỀU">HD1 CHIỀU</option>
-              <option value="HD2 CHIỀU">HD2 CHIỀU</option>
-              <option value="XE GIAO NGOẠI THÀNH">XE GIAO NGOẠI THÀNH</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="taiXe">3. Tài xế:</label>
-            <select id="taiXe" class="form-control">
-              <option value="">-- Bỏ trống nếu không đi --</option>
-              <option value="SINH" selected>SINH</option>
-              <option value="HẢI">HẢI</option>
-              <option value="BÌNH">BÌNH</option>
-              <option value="HOÀNG">HOÀNG</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="nvGiaoHang">4. Nhân viên giao hàng:</label>
-            <select id="nvGiaoHang" class="form-control">
-              <option value="">-- Bỏ trống nếu không đi --</option>
-              <option value="SINH">SINH</option>
-              <option value="MINH">MINH</option>
-              <option value="ĐẠT">ĐẠT</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="nvThuTien">5. Nhân viên thu tiền:</label>
-            <select id="nvThuTien" class="form-control">
-              <option value="">-- Bỏ trống nếu không đi --</option>
-              <option value="ĐẠT" selected>ĐẠT</option>
-              <option value="NAM">NAM</option>
-              <option value="PHÚC">PHÚC</option>
-              <option value="UYÊN">UYÊN</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label>6. Hóa đơn đi theo xe này:</label>
-            <div class="invoice-search-row">
-              <input type="text" id="timKiemHoaDon" class="form-control" placeholder="Tìm mã hóa đơn hoặc tên khách..." oninput="locHoaDon()">
-              <button type="button" class="btn-filter-sm" onclick="chonTatCaHoaDon(true)">Chọn tất cả</button>
-              <button type="button" class="btn-filter-sm" onclick="chonTatCaHoaDon(false)">Bỏ chọn</button>
-            </div>
-
-            <div class="invoice-box" id="danhSachHoaDonBox">
-              <div style="padding: 12px; text-align: center; color: #94a3b8; font-size: 12px;">Đang tải danh sách hóa đơn...</div>
-            </div>
-
-            <div class="invoice-count-badge" id="badgeSoLuongChon">
-              <span>☑</span> Đã chọn 0 / 0 hóa đơn.
-            </div>
-          </div>
-
-          <div class="dispatch-actions">
-            <button type="button" class="btn btn-blue" onclick="chayTaoPhieu()">
-              <span>🚀</span> CHẠY TẠO PHIẾU
-            </button>
-            <button type="button" class="btn btn-save-step3" id="btnLuuBuoc3Side" onclick="luuVaChuyenSangBuoc3()">
-              <span>💾</span> LƯU & SANG BƯỚC 3 ➡
-            </button>
-            <button type="button" class="btn btn-red" onclick="datLaiForm()">
-              <span>❌</span> Hủy bỏ / Đặt lại
-            </button>
-          </div>
+        <div class="form-group">
+          <label>Tài xế lái xe:</label>
+          <input type="text" id="taiXe" class="form-control" value="SINH" placeholder="Nhập tên tài xế">
         </div>
-      </aside>
 
-      <!-- CỘT PHẢI: HIỂN THỊ 2 BIỂU MẪU KẾT QUẢ -->
-      <section class="results-card">
+        <div class="form-group">
+          <label>Ngày giao hàng:</label>
+          <input type="date" id="ngayGiaoHang" class="form-control">
+        </div>
+
+        <div class="form-group">
+          <label>Nhân viên giao hàng:</label>
+          <input type="text" id="nvGiaoHang" class="form-control" placeholder="Tên nhân viên giao">
+        </div>
+
+        <div class="form-group">
+          <label>Nhân viên thu tiền:</label>
+          <input type="text" id="nvThuTien" class="form-control" value="ĐẠT" placeholder="Tên người thu tiền">
+        </div>
+
+        <!-- Hóa đơn đợt này -->
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label>Chọn hóa đơn theo chuyến:</label>
+            <span id="badgeSoLuongChon" style="font-size: 11px; font-weight: 700; color: var(--primary);">Đang tải…</span>
+          </div>
+          <input type="text" id="timKiemHoaDon" class="form-control" placeholder="🔍 Lọc mã HĐ, tên khách..." oninput="locHoaDon()" style="margin-bottom: 6px;">
+          
+          <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+            <button type="button" class="btn btn-outline btn-sm" style="flex:1;" onclick="chonTatCaHoaDon(true)">Chọn tất cả</button>
+            <button type="button" class="btn btn-outline btn-sm" style="flex:1;" onclick="chonTatCaHoaDon(false)">Bỏ chọn</button>
+          </div>
+
+          <div class="invoice-selector-box" id="danhSachHoaDonBox"></div>
+        </div>
+
+        <!-- Nút Tạo Phiếu & Lưu Bước 3 -->
+        <button type="button" class="btn btn-primary" onclick="chayTaoPhieu()" style="width: 100%; justify-content: center; padding: 10px;">
+          <span>⚡</span> Tạo 2 Biểu Mẫu Phiếu
+        </button>
+
+        <button type="button" class="btn btn-blue" id="btnLuuBuoc3Side" onclick="luuVaChuyenSangBuoc3()" style="width: 100%; justify-content: center; padding: 10px; display: none;">
+          <span>💾</span> Lưu đợt này sang Bước 3 ➡
+        </button>
+      </div>
+
+      <!-- Cột Phải: Xem Trước & Xuất Phiếu -->
+      <div class="tmh-card" style="padding: 16px 20px;">
         
-        <!-- Tab chuyển đổi (CỐ ĐỊNH KHÔNG BAO GIỜ NHẢY LÊN XUỐNG) -->
-        <div class="tab-header">
-          <div class="tab-buttons">
-            <button class="tab-btn active" id="tabBtn1" onclick="chuyenTab('bangke')">
-              <span>📋</span> Bảng Kê Thu Tiền
+        <!-- Tabs & Công Cụ -->
+        <div class="preview-tabs">
+          <div class="tab-group">
+            <button type="button" class="tab-btn active" id="tabBtn1" onclick="chuyenTab('bangke')">
+              <span>📑</span> 1. Bảng Kê Thu Tiền Hàng
             </button>
-            <button class="tab-btn" id="tabBtn2" onclick="chuyenTab('xuatkho')">
-              <span>📦</span> Phiếu Xuất Kho
+            <button type="button" class="tab-btn" id="tabBtn2" onclick="chuyenTab('xuatkho')">
+              <span>📦</span> 2. Phiếu Xuất Kho Tổng Hợp
             </button>
           </div>
-
-          <div class="tab-actions">
-            <button class="btn btn-primary" onclick="inPhieuHienTai()">
-              <span>🖨️</span> In Phiếu (A4)
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="inPhieuHienTai()">
+              <span>🖨️</span> In A4
             </button>
-            <button class="btn btn-blue" onclick="xuatExcelHienTai()">
+            <button type="button" class="btn btn-outline btn-sm" onclick="xuatExcelHienTai()">
               <span>📥</span> Xuất Excel
             </button>
-            <!-- Nút Lưu chuyển sang Bước 3 -->
-            <button class="btn btn-save-step3" id="btnLuuBuoc3Top" onclick="luuVaChuyenSangBuoc3()">
-              <span>💾</span> Lưu & Sang Bước 3 ➡
-            </button>
           </div>
         </div>
 
-        <!-- MÀN HÌNH KHI CHƯA CHẠY TẠO PHIẾU -->
-        <div id="manHinhCho" class="empty-state">
-          <div class="icon">📑</div>
-          <h3 style="font-size: 16px; font-weight: 800; color: #334155; margin-bottom: 6px;">
-            Chưa tạo phiếu điều động
-          </h3>
-          <p style="font-size: 13px; color: #64748b; max-width: 480px; margin: 0 auto 16px;">
-            Vui lòng chọn thông tin xe, nhân sự và tích chọn các hóa đơn cần đi theo xe ở bảng bên trái, sau đó nhấn <b>"🚀 CHẠY TẠO PHIẾU"</b> để xuất 2 biểu mẫu.
-          </p>
+        <!-- Màn hình chờ khi chưa bấm Tạo phiếu -->
+        <div id="manHinhCho" style="text-align: center; padding: 60px 20px; color: var(--text-muted);">
+          <div style="font-size: 38px; margin-bottom: 12px;">📊</div>
+          <div style="font-size: 15px; font-weight: 700; color: var(--text-main); margin-bottom: 6px;">Chưa tạo biểu mẫu xem trước</div>
+          <p style="font-size: 13px; max-width: 440px; margin: 0 auto 16px;">Vui lòng chọn thông tin chuyến xe ở cột bên trái và bấm <b>"Tạo 2 Biểu Mẫu Phiếu"</b> để tự động tính toán.</p>
         </div>
 
-        <!-- BIỂU MẪU 1: BẢNG KÊ THU TIỀN HÀNG VÀ GIAO HÀNG -->
+        <!-- KHUNG XEM TRƯỚC BIỂU MẪU 1: BẢNG KÊ THU TIỀN HÀNG -->
         <div id="tabContentBangKe" style="display: none;">
-          <div class="paper-doc" id="inBangKeArea">
+          <div class="paper-a4">
             <div class="doc-brand-header">
               <div class="doc-company-name">CÔNG TY TNHH THÁI MỸ HƯƠNG</div>
-              <div class="doc-company-meta">
-                Đc: 291 Văn Tiến Dũng, Phường Hoà Xuân, TP Đà Nẵng — ĐT: 0903.550.648
-              </div>
+              <div class="doc-company-meta">Đc: 291 Văn Tiến Dũng, Phường Hoà Xuân, TP Đà Nẵng — ĐT: 0903.550.648</div>
             </div>
 
             <div class="doc-title">BẢNG KÊ THU TIỀN HÀNG VÀ GIAO HÀNG</div>
 
-            <div class="doc-dispatch-meta">
-              <div class="meta-row">
-                <span><b>Xe giao:</b> <span id="lblXeBangKe">—</span></span>
-                <span><b>Tài xế:</b> <span id="lblTaiXeBangKe">—</span></span>
-              </div>
-              <div class="meta-row">
-                <span><b>Ngày giao:</b> <span id="lblNgayBangKe">—</span></span>
-                <span><b>Giao hàng:</b> <span id="lblGiaoHangBangKe">.............</span></span>
-                <span><b>Thu tiền:</b> <span id="lblThuTienBangKe">—</span></span>
-              </div>
+            <div class="doc-meta-row">
+              <div>Xe giao: <b id="lblXeBangKe">...</b></div>
+              <div>Tài xế: <b id="lblTaiXeBangKe">...</b></div>
+            </div>
+            <div class="doc-meta-row">
+              <div>Ngày giao: <b id="lblNgayBangKe">...</b></div>
+              <div>Giao hàng: <b id="lblGiaoHangBangKe">...</b></div>
+              <div>Thu tiền: <b id="lblThuTienBangKe">...</b></div>
             </div>
 
-            <table class="doc-table bangke-table">
-              <colgroup>
-                <col style="width: 4%;">
-                <col style="width: 11%;">
-                <col style="width: 10%;">
-                <col style="width: 22%;">
-                <col style="width: 15%;">
-                <col style="width: 9%;">
-                <col style="width: 7.5%;">
-                <col style="width: 7.5%;">
-                <col style="width: 9%;">
-                <col style="width: 5%;">
-              </colgroup>
+            <table class="doc-table table-bangke">
               <thead>
                 <tr>
-                  <th>STT</th>
-                  <th>Mã Hoá Đơn</th>
-                  <th>Mã Khách Hàng</th>
+                  <th style="width:30px;">STT</th>
+                  <th style="width:85px;">Mã Hoá Đơn</th>
+                  <th style="width:80px;">Mã KH</th>
                   <th>Tên Khách Hàng</th>
-                  <th>Người Bán</th>
-                  <th>Doanh Số</th>
-                  <th>Giảm Giá SP</th>
-                  <th>Giảm Giá HĐ</th>
-                  <th>Thành Tiền</th>
-                  <th>Ghi Chú</th>
+                  <th style="width:90px;">Người Bán</th>
+                  <th style="width:75px;">Doanh Số</th>
+                  <th style="width:65px;">Giảm SP</th>
+                  <th style="width:65px;">Giảm HĐ</th>
+                  <th style="width:80px;">Thành Tiền</th>
+                  <th style="width:70px;">Ghi Chú</th>
                 </tr>
               </thead>
               <tbody id="tbodyBangKe"></tbody>
@@ -1064,57 +404,40 @@
           </div>
         </div>
 
-        <!-- BIỂU MẪU 2: PHIẾU XUẤT KHO TỔNG HỢP -->
+        <!-- KHUNG XEM TRƯỚC BIỂU MẪU 2: PHIẾU XUẤT KHO TỔNG HỢP -->
         <div id="tabContentXuatKho" style="display: none;">
-          <div class="paper-doc" id="inXuatKhoArea">
+          <div class="paper-a4">
             <div class="doc-brand-header">
               <div class="doc-company-name">CÔNG TY TNHH THÁI MỸ HƯƠNG</div>
-              <div class="doc-company-meta">
-                Đc: 291 Văn Tiến Dũng, Phường Hoà Xuân, TP Đà Nẵng — ĐT: 0903.550.648
-              </div>
+              <div class="doc-company-meta">Đc: 291 Văn Tiến Dũng, Phường Hoà Xuân, TP Đà Nẵng — ĐT: 0903.550.648</div>
             </div>
 
             <div class="doc-title">PHIẾU XUẤT KHO TỔNG HỢP</div>
 
-            <div class="doc-dispatch-meta">
-              <div class="meta-row">
-                <span><b>Xe giao:</b> <span id="lblXeXuatKho">—</span></span>
-                <span><b>Tài xế:</b> <span id="lblTaiXeXuatKho">—</span></span>
-              </div>
-              <div class="meta-row">
-                <span><b>Ngày giao:</b> <span id="lblNgayXuatKho">—</span></span>
-                <span><b>Giao hàng:</b> <span id="lblGiaoHangXuatKho">.............</span></span>
-                <span><b>Thu tiền:</b> <span id="lblThuTienXuatKho">—</span></span>
-              </div>
+            <div class="doc-meta-row">
+              <div>Xe giao: <b id="lblXeXuatKho">...</b></div>
+              <div>Tài xế: <b id="lblTaiXeXuatKho">...</b></div>
+            </div>
+            <div class="doc-meta-row">
+              <div>Ngày giao: <b id="lblNgayXuatKho">...</b></div>
+              <div>Giao hàng: <b id="lblGiaoHangXuatKho">...</b></div>
+              <div>Thu tiền: <b id="lblThuTienXuatKho">...</b></div>
             </div>
 
-            <table class="doc-table xuatkho-table">
-              <colgroup>
-                <col style="width: 4%;">
-                <col style="width: 10%;">
-                <col style="width: 26%;">
-                <col style="width: 6%;">
-                <col style="width: 5%;">
-                <col style="width: 6.5%;">
-                <col style="width: 5.5%;">
-                <col style="width: 5%;">
-                <col style="width: 9%;">
-                <col style="width: 11%;">
-                <col style="width: 12%;">
-              </colgroup>
+            <table class="doc-table table-xuatkho">
               <thead>
                 <tr>
-                  <th>STT</th>
-                  <th>Mã Hàng</th>
-                  <th>Tên Hàng</th>
-                  <th>Quy Cách</th>
-                  <th>ĐVT</th>
-                  <th>Tổng SL</th>
-                  <th>Chẵn</th>
-                  <th>Lẻ</th>
-                  <th>Đơn Giá</th>
-                  <th>Thành Tiền</th>
-                  <th>Ghi Chú</th>
+                  <th style="width:28px;">STT</th>
+                  <th style="width:70px;">Mã Hàng</th>
+                  <th>Tên Hàng Hóa</th>
+                  <th style="width:35px;">QC</th>
+                  <th style="width:38px;">ĐVT</th>
+                  <th style="width:48px;">Tổng SL</th>
+                  <th style="width:42px;">Chẵn</th>
+                  <th style="width:42px;">Lẻ</th>
+                  <th style="width:65px;">Đơn Giá</th>
+                  <th style="width:80px;">Thành Tiền</th>
+                  <th style="width:90px;">Ghi Chú</th>
                 </tr>
               </thead>
               <tbody id="tbodyXuatKho"></tbody>
@@ -1123,20 +446,25 @@
           </div>
         </div>
 
-      </section>
+      </div>
     </div>
 
   </main>
 
+  <script src="layout.js"></script>
   <script>
     let duLieuGoc = [];
     let danhSachHoaDon = [];
     let danhSachHoaDonChiTietToanCuc = [];
-    let danhSachHangHoaXuatKhoToanCuc = { hangHoa: [], hangHoaDon: [], soLuongHD: 0 };
-    let mapQuyCach = new Map(); // ma_hang -> quy_cach từ Supabase
+    let danhSachHangHoaXuatKhoToanCuc = {};
+    let mapQuyCach = new Map();
     let tabHienTai = 'bangke';
 
-    // Helper lấy giá trị cột từ nhiều alias khác nhau
+    function formatTien(so) {
+      if (so === null || so === undefined || isNaN(so)) return '0';
+      return Math.round(Number(so)).toLocaleString('vi-VN');
+    }
+
     function layGiaTri(row, candidates) {
       const keys = Object.keys(row);
       for (let c of candidates) {
@@ -1151,101 +479,55 @@
       return null;
     }
 
-    // Format tiền tệ chuẩn Việt Nam
-    function formatTien(so) {
-      if (so === null || so === undefined || isNaN(so)) return "0";
-      return Math.round(Number(so)).toLocaleString('vi-VN');
+    // Helper an toàn trích xuất số lượng lẻ (Tránh lỗi 0.5 biến thành 5)
+    function parseSoLuongChuan(val) {
+      if (val === null || val === undefined || val === '') return 0;
+      if (typeof val === 'number') return val;
+      let str = String(val).trim();
+      if (str.indexOf(',') !== -1 && str.indexOf('.') !== -1) {
+        if (str.indexOf(',') < str.indexOf('.')) str = str.replace(/,/g, '');
+        else str = str.replace(/\./g, '').replace(',', '.');
+      } else if (str.indexOf(',') !== -1) {
+        str = str.replace(',', '.');
+      }
+      const num = parseFloat(str);
+      return isNaN(num) ? 0 : num;
     }
 
-    // Format số lượng (hỗ trợ số thập phân dấu phẩy)
-    function formatSoLuong(so) {
-      if (!so || isNaN(so)) return "0";
-      let n = Number(so);
-      return Number.isInteger(n) ? String(n) : n.toString().replace('.', ',');
-    }
+    async function khoiTaoTrang() {
+      const layoutData = await khoiTaoLayout({
+        pageTitle: "Bước 2: Tạo Phiếu Thu Tiền & Xuất Kho",
+        breadcrumb: "Quy trình 7 bước",
+        activeMenuId: "buoc2"
+      });
+      if (!layoutData) return;
 
-    async function khoiTao() {
-      // 1. Kiểm tra đăng nhập
-      const nd = await baoVeTrang();
-      if (!nd) return;
+      // Mặc định ngày hôm nay
+      document.getElementById('ngayGiaoHang').value = new Date().toISOString().slice(0, 10);
 
-      // 2. Điền ngày hôm nay
-      const now = new Date();
-      const dd = String(now.getDate()).padStart(2, '0');
-      const mm = String(now.getMonth() + 1).padStart(2, '0');
-      const yyyy = now.getFullYear();
-      document.getElementById('ngayGiaoHang').value = `${yyyy}-${mm}-${dd}`;
-
-      // 3. Tải danh mục xe và nhân viên từ Supabase
-      await Promise.all([taiDanhSachXe(), taiDanhSachNhanVien(), taiDanhMucQuyCach()]);
-
-      // 4. Lấy dữ liệu KiotViet từ sessionStorage hoặc backup
-      const dataStr = sessionStorage.getItem("tmh_kiotviet_data") || localStorage.getItem("tmh_kiotviet_backup");
-      if (!dataStr) {
-        alert("⚠️ Chưa có dữ liệu KiotViet từ Bước 1. Đang chuyển hướng về Bước 1 để nạp file...");
+      // Đọc dữ liệu từ sessionStorage của Bước 1
+      const cache = sessionStorage.getItem("tmh_kiotviet_data");
+      if (!cache) {
+        alert("Chưa tìm thấy dữ liệu KiotViet từ Bước 1. Vui lòng vào Bước 1 nạp file Excel trước!");
         window.location.href = "buoc1_upload.html";
         return;
       }
 
       try {
-        duLieuGoc = JSON.parse(dataStr);
-        trichXuatDanhSachHoaDon();
-      } catch (err) {
-        alert("Lỗi đọc dữ liệu: " + err.message);
-      }
-    }
-
-    // Tải danh sách xe từ bảng danh_sach_xe
-    async function taiDanhSachXe() {
-      try {
-        const { data } = await sb.from('danh_sach_xe').select('*');
-        if (data && data.length > 0) {
-          const select = document.getElementById('xeVanChuyen');
-          select.innerHTML = '';
-          data.forEach(x => {
-            const opt = document.createElement('option');
-            opt.value = x.ma_xe || x.bien_so;
-            opt.textContent = `${x.ma_xe || ''} ${x.bien_so ? '(' + x.bien_so + ')' : ''}`.trim();
-            select.appendChild(opt);
-          });
-        }
+        duLieuGoc = JSON.parse(cache);
       } catch (e) {
-        console.warn("Dùng danh sách xe mặc định", e);
+        alert("Lỗi đọc dữ liệu KiotViet: " + e.message);
+        window.location.href = "buoc1_upload.html";
+        return;
       }
+
+      // Tải quy cách từ Supabase
+      await taiDanhMucQuyCach();
+
+      // Trích xuất danh sách hóa đơn duy nhất
+      trichXuatDanhSachHoaDon();
     }
 
-    // Tải nhân viên từ bảng ho_so
-    async function taiDanhSachNhanVien() {
-      try {
-        const { data } = await sb.from('ho_so').select('ho_ten, vai_tro').eq('trang_thai', 'hoat_dong');
-        if (data && data.length > 0) {
-          const selectThu = document.getElementById('nvThuTien');
-          const selectGiao = document.getElementById('nvGiaoHang');
-          const selectTaiXe = document.getElementById('taiXe');
-
-          data.forEach(u => {
-            const ten = u.ho_ten.trim();
-            themOptionNeuChuaCo(selectThu, ten);
-            themOptionNeuChuaCo(selectGiao, ten);
-            themOptionNeuChuaCo(selectTaiXe, ten);
-          });
-        }
-      } catch (e) {
-        console.warn("Dùng nhân viên mặc định", e);
-      }
-    }
-
-    function themOptionNeuChuaCo(select, val) {
-      for (let i = 0; i < select.options.length; i++) {
-        if (select.options[i].value.toLowerCase() === val.toLowerCase()) return;
-      }
-      const opt = document.createElement('option');
-      opt.value = val;
-      opt.textContent = val;
-      select.appendChild(opt);
-    }
-
-    // Tải quy cách từ bảng hang_hoa
     async function taiDanhMucQuyCach() {
       try {
         const { data } = await sb.from('hang_hoa').select('ma_hang, quy_cach');
@@ -1257,11 +539,10 @@
           });
         }
       } catch (e) {
-        console.warn("Chưa tải được quy cách từ Supabase", e);
+        console.warn("Chưa tải được quy cách:", e);
       }
     }
 
-    // Trích xuất danh sách hóa đơn duy nhất từ file KiotViet
     function trichXuatDanhSachHoaDon() {
       const mapHD = new Map();
 
@@ -1280,12 +561,12 @@
             maKH: maKH ? String(maKH).trim() : '',
             tenKH: tenKH ? String(tenKH).trim() : '(Khách lẻ)',
             diaChi: String(diaChi).trim(),
-            chon: true // Mặc định chọn tất cả
+            chon: true
           });
         }
       });
 
-      // Kiểm tra các đơn giao lại từ Bước 4
+      // Tích hợp đơn giao lại từ Bước 4 nếu có
       try {
         const danhSachGiaoLai = JSON.parse(localStorage.getItem("tmh_don_giao_lai") || "[]");
         const donCho = danhSachGiaoLai.filter(x => x.trangThai === "cho_giao_lai");
@@ -1295,36 +576,27 @@
               maHD: dg.maHD,
               maKH: dg.maKH || '',
               tenKH: dg.tenKH || '',
-              diaChi: `(Đơn giao lại từ chuyến ${dg.xeGoc || ''} ngày ${dg.ngayDonGoc || ''})`,
+              diaChi: `(Đơn giao lại từ chuyến ${dg.xeGoc || ''})`,
               chon: true,
               laDonGiaoLai: true,
               soTien: dg.thanhTien || 0
             });
           }
         });
-      } catch (e) {
-        console.warn("Lỗi đọc đơn giao lại:", e);
-      }
+      } catch (e) {}
 
       danhSachHoaDon = Array.from(mapHD.values());
       veDanhSachHoaDon();
     }
 
-    // Vẽ danh sách checkbox hóa đơn
     function veDanhSachHoaDon(filterText = '') {
       const box = document.getElementById('danhSachHoaDonBox');
       box.innerHTML = '';
-
       const tuKhoa = filterText.toLowerCase().trim();
-      let demHienThi = 0;
-      let demChon = 0;
 
       danhSachHoaDon.forEach((hd, idx) => {
         const textGop = `${hd.maHD} ${hd.tenKH} ${hd.diaChi}`.toLowerCase();
         if (tuKhoa && !textGop.includes(tuKhoa)) return;
-
-        demHienThi++;
-        if (hd.chon) demChon++;
 
         const badgeGiaoLai = hd.laDonGiaoLai 
           ? `<span style="background:#fee2e2; color:#b91c1c; padding:1px 5px; border-radius:4px; font-weight:800; font-size:10px; margin-right:4px;">🔄 GIAO LẠI</span>` 
@@ -1335,7 +607,7 @@
         div.innerHTML = `
           <input type="checkbox" id="chk_hd_${idx}" ${hd.chon ? 'checked' : ''} onchange="doiTrangThaiChon(${idx}, this.checked)">
           <div class="invoice-item-info" onclick="toggleChonCheckbox(${idx})">
-            ${badgeGiaoLai}<strong>${hd.maHD}</strong> — ${hd.tenKH} ${hd.diaChi ? '<span style="color:#64748b;">(' + hd.diaChi + ')</span>' : ''}
+            ${badgeGiaoLai}<strong>${hd.maHD}</strong> — ${hd.tenKH}
           </div>
         `;
         box.appendChild(div);
@@ -1359,7 +631,7 @@
     function capNhatBadgeSoLuong() {
       const tongChon = danhSachHoaDon.filter(h => h.chon).length;
       document.getElementById('badgeSoLuongChon').innerHTML = 
-        `<span>☑</span> Đã chọn <b>${tongChon}</b> / ${danhSachHoaDon.length} hóa đơn.`;
+        `Đã chọn <b>${tongChon}</b> / ${danhSachHoaDon.length} HĐ`;
     }
 
     function chonTatCaHoaDon(trangThai) {
@@ -1378,23 +650,16 @@
       else if (xe.includes('HD2')) taiXeSelect.value = 'HẢI';
     }
 
-    function datLaiForm() {
-      if (confirm("Bạn có chắc muốn đặt lại các hóa đơn đã chọn không?")) {
-        chonTatCaHoaDon(true);
-      }
-    }
-
     // ========================================================
-    // CHẠY TẠO PHIẾU: TÍNH TOÁN & XUẤT 2 BIỂU MẪU
+    // TÍNH TOÁN VÀ TẠO 2 BIỂU MẪU
     // ========================================================
     function chayTaoPhieu() {
       const hoaDonDuocChon = new Set(danhSachHoaDon.filter(h => h.chon).map(h => h.maHD));
       if (hoaDonDuocChon.size === 0) {
-        alert("Vui lòng tích chọn ít nhất 1 hóa đơn để tạo phiếu!");
+        alert("Vui lòng chọn ít nhất 1 hóa đơn để tạo phiếu!");
         return;
       }
 
-      // 1. Cập nhật thông tin Header chung
       const xe = document.getElementById('xeVanChuyen').value;
       const taiXe = document.getElementById('taiXe').value || '...................';
       const ngayRaw = document.getElementById('ngayGiaoHang').value;
@@ -1421,50 +686,40 @@
       document.getElementById('lblGiaoHangXuatKho').textContent = nvGiao;
       document.getElementById('lblThuTienXuatKho').textContent = nvThu;
 
-      // 2. Lọc các dòng KiotViet thuộc các hóa đơn được chọn
+      // Lọc các dòng theo hóa đơn được chọn
       const cacDongTheoXe = duLieuGoc.filter(r => {
         const maHD = layGiaTri(r, ['Mã hóa đơn', 'Mã HĐ', 'Mã chứng từ', 'Số hóa đơn', 'Ma hoa don']);
         return maHD && hoaDonDuocChon.has(String(maHD).trim());
       });
 
-      // 3. Tạo Biểu Mẫu 1: Bảng kê thu tiền hàng & giao hàng
+      // Tạo Mẫu 1: Bảng kê thu tiền
       taoBangKeThuTien(cacDongTheoXe);
 
-      // 4. Tạo Biểu Mẫu 2: Phiếu xuất kho tổng hợp (xử lý quy cách & số lẻ)
+      // Tạo Mẫu 2: Phiếu xuất kho tổng hợp (quy tắc KM lên trên, HĐ xuống dưới, kiện Chẵn/Lẻ)
       taoPhieuXuatKhoTongHop(cacDongTheoXe);
 
-      // Hiện nút Lưu đợt ở cột trái
-      const btnSide = document.getElementById('btnLuuBuoc3Side');
-      if (btnSide) btnSide.style.display = 'flex';
-
-      // Hiển thị khung kết quả
+      // Hiển thị khung kết quả & nút lưu Bước 3
       document.getElementById('manHinhCho').style.display = 'none';
+      document.getElementById('btnLuuBuoc3Side').style.display = 'flex';
       chuyenTab(tabHienTai);
-
-      window.scrollTo({ top: 300, behavior: 'smooth' });
     }
 
     // ========================================================
-    // TẠO BẢNG KÊ THU TIỀN HÀNG (MẪU 1)
-    // ĐẢM BẢO KHỚP 100% VỚI TỔNG THÀNH TIỀN CỦA PHIẾU XUẤT KHO
+    // 1. TẠO BẢNG KÊ THU TIỀN HÀNG (MẪU 1)
     // ========================================================
     function taoBangKeThuTien(dongKiotViet) {
       const mapHoaDonChiTiet = new Map();
 
       dongKiotViet.forEach(r => {
         const maHD = String(layGiaTri(r, ['Mã hóa đơn', 'Mã HĐ', 'Mã chứng từ', 'Số hóa đơn', 'Ma hoa don'])).trim();
-        const soLuong = Number(layGiaTri(r, ['Số lượng', 'SL', 'SoLuong'])) || 0;
-        const donGia = Number(layGiaTri(r, ['Đơn giá', 'Giá bán', 'Giá', 'DonGia'])) || 0;
+        const soLuong = parseSoLuongChuan(layGiaTri(r, ['Số lượng', 'SL', 'SoLuong']));
+        const donGia = Number(layGiaTri(r, ['Đơn giá', 'Giá bán', 'DonGia'])) || 0;
 
-        // Thành tiền thực tế của dòng hàng
         const thanhTienRaw = layGiaTri(r, ['Thành tiền', 'ThanhTien', 'Khách cần trả', 'Cần thu']);
         const lineThanhTien = (thanhTienRaw !== null && !isNaN(Number(thanhTienRaw))) ? Number(thanhTienRaw) : (soLuong * donGia);
-
-        // Doanh số trước giảm: lấy soLuong * donGia nếu có, nếu không thì lấy lineThanhTien
         const lineDoanhSo = (soLuong > 0 && donGia > 0) ? (soLuong * donGia) : lineThanhTien;
 
-        // Giảm giá SP: đọc từ cột, nếu không có mà Doanh số > Thành tiền thì tự động tính chênh lệch
-        let lineGiamSP = Number(layGiaTri(r, ['Giảm giá SP', 'Giảm giá', 'Chiết khấu', 'Tiền giảm giá', 'GiamGia', 'CK'])) || 0;
+        let lineGiamSP = Number(layGiaTri(r, ['Giảm giá SP', 'Giảm giá', 'Chiết khấu'])) || 0;
         if (lineGiamSP === 0 && lineDoanhSo > lineThanhTien) {
           lineGiamSP = lineDoanhSo - lineThanhTien;
         }
@@ -1492,7 +747,7 @@
         item.tongLineThanhTien += lineThanhTien;
       });
 
-      // Bổ sung các đơn giao lại được tích chọn vào Bảng Kê Thu Tiền
+      // Bổ sung đơn giao lại
       danhSachHoaDon.filter(h => h.chon && h.laDonGiaoLai).forEach(hd => {
         if (!mapHoaDonChiTiet.has(hd.maHD)) {
           mapHoaDonChiTiet.set(hd.maHD, {
@@ -1510,24 +765,18 @@
         }
       });
 
-      // Render vào bảng
       const tbody = document.getElementById('tbodyBangKe');
       tbody.innerHTML = '';
 
-      let tongDoanhSo = 0;
-      let tongGiamGiaSP = 0;
-      let tongGiamGiaHD = 0;
-      let tongThanhTien = 0;
+      let tongDoanhSo = 0, tongGiamSP = 0, tongGiamHD = 0, tongThanhTien = 0;
       let stt = 1;
       danhSachHoaDonChiTietToanCuc = Array.from(mapHoaDonChiTiet.values());
 
-      mapHoaDonChiTiet.forEach(hd => {
-        // Thành tiền hóa đơn = Tổng thành tiền các dòng - Giảm giá HĐ
+      danhSachHoaDonChiTietToanCuc.forEach(hd => {
         hd.thanhTien = hd.tongLineThanhTien - hd.giamGiaHD;
-
         tongDoanhSo += hd.doanhSo;
-        tongGiamGiaSP += hd.giamGiaSP;
-        tongGiamGiaHD += hd.giamGiaHD;
+        tongGiamSP += hd.giamGiaSP;
+        tongGiamHD += hd.giamGiaHD;
         tongThanhTien += hd.thanhTien;
 
         const tr = document.createElement('tr');
@@ -1546,26 +795,24 @@
         tbody.appendChild(tr);
       });
 
-      // Tfoot tổng cộng (Chỉ xuất hiện 1 lần ở cuối bảng, màu xanh nhạt #b8cce4 như hình 1)
       document.getElementById('tfootBangKe').innerHTML = `
-        <tr class="row-tong-bangke" style="font-weight:800;">
-          <td colspan="5" class="text-center" style="font-weight:800;">TỔNG CỘNG</td>
-          <td class="text-right" style="font-weight:800;">${formatTien(tongDoanhSo)}</td>
-          <td class="text-right" style="font-weight:800;">${formatTien(tongGiamGiaSP)}</td>
-          <td class="text-right" style="font-weight:800;">${formatTien(tongGiamGiaHD)}</td>
-          <td class="text-right text-bold" style="color:#000000; font-weight:800;">${formatTien(tongThanhTien)}</td>
+        <tr style="background-color: #b8cce4; font-weight:800;">
+          <td colspan="5" class="text-center">TỔNG CỘNG</td>
+          <td class="text-right">${formatTien(tongDoanhSo)}</td>
+          <td class="text-right">${formatTien(tongGiamSP)}</td>
+          <td class="text-right">${formatTien(tongGiamHD)}</td>
+          <td class="text-right text-bold">${formatTien(tongThanhTien)}</td>
           <td></td>
         </tr>
       `;
     }
 
     // ========================================================
-    // TẠO PHIẾU XUẤT KHO TỔNG HỢP (MẪU 2 CHUẨN THEO HÌNH SỐ 2)
-    // 1. Hàng 0đ khuyến mãi lên trên cùng
-    // 2. Hàng thông thường ở giữa
-    // 3. Dòng TỔNG CỘNG HÀNG HÓA (Màu xanh bạc hà #e2efda)
-    // 4. Dòng Banner Chứng từ / Giấy tờ đi kèm (Màu xanh #d9e1f2)
-    // 5. Dòng Hóa đơn GTGT và dòng CỘNG CHỨNG TỪ (Màu #d9e1f2)
+    // 2. TẠO PHIẾU XUẤT KHO TỔNG HỢP (MẪU 2 CHUẨN KẾ TOÁN)
+    // - KM (0đ) lên trên cùng
+    // - Hàng bán ở giữa (A->Z)
+    // - Dòng tổng kiện Chẵn/Lẻ (#e2efda)
+    // - Dòng Banner chứng từ & HĐ GTGT (#d9e1f2) ở dưới cùng
     // ========================================================
     function taoPhieuXuatKhoTongHop(dongKiotViet) {
       const mapHangHoa = new Map();
@@ -1575,17 +822,17 @@
         if (!maHangRaw) return;
         const maHang = String(maHangRaw).trim().toUpperCase();
 
-        const tenHang = layGiaTri(r, ['Tên hàng', 'Tên hàng hóa', 'Tên sản phẩm', 'TenHang']) || '';
-        const dvt = layGiaTri(r, ['Đơn vị tính', 'ĐVT', 'Đơn vị']) || 'Cái';
-        const soLuong = Number(layGiaTri(r, ['Số lượng', 'SL', 'SoLuong'])) || 0;
-        const donGia = Number(layGiaTri(r, ['Đơn giá', 'Giá bán', 'DonGia'])) || 0;
+        const tenHang = layGiaTri(r, ['Tên hàng', 'Tên hàng hóa', 'Tên SP', 'TenHang']) || '';
+        const dvt = layGiaTri(r, ['Đơn vị tính', 'ĐVT']) || 'Thùng';
+        const soLuong = parseSoLuongChuan(layGiaTri(r, ['Số lượng', 'SL', 'SoLuong']));
+        const donGia = Number(layGiaTri(r, ['Đơn giá', 'Giá bán'])) || 0;
 
-        const thanhTienRaw = layGiaTri(r, ['Thành tiền', 'ThanhTien', 'Khách cần trả', 'Cần thu']);
+        const thanhTienRaw = layGiaTri(r, ['Thành tiền', 'ThanhTien', 'Khách cần trả']);
         const lineThanhTien = (thanhTienRaw !== null && !isNaN(Number(thanhTienRaw))) ? Number(thanhTienRaw) : (soLuong * donGia);
 
         let quyCach = mapQuyCach.get(maHang);
         if (!quyCach || isNaN(quyCach)) {
-          quyCach = Number(layGiaTri(r, ['Quy cách', 'QuyCach', 'QC'])) || 1;
+          quyCach = parseSoLuongChuan(layGiaTri(r, ['Quy cách', 'QuyCach', 'QC'])) || 1;
         }
 
         if (!mapHangHoa.has(maHang)) {
@@ -1611,11 +858,11 @@
       tbody.innerHTML = '';
       document.getElementById('tfootXuatKho').innerHTML = '';
 
-      // Phân loại mặt hàng
+      // Phân nhóm
       const tatCaHang = Array.from(mapHangHoa.values());
-      const hangKhuyenMai = [];
-      const hangThongThuong = [];
-      const hangHoaDon = [];
+      const hangKM = [];
+      const hangBan = [];
+      const hangHD = [];
 
       tatCaHang.forEach(h => {
         const mh = (h.maHang || '').toUpperCase().trim();
@@ -1623,24 +870,21 @@
         const laHD = mh === 'HĐ' || mh === 'HD' || mh.startsWith('HĐ') || mh.startsWith('HD') || th.includes('hóa đơn') || th.includes('hoá đơn');
         const laKM = (h.donGia === 0 || h.thanhTien === 0 || h.laKhuyenMai);
 
-        if (laHD) {
-          hangHoaDon.push(h);
-        } else if (laKM) {
-          hangKhuyenMai.push(h);
-        } else {
-          hangThongThuong.push(h);
-        }
+        if (laHD) hangHD.push(h);
+        else if (laKM) hangKM.push(h);
+        else hangBan.push(h);
       });
 
-      const danhSachHangHoa = [...hangKhuyenMai, ...hangThongThuong];
+      // Sắp xếp mã A->Z
+      hangKM.sort((a, b) => a.maHang.localeCompare(b.maHang));
+      hangBan.sort((a, b) => a.maHang.localeCompare(b.maHang));
+
+      const danhSachXuat = [...hangKM, ...hangBan];
       let stt = 1;
-      let tongChanHang = 0;
-      let tongLeHang = 0;
-      let tongTienHang = 0;
+      let tongChan = 0, tongLe = 0, tongTien = 0;
+      const danhSachExcel = [];
 
-      const danhSachHangHoaExcel = [];
-
-      danhSachHangHoa.forEach(h => {
+      danhSachXuat.forEach(h => {
         const qc = (h.quyCach && h.quyCach > 0) ? h.quyCach : 1;
         let chan = Math.floor(h.tongSL);
         let le = 0;
@@ -1648,17 +892,13 @@
         const phanLe = h.tongSL - chan;
         if (qc > 1 && phanLe > 0.00001) {
           le = Math.round(phanLe * qc);
-          if (le >= qc) {
-            chan += 1;
-            le = 0;
-          }
         }
 
-        tongChanHang += chan;
-        tongLeHang += le;
-        tongTienHang += h.thanhTien;
+        tongChan += chan;
+        tongLe += le;
+        tongTien += h.thanhTien;
 
-        danhSachHangHoaExcel.push({
+        danhSachExcel.push({
           stt: stt,
           maHang: h.maHang,
           tenHang: h.tenHang,
@@ -1669,8 +909,7 @@
           le: le,
           donGia: h.donGia,
           thanhTien: h.thanhTien,
-          laKhuyenMai: h.laKhuyenMai,
-          ghiChu: h.laKhuyenMai ? 'HÀNG KHUYẾN MÃI' : ''
+          laKhuyenMai: h.laKhuyenMai
         });
 
         const tr = document.createElement('tr');
@@ -1680,7 +919,7 @@
           <td>${h.tenHang}</td>
           <td class="text-center">${qc}</td>
           <td class="text-center">${h.dvt}</td>
-          <td class="text-center text-bold">${formatSoLuong(h.tongSL)}</td>
+          <td class="text-center text-bold">${h.tongSL}</td>
           <td class="text-center">${chan}</td>
           <td class="text-center">${le}</td>
           <td class="text-right">${formatTien(h.donGia)}</td>
@@ -1690,31 +929,29 @@
         tbody.appendChild(tr);
       });
 
-      // 1. DÒNG TỔNG CỘNG HÀNG HÓA (Màu xanh bạc hà #e2efda như hình số 2)
-      const trTongHang = document.createElement('tr');
-      trTongHang.className = 'row-tong-hang';
-      trTongHang.innerHTML = `
+      // 1. Dòng TỔNG CỘNG HÀNG HÓA (#e2efda)
+      const trTong = document.createElement('tr');
+      trTong.className = 'row-tong-hang';
+      trTong.innerHTML = `
         <td colspan="6" class="text-center" style="font-weight:800;">TỔNG CỘNG HÀNG HÓA</td>
-        <td class="text-center" style="font-weight:800;">${tongChanHang}</td>
-        <td class="text-center" style="font-weight:800;">${tongLeHang}</td>
+        <td class="text-center" style="font-weight:800;">${tongChan}</td>
+        <td class="text-center" style="font-weight:800;">${tongLe}</td>
         <td></td>
-        <td class="text-right" style="font-weight:800;">${formatTien(tongTienHang)}</td>
+        <td class="text-right" style="font-weight:800;">${formatTien(tongTien)}</td>
         <td></td>
       `;
-      tbody.appendChild(trTongHang);
+      tbody.appendChild(trTong);
 
-      // 2. DÒNG BANNER PHÂN TÁCH CHỨNG TỪ (Màu xanh lavender #d9e1f2 như hình số 2)
+      // 2. Dòng Banner Chứng từ (#d9e1f2)
       const trBanner = document.createElement('tr');
       trBanner.className = 'row-banner-doc';
       trBanner.innerHTML = `
-        <td colspan="11" class="text-center" style="font-size:11px; padding:6px; letter-spacing:0.3px;">
-          CHỨNG TỪ / GIẤY TỜ ĐI KÈM — KHÔNG TÍNH VÀO TỔNG SỐ KIỆN Ở TRÊN
-        </td>
+        <td colspan="11">CHỨNG TỪ / GIẤY TỜ ĐI KÈM — KHÔNG TÍNH VÀO TỔNG SỐ KIỆN Ở TRÊN</td>
       `;
       tbody.appendChild(trBanner);
 
-      // 3. DÒNG CHỨNG TỪ HÓA ĐƠN GTGT
-      const countHD = hangHoaDon.length > 0 ? (hangHoaDon[0].tongSL || 1) : (danhSachHoaDonChiTietToanCuc.length || 1);
+      // 3. Dòng Hóa đơn GTGT
+      const countHD = hangHD.length > 0 ? (hangHD[0].tongSL || 1) : (danhSachHoaDonChiTietToanCuc.length || 1);
       const trHD = document.createElement('tr');
       trHD.innerHTML = `
         <td class="text-center">${stt++}</td>
@@ -1731,7 +968,7 @@
       `;
       tbody.appendChild(trHD);
 
-      // 4. DÒNG CỘNG CHỨNG TỪ (Màu xanh lavender #d9e1f2 như hình số 2)
+      // 4. Dòng CỘNG CHỨNG TỪ (#d9e1f2)
       const trCongDoc = document.createElement('tr');
       trCongDoc.className = 'row-cong-doc';
       trCongDoc.innerHTML = `
@@ -1741,17 +978,15 @@
       `;
       tbody.appendChild(trCongDoc);
 
-      // Lưu trữ cấu trúc để hàm xuất Excel sử dụng
       danhSachHangHoaXuatKhoToanCuc = {
-        hangHoa: danhSachHangHoaExcel,
-        tongChanHang: tongChanHang,
-        tongLeHang: tongLeHang,
-        tongTienHang: tongTienHang,
+        hangHoa: danhSachExcel,
+        tongChan: tongChan,
+        tongLe: tongLe,
+        tongTien: tongTien,
         soLuongHD: countHD
       };
     }
 
-    // Chuyển tab hiển thị
     function chuyenTab(tab) {
       tabHienTai = tab;
       if (tab === 'bangke') {
@@ -1767,21 +1002,16 @@
       }
     }
 
-    // ========================================================
-    // IN ẤN CHUẨN A4 DỌC PORTRAIT (VỪA KHÍT 198MM CHIỀU NGANG)
-    // ========================================================
     function inPhieuHienTai() {
-      document.body.classList.remove('print-mode-bangke', 'print-mode-xuatkho');
-      document.body.classList.add(tabHienTai === 'bangke' ? 'print-mode-bangke' : 'print-mode-xuatkho');
       window.print();
     }
 
     // ========================================================
-    // XUẤT EXCEL CHUẨN GIAO DIỆN & MÀU SẮC NHƯ HÌNH MẪU 1 VÀ 2
+    // XUẤT FILE EXCEL ĐẦY ĐỦ MÀU SẮC CHUẨN
     // ========================================================
     function xuatExcelHienTai() {
       if (typeof XLSX === 'undefined') {
-        alert("Thư viện xuất Excel đang khởi tạo, vui lòng bấm lại sau giây lát.");
+        alert("Thư viện XLSX đang khởi tạo...");
         return;
       }
 
@@ -1793,7 +1023,6 @@
       const nvThu = document.getElementById('nvThuTien').value || '';
 
       const wb = XLSX.utils.book_new();
-
       const borderThin = {
         top: { style: "thin", color: { rgb: "B0C4DE" } },
         bottom: { style: "thin", color: { rgb: "B0C4DE" } },
@@ -1802,46 +1031,26 @@
       };
 
       if (tabHienTai === 'bangke') {
-        // ========================================================
-        // 1. XUẤT BẢNG KÊ THU TIỀN HÀNG VÀ GIAO HÀNG (CHUẨN HÌNH 1)
-        // ========================================================
-        const wsData = [];
-        wsData.push([
-          { v: "CÔNG TY TNHH THÁI MỸ HƯƠNG", s: { font: { bold: true, sz: 12, name: "Times New Roman" } } }
-        ]);
-        wsData.push([
-          { v: "Đc: 291 Văn Tiến Dũng, Phường Hoà Xuân, TP Đà Nẵng — ĐT: 0903.550.648", s: { font: { italic: true, sz: 9.5, name: "Times New Roman", color: { rgb: "444444" } } } }
-        ]);
-        wsData.push([]);
-        wsData.push([
-          { v: "BẢNG KÊ THU TIỀN HÀNG VÀ GIAO HÀNG", s: { font: { bold: true, sz: 15, name: "Times New Roman" }, alignment: { horizontal: "center", vertical: "center" } } }
-        ]);
-        wsData.push([
-          { v: `Xe giao: ${xe}`, s: { font: { bold: true, sz: 10, name: "Times New Roman" } } },
-          null, null, null, null, null, null,
-          { v: `Tài xế: ${taiXe}`, s: { font: { bold: true, sz: 10, name: "Times New Roman" } } }
-        ]);
-        wsData.push([
-          { v: `Ngày giao: ${ngayDinhDang}`, s: { font: { bold: true, sz: 10, name: "Times New Roman" } } },
-          null, null,
-          { v: `Giao hàng: ${nvGiao}`, s: { font: { bold: true, sz: 10, name: "Times New Roman" } } },
-          null, null, null,
-          { v: `Thu tiền: ${nvThu}`, s: { font: { bold: true, sz: 10, name: "Times New Roman" } } }
-        ]);
-        wsData.push([]);
+        const wsData = [
+          [{ v: "CÔNG TY TNHH THÁI MỸ HƯƠNG", s: { font: { bold: true, sz: 12, name: "Times New Roman" } } }],
+          [{ v: "Đc: 291 Văn Tiến Dũng, Phường Hoà Xuân, TP Đà Nẵng — ĐT: 0903.550.648", s: { font: { italic: true, sz: 9.5, name: "Times New Roman", color: { rgb: "444444" } } } }],
+          [],
+          [{ v: "BẢNG KÊ THU TIỀN HÀNG VÀ GIAO HÀNG", s: { font: { bold: true, sz: 15, name: "Times New Roman" }, alignment: { horizontal: "center" } } }],
+          [{ v: `Xe giao: ${xe}`, s: { font: { bold: true, sz: 10 } } }, null, null, null, null, null, null, { v: `Tài xế: ${taiXe}`, s: { font: { bold: true, sz: 10 } } }],
+          [{ v: `Ngày giao: ${ngayDinhDang}`, s: { font: { bold: true, sz: 10 } } }, null, null, { v: `Giao hàng: ${nvGiao}`, s: { font: { bold: true, sz: 10 } } }, null, null, null, { v: `Thu tiền: ${nvThu}`, s: { font: { bold: true, sz: 10 } } }],
+          []
+        ];
 
-        // Tiêu đề cột (Xanh nhạt #B8CCE4)
         const headerStyle = {
-          font: { bold: true, sz: 10, name: "Times New Roman", color: { rgb: "000000" } },
+          font: { bold: true, sz: 10, name: "Times New Roman" },
           fill: { fgColor: { rgb: "B8CCE4" } },
-          alignment: { horizontal: "center", vertical: "center", wrapText: true },
+          alignment: { horizontal: "center", vertical: "center" },
           border: borderThin
         };
         const headers = ["STT", "Mã Hoá Đơn", "Mã Khách Hàng", "Tên Khách Hàng", "Người Bán", "Doanh Số", "Giảm Giá SP", "Giảm Giá HĐ", "Thành Tiền", "Ghi Chú"];
         wsData.push(headers.map(h => ({ v: h, s: headerStyle })));
 
-        let tongDoanhSo = 0, tongGiamSP = 0, tongGiamHD = 0, tongThanhTien = 0;
-        let stt = 1;
+        let tongDoanhSo = 0, tongGiamSP = 0, tongGiamHD = 0, tongThanhTien = 0, stt = 1;
         danhSachHoaDonChiTietToanCuc.forEach(hd => {
           tongDoanhSo += hd.doanhSo;
           tongGiamSP += hd.giamGiaSP;
@@ -1850,36 +1059,28 @@
 
           const baseStyle = { font: { sz: 9.5, name: "Times New Roman" }, border: borderThin, alignment: { vertical: "center" } };
           wsData.push([
-            { v: stt++, t: "n", s: { ...baseStyle, alignment: { horizontal: "center", vertical: "center" } } },
-            { v: hd.maHD, t: "s", s: { ...baseStyle, font: { bold: true, sz: 9.5, name: "Times New Roman" }, alignment: { horizontal: "center", vertical: "center" } } },
-            { v: hd.maKH, t: "s", s: { ...baseStyle, alignment: { horizontal: "left", vertical: "center" } } },
-            { v: hd.tenKH, t: "s", s: { ...baseStyle, alignment: { horizontal: "left", vertical: "center", wrapText: true } } },
-            { v: hd.nguoiBan, t: "s", s: { ...baseStyle, alignment: { horizontal: "left", vertical: "center", wrapText: true } } },
-            { v: hd.doanhSo, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right", vertical: "center" } } },
-            { v: hd.giamGiaSP, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right", vertical: "center" } } },
-            { v: hd.giamGiaHD, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right", vertical: "center" } } },
-            { v: hd.thanhTien, t: "n", z: "#,##0", s: { ...baseStyle, font: { bold: true, sz: 9.5, name: "Times New Roman" }, alignment: { horizontal: "right", vertical: "center" } } },
-            { v: hd.ghiChu || "", t: "s", s: { ...baseStyle, alignment: { horizontal: "center", vertical: "center" } } }
+            { v: stt++, t: "n", s: { ...baseStyle, alignment: { horizontal: "center" } } },
+            { v: hd.maHD, t: "s", s: { ...baseStyle, font: { bold: true } } },
+            { v: hd.maKH, t: "s", s: baseStyle },
+            { v: hd.tenKH, t: "s", s: baseStyle },
+            { v: hd.nguoiBan, t: "s", s: baseStyle },
+            { v: hd.doanhSo, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right" } } },
+            { v: hd.giamGiaSP, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right" } } },
+            { v: hd.giamGiaHD, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right" } } },
+            { v: hd.thanhTien, t: "n", z: "#,##0", s: { ...baseStyle, font: { bold: true }, alignment: { horizontal: "right" } } },
+            { v: hd.ghiChu || "", t: "s", s: baseStyle }
           ]);
         });
 
-        // Dòng TỔNG CỘNG (#B8CCE4)
-        const totalStyle = {
-          font: { bold: true, sz: 10, name: "Times New Roman" },
-          fill: { fgColor: { rgb: "B8CCE4" } },
-          border: borderThin,
-          alignment: { vertical: "center" }
-        };
+        // Hàng tổng cộng
+        const totalStyle = { font: { bold: true, sz: 10, name: "Times New Roman" }, fill: { fgColor: { rgb: "B8CCE4" } }, border: borderThin };
         wsData.push([
-          { v: "TỔNG CỘNG", s: { ...totalStyle, alignment: { horizontal: "center", vertical: "center" } } },
-          { v: "", s: totalStyle },
-          { v: "", s: totalStyle },
-          { v: "", s: totalStyle },
-          { v: "", s: totalStyle },
-          { v: tongDoanhSo, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right", vertical: "center" } } },
-          { v: tongGiamSP, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right", vertical: "center" } } },
-          { v: tongGiamHD, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right", vertical: "center" } } },
-          { v: tongThanhTien, t: "n", z: "#,##0", s: { ...totalStyle, font: { bold: true, sz: 10, name: "Times New Roman" }, alignment: { horizontal: "right", vertical: "center" } } },
+          { v: "TỔNG CỘNG", s: { ...totalStyle, alignment: { horizontal: "center" } } },
+          { v: "", s: totalStyle }, { v: "", s: totalStyle }, { v: "", s: totalStyle }, { v: "", s: totalStyle },
+          { v: tongDoanhSo, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right" } } },
+          { v: tongGiamSP, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right" } } },
+          { v: tongGiamHD, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right" } } },
+          { v: tongThanhTien, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right" } } },
           { v: "", s: totalStyle }
         ]);
 
@@ -1890,146 +1091,93 @@
           { s: { r: 3, c: 0 }, e: { r: 3, c: 9 } },
           { s: { r: wsData.length - 1, c: 0 }, e: { r: wsData.length - 1, c: 4 } }
         ];
-        ws['!cols'] = [
-          { wch: 5 }, { wch: 13 }, { wch: 14 }, { wch: 32 }, { wch: 25 },
-          { wch: 13 }, { wch: 12 }, { wch: 11 }, { wch: 14 }, { wch: 10 }
-        ];
+        ws['!cols'] = [{ wch: 5 }, { wch: 14 }, { wch: 14 }, { wch: 32 }, { wch: 22 }, { wch: 13 }, { wch: 12 }, { wch: 11 }, { wch: 14 }, { wch: 12 }];
         XLSX.utils.book_append_sheet(wb, ws, "BangKeThuTien");
         XLSX.writeFile(wb, `Bang_Ke_Thu_Tien_${xe.replace(/[^a-zA-Z0-9]/g, '_')}_${ngay}.xlsx`);
 
       } else {
-        // ========================================================
-        // 2. XUẤT PHIẾU XUẤT KHO TỔNG HỢP (CHUẨN HÌNH 2)
-        // ========================================================
-        const wsData = [];
-        wsData.push([
-          { v: "CÔNG TY TNHH THÁI MỸ HƯƠNG", s: { font: { bold: true, sz: 12, name: "Times New Roman" } } }
-        ]);
-        wsData.push([
-          { v: "Đc: 291 Văn Tiến Dũng, Phường Hoà Xuân, TP Đà Nẵng — ĐT: 0903.550.648", s: { font: { italic: true, sz: 9.5, name: "Times New Roman", color: { rgb: "444444" } } } }
-        ]);
-        wsData.push([]);
-        wsData.push([
-          { v: "PHIẾU XUẤT KHO TỔNG HỢP", s: { font: { bold: true, sz: 15, name: "Times New Roman" }, alignment: { horizontal: "center", vertical: "center" } } }
-        ]);
-        wsData.push([
-          { v: `Xe giao: ${xe}`, s: { font: { bold: true, sz: 10, name: "Times New Roman" } } },
-          null, null, null, null, null, null,
-          { v: `Tài xế: ${taiXe}`, s: { font: { bold: true, sz: 10, name: "Times New Roman" } } }
-        ]);
-        wsData.push([
-          { v: `Ngày giao: ${ngayDinhDang}`, s: { font: { bold: true, sz: 10, name: "Times New Roman" } } },
-          null, null,
-          { v: `Giao hàng: ${nvGiao}`, s: { font: { bold: true, sz: 10, name: "Times New Roman" } } },
-          null, null, null,
-          { v: `Thu tiền: ${nvThu}`, s: { font: { bold: true, sz: 10, name: "Times New Roman" } } }
-        ]);
-        wsData.push([]);
+        // Xuất Phiếu xuất kho tổng hợp
+        const wsData = [
+          [{ v: "CÔNG TY TNHH THÁI MỸ HƯƠNG", s: { font: { bold: true, sz: 12, name: "Times New Roman" } } }],
+          [{ v: "Đc: 291 Văn Tiến Dũng, Phường Hoà Xuân, TP Đà Nẵng — ĐT: 0903.550.648", s: { font: { italic: true, sz: 9.5, name: "Times New Roman", color: { rgb: "444444" } } } }],
+          [],
+          [{ v: "PHIẾU XUẤT KHO TỔNG HỢP", s: { font: { bold: true, sz: 15, name: "Times New Roman" }, alignment: { horizontal: "center" } } }],
+          [{ v: `Xe giao: ${xe}`, s: { font: { bold: true, sz: 10 } } }, null, null, null, null, null, null, { v: `Tài xế: ${taiXe}`, s: { font: { bold: true, sz: 10 } } }],
+          [{ v: `Ngày giao: ${ngayDinhDang}`, s: { font: { bold: true, sz: 10 } } }, null, null, { v: `Giao hàng: ${nvGiao}`, s: { font: { bold: true, sz: 10 } } }, null, null, null, { v: `Thu tiền: ${nvThu}`, s: { font: { bold: true, sz: 10 } } }],
+          []
+        ];
 
-        // Tiêu đề cột (Vàng nhạt #FFF2CC)
         const headerStyle = {
-          font: { bold: true, sz: 10, name: "Times New Roman", color: { rgb: "000000" } },
+          font: { bold: true, sz: 10, name: "Times New Roman" },
           fill: { fgColor: { rgb: "FFF2CC" } },
-          alignment: { horizontal: "center", vertical: "center", wrapText: true },
+          alignment: { horizontal: "center", vertical: "center" },
           border: borderThin
         };
-        const headers = ["STT", "Mã Hàng", "Tên Hàng", "Quy Cách", "ĐVT", "Tổng SL", "Chẵn", "Lẻ", "Đơn Giá", "Thành Tiền", "Ghi Chú"];
+        const headers = ["STT", "Mã Hàng", "Tên Hàng Hóa", "QC", "ĐVT", "Tổng SL", "Chẵn", "Lẻ", "Đơn Giá", "Thành Tiền", "Ghi Chú"];
         wsData.push(headers.map(h => ({ v: h, s: headerStyle })));
 
-        let stt = 1;
-        const hangList = danhSachHangHoaXuatKhoToanCuc.hangHoa || [];
-        hangList.forEach(h => {
+        danhSachHangHoaXuatKhoToanCuc.hangHoa.forEach(h => {
           const baseStyle = { font: { sz: 9.5, name: "Times New Roman" }, border: borderThin, alignment: { vertical: "center" } };
-          const kmStyle = h.laKhuyenMai ? { font: { bold: true, color: { rgb: "C00000" }, sz: 9, name: "Times New Roman" } } : {};
-
           wsData.push([
-            { v: stt++, t: "n", s: { ...baseStyle, alignment: { horizontal: "center", vertical: "center" } } },
-            { v: h.maHang, t: "s", s: { ...baseStyle, font: { bold: true, sz: 9.5, name: "Times New Roman" }, alignment: { horizontal: "left", vertical: "center" } } },
-            { v: h.tenHang, t: "s", s: { ...baseStyle, alignment: { horizontal: "left", vertical: "center", wrapText: true } } },
-            { v: h.quyCach, t: "n", s: { ...baseStyle, alignment: { horizontal: "center", vertical: "center" } } },
-            { v: h.dvt, t: "s", s: { ...baseStyle, alignment: { horizontal: "center", vertical: "center" } } },
-            { v: h.tongSL, t: "n", z: "#,##0.##", s: { ...baseStyle, font: { bold: true, sz: 9.5, name: "Times New Roman" }, alignment: { horizontal: "center", vertical: "center" } } },
-            { v: h.chan, t: "n", s: { ...baseStyle, alignment: { horizontal: "center", vertical: "center" } } },
-            { v: h.le, t: "n", s: { ...baseStyle, alignment: { horizontal: "center", vertical: "center" } } },
-            { v: h.donGia, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right", vertical: "center" } } },
-            { v: h.thanhTien, t: "n", z: "#,##0", s: { ...baseStyle, font: { bold: true, sz: 9.5, name: "Times New Roman" }, alignment: { horizontal: "right", vertical: "center" } } },
-            { v: h.laKhuyenMai ? "HÀNG KHUYẾN MÃI" : (h.ghiChu || ""), t: "s", s: { ...baseStyle, ...kmStyle, alignment: { horizontal: "center", vertical: "center" } } }
+            { v: h.stt, t: "n", s: { ...baseStyle, alignment: { horizontal: "center" } } },
+            { v: h.maHang, t: "s", s: { ...baseStyle, font: { bold: true } } },
+            { v: h.tenHang, t: "s", s: baseStyle },
+            { v: h.quyCach, t: "n", s: { ...baseStyle, alignment: { horizontal: "center" } } },
+            { v: h.dvt, t: "s", s: { ...baseStyle, alignment: { horizontal: "center" } } },
+            { v: h.tongSL, t: "n", z: "#,##0.##", s: { ...baseStyle, font: { bold: true }, alignment: { horizontal: "center" } } },
+            { v: h.chan, t: "n", s: { ...baseStyle, alignment: { horizontal: "center" } } },
+            { v: h.le, t: "n", s: { ...baseStyle, alignment: { horizontal: "center" } } },
+            { v: h.donGia, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right" } } },
+            { v: h.thanhTien, t: "n", z: "#,##0", s: { ...baseStyle, font: { bold: true }, alignment: { horizontal: "right" } } },
+            { v: h.laKhuyenMai ? "HÀNG KHUYẾN MÃI" : "", t: "s", s: { ...baseStyle, font: { italic: true, color: { rgb: "C00000" } }, alignment: { horizontal: "center" } } }
           ]);
         });
 
-        // Dòng TỔNG CỘNG HÀNG HÓA (Xanh bạc hà #E2EFDA)
+        // Dòng Tổng kiện (#E2EFDA)
+        const totalGreen = { font: { bold: true, sz: 10, name: "Times New Roman" }, fill: { fgColor: { rgb: "E2EFDA" } }, border: borderThin };
         const rowTongHangIdx = wsData.length;
-        const mintGreenStyle = {
-          font: { bold: true, sz: 10, name: "Times New Roman" },
-          fill: { fgColor: { rgb: "E2EFDA" } },
-          border: borderThin,
-          alignment: { vertical: "center" }
-        };
         wsData.push([
-          { v: "TỔNG CỘNG HÀNG HÓA", s: { ...mintGreenStyle, alignment: { horizontal: "center", vertical: "center" } } },
-          { v: "", s: mintGreenStyle },
-          { v: "", s: mintGreenStyle },
-          { v: "", s: mintGreenStyle },
-          { v: "", s: mintGreenStyle },
-          { v: "", s: mintGreenStyle },
-          { v: danhSachHangHoaXuatKhoToanCuc.tongChanHang || 0, t: "n", s: { ...mintGreenStyle, alignment: { horizontal: "center", vertical: "center" } } },
-          { v: danhSachHangHoaXuatKhoToanCuc.tongLeHang || 0, t: "n", s: { ...mintGreenStyle, alignment: { horizontal: "center", vertical: "center" } } },
-          { v: "", s: mintGreenStyle },
-          { v: danhSachHangHoaXuatKhoToanCuc.tongTienHang || 0, t: "n", z: "#,##0", s: { ...mintGreenStyle, alignment: { horizontal: "right", vertical: "center" } } },
-          { v: "", s: mintGreenStyle }
+          { v: "TỔNG CỘNG HÀNG HÓA", s: { ...totalGreen, alignment: { horizontal: "center" } } },
+          { v: "", s: totalGreen }, { v: "", s: totalGreen }, { v: "", s: totalGreen }, { v: "", s: totalGreen }, { v: "", s: totalGreen },
+          { v: danhSachHangHoaXuatKhoToanCuc.tongChan, t: "n", s: { ...totalGreen, alignment: { horizontal: "center" } } },
+          { v: danhSachHangHoaXuatKhoToanCuc.tongLe, t: "n", s: { ...totalGreen, alignment: { horizontal: "center" } } },
+          { v: "", s: totalGreen },
+          { v: danhSachHangHoaXuatKhoToanCuc.tongTien, t: "n", z: "#,##0", s: { ...totalGreen, alignment: { horizontal: "right" } } },
+          { v: "", s: totalGreen }
         ]);
 
-        // Dòng Banner: CHỨNG TỪ / GIẤY TỜ ĐI KÈM (Xanh lavender #D9E1F2)
+        // Dòng Banner Chứng từ (#D9E1F2)
         const rowBannerIdx = wsData.length;
-        const bannerStyle = {
-          font: { bold: true, sz: 10, name: "Times New Roman", color: { rgb: "000000" } },
-          fill: { fgColor: { rgb: "D9E1F2" } },
-          border: borderThin,
-          alignment: { horizontal: "center", vertical: "center" }
-        };
-        const bannerRow = Array(11).fill(null).map((_, i) => ({
+        const bannerStyle = { font: { bold: true, sz: 10, name: "Times New Roman" }, fill: { fgColor: { rgb: "D9E1F2" } }, border: borderThin, alignment: { horizontal: "center" } };
+        wsData.push(Array(11).fill(null).map((_, i) => ({
           v: i === 0 ? "CHỨNG TỪ / GIẤY TỜ ĐI KÈM — KHÔNG TÍNH VÀO TỔNG SỐ KIỆN Ở TRÊN" : "",
           s: bannerStyle
-        }));
-        wsData.push(bannerRow);
+        })));
 
-        // Dòng Hóa đơn GTGT
+        // Hóa đơn GTGT
         const countHD = danhSachHangHoaXuatKhoToanCuc.soLuongHD || 1;
         const docBaseStyle = { font: { sz: 9.5, name: "Times New Roman" }, border: borderThin, alignment: { vertical: "center" } };
         wsData.push([
-          { v: stt++, t: "n", s: { ...docBaseStyle, alignment: { horizontal: "center", vertical: "center" } } },
-          { v: "HĐ", t: "s", s: { ...docBaseStyle, font: { bold: true, sz: 9.5, name: "Times New Roman" }, alignment: { horizontal: "left", vertical: "center" } } },
-          { v: "Hóa Đơn GTGT", t: "s", s: { ...docBaseStyle, alignment: { horizontal: "left", vertical: "center" } } },
-          { v: 1, t: "n", s: { ...docBaseStyle, alignment: { horizontal: "center", vertical: "center" } } },
-          { v: "Tờ", t: "s", s: { ...docBaseStyle, alignment: { horizontal: "center", vertical: "center" } } },
-          { v: countHD, t: "n", s: { ...docBaseStyle, font: { bold: true, sz: 9.5, name: "Times New Roman" }, alignment: { horizontal: "center", vertical: "center" } } },
-          { v: "", s: docBaseStyle },
-          { v: "", s: docBaseStyle },
-          { v: 0, t: "n", z: "#,##0", s: { ...docBaseStyle, alignment: { horizontal: "right", vertical: "center" } } },
-          { v: 0, t: "n", z: "#,##0", s: { ...docBaseStyle, alignment: { horizontal: "right", vertical: "center" } } },
-          { v: "HÀNG KHUYẾN MÃI", t: "s", s: { ...docBaseStyle, font: { italic: true, sz: 9, name: "Times New Roman", color: { rgb: "C00000" } }, alignment: { horizontal: "center", vertical: "center" } } }
+          { v: danhSachHangHoaXuatKhoToanCuc.hangHoa.length + 1, t: "n", s: { ...docBaseStyle, alignment: { horizontal: "center" } } },
+          { v: "HĐ", t: "s", s: { ...docBaseStyle, font: { bold: true } } },
+          { v: "Hóa Đơn GTGT", t: "s", s: docBaseStyle },
+          { v: 1, t: "n", s: { ...docBaseStyle, alignment: { horizontal: "center" } } },
+          { v: "Tờ", t: "s", s: { ...docBaseStyle, alignment: { horizontal: "center" } } },
+          { v: countHD, t: "n", s: { ...docBaseStyle, font: { bold: true }, alignment: { horizontal: "center" } } },
+          { v: "", s: docBaseStyle }, { v: "", s: docBaseStyle },
+          { v: 0, t: "n", z: "#,##0", s: { ...docBaseStyle, alignment: { horizontal: "right" } } },
+          { v: 0, t: "n", z: "#,##0", s: { ...docBaseStyle, alignment: { horizontal: "right" } } },
+          { v: "HÀNG KHUYẾN MÃI", t: "s", s: { ...docBaseStyle, font: { italic: true, color: { rgb: "C00000" } }, alignment: { horizontal: "center" } } }
         ]);
 
-        // Dòng CỘNG CHỨNG TỪ (Xanh lavender #D9E1F2)
+        // Cộng chứng từ (#D9E1F2)
         const rowCongDocIdx = wsData.length;
-        const congDocStyle = {
-          font: { bold: true, sz: 10, name: "Times New Roman" },
-          fill: { fgColor: { rgb: "D9E1F2" } },
-          border: borderThin,
-          alignment: { vertical: "center" }
-        };
         wsData.push([
-          { v: "CỘNG CHỨNG TỪ", s: { ...congDocStyle, alignment: { horizontal: "center", vertical: "center" } } },
-          { v: "", s: congDocStyle },
-          { v: "", s: congDocStyle },
-          { v: "", s: congDocStyle },
-          { v: "", s: congDocStyle },
-          { v: "", s: congDocStyle },
-          { v: "", s: congDocStyle },
-          { v: "", s: congDocStyle },
-          { v: "", s: congDocStyle },
-          { v: 0, t: "n", z: "#,##0", s: { ...congDocStyle, alignment: { horizontal: "right", vertical: "center" } } },
-          { v: "", s: congDocStyle }
+          { v: "CỘNG CHỨNG TỪ", s: bannerStyle },
+          { v: "", s: bannerStyle }, { v: "", s: bannerStyle }, { v: "", s: bannerStyle }, { v: "", s: bannerStyle },
+          { v: "", s: bannerStyle }, { v: "", s: bannerStyle }, { v: "", s: bannerStyle }, { v: "", s: bannerStyle },
+          { v: 0, t: "n", z: "#,##0", s: { ...bannerStyle, alignment: { horizontal: "right" } } },
+          { v: "", s: bannerStyle }
         ]);
 
         const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -2041,29 +1189,20 @@
           { s: { r: rowBannerIdx, c: 0 }, e: { r: rowBannerIdx, c: 10 } },
           { s: { r: rowCongDocIdx, c: 0 }, e: { r: rowCongDocIdx, c: 8 } }
         ];
-        ws['!cols'] = [
-          { wch: 5 }, { wch: 13 }, { wch: 36 }, { wch: 9 }, { wch: 8 },
-          { wch: 9 }, { wch: 7 }, { wch: 7 }, { wch: 13 }, { wch: 15 }, { wch: 22 }
-        ];
+        ws['!cols'] = [{ wch: 5 }, { wch: 14 }, { wch: 36 }, { wch: 8 }, { wch: 8 }, { wch: 9 }, { wch: 7 }, { wch: 7 }, { wch: 13 }, { wch: 15 }, { wch: 20 }];
         XLSX.utils.book_append_sheet(wb, ws, "PhieuXuatKho");
         XLSX.writeFile(wb, `Phieu_Xuat_Kho_${xe.replace(/[^a-zA-Z0-9]/g, '_')}_${ngay}.xlsx`);
       }
     }
 
     // ========================================================
-    // LƯU ĐỢT NÀY & CHUYỂN SANG BƯỚC 3: LƯU TRỮ
+    // LƯU ĐỢT ĐIỀU ĐỘNG SANG BƯỚC 3: LƯU TRỮ
     // ========================================================
-    function luuVaChuyenSangBuoc3() {
+    async function luuVaChuyenSangBuoc3() {
       const hoaDonDuocChon = danhSachHoaDon.filter(h => h.chon);
       if (!hoaDonDuocChon || hoaDonDuocChon.length === 0) {
-        alert("Vui lòng tích chọn ít nhất 1 hóa đơn để lưu!");
+        alert("Vui lòng chọn ít nhất 1 hóa đơn để lưu!");
         return;
-      }
-
-      // Tự động chạy tạo phiếu nếu chưa chạy
-      const manHinhCho = document.getElementById('manHinhCho');
-      if (manHinhCho && manHinhCho.style.display !== 'none') {
-        chayTaoPhieu();
       }
 
       const xe = document.getElementById('xeVanChuyen').value || 'HD1 SÁNG';
@@ -2077,6 +1216,8 @@
         const parts = ngayRaw.split('-');
         if (parts.length === 3) ngayDinhDang = `${parts[2]}/${parts[1]}/${parts[0]}`;
       }
+
+      const maDot = `DOT_${ngayRaw.replace(/-/g, '')}_${xe.replace(/[^a-zA-Z0-9]/g, '_')}`;
 
       let sttIndex = 1;
       const danhSachChiTietLuu = danhSachHoaDonChiTietToanCuc.map(hd => ({
@@ -2094,15 +1235,14 @@
         giamGiaSP: hd.giamGiaSP || 0,
         giamGiaHD: hd.giamGiaHD || 0,
         thanhTien: hd.thanhTien || 0,
-        tienMat: hd.thanhTien || 0,
+        tienMat: hd.thanhTien || 0, // Tạm ghi nhận, bước 4 sẽ kiểm tra thực tế
         chuyenKhoan: 0,
         traVe: 0,
         noPhatSinh: 0
       }));
 
-      // Tạo đối tượng lưu trữ đợt xử lý
       const dotHienTai = {
-        maDot: `DOT_${ngayRaw.replace(/-/g, '')}_${xe.replace(/[^a-zA-Z0-9]/g, '_')}`,
+        maDot: maDot,
         ngayGiao: ngayDinhDang,
         ngayRaw: ngayRaw,
         xe: xe,
@@ -2115,49 +1255,87 @@
         thoiGianTao: new Date().toISOString()
       };
 
-      // 1. Lưu đợt vừa tạo vào localStorage
+      // 1. Lưu vào localStorage
       localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dotHienTai));
 
-      // 2. Thêm vào danh sách lịch sử các đợt lưu trữ
       let lichSu = [];
       try {
         lichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
       } catch (e) {}
-
       lichSu = lichSu.filter(d => d.maDot !== dotHienTai.maDot);
       lichSu.unshift(dotHienTai);
       localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSu));
 
-      // 3. Cập nhật trạng thái các đơn giao lại nếu được chọn chuyến này
+      // 2. Lưu vào Supabase bảng luu_tru & chi_tiet_hoa_don
       try {
-        let danhSachGiaoLai = JSON.parse(localStorage.getItem("tmh_don_giao_lai") || "[]");
-        let daThayDoi = false;
-        danhSachGiaoLai.forEach(x => {
-          if (hoaDonDuocChon.some(h => h.maHD === x.maHD)) {
-            x.trangThai = "da_xep_chuyen_lai";
-            x.chuyenMoi = xe;
-            x.ngayXepMoi = ngayDinhDang;
-            daThayDoi = true;
-          }
+        const dongLuuTru = danhSachChiTietLuu.map(d => ({
+          ma_hd: d.maHD,
+          stt: d.stt,
+          ngay_giao: d.ngay,
+          xe: d.xe,
+          tai_xe: d.taiXe,
+          giao_hang: d.giaoHang,
+          thu_tien: d.thuThu || d.thuTien,
+          ten_kh: d.tenKH,
+          nguoi_ban: d.nguoiBan,
+          ma_kh: d.maKH,
+          doanh_so: d.doanhSo,
+          giam_gia_sp: d.giamGiaSP,
+          giam_gia_hd: d.giamGiaHD,
+          thanh_tien: d.thanhTien,
+          tien_mat: d.tienMat,
+          chuyen_khoan: d.chuyenKhoan,
+          tra_ve: d.traVe,
+          no_phat_sinh: d.noPhatSinh,
+          ma_dot: maDot
+        }));
+
+        await sb.from('luu_tru').upsert(dongLuuTru, { onConflict: 'ma_hd' });
+
+        // Gom chi tiết từng dòng hàng hóa của các hóa đơn này để archive vĩnh viễn vào chi_tiet_hoa_don
+        const cacDongChiTietHDBan = duLieuGoc.filter(r => {
+          const maHD = layGiaTri(r, ['Mã hóa đơn', 'Mã HĐ', 'Mã chứng từ', 'Số hóa đơn']);
+          return maHD && dotHienTai.danhSachHD.includes(String(maHD).trim());
+        }).map(r => {
+          const maHD = String(layGiaTri(r, ['Mã hóa đơn', 'Mã HĐ', 'Mã chứng từ', 'Số hóa đơn'])).trim();
+          const maHang = String(layGiaTri(r, ['Mã hàng', 'Mã hàng hóa', 'Mã SP'])).trim();
+          const tenHang = layGiaTri(r, ['Tên hàng', 'Tên hàng hóa', 'Tên SP']) || '';
+          const sl = parseSoLuongChuan(layGiaTri(r, ['Số lượng', 'SL']));
+          const donGia = Number(layGiaTri(r, ['Đơn giá', 'Giá bán'])) || 0;
+          const thanhTien = Number(layGiaTri(r, ['Thành tiền', 'ThanhTien'])) || (sl * donGia);
+          const dvt = layGiaTri(r, ['Đơn vị tính', 'ĐVT']) || 'Thùng';
+          const qc = mapQuyCach.get(maHang.toUpperCase()) || 1;
+
+          return {
+            ma_hd: maHD,
+            ma_dot: maDot,
+            ngay_ct: ngayDinhDang,
+            xe: xe,
+            ma_kh: layGiaTri(r, ['Mã khách hàng', 'Mã KH']) || '',
+            ten_kh: layGiaTri(r, ['Tên khách hàng', 'Tên KH']) || '',
+            ma_hang: maHang,
+            ten_hang: tenHang,
+            dvt: dvt,
+            so_luong: sl,
+            don_gia: donGia,
+            thanh_tien: thanhTien,
+            quy_cach: qc,
+            la_khuyen_mai: (donGia === 0 || thanhTien === 0)
+          };
         });
-        if (daThayDoi) {
-          localStorage.setItem("tmh_don_giao_lai", JSON.stringify(danhSachGiaoLai));
+
+        if (cacDongChiTietHDBan.length > 0) {
+          await sb.from('chi_tiet_hoa_don').insert(cacDongChiTietHDBan);
         }
-      } catch (e) {
-        console.warn("Lỗi cập nhật trạng thái đơn giao lại:", e);
+      } catch (errSupabase) {
+        console.warn("Lưu Supabase nền:", errSupabase);
       }
 
-      alert(`✅ Đã lưu thành công đợt điều động xe "${xe}" với ${hoaDonDuocChon.length} hóa đơn đầy đủ 18 cột!\nĐang chuyển sang Bước 3: Lưu trữ.`);
+      alert(`✅ Đã lưu thành công đợt điều động xe "${xe}" (${hoaDonDuocChon.length} hóa đơn)!\nĐang chuyển tiếp sang Bước 3: Lưu trữ.`);
       window.location.href = "buoc3_luu_tru.html";
     }
 
-    // Luôn bắt sự kiện Ctrl+P để thiết lập class in chuẩn xác
-    window.addEventListener('beforeprint', () => {
-      document.body.classList.remove('print-mode-bangke', 'print-mode-xuatkho');
-      document.body.classList.add(tabHienTai === 'bangke' ? 'print-mode-bangke' : 'print-mode-xuatkho');
-    });
-
-    khoiTao();
+    khoiTaoTrang();
   </script>
 </body>
 </html>
