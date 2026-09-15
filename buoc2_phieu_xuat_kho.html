@@ -505,8 +505,8 @@
       // Mặc định ngày hôm nay
       document.getElementById('ngayGiaoHang').value = new Date().toISOString().slice(0, 10);
 
-      // Đọc dữ liệu từ sessionStorage của Bước 1
-      const cache = sessionStorage.getItem("tmh_kiotviet_data");
+      // Đọc dữ liệu từ localStorage hoặc sessionStorage của Bước 1
+      const cache = localStorage.getItem("tmh_kiotviet_data") || sessionStorage.getItem("tmh_kiotviet_data");
       if (!cache) {
         alert("Chưa tìm thấy dữ liệu KiotViet từ Bước 1. Vui lòng vào Bước 1 nạp file Excel trước!");
         window.location.href = "buoc1_upload.html";
@@ -515,6 +515,11 @@
 
       try {
         duLieuGoc = JSON.parse(cache);
+        if (!duLieuGoc || duLieuGoc.length === 0) {
+          alert("Không còn dữ liệu KiotViet lưu tạm chưa xử lý. Vui lòng vào Bước 1 nạp file Excel trước!");
+          window.location.href = "buoc1_upload.html";
+          return;
+        }
       } catch (e) {
         alert("Lỗi đọc dữ liệu KiotViet: " + e.message);
         window.location.href = "buoc1_upload.html";
@@ -525,7 +530,7 @@
       await taiDanhMucQuyCach();
 
       // Trích xuất danh sách hóa đơn duy nhất
-      trichXuatDanhSachHoaDon();
+      await trichXuatDanhSachHoaDon();
     }
 
     async function taiDanhMucQuyCach() {
@@ -543,7 +548,37 @@
       }
     }
 
-    function trichXuatDanhSachHoaDon() {
+    async function trichXuatDanhSachHoaDon() {
+      // 1. Lấy thông tin các hóa đơn đã từng lưu trữ ở Bước 3 để nhận diện đơn giao lại
+      const tapHopBuoc3 = new Map();
+      try {
+        const lichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
+        lichSu.forEach(dot => {
+          if (Array.isArray(dot.danhSachChiTiet)) {
+            dot.danhSachChiTiet.forEach(c => {
+              if (c.maHD) tapHopBuoc3.set(String(c.maHD).trim(), { maDot: dot.maDot, xe: dot.xe, ngay: dot.ngayGiao });
+            });
+          } else if (Array.isArray(dot.danhSachHD)) {
+            dot.danhSachHD.forEach(m => {
+              if (m) tapHopBuoc3.set(String(m).trim(), { maDot: dot.maDot, xe: dot.xe, ngay: dot.ngayGiao });
+            });
+          }
+        });
+      } catch (e) {}
+
+      try {
+        if (typeof sb !== 'undefined') {
+          const { data } = await sb.from('luu_tru').select('ma_hd, ma_dot, xe, ngay_giao');
+          if (data && data.length > 0) {
+            data.forEach(r => {
+              if (r.ma_hd) tapHopBuoc3.set(String(r.ma_hd).trim(), { maDot: r.ma_dot, xe: r.xe, ngay: r.ngay_giao });
+            });
+          }
+        }
+      } catch (e) {
+        console.warn("Chưa tải được bảng luu_tru từ Supabase:", e);
+      }
+
       const mapHD = new Map();
 
       duLieuGoc.forEach(row => {
@@ -554,14 +589,21 @@
         if (!mapHD.has(maHDStr)) {
           const maKH = layGiaTri(row, ['Mã khách hàng', 'Mã KH', 'Mã đối tác']);
           const tenKH = layGiaTri(row, ['Tên khách hàng', 'Tên KH', 'Khách hàng']);
-          const diaChi = layGiaTri(row, ['Địa chỉ', 'Khu vực', 'Địa chỉ giao hàng']) || '';
+          let diaChi = layGiaTri(row, ['Địa chỉ', 'Khu vực', 'Địa chỉ giao hàng']) || '';
+
+          const laGiaoLai = tapHopBuoc3.has(maHDStr);
+          if (laGiaoLai) {
+            const b3Info = tapHopBuoc3.get(maHDStr);
+            diaChi = diaChi ? `${diaChi} (Đơn giao lại từ chuyến ${b3Info.xe || ''})` : `(Đơn giao lại từ chuyến ${b3Info.xe || ''})`;
+          }
 
           mapHD.set(maHDStr, {
             maHD: maHDStr,
             maKH: maKH ? String(maKH).trim() : '',
             tenKH: tenKH ? String(tenKH).trim() : '(Khách lẻ)',
             diaChi: String(diaChi).trim(),
-            chon: true
+            chon: true,
+            laDonGiaoLai: laGiaoLai
           });
         }
       });
@@ -581,6 +623,8 @@
               laDonGiaoLai: true,
               soTien: dg.thanhTien || 0
             });
+          } else {
+            mapHD.get(dg.maHD).laDonGiaoLai = true;
           }
         });
       } catch (e) {}
@@ -727,6 +771,8 @@
         const giamGiaHD = Number(layGiaTri(r, ['Giảm giá HĐ', 'Giảm giá hóa đơn', 'Chiết khấu HĐ'])) || 0;
 
         if (!mapHoaDonChiTiet.has(maHD)) {
+          const itemHD = danhSachHoaDon.find(x => x.maHD === maHD);
+          const laGiaoLai = itemHD ? itemHD.laDonGiaoLai : false;
           mapHoaDonChiTiet.set(maHD, {
             maHD: maHD,
             maKH: layGiaTri(r, ['Mã khách hàng', 'Mã KH', 'Mã đối tác']) || '',
@@ -737,7 +783,8 @@
             giamGiaHD: giamGiaHD,
             tongLineThanhTien: 0,
             thanhTien: 0,
-            ghiChu: layGiaTri(r, ['Ghi chú', 'Diễn giải']) || ''
+            ghiChu: laGiaoLai ? 'Đơn giao lại' : (layGiaTri(r, ['Ghi chú', 'Diễn giải']) || ''),
+            laDonGiaoLai: laGiaoLai
           });
         }
 
@@ -760,8 +807,11 @@
             giamGiaHD: 0,
             tongLineThanhTien: hd.soTien || 0,
             thanhTien: hd.soTien || 0,
-            ghiChu: 'Đơn giao lại từ chuyến trước'
+            ghiChu: 'Đơn giao lại từ chuyến trước',
+            laDonGiaoLai: true
           });
+        } else {
+          mapHoaDonChiTiet.get(hd.maHD).laDonGiaoLai = true;
         }
       });
 
@@ -779,10 +829,14 @@
         tongGiamHD += hd.giamGiaHD;
         tongThanhTien += hd.thanhTien;
 
+        const badgeGL = hd.laDonGiaoLai 
+          ? `<span style="background:#fee2e2; color:#b91c1c; font-size:10px; font-weight:800; padding:1px 5px; border-radius:4px; margin-left:4px;">🔄 Giao lại</span>` 
+          : '';
+
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td class="text-center">${stt++}</td>
-          <td class="text-bold">${hd.maHD}</td>
+          <td class="text-bold">${hd.maHD} ${badgeGL}</td>
           <td>${hd.maKH}</td>
           <td>${hd.tenKH}</td>
           <td>${hd.nguoiBan}</td>
@@ -1195,9 +1249,6 @@
       }
     }
 
-    // ========================================================
-    // LƯU ĐỢT ĐIỀU ĐỘNG SANG BƯỚC 3: LƯU TRỮ
-    // ========================================================
     async function luuVaChuyenSangBuoc3() {
       const hoaDonDuocChon = danhSachHoaDon.filter(h => h.chon);
       if (!hoaDonDuocChon || hoaDonDuocChon.length === 0) {
@@ -1238,7 +1289,9 @@
         tienMat: hd.thanhTien || 0, // Tạm ghi nhận, bước 4 sẽ kiểm tra thực tế
         chuyenKhoan: 0,
         traVe: 0,
-        noPhatSinh: 0
+        noPhatSinh: 0,
+        laGiaoLai: !!hd.laDonGiaoLai,
+        ghiChu: hd.laDonGiaoLai ? (hd.ghiChu || 'Đơn giao lại') : (hd.ghiChu || '')
       }));
 
       const dotHienTai = {
@@ -1255,16 +1308,58 @@
         thoiGianTao: new Date().toISOString()
       };
 
-      // 1. Lưu vào localStorage
-      localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dotHienTai));
+      // Xác định tập hợp các mã hóa đơn giao lại được chọn trong chuyến này
+      const cacHDGiaoLaiDuocChon = new Set(
+        hoaDonDuocChon.filter(h => h.laDonGiaoLai).map(h => String(h.maHD).trim())
+      );
 
+      // 1. SỬA DỮ LIỆU LƯU TRỮ Ở BƯỚC 3 & LƯU VÀO LOCALSTORAGE
       let lichSu = [];
       try {
         lichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
       } catch (e) {}
+
+      // Nếu có hóa đơn giao lại, sửa dữ liệu lưu trữ ở Bước 3 bằng cách dọn dẹp khỏi các đợt cũ
+      if (cacHDGiaoLaiDuocChon.size > 0) {
+        lichSu.forEach(dCu => {
+          if (dCu.maDot !== dotHienTai.maDot) {
+            let coThayDoi = false;
+            if (Array.isArray(dCu.danhSachChiTiet)) {
+              dCu.danhSachChiTiet = dCu.danhSachChiTiet.filter(c => {
+                if (cacHDGiaoLaiDuocChon.has(String(c.maHD).trim())) {
+                  coThayDoi = true;
+                  return false; // loại bỏ khỏi đợt cũ để chuyển hẳn sang đợt mới
+                }
+                return true;
+              });
+            }
+            if (Array.isArray(dCu.danhSachHD)) {
+              dCu.danhSachHD = dCu.danhSachHD.filter(m => !cacHDGiaoLaiDuocChon.has(String(m).trim()));
+            }
+            if (coThayDoi) {
+              dCu.soLuongHD = dCu.danhSachChiTiet ? dCu.danhSachChiTiet.length : (dCu.danhSachHD ? dCu.danhSachHD.length : 0);
+            }
+          }
+        });
+      }
+
       lichSu = lichSu.filter(d => d.maDot !== dotHienTai.maDot);
       lichSu.unshift(dotHienTai);
       localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSu));
+      localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dotHienTai));
+
+      // Cập nhật trạng thái trong tmh_don_giao_lai (nếu có)
+      try {
+        let dsGiaoLaiLocal = JSON.parse(localStorage.getItem("tmh_don_giao_lai") || "[]");
+        dsGiaoLaiLocal.forEach(item => {
+          if (cacHDGiaoLaiDuocChon.has(String(item.maHD).trim())) {
+            item.trangThai = "da_xep_chuyen_lai";
+            item.chuyenMoi = xe;
+            item.ngayXepMoi = ngayDinhDang;
+          }
+        });
+        localStorage.setItem("tmh_don_giao_lai", JSON.stringify(dsGiaoLaiLocal));
+      } catch (e) {}
 
       // 2. Lưu vào Supabase bảng luu_tru & chi_tiet_hoa_don
       try {
@@ -1287,10 +1382,23 @@
           chuyen_khoan: d.chuyenKhoan,
           tra_ve: d.traVe,
           no_phat_sinh: d.noPhatSinh,
-          ma_dot: maDot
+          ma_dot: maDot,
+          cap_nhat_luc: new Date().toISOString()
         }));
 
+        // Sửa / cập nhật bảng luu_tru ở Bước 3 (upsert theo ma_hd)
         await sb.from('luu_tru').upsert(dongLuuTru, { onConflict: 'ma_hd' });
+
+        // Đối với các hóa đơn giao lại, xóa chi tiết cũ trong chi_tiet_hoa_don để nạp lại chi tiết mới
+        if (cacHDGiaoLaiDuocChon.size > 0) {
+          const arrGL = Array.from(cacHDGiaoLaiDuocChon);
+          await sb.from('chi_tiet_hoa_don').delete().in('ma_hd', arrGL);
+          await sb.from('don_giao_lai').update({
+            trang_thai: 'da_xep_chuyen_lai',
+            chuyen_moi: xe,
+            ngay_xep_moi: ngayDinhDang
+          }).in('ma_hd', arrGL);
+        }
 
         // Gom chi tiết từng dòng hàng hóa của các hóa đơn này để archive vĩnh viễn vào chi_tiet_hoa_don
         const cacDongChiTietHDBan = duLieuGoc.filter(r => {
@@ -1329,6 +1437,23 @@
         }
       } catch (errSupabase) {
         console.warn("Lưu Supabase nền:", errSupabase);
+      }
+
+      // 3. XÓA CÁC HÓA ĐƠN ĐÃ XỬ LÝ VÀ LƯU TRỮ KHỎI KHO TẠM BƯỚC 1 (Chỉ xóa những đơn đã chọn và hoàn thành)
+      const dsMaHDDaXuLy = new Set(hoaDonDuocChon.map(h => String(h.maHD).trim()));
+      try {
+        const rawTam = localStorage.getItem("tmh_kiotviet_data") || sessionStorage.getItem("tmh_kiotviet_data");
+        if (rawTam) {
+          const listTam = JSON.parse(rawTam);
+          const conLaiTam = listTam.filter(r => {
+            const mhd = layGiaTri(r, ['Mã hóa đơn', 'Mã HĐ', 'Mã chứng từ', 'Số hóa đơn', 'Ma hoa don']);
+            return !mhd || !dsMaHDDaXuLy.has(String(mhd).trim());
+          });
+          localStorage.setItem("tmh_kiotviet_data", JSON.stringify(conLaiTam));
+          sessionStorage.setItem("tmh_kiotviet_data", JSON.stringify(conLaiTam));
+        }
+      } catch (e) {
+        console.warn("Lỗi khi cập nhật kho tạm Bước 1:", e);
       }
 
       alert(`✅ Đã lưu thành công đợt điều động xe "${xe}" (${hoaDonDuocChon.length} hóa đơn)!\nĐang chuyển tiếp sang Bước 3: Lưu trữ.`);

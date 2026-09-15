@@ -151,7 +151,7 @@
       <div class="kpi-card">
         <div class="kpi-icon blue">📑</div>
         <div class="kpi-meta">
-          <div class="title">Tổng Hóa Đơn</div>
+          <div class="title">Tổng Hóa Đơn Tạm</div>
           <div class="num" id="kpiHoaDon">0</div>
         </div>
       </div>
@@ -176,17 +176,24 @@
           <div class="num" id="kpiDoanhSo">0 đ</div>
         </div>
       </div>
+      <div class="kpi-card" id="kpiCardGiaoLai" style="display: none; border-color: #fecaca; background: #fff5f5;">
+        <div class="kpi-icon" style="background:#fee2e2; color:#dc2626;">🔄</div>
+        <div class="kpi-meta">
+          <div class="title" style="color:#b91c1c;">Đơn Giao Lại (Trùng B3)</div>
+          <div class="num" id="kpiGiaoLai" style="color:#dc2626;">0</div>
+        </div>
+      </div>
     </div>
 
     <!-- Thanh Điều Hướng Tiếp Theo -->
     <div class="action-bar" id="actionBar">
       <div class="action-bar-info">
         <span>✅</span>
-        <span id="txtTrangThaiFile">Đã đọc dữ liệu thành công! Bạn có thể đồng bộ danh mục hoặc chuyển tiếp sang Bước 2.</span>
+        <span id="txtTrangThaiFile">Đã đọc và lưu tạm dữ liệu thành công! Bạn có thể tiếp tục sang Bước 2 hoặc nạp thêm file khác.</span>
       </div>
       <div class="action-btns">
-        <button type="button" class="btn btn-outline" id="btnSyncDanhMuc" onclick="dongBoDanhMuc()">
-          <span>⚙️</span> Đồng bộ Khách hàng & Hàng hóa mới
+        <button type="button" class="btn btn-outline" style="color:#dc2626; border-color:#fca5a5;" onclick="xoaDuLieuTam()" title="Xóa toàn bộ dữ liệu đang lưu tạm để nạp lại từ đầu">
+          <span>🗑️</span> Xóa kho tạm
         </button>
         <button type="button" class="btn btn-primary" onclick="chuyenSangBuoc2()">
           <span>Tiếp tục: Bước 2 - Phiếu thu & Xuất kho</span>
@@ -221,6 +228,7 @@
   <script>
     let duLieuKiotViet = [];
     let xemToanBo = false;
+    let tapHopHoaDonBuoc3 = new Map(); // maHD -> { maDot, xe, ngayGiao }
 
     // Helper an toàn trích xuất số lượng lẻ (Tránh lỗi 0.5 biến thành 5 do parse hàng nghìn)
     function parseSoLuongChuan(val) {
@@ -257,6 +265,62 @@
       return null;
     }
 
+    // Lấy tập hợp các mã hóa đơn đã được lưu trữ ở Bước 3 để phát hiện đơn giao lại
+    async function capNhatTapHopHoaDonBuoc3() {
+      tapHopHoaDonBuoc3.clear();
+      // 1. Từ localStorage tmh_lich_su_dot
+      try {
+        const lichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
+        lichSu.forEach(dot => {
+          if (Array.isArray(dot.danhSachChiTiet)) {
+            dot.danhSachChiTiet.forEach(c => {
+              if (c.maHD) tapHopHoaDonBuoc3.set(String(c.maHD).trim(), { maDot: dot.maDot, xe: dot.xe, ngayGiao: dot.ngayGiao });
+            });
+          } else if (Array.isArray(dot.danhSachHD)) {
+            dot.danhSachHD.forEach(m => {
+              if (m) tapHopHoaDonBuoc3.set(String(m).trim(), { maDot: dot.maDot, xe: dot.xe, ngayGiao: dot.ngayGiao });
+            });
+          }
+        });
+      } catch (e) {}
+
+      // 2. Từ Supabase luu_tru
+      try {
+        if (typeof sb !== 'undefined') {
+          const { data } = await sb.from('luu_tru').select('ma_hd, ma_dot, xe, ngay_giao');
+          if (data && data.length > 0) {
+            data.forEach(r => {
+              if (r.ma_hd) tapHopHoaDonBuoc3.set(String(r.ma_hd).trim(), { maDot: r.ma_dot, xe: r.xe, ngayGiao: r.ngay_giao });
+            });
+          }
+        }
+      } catch (e) {
+        console.warn("Chưa lấy được bảng luu_tru từ Supabase:", e);
+      }
+    }
+
+    // Helper gộp dữ liệu upload mới vào kho tạm mà không xóa dữ liệu cũ chưa xử lý
+    function mergeDuLieuUpload(duLieuCu, duLieuMoi) {
+      if (!duLieuCu || duLieuCu.length === 0) return duLieuMoi;
+      if (!duLieuMoi || duLieuMoi.length === 0) return duLieuCu;
+
+      // Lấy danh sách các hóa đơn trong file mới nạp
+      const cacHDMoi = new Set();
+      duLieuMoi.forEach(r => {
+        const m = layGiaTriCot(r, ['Mã hóa đơn', 'Mã HĐ', 'Mã chứng từ', 'Số hóa đơn', 'Ma hoa don']);
+        if (m) cacHDMoi.add(String(m).trim());
+      });
+
+      // Giữ lại các dòng cũ KHÔNG nằm trong danh sách HĐ mới nạp (nếu file mới có HĐ trùng thì cập nhật theo file mới)
+      const ketQua = duLieuCu.filter(r => {
+        const m = layGiaTriCot(r, ['Mã hóa đơn', 'Mã HĐ', 'Mã chứng từ', 'Số hóa đơn', 'Ma hoa don']);
+        return !m || !cacHDMoi.has(String(m).trim());
+      });
+
+      ketQua.push(...duLieuMoi);
+      return ketQua;
+    }
+
     async function khoiTaoTrang() {
       const layoutData = await khoiTaoLayout({
         pageTitle: "Bước 1: Tải Dữ Liệu KiotViet",
@@ -265,16 +329,22 @@
       });
       if (!layoutData) return;
 
-      // Kiểm tra xem trong sessionStorage đã có sẵn dữ liệu từ trước chưa
-      const cache = sessionStorage.getItem("tmh_kiotviet_data");
+      // Kiểm tra xem trong localStorage hoặc sessionStorage đã có sẵn dữ liệu lưu tạm chưa
+      const cache = localStorage.getItem("tmh_kiotviet_data") || sessionStorage.getItem("tmh_kiotviet_data");
       if (cache) {
         try {
           duLieuKiotViet = JSON.parse(cache);
           if (duLieuKiotViet && duLieuKiotViet.length > 0) {
-            const fName = sessionStorage.getItem("tmh_kiotviet_filename") || "Dữ liệu phiên trước";
+            let fNames = '';
+            try {
+              const arr = JSON.parse(localStorage.getItem("tmh_kiotviet_filenames") || "[]");
+              if (arr.length > 0) fNames = arr.join(', ');
+            } catch(e) {}
+            if (!fNames) fNames = sessionStorage.getItem("tmh_kiotviet_filename") || "Dữ liệu đang lưu tạm";
+
             document.getElementById('thongTinFile').innerHTML = 
-              `<span style="color:#16a34a;">🔄 Tìm thấy dữ liệu đã tải: "${fName}" (${duLieuKiotViet.length} dòng dữ liệu).</span>`;
-            capNhatGiaoDienSauKhiCoDuLieu();
+              `<span style="color:#16a34a;">📦 Kho tạm hiện có <b>${duLieuKiotViet.length}</b> dòng dữ liệu (${fNames}). Dữ liệu chưa xử lý được lưu giữ, bạn có thể nạp thêm hoặc tiếp tục Bước 2.</span>`;
+            await capNhatGiaoDienSauKhiCoDuLieu();
           }
         } catch (e) {
           console.warn(e);
@@ -304,29 +374,45 @@
       document.getElementById('thongTinFile').innerHTML = '<span style="color:#2563eb;">⏳ Đang phân tích file Excel KiotViet…</span>';
 
       const reader = new FileReader();
-      reader.onload = function(e) {
+      reader.onload = async function(e) {
         try {
           const data = new Uint8Array(e.target.result);
           const workbook = XLSX.read(data, { type: 'array' });
           const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
 
-          duLieuKiotViet = XLSX.utils.sheet_to_json(firstSheet, { defval: null });
+          const duLieuMoi = XLSX.utils.sheet_to_json(firstSheet, { defval: null });
 
-          if (!duLieuKiotViet || duLieuKiotViet.length === 0) {
+          if (!duLieuMoi || duLieuMoi.length === 0) {
             alert("File không có dữ liệu!");
             document.getElementById('thongTinFile').innerHTML = '<span style="color:#dc2626;">❌ File trống!</span>';
             return;
           }
 
-          // Lưu vào sessionStorage để truyền sang Bước 2
+          // 1. Gộp vào kho dữ liệu tạm (không xóa dữ liệu cũ chưa xử lý)
+          duLieuKiotViet = mergeDuLieuUpload(duLieuKiotViet, duLieuMoi);
+
+          // Lưu vào localStorage & sessionStorage
+          localStorage.setItem("tmh_kiotviet_data", JSON.stringify(duLieuKiotViet));
           sessionStorage.setItem("tmh_kiotviet_data", JSON.stringify(duLieuKiotViet));
-          sessionStorage.setItem("tmh_kiotviet_filename", file.name);
+
+          let danhSachFile = [];
+          try {
+            danhSachFile = JSON.parse(localStorage.getItem("tmh_kiotviet_filenames") || "[]");
+          } catch(err) {}
+          if (!danhSachFile.includes(file.name)) danhSachFile.push(file.name);
+          localStorage.setItem("tmh_kiotviet_filenames", JSON.stringify(danhSachFile));
+          sessionStorage.setItem("tmh_kiotviet_filename", danhSachFile.join(', '));
 
           document.getElementById('thongTinFile').innerHTML = 
-            `<span style="color:#16a34a;">✅ Đã đọc thành công file "${file.name}" (${duLieuKiotViet.length} dòng dữ liệu).</span>`;
+            `<span style="color:#16a34a;">✅ Đã nạp thành công file "${file.name}" (${duLieuMoi.length} dòng). Kho tạm hiện có <b>${duLieuKiotViet.length}</b> dòng dữ liệu.</span>`;
 
           xemToanBo = false;
-          capNhatGiaoDienSauKhiCoDuLieu();
+
+          // 2. Tự động quét và đồng bộ Khách hàng & Hàng hóa mới vào Supabase ngầm (không cần bấm nút)
+          tuDongDongBoDanhMuc(duLieuMoi);
+
+          // 3. Cập nhật giao diện & kiểm tra đơn giao lại
+          await capNhatGiaoDienSauKhiCoDuLieu();
 
         } catch (error) {
           alert("Lỗi đọc file: " + error.message);
@@ -336,14 +422,23 @@
       reader.readAsArrayBuffer(file);
     }
 
-    function capNhatGiaoDienSauKhiCoDuLieu() {
+    async function capNhatGiaoDienSauKhiCoDuLieu() {
+      await capNhatTapHopHoaDonBuoc3();
+
       const hoaDonSet = new Set();
       const khachHangSet = new Set();
+      const hoaDonGiaoLaiSet = new Set();
       let tongDoanhSo = 0;
 
       duLieuKiotViet.forEach(row => {
         const maHD = layGiaTriCot(row, ['Mã hóa đơn', 'Mã HĐ', 'Mã chứng từ', 'Số hóa đơn', 'Ma hoa don']);
-        if (maHD) hoaDonSet.add(String(maHD).trim());
+        if (maHD) {
+          const mStr = String(maHD).trim();
+          hoaDonSet.add(mStr);
+          if (tapHopHoaDonBuoc3.has(mStr)) {
+            hoaDonGiaoLaiSet.add(mStr);
+          }
+        }
 
         const maKH = layGiaTriCot(row, ['Mã khách hàng', 'Mã KH', 'Mã đối tác', 'Tên khách hàng']);
         if (maKH) khachHangSet.add(String(maKH).trim());
@@ -357,9 +452,29 @@
       document.getElementById('kpiKhachHang').textContent = khachHangSet.size.toLocaleString('vi-VN');
       document.getElementById('kpiDoanhSo').textContent = Math.round(tongDoanhSo).toLocaleString('vi-VN') + ' đ';
 
+      const cardGL = document.getElementById('kpiCardGiaoLai');
+      if (cardGL) {
+        if (hoaDonGiaoLaiSet.size > 0) {
+          cardGL.style.display = 'flex';
+          document.getElementById('kpiGiaoLai').textContent = hoaDonGiaoLaiSet.size.toLocaleString('vi-VN');
+        } else {
+          cardGL.style.display = 'none';
+        }
+      }
+
       document.getElementById('kpiGrid').style.display = 'grid';
       document.getElementById('actionBar').style.display = 'flex';
       document.getElementById('previewWrap').style.display = 'block';
+
+      // Cập nhật thông báo thanh trạng thái
+      const txtStatus = document.getElementById('txtTrangThaiFile');
+      if (txtStatus) {
+        if (hoaDonGiaoLaiSet.size > 0) {
+          txtStatus.innerHTML = `Kho tạm có <b>${hoaDonSet.size}</b> HĐ (${hoaDonGiaoLaiSet.size} đơn giao lại). Dữ liệu tự động đồng bộ và lưu trữ tạm cho đến khi hoàn tất Bước 2.`;
+        } else {
+          txtStatus.innerHTML = `Kho tạm có <b>${hoaDonSet.size}</b> HĐ (${duLieuKiotViet.length} dòng). Dữ liệu tự động đồng bộ và lưu trữ tạm cho đến khi hoàn tất Bước 2.`;
+        }
+      }
 
       // Vẽ bảng xem trước
       const thead = document.getElementById('bangHead');
@@ -383,8 +498,8 @@
       const lblTieuDe = document.getElementById('lblTieuDePreview');
       if (lblTieuDe) {
         lblTieuDe.textContent = xemToanBo 
-          ? `Xem toàn bộ dữ liệu vừa nạp (${tongSoDong} dòng)` 
-          : `Xem trước dữ liệu vừa nạp (${soDongHienThi} dòng đầu tiên)`;
+          ? `Xem toàn bộ dữ liệu lưu tạm (${tongSoDong} dòng)` 
+          : `Xem trước dữ liệu lưu tạm (${soDongHienThi} dòng đầu tiên)`;
       }
 
       const txtSoDong = document.getElementById('soDongHienThiText');
@@ -409,7 +524,17 @@
         htmlBody += `<tr><td style="font-weight:bold; color:#64748b; text-align:center;">${i + 1}</td>`;
         cacCot.forEach(cot => {
           let val = duLieuKiotViet[i][cot];
-          htmlBody += `<td>${val !== null && val !== undefined ? val : ''}</td>`;
+          let cellVal = val !== null && val !== undefined ? val : '';
+
+          // Nhận diện cột Mã hóa đơn để gắn badge Giao lại nếu trùng Bước 3
+          const isCotHD = ['mã hóa đơn', 'mã hđ', 'mã chứng từ', 'số hóa đơn', 'ma hoa don'].includes(cot.toLowerCase().trim());
+          if (isCotHD && val && tapHopHoaDonBuoc3.has(String(val).trim())) {
+            const b3 = tapHopHoaDonBuoc3.get(String(val).trim());
+            const tooltip = b3 && b3.xe ? `Đơn giao lại từ chuyến ${b3.xe} (${b3.ngayGiao || ''})` : 'Đơn giao lại (đã có trong Bước 3)';
+            cellVal += ` <span style="background:#fee2e2; color:#b91c1c; font-size:10px; font-weight:800; padding:1px 5px; border-radius:4px; margin-left:4px; display:inline-block;" title="${tooltip}">🔄 Giao lại</span>`;
+          }
+
+          htmlBody += `<td>${cellVal}</td>`;
         });
         htmlBody += '</tr>';
       }
@@ -423,25 +548,22 @@
 
     function chuyenSangBuoc2() {
       if (!duLieuKiotViet || duLieuKiotViet.length === 0) {
-        alert("Vui lòng nạp file KiotViet trước!");
+        alert("Kho lưu tạm hiện chưa có dữ liệu. Vui lòng nạp file KiotViet trước!");
         return;
       }
       window.location.href = "buoc2_phieu_xuat_kho.html";
     }
 
-    // Đồng bộ Khách hàng & Hàng hóa mới vào Supabase
-    async function dongBoDanhMuc() {
-      if (!duLieuKiotViet || duLieuKiotViet.length === 0) return;
-
-      const btn = document.getElementById('btnSyncDanhMuc');
-      btn.disabled = true;
-      btn.innerHTML = '<span>⏳ Đang quét danh mục…</span>';
+    // Tự động đồng bộ Khách hàng & Hàng hóa mới vào Supabase (chạy ngầm, tự động không cần bấm nút)
+    async function tuDongDongBoDanhMuc(duLieu) {
+      if (!duLieu || duLieu.length === 0) return;
+      if (typeof sb === 'undefined') return;
 
       try {
         const danhSachKH = new Map();
         const danhSachHang = new Map();
 
-        duLieuKiotViet.forEach(r => {
+        duLieu.forEach(r => {
           const maKH = layGiaTriCot(r, ['Mã khách hàng', 'Mã KH', 'Mã đối tác']);
           const tenKH = layGiaTriCot(r, ['Tên khách hàng', 'Tên KH', 'Khách hàng']);
           const diaChi = layGiaTriCot(r, ['Địa chỉ', 'Khu vực', 'Địa chỉ giao hàng']);
@@ -473,27 +595,43 @@
           }
         });
 
-        const thongBao = `Tìm thấy ${danhSachKH.size} khách hàng và ${danhSachHang.size} mặt hàng trong file.\nBạn có muốn đồng bộ (cập nhật mới) vào Supabase không?`;
-        if (!confirm(thongBao)) {
-          btn.disabled = false;
-          btn.innerHTML = '<span>⚙️</span> Đồng bộ Khách hàng & Hàng hóa mới';
-          return;
-        }
-
+        const promises = [];
         if (danhSachKH.size > 0) {
-          await sb.from('khach_hang').upsert(Array.from(danhSachKH.values()));
+          promises.push(sb.from('khach_hang').upsert(Array.from(danhSachKH.values())));
         }
         if (danhSachHang.size > 0) {
-          await sb.from('hang_hoa').upsert(Array.from(danhSachHang.values()));
+          promises.push(sb.from('hang_hoa').upsert(Array.from(danhSachHang.values())));
         }
 
-        alert(`✅ Đã đồng bộ thành công ${danhSachKH.size} Khách hàng và ${danhSachHang.size} Hàng hóa vào cơ sở dữ liệu Supabase!`);
+        if (promises.length > 0) {
+          await Promise.all(promises);
+          console.log(`[Tự động đồng bộ] Đã cập nhật ${danhSachKH.size} khách hàng & ${danhSachHang.size} hàng hóa mới vào Supabase.`);
+        }
       } catch (err) {
-        alert("Lỗi khi đồng bộ danh mục: " + err.message);
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<span>⚙️</span> Đồng bộ Khách hàng & Hàng hóa mới';
+        console.warn("Lỗi đồng bộ tự động danh mục nền:", err);
       }
+    }
+
+    // Xóa kho dữ liệu tạm nếu người dùng muốn làm mới toàn bộ
+    function xoaDuLieuTam() {
+      if (!duLieuKiotViet || duLieuKiotViet.length === 0) {
+        alert("Kho lưu tạm hiện đang trống!");
+        return;
+      }
+      if (!confirm("Bạn có chắc chắn muốn xóa toàn bộ dữ liệu đang lưu tạm ở Bước 1 không?\n(Lưu ý: Chỉ xóa dữ liệu tạm chưa xử lý, dữ liệu đã lưu trữ ở Bước 3 không bị ảnh hưởng).")) {
+        return;
+      }
+      duLieuKiotViet = [];
+      localStorage.removeItem("tmh_kiotviet_data");
+      localStorage.removeItem("tmh_kiotviet_filenames");
+      sessionStorage.removeItem("tmh_kiotviet_data");
+      sessionStorage.removeItem("tmh_kiotviet_filename");
+
+      document.getElementById('thongTinFile').innerHTML = '<span style="color:#64748b;">Đã làm trống kho dữ liệu tạm. Vui lòng nạp file Excel mới.</span>';
+      document.getElementById('kpiGrid').style.display = 'none';
+      document.getElementById('actionBar').style.display = 'none';
+      document.getElementById('previewWrap').style.display = 'none';
+      document.getElementById('fileKiotViet').value = '';
     }
 
     khoiTaoTrang();

@@ -404,7 +404,10 @@
           <td>${r.taiXe || ''}</td>
           <td>${r.giaoHang || ''}</td>
           <td>${r.thuTien || ''}</td>
-          <td class="text-bold">${r.maHD || ''}</td>
+          <td class="text-bold">
+            ${r.maHD || ''}
+            ${(r.laGiaoLai || (r.ghiChu && r.ghiChu.toLowerCase().includes('giao lại'))) ? '<span style="background:#fee2e2; color:#b91c1c; font-size:10px; font-weight:800; padding:1px 5px; border-radius:4px; margin-left:4px;" title="Đơn được giao lại">🔄 Giao lại</span>' : ''}
+          </td>
           <td>${r.tenKH || ''}</td>
           <td>${r.nguoiBan || ''}</td>
           <td>${r.maKH || ''}</td>
