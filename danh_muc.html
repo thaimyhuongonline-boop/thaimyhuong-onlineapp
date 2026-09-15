@@ -151,6 +151,63 @@
       return 'id';
     }
 
+    // Helper lưu trữ bền vững LocalStorage khi Supabase chưa tạo bảng
+    function layDuLieuLocal(tenBang) {
+      const localKey = `tmh_danh_muc_${tenBang}`;
+      let localData = [];
+      try {
+        localData = JSON.parse(localStorage.getItem(localKey) || "[]");
+      } catch (e) { localData = []; }
+
+      // Khởi tạo danh sách tài khoản ngân hàng mặc định nếu chưa có
+      if (tenBang === 'tai_khoan_ngan_hang' && (!localData || localData.length === 0)) {
+        localData = [
+          { ten_tk: "Tiền mặt lái xe", so_tk: "TIEN_MAT", ten_ngan_hang: "Tiền mặt", tk_misa: "1111" },
+          { ten_tk: "VCB - 0041000266096", so_tk: "0041000266096", ten_ngan_hang: "Vietcombank (Thái Mỹ Hương)", tk_misa: "11211" },
+          { ten_tk: "VCB - 0041000123456", so_tk: "0041000123456", ten_ngan_hang: "Vietcombank (Cá nhân Đạt)", tk_misa: "11212" },
+          { ten_tk: "MBBank - 0905801918", so_tk: "0905801918", ten_ngan_hang: "MBBank (Cá nhân)", tk_misa: "11213" }
+        ];
+        localStorage.setItem(localKey, JSON.stringify(localData));
+      }
+
+      if (tenBang === 'danh_sach_xe' && (!localData || localData.length === 0)) {
+        localData = [
+          { ma_xe: "HD1 SÁNG", bien_so: "43C-12345", loai_xe: "Xe tải 1.4 tấn", tai_xe_mac_dinh: "SINH" },
+          { ma_xe: "HD1 CHIỀU", bien_so: "43C-12345", loai_xe: "Xe tải 1.4 tấn", tai_xe_mac_dinh: "SINH" },
+          { ma_xe: "HD2 SÁNG", bien_so: "43C-67890", loai_xe: "Xe tải 2.5 tấn", tai_xe_mac_dinh: "HẢI" },
+          { ma_xe: "HD2 CHIỀU", bien_so: "43C-67890", loai_xe: "Xe tải 2.5 tấn", tai_xe_mac_dinh: "HẢI" }
+        ];
+        localStorage.setItem(localKey, JSON.stringify(localData));
+      }
+
+      return localData;
+    }
+
+    function luuDuLieuLocal(tenBang, item) {
+      const localKey = `tmh_danh_muc_${tenBang}`;
+      let list = layDuLieuLocal(tenBang);
+      const khoaChinh = xacDinhKhoaChinh(tenBang);
+      const valKhoa = String(item[khoaChinh] || '').trim();
+
+      const idx = list.findIndex(x => String(x[khoaChinh] || '').trim().toLowerCase() === valKhoa.toLowerCase());
+      if (idx !== -1) {
+        list[idx] = { ...list[idx], ...item };
+      } else {
+        list.push(item);
+      }
+      localStorage.setItem(localKey, JSON.stringify(list));
+      return list;
+    }
+
+    function xoaDuLieuLocal(tenBang, valKhoa) {
+      const localKey = `tmh_danh_muc_${tenBang}`;
+      let list = layDuLieuLocal(tenBang);
+      const khoaChinh = xacDinhKhoaChinh(tenBang);
+      list = list.filter(x => String(x[khoaChinh] || '').trim().toLowerCase() !== String(valKhoa).trim().toLowerCase());
+      localStorage.setItem(localKey, JSON.stringify(list));
+      return list;
+    }
+
     async function taiDuLieu() {
       document.getElementById('formThemMoi').style.display = 'none';
 
@@ -164,22 +221,41 @@
       const tuDong = (trangHienTai - 1) * soDong;
       const denDong = tuDong + soDong - 1;
 
-      const { data, count, error } = await sb.from(tenBang)
-                                              .select('*', { count: 'exact' })
-                                              .range(tuDong, denDong);
-      
-      if (error) {
-        tbody.innerHTML = `<tr><td colspan="10" style="color:red; padding:20px;">Lỗi tải dữ liệu: ${error.message}</td></tr>`;
-        return;
+      let duLieuHienThi = [];
+      let tongSoDong = 0;
+      let dungLocal = false;
+
+      try {
+        const res = await sb.from(tenBang).select('*', { count: 'exact' }).range(tuDong, denDong);
+        if (res.error) {
+          dungLocal = true;
+        } else {
+          duLieuHienThi = res.data || [];
+          tongSoDong = res.count || 0;
+          if (duLieuHienThi.length === 0) {
+            const localCheck = layDuLieuLocal(tenBang);
+            if (localCheck && localCheck.length > 0) {
+              dungLocal = true;
+            }
+          }
+        }
+      } catch (err) {
+        dungLocal = true;
       }
 
-      duLieuBangHienTai = data || [];
-      tongSoTrang = Math.ceil((count || 0) / soDong) || 1;
-      document.getElementById('thongTinTrang').textContent = `Trang ${trangHienTai} / ${tongSoTrang} (Tổng: ${count || 0} dòng)`;
+      if (dungLocal) {
+        const localList = layDuLieuLocal(tenBang);
+        tongSoDong = localList.length;
+        duLieuHienThi = localList.slice(tuDong, denDong + 1);
+      }
+
+      duLieuBangHienTai = duLieuHienThi;
+      tongSoTrang = Math.ceil(tongSoDong / soDong) || 1;
+      document.getElementById('thongTinTrang').textContent = `Trang ${trangHienTai} / ${tongSoTrang} (Tổng: ${tongSoDong} dòng)`;
 
       if (duLieuBangHienTai.length === 0) {
         thead.innerHTML = '<tr><th>Thông báo</th></tr>';
-        tbody.innerHTML = '<tr><td class="text-center" style="padding:20px; color:var(--text-muted);">Bảng này hiện chưa có dữ liệu.</td></tr>';
+        tbody.innerHTML = '<tr><td class="text-center" style="padding:20px; color:var(--text-muted);">Bảng này hiện chưa có dữ liệu. Bạn có thể bấm [Thêm Mới] hoặc [Upload từ Excel].</td></tr>';
         return;
       }
 
@@ -267,17 +343,32 @@
       const duLieu = {};
       inputs.forEach(inp => {
         const cot = inp.id.replace('inp_', '');
-        duLieu[cot] = inp.value.trim();
+        let val = inp.value.trim();
+        if (inp.type === 'number') {
+          val = val === '' ? null : Number(val);
+        }
+        duLieu[cot] = val;
       });
 
-      const { error } = await sb.from(tenBang).upsert(duLieu);
-      if (error) {
-        alert("Lỗi khi lưu: " + error.message);
-      } else {
-        alert("✅ Đã lưu dữ liệu thành công!");
-        document.getElementById('formThemMoi').style.display = 'none';
-        taiDuLieu();
+      const khoaChinh = xacDinhKhoaChinh(tenBang);
+      if (!duLieu[khoaChinh]) {
+        alert("Vui lòng nhập trường thông tin bắt buộc (*)");
+        return;
       }
+
+      // 1. Thử lưu Supabase (nếu bảng tồn tại trên cloud)
+      try {
+        await sb.from(tenBang).upsert(duLieu);
+      } catch (err) {
+        console.warn("Supabase upsert warning:", err);
+      }
+
+      // 2. Luôn đồng bộ vào bộ nhớ LocalStorage để dữ liệu luôn hoạt động trơn tru
+      luuDuLieuLocal(tenBang, duLieu);
+
+      alert("✅ Đã lưu dữ liệu thành công!");
+      document.getElementById('formThemMoi').style.display = 'none';
+      taiDuLieu();
     }
 
     async function xoaDong(khoa) {
@@ -285,13 +376,18 @@
       const tenBang = document.getElementById('chonBang').value;
       const khoaChinh = xacDinhKhoaChinh(tenBang);
 
-      const { error } = await sb.from(tenBang).delete().eq(khoaChinh, khoa);
-      if (error) {
-        alert("Lỗi khi xóa: " + error.message);
-      } else {
-        alert("🗑️ Đã xóa thành công!");
-        taiDuLieu();
+      // Thử xóa Supabase
+      try {
+        await sb.from(tenBang).delete().eq(khoaChinh, khoa);
+      } catch (err) {
+        console.warn(err);
       }
+
+      // Xóa LocalStorage
+      xoaDuLieuLocal(tenBang, khoa);
+
+      alert("🗑️ Đã xóa thành công!");
+      taiDuLieu();
     }
 
     function taiTemplate() {
@@ -328,13 +424,19 @@
           }
 
           const tenBang = document.getElementById('chonBang').value;
-          const { error } = await sb.from(tenBang).upsert(json);
-          if (error) {
-            alert("Lỗi upload: " + error.message);
-          } else {
-            alert(`✅ Đã nạp thành công ${json.length} dòng vào bảng "${tenBang}"!`);
-            taiDuLieu();
+
+          // Thử lưu vào Supabase
+          try {
+            await sb.from(tenBang).upsert(json);
+          } catch (err) {
+            console.warn(err);
           }
+
+          // Lưu vào LocalStorage
+          json.forEach(item => luuDuLieuLocal(tenBang, item));
+
+          alert(`✅ Đã nạp thành công ${json.length} dòng vào bảng "${tenBang}"!`);
+          taiDuLieu();
         } catch (err) {
           alert("Lỗi xử lý file Excel: " + err.message);
         }

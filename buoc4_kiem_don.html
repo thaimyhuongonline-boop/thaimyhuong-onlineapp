@@ -214,13 +214,23 @@
       });
       if (!layoutData) return;
 
-      // Nạp tài khoản ngân hàng từ Supabase
+      // Nạp tài khoản ngân hàng từ Supabase hoặc LocalStorage danh mục
       try {
-        const { data: tkData } = await sb.from('tai_khoan_ngan_hang').select('ten_tk, tk_misa');
-        if (tkData && tkData.length > 0) {
+        const { data: tkData, error } = await sb.from('tai_khoan_ngan_hang').select('ten_tk, tk_misa');
+        if (!error && tkData && tkData.length > 0) {
           danhSachTaiKhoanNhan = tkData.map(t => ({ tenTK: t.ten_tk, tkMISA: t.tk_misa || '11211' }));
+        } else {
+          const localTK = JSON.parse(localStorage.getItem("tmh_danh_muc_tai_khoan_ngan_hang") || "[]");
+          if (localTK && localTK.length > 0) {
+            danhSachTaiKhoanNhan = localTK.map(t => ({ tenTK: t.ten_tk, tkMISA: t.tk_misa || '11211' }));
+          }
         }
-      } catch (e) {}
+      } catch (e) {
+        const localTK = JSON.parse(localStorage.getItem("tmh_danh_muc_tai_khoan_ngan_hang") || "[]");
+        if (localTK && localTK.length > 0) {
+          danhSachTaiKhoanNhan = localTK.map(t => ({ tenTK: t.ten_tk, tkMISA: t.tk_misa || '11211' }));
+        }
+      }
 
       // Nạp danh sách đợt
       try {
