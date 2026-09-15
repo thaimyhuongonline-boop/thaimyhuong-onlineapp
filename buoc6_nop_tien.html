@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bước 6: Bảng Kê Nộp Tiền & Sổ Nộp Tiền Xe — THÁI MỸ HƯƠNG</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <script src="config.js"></script>
+  <link rel="stylesheet" href="layout.css">
+  <style>
+    /* Bố cục 2 cột: Cột trái (Đếm mệnh giá) + Cột phải (3 bảng đối chiếu & chốt sổ) */
+    .b6-grid {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 1024px) {
+      .b6-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Bảng Đếm Mệnh Giá */
+    .table-menhgia {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .table-menhgia th, .table-menhgia td {
+      border: 1px solid var(--border-color);
+      padding: 6px 10px;
+      vertical-align: middle;
+    }
+    .table-menhgia th {
+      background: #f8fafc;
+      font-weight: 700;
+    }
+    .input-to {
+      width: 80px;
+      padding: 5px 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      text-align: center;
+      font-weight: 700;
+      font-family: inherit;
+      outline: none;
+    }
+    .input-to:focus {
+      border-color: var(--primary);
+      background: #f0fdf4;
+    }
+
+    /* Đối chiếu chênh lệch */
+    .compare-box {
+      background: #f8fafc;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .compare-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+    }
+    .compare-row.total {
+      border-top: 1px solid var(--border-color);
+      padding-top: 8px;
+      font-weight: 800;
+      font-size: 14px;
+    }
+
+    /* Phiếu nộp tiền in ấn */
+    .phieu-print-wrap {
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 24px;
+      font-size: 12px;
+      box-shadow: var(--shadow-sm);
+    }
+    .phieu-title {
+      text-align: center;
+      font-size: 16px;
+      font-weight: 800;
+      text-transform: uppercase;
+      margin: 8px 0;
+      color: #000000;
+    }
+    .signature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      text-align: center;
+      margin-top: 36px;
+      font-size: 12px;
+    }
+    .signature-grid .role {
+      font-weight: 800;
+      text-transform: uppercase;
+      margin-bottom: 50px;
+    }
+
+    @media print {
+      body * { visibility: hidden; }
+      #tmhSidebar, .tmh-topbar, .tmh-footer, .b6-left-card, .tmh-page-header, .tab-print-ignore { display: none !important; }
+      .phieu-print-wrap, .phieu-print-wrap * { visibility: visible; }
+      .phieu-print-wrap {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100% !important;
+        border: none !important;
+        box-shadow: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <main id="mainContent" style="display:none;">
+    
+    <!-- Page Header -->
+    <div class="tmh-page-header">
+      <div>
+        <h1 class="tmh-page-header-title"><span>📗</span> Bước 6: Bảng Kê Nộp Tiền & Sổ Nộp Tiền Xe</h1>
+        <p class="tmh-page-header-sub">Kiểm đếm chi tiết từng mệnh giá tiền polymer nộp quỹ, đối chiếu với số tiền mặt phải thu từ Bước 4/5, in phiếu nộp tiền và chốt ghi nhận vào Sổ nộp tiền xe.</p>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-outline" onclick="inPhieuNopTien()">
+          <span>🖨️</span> In Phiếu Nộp Tiền
+        </button>
+        <button type="button" class="btn btn-outline" onclick="xuatExcelBangKe()">
+          <span>📊</span> Xuất Excel
+        </button>
+        <button type="button" class="btn btn-primary" onclick="chuyenSangBuoc7()">
+          <span>Tiếp tục: Bước 7 - Xuất file MISA</span>
+          <span>➡</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Thanh Thông Tin Chuyến Xe -->
+    <div class="tmh-card" style="padding: 16px 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 13px;">
+          <span>Chuyến xe: <b style="color:var(--primary); font-size:14px;" id="lblXe">...</b></span>
+          <span>Người nộp / Lái xe: <b id="lblNguoiNop">...</b></span>
+          <span>Thủ quỹ: <b id="lblThuQuy">...</b></span>
+          <span>Ngày nộp: <b id="lblNgayNop">...</b></span>
+          <span>Đợt: <b id="lblMaDot" style="color:#64748b;">...</b></span>
+        </div>
+        <div>
+          <select id="selectChonDot" class="form-control" onchange="doiDotNopTien(this.value)" style="padding: 6px 12px; font-size: 12.5px;">
+            <option value="">-- Chọn chuyến xe khác --</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bố cục 2 cột -->
+    <div class="b6-grid">
+      
+      <!-- CỘT TRÁI: BẢNG KIỂM ĐẾM MỆNH GIÁ TIỀN MẶT -->
+      <div class="tmh-card b6-left-card">
+        <div class="tmh-card-header" style="margin-bottom: 12px;">
+          <div class="tmh-card-title"><span>💵</span> Kiểm đếm mệnh giá tiền mặt</div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="xoaTrangMenhGia()">Đặt lại</button>
+        </div>
+
+        <table class="table-menhgia">
+          <thead>
+            <tr>
+              <th>Mệnh Giá</th>
+              <th style="width:90px;" class="text-center">Số Tờ</th>
+              <th class="text-right">Thành Tiền</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyMenhGia">
+            <!-- 9 mệnh giá tiền mặt VNĐ -->
+            <tr><td>500.000 đ</td><td class="text-center"><input type="number" class="input-to" id="to_500k" min="0" value="0" oninput="tinhTongMenhGia()"></td><td class="text-right text-bold" id="tt_500k">0 đ</td></tr>
+            <tr><td>200.000 đ</td><td class="text-center"><input type="number" class="input-to" id="to_200k" min="0" value="0" oninput="tinhTongMenhGia()"></td><td class="text-right text-bold" id="tt_200k">0 đ</td></tr>
+            <tr><td>100.000 đ</td><td class="text-center"><input type="number" class="input-to" id="to_100k" min="0" value="0" oninput="tinhTongMenhGia()"></td><td class="text-right text-bold" id="tt_100k">0 đ</td></tr>
+            <tr><td>50.000 đ</td><td class="text-center"><input type="number" class="input-to" id="to_50k" min="0" value="0" oninput="tinhTongMenhGia()"></td><td class="text-right text-bold" id="tt_50k">0 đ</td></tr>
+            <tr><td>20.000 đ</td><td class="text-center"><input type="number" class="input-to" id="to_20k" min="0" value="0" oninput="tinhTongMenhGia()"></td><td class="text-right text-bold" id="tt_20k">0 đ</td></tr>
+            <tr><td>10.000 đ</td><td class="text-center"><input type="number" class="input-to" id="to_10k" min="0" value="0" oninput="tinhTongMenhGia()"></td><td class="text-right text-bold" id="tt_10k">0 đ</td></tr>
+            <tr><td>5.000 đ</td><td class="text-center"><input type="number" class="input-to" id="to_5k" min="0" value="0" oninput="tinhTongMenhGia()"></td><td class="text-right text-bold" id="tt_5k">0 đ</td></tr>
+            <tr><td>2.000 đ</td><td class="text-center"><input type="number" class="input-to" id="to_2k" min="0" value="0" oninput="tinhTongMenhGia()"></td><td class="text-right text-bold" id="tt_2k">0 đ</td></tr>
+            <tr><td>1.000 đ</td><td class="text-center"><input type="number" class="input-to" id="to_1k" min="0" value="0" oninput="tinhTongMenhGia()"></td><td class="text-right text-bold" id="tt_1k">0 đ</td></tr>
+          </tbody>
+        </table>
+
+        <!-- Khung đối chiếu so khớp -->
+        <div class="compare-box">
+          <div class="compare-row">
+            <span>Tiền mặt cần nộp (B4):</span>
+            <b id="lblTienMatCanNop" style="color:#16a34a;">0 đ</b>
+          </div>
+          <div class="compare-row">
+            <span>Tổng tiền đếm được:</span>
+            <b id="lblTongTienDemDuoc" style="color:var(--text-main);">0 đ</b>
+          </div>
+          <div class="compare-row total">
+            <span>Chênh lệch:</span>
+            <b id="lblChenhLech">0 đ</b>
+          </div>
+        </div>
+
+        <button type="button" class="btn btn-primary" onclick="chotVaLuuSoNopTien()" style="width: 100%; justify-content: center; margin-top: 14px; padding: 10px;">
+          <span>✅</span> Chốt Sổ & Lưu Sổ Nộp Tiền Xe
+        </button>
+      </div>
+
+      <!-- CỘT PHẢI: XEM TRƯỚC PHIẾU NỘP TIỀN & 3 BẢNG ĐỐI CHIẾU -->
+      <div class="tmh-card">
+        
+        <!-- PHIẾU NỘP TIỀN XEM TRƯỚC (IN ĐƯỢC) -->
+        <div class="phieu-print-wrap" id="khungInPhieu">
+          <div style="display:flex; justify-content: space-between; align-items:flex-start;">
+            <div>
+              <b style="font-size:12px; text-transform:uppercase;">CÔNG TY TNHH THÁI MỸ HƯƠNG</b><br>
+              <span style="font-size:10px; color:#475569;">Đc: 291 Văn Tiến Dũng, Hòa Xuân, Cẩm Lệ, Đà Nẵng</span>
+            </div>
+            <div style="text-align:right; font-size:10.5px;">
+              <span>Mẫu số: 01-TMH/NT</span><br>
+              <span id="lblNgayInPhieu">Ngày: ...</span>
+            </div>
+          </div>
+
+          <div class="phieu-title">PHIẾU NỘP TIỀN XE VÀ ĐỐI CHIẾU THU TIỀN</div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin: 12px 0; font-size:11.5px;">
+            <div>Xe giao: <b id="prnXe">...</b></div>
+            <div>Tài xế / Người nộp: <b id="prnNguoiNop">...</b></div>
+            <div>Người thu: <b id="prnThuQuy">...</b></div>
+            <div>Ngày phát sinh: <b id="prnNgay">...</b></div>
+          </div>
+
+          <!-- Tóm tắt số liệu thu nộp -->
+          <table class="tmh-table" style="font-size:11px; margin-bottom: 14px;">
+            <thead>
+              <tr style="background:#f1f5f9;">
+                <th>Khoản Mục</th>
+                <th class="text-right">Số Tiền (VNĐ)</th>
+                <th>Hình Thức / Ghi Chú</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>1. Tiền mặt thực nộp</b></td>
+                <td class="text-right text-bold tag-cash" id="prnTienMat">0 đ</td>
+                <td>Đã kiểm đếm đủ nộp vào quỹ công ty</td>
+              </tr>
+              <tr>
+                <td><b>2. Chuyển khoản ngân hàng</b></td>
+                <td class="text-right text-bold" style="color:#7c3aed;" id="prnChuyenKhoan">0 đ</td>
+                <td>Khách hàng đã chuyển khoản trực tiếp</td>
+              </tr>
+              <tr>
+                <td><b>3. Hàng trả về nhập lại kho</b></td>
+                <td class="text-right text-bold" style="color:#d97706;" id="prnTraVe">0 đ</td>
+                <td>Lập phiếu nhập kho hàng trả lại</td>
+              </tr>
+              <tr>
+                <td><b>4. Còn nợ phát sinh</b></td>
+                <td class="text-right text-bold tag-debt" id="prnConNo">0 đ</td>
+                <td>Ghi nhận vào Sổ theo dõi công nợ khách</td>
+              </tr>
+              <tr style="background:#f8fafc; font-weight:800;">
+                <td>TỔNG GIÁ TRỊ ĐỢT GIAO</td>
+                <td class="text-right" style="color:#2563eb; font-size:12.5px;" id="prnTongGiaTri">0 đ</td>
+                <td>Doanh số chuyến xe</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- 3 Bảng Chi Tiết Rút Gọn -->
+          <div style="display:flex; flex-direction:column; gap: 10px;">
+            
+            <!-- Bảng CK -->
+            <div>
+              <b style="font-size:11px; color:#7c3aed;">▸ Chi tiết Chuyển khoản (<span id="cntB6CK">0</span> đơn):</b>
+              <div id="boxB6CK" style="font-size:10.5px; color:#334155; margin-top:2px;"></div>
+            </div>
+
+            <!-- Bảng Trả về -->
+            <div>
+              <b style="font-size:11px; color:#d97706;">▸ Chi tiết Hàng trả về (<span id="cntB6TV">0</span> đơn):</b>
+              <div id="boxB6TV" style="font-size:10.5px; color:#334155; margin-top:2px;"></div>
+            </div>
+
+            <!-- Bảng Nợ -->
+            <div>
+              <b style="font-size:11px; color:#dc2626;">▸ Chi tiết Nợ phát sinh (<span id="cntB6No">0</span> đơn):</b>
+              <div id="boxB6No" style="font-size:10.5px; color:#334155; margin-top:2px;"></div>
+            </div>
+
+          </div>
+
+          <!-- Chữ ký xác nhận -->
+          <div class="signature-grid">
+            <div>
+              <div class="role">Lái Xe / Người Nộp</div>
+              <div id="signNguoiNop">(Ký & Ghi rõ họ tên)</div>
+            </div>
+            <div>
+              <div class="role">Thủ Quỹ Nhận Tiền</div>
+              <div>(Ký & Ghi rõ họ tên)</div>
+            </div>
+            <div>
+              <div class="role">Kế Toán Xác Nhận</div>
+              <div>(Ký & Ghi rõ họ tên)</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <script src="layout.js"></script>
+  <script>
+    let dotNopTien = null;
+    let danhSachDon = [];
+    let lichSuDot = [];
+    let tienMatCanNop = 0;
+    let tongTienDem = 0;
+
+    const MENH_GIA = [
+      { id: "to_500k", val: 500000, lbl: "tt_500k" },
+      { id: "to_200k", val: 200000, lbl: "tt_200k" },
+      { id: "to_100k", val: 100000, lbl: "tt_100k" },
+      { id: "to_50k",  val: 50000,  lbl: "tt_50k" },
+      { id: "to_20k",  val: 20000,  lbl: "tt_20k" },
+      { id: "to_10k",  val: 10000,  lbl: "tt_10k" },
+      { id: "to_5k",   val: 5000,   lbl: "tt_5k" },
+      { id: "to_2k",   val: 2000,   lbl: "tt_2k" },
+      { id: "to_1k",   val: 1000,   lbl: "tt_1k" }
+    ];
+
+    function formatTien(so) {
+      if (so === null || so === undefined || isNaN(so)) return '0';
+      return Math.round(Number(so)).toLocaleString('vi-VN');
+    }
+
+    async function khoiTaoTrang() {
+      const layoutData = await khoiTaoLayout({
+        pageTitle: "Bước 6: Bảng Kê Nộp Tiền",
+        breadcrumb: "Quy trình 7 bước",
+        activeMenuId: "buoc6"
+      });
+      if (!layoutData) return;
+
+      try {
+        lichSuDot = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
+      } catch (e) {}
+
+      try {
+        dotNopTien = JSON.parse(localStorage.getItem("tmh_dot_nop_tien") || "null");
+      } catch (e) {}
+
+      if (!dotNopTien) {
+        try {
+          dotNopTien = JSON.parse(localStorage.getItem("tmh_dot_bao_cao") || "null");
+        } catch (e) {}
+      }
+
+      if (!dotNopTien && lichSuDot.length > 0) {
+        dotNopTien = lichSuDot[0];
+      }
+
+      if (!dotNopTien) {
+        alert("Chưa có dữ liệu chuyến xe để lập bảng kê nộp tiền!");
+        window.location.href = "buoc4_kiem_don.html";
+        return;
+      }
+
+      renderDropdownDot();
+      napDuLieuDot(dotNopTien);
+    }
+
+    function renderDropdownDot() {
+      const sel = document.getElementById('selectChonDot');
+      sel.innerHTML = '<option value="">-- Chọn chuyến xe khác --</option>';
+      lichSuDot.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.maDot;
+        opt.textContent = `${d.xe || 'Xe'} — ${d.ngayGiao || ''} (${d.maDot})`;
+        if (dotNopTien && d.maDot === dotNopTien.maDot) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+
+    function doiDotNopTien(maDot) {
+      if (!maDot) return;
+      const f = lichSuDot.find(d => d.maDot === maDot);
+      if (f) {
+        dotNopTien = f;
+        localStorage.setItem("tmh_dot_nop_tien", JSON.stringify(f));
+        napDuLieuDot(f);
+      }
+    }
+
+    function napDuLieuDot(dot) {
+      document.getElementById('lblXe').textContent = dot.xe || '—';
+      document.getElementById('lblNguoiNop').textContent = dot.taiXe || dot.nvThu || 'Lái xe';
+      document.getElementById('lblThuQuy').textContent = dot.nvThu || 'ĐẠT';
+      document.getElementById('lblNgayNop').textContent = dot.ngayGiao || new Date().toISOString().slice(0, 10);
+      document.getElementById('lblMaDot').textContent = dot.maDot || '—';
+
+      document.getElementById('prnXe').textContent = dot.xe || '—';
+      document.getElementById('prnNguoiNop').textContent = dot.taiXe || dot.nvThu || 'Lái xe';
+      document.getElementById('prnThuQuy').textContent = dot.nvThu || 'ĐẠT';
+      document.getElementById('prnNgay').textContent = dot.ngayGiao || '—';
+      document.getElementById('lblNgayInPhieu').textContent = `Ngày in: ${new Date().toLocaleDateString('vi-VN')}`;
+      document.getElementById('signNguoiNop').textContent = dot.taiXe || 'Lái xe';
+
+      // Nạp danh sách đơn từ Bước 4
+      const keyKiemDon = `tmh_kiemdon_${dot.maDot}`;
+      const savedKiemDon = localStorage.getItem(keyKiemDon);
+
+      if (savedKiemDon) {
+        try {
+          danhSachDon = JSON.parse(savedKiemDon);
+        } catch (e) {
+          danhSachDon = [];
+        }
+      } else if (dot.danhSachChiTiet) {
+        danhSachDon = dot.danhSachChiTiet;
+      } else {
+        danhSachDon = [];
+      }
+
+      // Tính tổng
+      let sumTT = 0, sumTM = 0, sumCK = 0, sumTV = 0, sumCN = 0;
+      const listCK = [];
+      const listTV = [];
+      const listNo = [];
+
+      danhSachDon.forEach(d => {
+        const tt = Number(d.thanhTien) || 0;
+        const tm = Number(d.tienMat) || 0;
+        const ck = Number(d.chuyenKhoan) || 0;
+        const tv = Number(d.traVe) || 0;
+        const cn = Number(d.conNo) || Number(d.noPhatSinh) || 0;
+
+        sumTT += tt; sumTM += tm; sumCK += ck; sumTV += tv; sumCN += cn;
+
+        if (ck > 0) listCK.push(`${d.maHD}: ${formatTien(ck)} đ (${d.taiKhoanNhan || 'VCB'})`);
+        if (tv > 0) listTV.push(`${d.maHD} (${d.tenKH}): ${formatTien(tv)} đ`);
+        if (cn > 0) listNo.push(`${d.maHD} (${d.tenKH}): ${formatTien(cn)} đ`);
+      });
+
+      tienMatCanNop = sumTM;
+      document.getElementById('lblTienMatCanNop').textContent = formatTien(sumTM) + ' đ';
+
+      document.getElementById('prnTienMat').textContent = formatTien(sumTM) + ' đ';
+      document.getElementById('prnChuyenKhoan').textContent = formatTien(sumCK) + ' đ';
+      document.getElementById('prnTraVe').textContent = formatTien(sumTV) + ' đ';
+      document.getElementById('prnConNo').textContent = formatTien(sumCN) + ' đ';
+      document.getElementById('prnTongGiaTri').textContent = formatTien(sumTT) + ' đ';
+
+      // Render 3 bảng chi tiết rút gọn
+      document.getElementById('cntB6CK').textContent = listCK.length;
+      document.getElementById('boxB6CK').innerHTML = listCK.length > 0 ? listCK.join(' • ') : '<i>Không phát sinh chuyển khoản</i>';
+
+      document.getElementById('cntB6TV').textContent = listTV.length;
+      document.getElementById('boxB6TV').innerHTML = listTV.length > 0 ? listTV.join(' • ') : '<i>Không có hàng trả về</i>';
+
+      document.getElementById('cntB6No').textContent = listNo.length;
+      document.getElementById('boxB6No').innerHTML = listNo.length > 0 ? listNo.join(' • ') : '<i>Không phát sinh công nợ</i>';
+
+      tinhTongMenhGia();
+    }
+
+    function tinhTongMenhGia() {
+      tongTienDem = 0;
+
+      MENH_GIA.forEach(mg => {
+        const inp = document.getElementById(mg.id);
+        const sl = Math.max(0, parseInt(inp.value, 10) || 0);
+        const thanhTien = sl * mg.val;
+        tongTienDem += thanhTien;
+        document.getElementById(mg.lbl).textContent = formatTien(thanhTien) + ' đ';
+      });
+
+      document.getElementById('lblTongTienDemDuoc').textContent = formatTien(tongTienDem) + ' đ';
+
+      const diff = tongTienDem - tienMatCanNop;
+      const elDiff = document.getElementById('lblChenhLech');
+
+      if (diff === 0) {
+        elDiff.textContent = "✓ KHỚP ĐỦ 100% (0 đ)";
+        elDiff.style.color = "#16a34a";
+      } else if (diff > 0) {
+        elDiff.textContent = `▲ Thừa: +${formatTien(diff)} đ`;
+        elDiff.style.color = "#2563eb";
+      } else {
+        elDiff.textContent = `▼ Thiếu: ${formatTien(diff)} đ`;
+        elDiff.style.color = "#dc2626";
+      }
+    }
+
+    function xoaTrangMenhGia() {
+      MENH_GIA.forEach(mg => {
+        document.getElementById(mg.id).value = 0;
+      });
+      tinhTongMenhGia();
+    }
+
+    // ========================================================
+    // CHỐT SỔ VÀ GHI SỔ NỘP TIỀN XE
+    // ========================================================
+    async function chotVaLuuSoNopTien() {
+      const diff = tongTienDem - tienMatCanNop;
+      if (diff !== 0) {
+        const xn = confirm(`CẢNH BÁO: Số tiền mặt đếm được (${formatTien(tongTienDem)} đ) đang ${diff > 0 ? 'THỪA +' + formatTien(diff) : 'THIẾU ' + formatTien(diff)} đ so với tiền mặt cần nộp (${formatTien(tienMatCanNop)} đ).\n\nBạn có chắc chắn muốn chốt sổ nộp tiền này không?`);
+        if (!xn) return;
+      }
+
+      const ngayNop = dotNopTien.ngayGiao || new Date().toISOString().slice(0, 10);
+      const xe = dotNopTien.xe || 'XE';
+      const khoaXeNgay = `${xe.replace(/[^a-zA-Z0-9]/g, '_')}_${ngayNop.replace(/[^0-9]/g, '')}`;
+
+      const duLieuSoXe = {
+        khoa_xe_ngay: khoaXeNgay,
+        xe: xe,
+        ngay_nop: ngayNop,
+        tai_xe: dotNopTien.taiXe || '',
+        so_don: danhSachDon.length,
+        thanh_tien: danhSachDon.reduce((s, d) => s + (Number(d.thanhTien) || 0), 0),
+        tien_mat: tongTienDem,
+        chuyen_khoan: danhSachDon.reduce((s, d) => s + (Number(d.chuyenKhoan) || 0), 0),
+        tra_ve: danhSachDon.reduce((s, d) => s + (Number(d.traVe) || 0), 0),
+        no_phat_sinh: danhSachDon.reduce((s, d) => s + (Number(d.conNo) || Number(d.noPhatSinh) || 0), 0),
+        trang_thai: "da_chot"
+      };
+
+      try {
+        await sb.from('so_nop_tien_xe').upsert(duLieuSoXe, { onConflict: 'khoa_xe_ngay' });
+      } catch (err) {
+        console.warn("Lưu Supabase sổ nộp xe:", err);
+      }
+
+      // Lưu chi tiết phiếu nộp tiền
+      try {
+        const phieuChiTiet = {
+          ma_phieu: `PNT_${khoaXeNgay}`,
+          ma_dot: dotNopTien.maDot,
+          xe: xe,
+          ngay_nop: ngayNop,
+          nguoi_nop: dotNopTien.taiXe || '',
+          thu_quy: dotNopTien.nvThu || 'ĐẠT',
+          tong_tien_mat: tongTienDem,
+          sl_500k: parseInt(document.getElementById('to_500k').value, 10) || 0,
+          sl_200k: parseInt(document.getElementById('to_200k').value, 10) || 0,
+          sl_100k: parseInt(document.getElementById('to_100k').value, 10) || 0,
+          sl_50k: parseInt(document.getElementById('to_50k').value, 10) || 0,
+          sl_20k: parseInt(document.getElementById('to_20k').value, 10) || 0,
+          sl_10k: parseInt(document.getElementById('to_10k').value, 10) || 0,
+          sl_5k: parseInt(document.getElementById('to_5k').value, 10) || 0,
+          sl_2k: parseInt(document.getElementById('to_2k').value, 10) || 0,
+          sl_1k: parseInt(document.getElementById('to_1k').value, 10) || 0,
+          chenh_lech: diff
+        };
+        await sb.from('phieu_nop_tien').upsert(phieuChiTiet, { onConflict: 'ma_phieu' });
+      } catch (err) {}
+
+      alert(`✅ ĐÃ CHỐT SỔ THÀNH CÔNG VÀ LƯU VÀO SỔ NỘP TIỀN XE "${xe}" NGÀY ${ngayNop}!\n\nĐã sẵn sàng chuyển sang Bước 7: Xuất file bán hàng MISA.`);
+      chuyenSangBuoc7();
+    }
+
+    function inPhieuNopTien() {
+      window.print();
+    }
+
+    function xuatExcelBangKe() {
+      if (typeof XLSX === 'undefined') return;
+
+      const wb = XLSX.utils.book_new();
+      const wsData = [
+        [{ v: "BẢNG KÊ NỘP TIỀN XE VÀ ĐỐI CHIẾU THU HÀNG", s: { font: { bold: true, sz: 14 } } }],
+        [{ v: `Xe: ${dotNopTien.xe} | Người nộp: ${dotNopTien.taiXe} | Ngày: ${dotNopTien.ngayGiao}` }],
+        [],
+        [{ v: "CHI TIẾT MỆNH GIÁ TIỀN MẶT ĐÃ ĐẾM", s: { font: { bold: true } } }]
+      ];
+
+      wsData.push(["Mệnh Giá", "Số Tờ", "Thành Tiền (VNĐ)"]);
+      MENH_GIA.forEach(mg => {
+        const sl = parseInt(document.getElementById(mg.id).value, 10) || 0;
+        wsData.push([mg.val, sl, sl * mg.val]);
+      });
+      wsData.push(["TỔNG TIỀN MẶT ĐẾM ĐƯỢC", null, tongTienDem]);
+      wsData.push(["TIỀN MẶT CẦN NỘP", null, tienMatCanNop]);
+      wsData.push(["CHÊNH LỆCH", null, tongTienDem - tienMatCanNop]);
+
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      XLSX.utils.book_append_sheet(wb, ws, "BangKeNopTien");
+      XLSX.writeFile(wb, `Bang_Ke_Nop_Tien_${(dotNopTien.xe || 'XE').replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`);
+    }
+
+    function chuyenSangBuoc7() {
+      if (!dotNopTien) return;
+      localStorage.setItem("tmh_dot_misa", JSON.stringify(dotNopTien));
+      window.location.href = "buoc7_xuat_misa.html";
+    }
+
+    khoiTaoTrang();
+  </script>
+</body>
+</html>
