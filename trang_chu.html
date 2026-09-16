@@ -187,6 +187,10 @@
           <div class="num" id="statSoXe">4 Xe</div>
           <div class="lbl">Vận chuyển</div>
         </div>
+        <a href="nhan_su.html" class="stat-badge" style="text-decoration:none; color:inherit; display:block;" title="Xem Sơ đồ tổ chức & Hồ sơ nhân sự">
+          <div class="num" id="statSoNhanSu">Nhân sự</div>
+          <div class="lbl">Hồ sơ & Sơ đồ</div>
+        </a>
         <div class="stat-badge">
           <div class="num">69 Cột</div>
           <div class="lbl">Chuẩn MISA</div>
@@ -332,6 +336,14 @@
         const { count } = await sb.from('danh_sach_xe').select('*', { count: 'exact', head: true });
         if (count) {
           document.getElementById('statSoXe').textContent = `${count} Xe`;
+        }
+      } catch (e) {}
+
+      // Đếm số lượng nhân sự từ Supabase
+      try {
+        const { count } = await sb.from('nhan_su').select('*', { count: 'exact', head: true });
+        if (count) {
+          document.getElementById('statSoNhanSu').textContent = `${count} NV`;
         }
       } catch (e) {}
     })();

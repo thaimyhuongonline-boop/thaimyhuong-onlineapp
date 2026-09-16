@@ -261,6 +261,166 @@ body {
   color: #15803d;
 }
 
+/* Sub-menu cho 7 bước khi ở trong quy trình */
+.tmh-submenu-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 20px;
+  margin-top: 2px;
+  margin-bottom: 6px;
+  border-left: 2px solid #cbd5e1;
+  margin-left: 22px;
+}
+
+.tmh-submenu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  color: #64748b;
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 600;
+  transition: var(--transition);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tmh-submenu-item:hover {
+  color: var(--primary);
+  background: #f1f5f9;
+}
+
+.tmh-submenu-item.active {
+  color: var(--primary);
+  font-weight: 800;
+  background: var(--primary-light);
+}
+
+.tmh-sub-num {
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9.5px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.tmh-submenu-item.active .tmh-sub-num {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+/* ========================================================
+   THANH TIẾN TRÌNH 7 BƯỚC NẰM NGANG (HORIZONTAL PROCESS STEPPER)
+   Gom 7 bước thành 1 tab quy trình chuyển KiotViet sang MISA
+   ======================================================== */
+.tmh-stepper-wrap {
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 12px 18px;
+  margin-bottom: 22px;
+  box-shadow: var(--shadow-card);
+}
+
+.tmh-stepper-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.tmh-stepper-title {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tmh-stepper-sub {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.tmh-stepper-track {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.tmh-stepper-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: #f8fafc;
+  border: 1px solid var(--border-color);
+  transition: var(--transition);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tmh-stepper-tab:hover {
+  background: #f1f5f9;
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.tmh-stepper-tab.active {
+  background: linear-gradient(135deg, #15803d 0%, #16a34a 100%);
+  color: #ffffff;
+  border-color: #15803d;
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.22);
+}
+
+.tmh-stepper-num {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: var(--text-main);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10.5px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.tmh-stepper-tab.active .tmh-stepper-num {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+.tmh-stepper-arrow {
+  color: #cbd5e1;
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
 /* Sidebar Footer (User Profile) */
 .tmh-sidebar-footer {
   padding: 12px 14px;

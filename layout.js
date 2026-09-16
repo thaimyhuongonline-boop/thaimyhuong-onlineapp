@@ -3,22 +3,25 @@
  * Dành cho tất cả các trang nội bộ của app THÁI MỸ HƯƠNG
  * ==================================================================== */
 
-// Danh sách các mục trên menu Sidebar
-const MENU_QUY_TRINH_7_BUOC = [
+// Danh sách chi tiết 7 bước quy trình chuyển dữ liệu từ KiotViet sang MISA
+const DANH_SACH_7_BUOC = [
   { id: "buoc1", href: "buoc1_upload.html", ic: "📥", label: "1. Tải KiotViet", desc: "Nạp file Excel bán hàng & đồng bộ DM" },
-  { id: "buoc2", href: "buoc2_phieu_xuat_kho.html", ic: "📊", label: "2. Phiếu thu & Xuất kho", desc: "Tạo danh sách thu tiền & phiếu kho" },
+  { id: "buoc2", href: "buoc2_phieu_xuat_kho.html", ic: "📊", label: "2. Phiếu xuất kho", desc: "Tạo danh sách thu tiền & phiếu kho" },
   { id: "buoc3", href: "buoc3_luu_tru.html", ic: "🗄️", label: "3. Lưu trữ đợt", desc: "Quản lý 18 cột đối soát & chi tiết HĐ" },
-  { id: "buoc4", href: "buoc4_kiem_don.html", ic: "📋", label: "4. Kiểm đơn giao về", desc: "Đối soát tiền mặt, CK & tách đơn giao lại" },
+  { id: "buoc4", href: "buoc4_kiem_don.html", ic: "📋", label: "4. Kiểm đơn", desc: "Đối soát tiền mặt, CK & tách đơn giao lại" },
   { id: "buoc5", href: "buoc5_bao_cao.html", ic: "💾", label: "5. Báo cáo đối soát", desc: "Tổng hợp MISA & gỡ đơn giao lại" },
   { id: "buoc6", href: "buoc6_nop_tien.html", ic: "📗", label: "6. Bảng kê nộp tiền", desc: "Đếm mệnh giá tiền mặt & sổ nộp xe" },
   { id: "buoc7", href: "buoc7_xuat_misa.html", ic: "📤", label: "7. Xuất file MISA", desc: "Xuất Excel 69 cột chuẩn kế toán MISA" }
 ];
 
-const MENU_QUAN_TRI = [
-  { id: "trangchu", href: "trang_chu.html", ic: "🏠", label: "Bảng điều khiển", roles: ["admin", "quanly", "nhanvien"] },
-  { id: "congno", href: "cong_no.html", ic: "💰", label: "Theo dõi công nợ", roles: ["admin", "quanly"] },
-  { id: "danhmuc", href: "danh_muc.html", ic: "📚", label: "Danh mục dữ liệu", roles: ["admin", "quanly"] },
-  { id: "taikhoan", href: "quan_ly_taikhoan.html", ic: "👤", label: "Quản lý tài khoản", roles: ["admin"] }
+// Danh sách Menu chính trên Sidebar
+const MENU_CHINH = [
+  { id: "trangchu", href: "trang_chu.html", ic: "🏠", label: "Bảng điều khiển", desc: "Báo cáo doanh số & bảng điều khiển", roles: ["admin", "quanly", "nhanvien"] },
+  { id: "quytrinh", href: "buoc1_upload.html", ic: "🔄", label: "Quy trình Bán hàng ➡ MISA", isProcess: true, desc: "Gom các bước quy trình từ KiotViet sang MISA", roles: ["admin", "quanly", "nhanvien"] },
+  { id: "sodotochuc", href: "nhan_su.html", ic: "🗺️", label: "Nhân sự & Tổ chức", desc: "Sơ đồ tổ chức, danh sách & phân quyền Tân Vĩnh Lợi", roles: ["admin", "quanly", "nhanvien"] },
+  { id: "congno", href: "cong_no.html", ic: "💰", label: "Theo dõi công nợ", desc: "Theo dõi công nợ khách hàng & quyết toán xe", roles: ["admin", "quanly", "nhanvien"] },
+  { id: "danhmuc", href: "danh_muc.html", ic: "📚", label: "Danh mục dữ liệu", desc: "Quản lý khách hàng, hàng hóa, xe", roles: ["admin", "quanly"] },
+  { id: "taikhoan", href: "quan_ly_taikhoan.html", ic: "⚙️", label: "Quản trị hệ thống", desc: "Cấu hình tài khoản & phân quyền", roles: ["admin"] }
 ];
 
 /**
@@ -44,18 +47,28 @@ async function khoiTaoLayout(options = {}) {
 
   const tenNguoiDung = nd.ho_ten || "Quý nhân viên";
   const vaiTro = nd.vai_tro || "nhanvien";
-  const tenVaiTro = TEN_VAI_TRO[vaiTro] || vaiTro;
+  const capDo = nd.cap_tai_khoan || (vaiTro === "admin" ? 1 : 3);
+  const tenCap = nd.ten_cap || (capDo === 1 ? "Toàn quyền" : (capDo === 2 ? "Cấp Quản lý" : "Nhân sự"));
+  const chucVu = nd.chuc_vu || "Nhân sự";
   const userInitials = tenNguoiDung.trim().split(" ").map(w => w[0]).slice(-2).join("").toUpperCase() || "TMH";
+
+  // Đọc phân quyền ma trận của người dùng hiện tại
+  let userPq = {};
+  try {
+    const rawPq = localStorage.getItem("userPermissions");
+    if (rawPq) userPq = JSON.parse(rawPq);
+  } catch (e) {}
 
   // 3. Chuẩn bị ngày hiện tại
   const now = new Date();
   const days = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
   const ngayHienTaiStr = `${days[now.getDay()]}, ${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
 
-  // 4. Xác định menu active
+  // 4. Xác định trang quy trình và menu active
   const currentPath = window.location.pathname.split("/").pop() || "trang_chu.html";
+  const isProcessPage = DANH_SACH_7_BUOC.some(b => b.href === currentPath) || options.activeMenuId === "quytrinh" || (options.activeMenuId && options.activeMenuId.startsWith("buoc"));
 
-  // 5. Render Sidebar
+  // 5. Render Sidebar (Gom 7 bước thành 1 tab)
   const sidebarHtml = `
     <aside class="tmh-sidebar" id="tmhSidebar">
       <!-- Header Sidebar -->
@@ -79,25 +92,44 @@ async function khoiTaoLayout(options = {}) {
 
       <!-- Danh sách Menu -->
       <div class="tmh-sidebar-menu">
-        <div class="tmh-menu-cat">Quy trình 7 bước</div>
-        ${MENU_QUY_TRINH_7_BUOC.map(m => {
-          const isActive = currentPath === m.href || options.activeMenuId === m.id;
+        <div class="tmh-menu-cat">Chức năng hệ thống</div>
+        ${MENU_CHINH.map(m => {
+          // Cấp 1 (Toàn quyền): Thấy tất cả các menu
+          if (capDo !== 1) {
+            // Kiểm tra theo ma trận phân quyền nếu có cấu hình
+            if (userPq && Object.keys(userPq).length > 0) {
+              const qVal = userPq[m.id];
+              if (qVal === 'none' || qVal === '') return '';
+            } else if (m.roles && !m.roles.includes(vaiTro)) {
+              return '';
+            }
+          }
+
+          const isActive = m.isProcess ? isProcessPage : (currentPath === m.href || options.activeMenuId === m.id || (m.id === "sodotochuc" && currentPath === "nhan_su.html"));
+
+          let subMenuHtml = '';
+          if (m.isProcess && isProcessPage) {
+            subMenuHtml = `
+              <div class="tmh-submenu-wrap">
+                ${DANH_SACH_7_BUOC.map((b, idx) => {
+                  const isStepActive = currentPath === b.href || options.activeMenuId === b.id;
+                  return `
+                    <a href="${b.href}" class="tmh-submenu-item ${isStepActive ? 'active' : ''}" title="${b.desc}">
+                      <span class="tmh-sub-num">${idx + 1}</span>
+                      <span>${b.label}</span>
+                    </a>
+                  `;
+                }).join('')}
+              </div>
+            `;
+          }
+
           return `
             <a href="${m.href}" class="tmh-menu-item ${isActive ? 'active' : ''}" title="${m.desc}">
               <span class="tmh-menu-ic">${m.ic}</span>
               <span class="tmh-menu-label">${m.label}</span>
             </a>
-          `;
-        }).join('')}
-
-        <div class="tmh-menu-cat">Quản trị & Sổ sách</div>
-        ${MENU_QUAN_TRI.map(m => {
-          const isActive = currentPath === m.href || options.activeMenuId === m.id;
-          return `
-            <a href="${m.href}" class="tmh-menu-item ${isActive ? 'active' : ''}">
-              <span class="tmh-menu-ic">${m.ic}</span>
-              <span class="tmh-menu-label">${m.label}</span>
-            </a>
+            ${subMenuHtml}
           `;
         }).join('')}
       </div>
@@ -108,7 +140,7 @@ async function khoiTaoLayout(options = {}) {
           <div class="tmh-user-avatar">${userInitials}</div>
           <div class="tmh-user-meta">
             <div class="name" title="${tenNguoiDung}">${tenNguoiDung}</div>
-            <div class="tmh-badge-role">${tenVaiTro}</div>
+            <div class="tmh-badge-role" style="font-size:11px;" title="${chucVu}">${chucVu} (${tenCap})</div>
           </div>
         </div>
       </div>
@@ -117,7 +149,7 @@ async function khoiTaoLayout(options = {}) {
 
   // 6. Render Topbar
   const pageTitle = options.pageTitle || "Hệ thống Thái Mỹ Hương";
-  const breadcrumb = options.breadcrumb || "Quy trình xử lý dữ liệu";
+  const breadcrumb = options.breadcrumb || (isProcessPage ? "Quy trình KiotViet ➡ MISA" : "Hệ thống");
 
   const topbarHtml = `
     <header class="tmh-topbar">
@@ -167,6 +199,36 @@ async function khoiTaoLayout(options = {}) {
     </footer>
   `;
 
+  // Chuẩn bị thanh tiến trình 7 bước nằm ngang (Stepper) nếu đang trong quy trình
+  let stepperHtml = "";
+  if (isProcessPage) {
+    stepperHtml = `
+      <div class="tmh-stepper-wrap">
+        <div class="tmh-stepper-header">
+          <div class="tmh-stepper-title">
+            <span>🔄</span>
+            <span>7 BƯỚC QUY TRÌNH CHUYỂN DỮ LIỆU: KIOTVIET ➡ MISA</span>
+          </div>
+          <div class="tmh-stepper-sub">
+            Chọn bước để chuyển đổi liên hoàn trong quy trình xử lý
+          </div>
+        </div>
+        <div class="tmh-stepper-track">
+          ${DANH_SACH_7_BUOC.map((b, idx) => {
+            const isStepActive = currentPath === b.href || options.activeMenuId === b.id;
+            return `
+              <a href="${b.href}" class="tmh-stepper-tab ${isStepActive ? 'active' : ''}" title="${b.desc}">
+                <span class="tmh-stepper-num">${idx + 1}</span>
+                <span>${b.label}</span>
+              </a>
+              ${idx < DANH_SACH_7_BUOC.length - 1 ? '<span class="tmh-stepper-arrow">➡</span>' : ''}
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
+
   // 8. Đưa cấu trúc vào trang
   const existingApp = document.getElementById("tmhAppWrapper");
   if (!existingApp) {
@@ -192,6 +254,11 @@ async function khoiTaoLayout(options = {}) {
     // Di chuyển nội dung cũ vào tmhPageBody
     const bodyContainer = document.getElementById("tmhPageBody");
     if (targetContent && targetContent !== wrapper) {
+      if (stepperHtml) {
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = stepperHtml;
+        bodyContainer.appendChild(tempDiv.firstElementChild);
+      }
       bodyContainer.appendChild(targetContent);
       targetContent.style.display = "block";
     }
@@ -209,7 +276,10 @@ async function khoiTaoLayout(options = {}) {
     user: nd,
     tenNguoiDung: tenNguoiDung,
     vaiTro: vaiTro,
-    tenVaiTro: tenVaiTro
+    tenVaiTro: tenVaiTro,
+    capTaiKhoan: capDo,
+    chucVu: chucVu,
+    tenCap: tenCap
   };
 }
 

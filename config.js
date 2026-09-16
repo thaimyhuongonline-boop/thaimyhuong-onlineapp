@@ -1,55 +1,113 @@
 /* ====================================================================
  * config.js — CẤU HÌNH CHUNG cho mọi trang của app THÁI MỸ HƯƠNG
  * ====================================================================
- * Mọi trang HTML nạp thư viện supabase-js TRƯỚC, rồi nạp file này.
- * Khóa "anon public" của Supabase để ở ĐÂY (một chỗ duy nhất).
+ * Quản lý kết nối Supabase, phiên đăng nhập nhân sự (ID: Số điện thoại)
+ * và phân loại tài khoản 3 cấp: 1. Toàn quyền | 2. Cấp quản lý | 3. Nhân sự
  * ==================================================================== */
 
-// 1) URL: đối chiếu Settings → API → Project URL
+// 1) URL & API Key của Supabase
 const SUPABASE_URL = "https://oedidnctnteeegkdcwaa.supabase.co";
-
-// 2) DÁN khóa "anon public" (Settings → API) vào giữa 2 dấu nháy:
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9lZGlkbmN0bnRlZWVna2Rjd2FhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzMzE3MTYsImV4cCI6MjEwNDkwNzcxNn0.3ZO5ZO9_VJ7vsr9qC586kXl4XAbDCjQcamP66FkDkTE";
 
 // Tạo kết nối dùng chung
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Tên vai trò để hiển thị
-const TEN_VAI_TRO = { admin: "Quản trị", quanly: "Cấp quản lý", nhanvien: "Nhân viên" };
+// 2) ĐỊNH NGHĨA 3 CẤP TÀI KHOẢN CHUẨN DO THÁI MỸ HƯƠNG QUY ĐỊNH
+const CAP_TAI_KHOAN = {
+  1: { cap: 1, ma: "toan_quyen", ten: "Toàn quyền", badgeClass: "badge-cap-1", moTa: "Ban Giám Đốc / Toàn quyền hệ thống", vaiTroCu: "admin" },
+  2: { cap: 2, ma: "quan_ly", ten: "Cấp Quản lý", badgeClass: "badge-cap-2", moTa: "Cấp Quản lý / Soát xét", vaiTroCu: "quanly" },
+  3: { cap: 3, ma: "nhan_su", ten: "Nhân sự", badgeClass: "badge-cap-3", moTa: "Nhân sự tác nghiệp", vaiTroCu: "nhanvien" }
+};
 
-// Số điện thoại → email nội bộ (dùng chung hệ đăng nhập Supabase).
-// Có "@" nghĩa là đã là email → dùng thẳng.
-function taiKhoanThanhEmail(tk) {
-  tk = (tk || "").trim();
-  if (tk.indexOf("@") !== -1) return tk;
-  return tk.replace(/[^0-9]/g, "") + "@thaimyhuong.local";
+// Map tên vai trò hiển thị tương thích
+const TEN_VAI_TRO = {
+  admin: "Toàn quyền (Cấp 1)",
+  quanly: "Cấp quản lý (Cấp 2)",
+  nhanvien: "Nhân sự (Cấp 3)"
+};
+
+/**
+ * Hàm làm sạch số điện thoại đăng nhập
+ */
+function lamSachSoDienThoai(sdt) {
+  if (!sdt) return "";
+  return sdt.toString().trim().replace(/[^0-9+]/g, "");
 }
 
-// Dùng ở ĐẦU mỗi trang bên trong: đảm bảo đã đăng nhập + lấy hồ sơ.
-// Chưa đăng nhập / bị khóa / chưa có hồ sơ → đá về trang đăng nhập.
-// Trả về { uid, ho_ten, vai_tro, trang_thai } nếu hợp lệ.
+/**
+ * Kiểm tra phiên đăng nhập và bảo vệ trang
+ * Trả về thông tin hồ sơ nhân sự đầy đủ nếu hợp lệ, ngược lại chuyển về trang đăng nhập
+ */
 async function baoVeTrang() {
-  var phien = await sb.auth.getSession();
-  var session = phien.data ? phien.data.session : null;
-  if (!session) { window.location.href = "index.html"; return null; }
+  var nsRaw = localStorage.getItem("nhan_su_profile");
+  if (!nsRaw) {
+    // Thử kiểm tra session Supabase Auth cũ nếu có
+    try {
+      var phien = await sb.auth.getSession();
+      if (phien.data && phien.data.session) {
+        var uid = phien.data.session.user.id;
+        var hs = await sb.from("ho_so").select("*").eq("id", uid).maybeSingle();
+        if (hs && hs.data && hs.data.trang_thai !== "khoa" && hs.data.trang_thai !== "bi_khoa") {
+          return {
+            uid: uid,
+            so_dien_thoai: phien.data.session.user.email ? phien.data.session.user.email.split('@')[0] : "admin",
+            ho_ten: hs.data.ho_ten || "Quản trị viên",
+            chuc_vu: "Giám đốc Điều hành",
+            cap_tai_khoan: 1,
+            ten_cap: "Toàn quyền",
+            vai_tro: "admin",
+            trang_thai: "hoat_dong"
+          };
+        }
+      }
+    } catch (e) {}
 
-  var uid = session.user.id;
-  var hs = await sb.from("ho_so")
-                   .select("ho_ten, vai_tro, trang_thai")
-                   .eq("id", uid).single();
-
-  if (hs.data && (hs.data.trang_thai === "khoa" || hs.data.trang_thai === "bi_khoa")) {
-    await sb.auth.signOut();
     window.location.href = "index.html";
     return null;
   }
-  var hoTen = (hs.data && hs.data.ho_ten) ? hs.data.ho_ten : (session.user.email ? session.user.email.split('@')[0] : "Thành viên");
-  var vaiTro = (hs.data && hs.data.vai_tro) ? hs.data.vai_tro : "admin";
-  return { uid: uid, ho_ten: hoTen, vai_tro: vaiTro, trang_thai: "hoat_dong" };
+
+  try {
+    var ns = JSON.parse(nsRaw);
+    if (!ns || ns.trang_thai === "khoa" || ns.trang_thai_lam_viec === "Đã nghỉ việc") {
+      alert("🔒 Tài khoản của bạn đang bị khóa hoặc đã nghỉ việc.");
+      await dangXuat();
+      return null;
+    }
+
+    var cap = parseInt(ns.phan_loai_tk) || (ns.vai_tro_app === "Admin" ? 1 : (ns.vai_tro_app === "Quản trị viên" ? 2 : 3));
+    var thongTinCap = CAP_TAI_KHOAN[cap] || CAP_TAI_KHOAN[3];
+
+    return {
+      uid: ns.so_dien_thoai || ns.so_cccd,
+      so_dien_thoai: ns.so_dien_thoai,
+      ho_ten: ns.ho_ten || "Quý nhân viên",
+      chuc_vu: ns.chuc_vu || ns.vi_tri_cong_viec || "Nhân sự",
+      cap_tai_khoan: cap,
+      ten_cap: thongTinCap.ten,
+      vai_tro: thongTinCap.vaiTroCu,
+      bo_phan: ns.bo_phan || "",
+      khoi: ns.khoi || "",
+      trang_thai: "hoat_dong",
+      du_lieu_goc: ns
+    };
+  } catch (err) {
+    console.error("Lỗi đọc hồ sơ nhân sự:", err);
+    window.location.href = "index.html";
+    return null;
+  }
 }
 
-// Đăng xuất rồi về trang đăng nhập
+/**
+ * Đăng xuất an toàn và xóa toàn bộ session
+ */
 async function dangXuat() {
-  await sb.auth.signOut();
+  localStorage.removeItem("userAccount");
+  localStorage.removeItem("nhan_su_profile");
+  localStorage.removeItem("userPermissions");
+  localStorage.removeItem("userRole");
+  localStorage.removeItem("userChucVu");
+  try {
+    await sb.auth.signOut();
+  } catch (e) {}
   window.location.href = "index.html";
 }

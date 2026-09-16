@@ -572,10 +572,10 @@
 
       <form onsubmit="return false;" autocomplete="on">
         <div class="form-group">
-          <label for="taiKhoan">Tài khoản (Email hoặc Số điện thoại)</label>
+          <label for="taiKhoan">Số điện thoại (ID Tài khoản)</label>
           <div class="input-wrapper">
-            <span class="input-icon">👤</span>
-            <input id="taiKhoan" type="text" placeholder="vd: 0903160116 hoặc email..." autocomplete="username" required>
+            <span class="input-icon">📱</span>
+            <input id="taiKhoan" type="text" placeholder="Nhập số điện thoại (vd: 0903160116)..." autocomplete="username" required>
           </div>
         </div>
 
@@ -627,11 +627,12 @@
       });
     }
 
-    // Nếu đã đăng nhập sẵn thì vào thẳng trang chủ
+    // Nếu đã đăng nhập sẵn thì chuyển thẳng vào trang chủ
     (async function () {
       try {
-        var phien = await sb.auth.getSession();
-        if (phien.data && phien.data.session) {
+        var localNs = localStorage.getItem("nhan_su_profile");
+        var localAcc = localStorage.getItem("userAccount");
+        if (localNs && localAcc) {
           window.location.href = "trang_chu.html";
         }
       } catch (err) {
@@ -640,10 +641,12 @@
     })();
 
     async function dangNhap() {
-      var tk = document.getElementById("taiKhoan").value;
+      var rawTk = document.getElementById("taiKhoan").value;
       var mk = document.getElementById("matKhau").value;
+      var tk = (rawTk || "").trim();
+
       if (!tk || !mk) {
-        bao("⚠️ Vui lòng nhập đầy đủ tài khoản và mật khẩu.", "loi");
+        bao("⚠️ Vui lòng nhập đầy đủ Số điện thoại và Mật khẩu.", "loi");
         return;
       }
 
@@ -652,27 +655,83 @@
       btn.innerHTML = '<span>⏳ Đang xác thực…</span>';
 
       try {
-        var email = taiKhoanThanhEmail(tk);
-        var res = await sb.auth.signInWithPassword({ email: email, password: mk });
-        if (res.error) {
-          bao("❌ Sai tài khoản hoặc mật khẩu.", "loi");
+        // 1. Kiểm tra trực tiếp trong danh sách nhân sự trên Supabase (ID = Số điện thoại)
+        var sdtClean = tk.replace(/[^0-9+]/g, "");
+        var res = await sb.from("nhan_su")
+                          .select("*")
+                          .or(`so_dien_thoai.eq.${tk},so_dien_thoai.eq.${sdtClean},so_cccd.eq.${tk}`)
+                          .maybeSingle();
+
+        var userData = res.data;
+
+        // Nếu bảng nhan_su chưa chạy SQL hoặc không tìm thấy, hỗ trợ kiểm tra tài khoản quản trị cũ (ho_so)
+        if (!userData) {
+          try {
+            var email = (tk.indexOf("@") !== -1) ? tk : (sdtClean + "@thaimyhuong.local");
+            var authRes = await sb.auth.signInWithPassword({ email: email, password: mk });
+            if (!authRes.error && authRes.data && authRes.data.user) {
+              var uid = authRes.data.user.id;
+              var hsRes = await sb.from("ho_so").select("*").eq("id", uid).maybeSingle();
+              userData = {
+                so_dien_thoai: tk,
+                ho_ten: (hsRes.data && hsRes.data.ho_ten) ? hsRes.data.ho_ten : "Quản trị viên",
+                chuc_vu: "Giám đốc Điều hành",
+                phan_loai_tk: 1,
+                mat_khau_app: mk,
+                trang_thai: "hoat_dong"
+              };
+            }
+          } catch (e) {}
+        }
+
+        if (!userData) {
+          bao("❌ Số điện thoại không tồn tại trong danh sách nhân sự công ty.", "loi");
           return;
         }
 
-        var uid = res.data.user.id;
-        var hs = await sb.from("ho_so").select("vai_tro, trang_thai").eq("id", uid).single();
-
-        if (hs.data && (hs.data.trang_thai === "khoa" || hs.data.trang_thai === "bi_khoa")) {
-          await sb.auth.signOut();
-          bao("🔒 Tài khoản đang bị KHÓA. Vui lòng liên hệ quản trị viên.", "loi");
+        // 2. So khớp mật khẩu
+        if (userData.mat_khau_app && userData.mat_khau_app.trim() !== mk.trim()) {
+          bao("❌ Mật khẩu không chính xác. Vui lòng thử lại.", "loi");
           return;
         }
 
-        bao("✅ Đăng nhập thành công! Đang chuyển hướng...", "ok");
-        window.location.href = "trang_chu.html";
+        // 3. Kiểm tra trạng thái hoạt động
+        if (userData.trang_thai === "khoa" || userData.trang_thai_lam_viec === "Đã nghỉ việc") {
+          bao("🔒 Tài khoản nhân sự đang bị KHÓA hoặc đã nghỉ việc.", "loi");
+          return;
+        }
+
+        // 4. Xác định cấp tài khoản (1: Toàn quyền, 2: Cấp quản lý, 3: Nhân sự)
+        var cap = parseInt(userData.phan_loai_tk) || (userData.vai_tro_app === "Admin" ? 1 : (userData.vai_tro_app === "Quản trị viên" ? 2 : 3));
+        userData.phan_loai_tk = cap;
+        var tenCap = (cap === 1) ? "Toàn quyền (Cấp 1)" : ((cap === 2) ? "Cấp Quản lý (Cấp 2)" : "Nhân sự (Cấp 3)");
+
+        // 5. Tải ma trận phân quyền của chức vụ tương ứng (nếu có)
+        try {
+          var chucVu = userData.chuc_vu || userData.vi_tri_cong_viec || "";
+          var pqRes = await sb.from("phan_quyen_vi_tri").select("*").eq("chuc_vu", chucVu).maybeSingle();
+          if (pqRes && pqRes.data) {
+            localStorage.setItem("userPermissions", JSON.stringify(pqRes.data.cac_quyen || {}));
+          } else {
+            localStorage.removeItem("userPermissions");
+          }
+        } catch (pqErr) {
+          console.warn("Không tải được ma trận phân quyền:", pqErr);
+        }
+
+        // 6. Lưu phiên làm việc vào LocalStorage
+        localStorage.setItem("userAccount", userData.so_dien_thoai || tk);
+        localStorage.setItem("nhan_su_profile", JSON.stringify(userData));
+        localStorage.setItem("userCapDo", cap);
+        localStorage.setItem("userChucVu", userData.chuc_vu || "");
+
+        bao(`✅ Đăng nhập thành công! Chào ${userData.ho_ten} (${tenCap})...`, "ok");
+        setTimeout(function () {
+          window.location.href = "trang_chu.html";
+        }, 350);
 
       } catch (e) {
-        bao("❌ Lỗi kết nối: " + e.message, "loi");
+        bao("❌ Lỗi kết nối máy chủ: " + e.message, "loi");
       } finally {
         btn.disabled = false;
         btn.innerHTML = '<span>ĐĂNG NHẬP HỆ THỐNG</span><span>→</span>';
