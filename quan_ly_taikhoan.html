@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản Lý Tài Khoản & Phân Quyền — THÁI MỸ HƯƠNG</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <link rel="stylesheet" href="layout.css">
+  <style>
+    /* ==========================================================================
+       CSS CHUYÊN BIỆT CHO TRANG QUẢN LÝ TÀI KHOẢN & PHÂN QUYỀN
+       ========================================================================== */
+    .acc-header-banner {
+      background: linear-gradient(135deg, #184e36 0%, #236446 60%, #2d7e59 100%);
+      color: #ffffff;
+      border-radius: var(--radius-lg);
+      padding: 24px 28px;
+      margin-bottom: 24px;
+      box-shadow: 0 8px 24px rgba(35, 100, 70, 0.15);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .acc-banner-info h1 {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .acc-banner-info p {
+      font-size: 13.5px;
+      opacity: 0.9;
+      max-width: 680px;
+      line-height: 1.5;
+    }
+
+    /* Thống kê 4 thẻ */
+    .acc-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .acc-stat-card {
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      box-shadow: var(--shadow-card);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: var(--transition);
+    }
+    .acc-stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+    .acc-stat-ic {
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+    .acc-stat-val {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--text-main);
+      line-height: 1.2;
+    }
+    .acc-stat-lbl {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    /* Hệ thống Tabs */
+    .acc-tabs-bar {
+      display: flex;
+      gap: 8px;
+      border-bottom: 2px solid var(--border-color);
+      margin-bottom: 20px;
+    }
+    .acc-tab-btn {
+      padding: 12px 22px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-muted);
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: var(--transition);
+    }
+    .acc-tab-btn:hover {
+      color: var(--primary);
+      background: rgba(35, 100, 70, 0.04);
+      border-radius: 8px 8px 0 0;
+    }
+    .acc-tab-btn.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+
+    /* Thẻ Container */
+    .acc-card {
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 22px 24px;
+      box-shadow: var(--shadow-card);
+      margin-bottom: 24px;
+    }
+
+    /* Thanh công cụ tìm kiếm và lọc */
+    .acc-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .acc-filters {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      flex: 1;
+      min-width: 300px;
+    }
+    .acc-search-box {
+      position: relative;
+      flex: 1;
+      min-width: 220px;
+    }
+    .acc-search-box input {
+      width: 100%;
+      height: 38px;
+      padding: 0 14px 0 36px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      font-size: 13.5px;
+      outline: none;
+      transition: var(--transition);
+      background: #ffffff;
+    }
+    .acc-search-box input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(35, 100, 70, 0.12);
+    }
+    .acc-search-ic {
+      position: absolute;
+      left: 11px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 14px;
+      pointer-events: none;
+    }
+    .acc-select {
+      height: 38px;
+      padding: 0 14px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      background: #ffffff;
+      color: var(--text-main);
+      font-weight: 500;
+      outline: none;
+      cursor: pointer;
+    }
+    .acc-select:focus {
+      border-color: var(--primary);
+    }
+    .acc-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Nút bấm */
+    .acc-btn {
+      height: 38px;
+      padding: 0 18px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: var(--transition);
+    }
+    .acc-btn-primary {
+      background: var(--primary);
+      color: #ffffff;
+    }
+    .acc-btn-primary:hover {
+      background: var(--primary-hover);
+      box-shadow: 0 3px 8px rgba(35, 100, 70, 0.25);
+    }
+    .acc-btn-outline {
+      background: #ffffff;
+      border-color: var(--border-color);
+      color: var(--text-main);
+    }
+    .acc-btn-outline:hover {
+      background: var(--bg-page);
+      border-color: #cbd5e1;
+    }
+
+    /* Bảng dữ liệu */
+    .acc-table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      background: #ffffff;
+    }
+    .acc-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+      min-width: 800px;
+    }
+    .acc-table th {
+      background: #f8fafc;
+      padding: 12px 16px;
+      font-weight: 700;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border-color);
+      white-space: nowrap;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .acc-table td {
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      vertical-align: middle;
+      color: var(--text-main);
+    }
+    .acc-table tbody tr:hover {
+      background: #f8fafc;
+    }
+    .acc-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* Badges Cấp độ tài khoản */
+    .cap-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: var(--radius-full);
+      font-size: 11.5px;
+      font-weight: 700;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .cap-1 {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+    }
+    .cap-2 {
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fde68a;
+    }
+    .cap-3 {
+      background: #e0f2fe;
+      color: #075985;
+      border: 1px solid #bae6fd;
+    }
+
+    /* Badges Trạng thái */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      border-radius: var(--radius-full);
+      font-size: 11.5px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .status-active {
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+    }
+    .status-locked {
+      background: #f3f4f6;
+      color: #4b5563;
+      border: 1px solid #e5e7eb;
+    }
+
+    /* Nút thao tác trong bảng */
+    .btn-row-action {
+      padding: 5px 9px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      background: #ffffff;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: var(--text-main);
+      transition: var(--transition);
+    }
+    .btn-row-action:hover {
+      background: var(--bg-page);
+      border-color: #94a3b8;
+    }
+    .btn-row-action.danger:hover {
+      background: #fee2e2;
+      border-color: #fca5a5;
+      color: #b91c1c;
+    }
+
+    /* Ma trận phân quyền */
+    .matrix-table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      background: #ffffff;
+    }
+    .matrix-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+      min-width: 950px;
+    }
+    .matrix-table th {
+      background: #f8fafc;
+      padding: 12px 14px;
+      font-weight: 700;
+      color: var(--text-muted);
+      border-bottom: 2px solid var(--border-color);
+      border-right: 1px solid var(--border-color);
+      text-align: center;
+      white-space: nowrap;
+    }
+    .matrix-table th:first-child {
+      text-align: left;
+      min-width: 180px;
+      position: sticky;
+      left: 0;
+      background: #f8fafc;
+      z-index: 2;
+    }
+    .matrix-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      border-right: 1px solid var(--border-subtle);
+      text-align: center;
+      vertical-align: middle;
+    }
+    .matrix-table td:first-child {
+      text-align: left;
+      font-weight: 700;
+      color: var(--text-main);
+      position: sticky;
+      left: 0;
+      background: #ffffff;
+      z-index: 1;
+    }
+    .matrix-select {
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-weight: 700;
+      border: 1px solid var(--border-color);
+      outline: none;
+      cursor: pointer;
+      width: 100%;
+      text-align: center;
+    }
+    .matrix-select.val-all {
+      background: #ecfdf5;
+      color: #065f46;
+      border-color: #a7f3d0;
+    }
+    .matrix-select.val-view {
+      background: #fef3c7;
+      color: #92400e;
+      border-color: #fde68a;
+    }
+    .matrix-select.val-none {
+      background: #f3f4f6;
+      color: #6b7280;
+      border-color: #e5e7eb;
+    }
+
+    /* Modal Hộp thoại */
+    .acc-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 16px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .acc-modal-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .acc-modal {
+      background: #ffffff;
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 520px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      overflow: hidden;
+      transform: translateY(10px);
+      transition: transform 0.2s ease;
+    }
+    .acc-modal-overlay.show .acc-modal {
+      transform: translateY(0);
+    }
+    .acc-modal-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f8fafc;
+    }
+    .acc-modal-header h3 {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+    .acc-modal-close {
+      background: none;
+      border: none;
+      font-size: 20px;
+      color: var(--text-muted);
+      cursor: pointer;
+      line-height: 1;
+    }
+    .acc-modal-body {
+      padding: 22px 24px;
+      max-height: 75vh;
+      overflow-y: auto;
+    }
+    .acc-modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border-color);
+      background: #f8fafc;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    /* Form Fields */
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-label {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 6px;
+    }
+    .form-label span.req {
+      color: #dc2626;
+    }
+    .form-control {
+      width: 100%;
+      height: 40px;
+      padding: 0 12px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      font-size: 13.5px;
+      outline: none;
+      transition: var(--transition);
+      background: #ffffff;
+      color: var(--text-main);
+    }
+    .form-control:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(35, 100, 70, 0.12);
+    }
+    .form-help {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Phân loại tài khoản 3 cấp độ (Radio Cards) */
+    .cap-cards-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin-top: 6px;
+    }
+    .cap-card-opt {
+      border: 2px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 12px 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: var(--transition);
+      background: #ffffff;
+      user-select: none;
+    }
+    .cap-card-opt:hover {
+      border-color: #cbd5e1;
+    }
+    .cap-card-opt.selected.cap-opt-1 {
+      border-color: #ef4444;
+      background: #fef2f2;
+    }
+    .cap-card-opt.selected.cap-opt-2 {
+      border-color: #f59e0b;
+      background: #fffbeb;
+    }
+    .cap-card-opt.selected.cap-opt-3 {
+      border-color: #0ea5e9;
+      background: #f0f9ff;
+    }
+    .cap-card-opt input[type="radio"] {
+      display: none;
+    }
+    .cap-opt-title {
+      font-weight: 800;
+      font-size: 13px;
+      margin-bottom: 2px;
+    }
+    .cap-opt-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.3;
+    }
+
+    /* Toast thông báo */
+    #accToast {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      z-index: 999999;
+      padding: 12px 18px;
+      border-radius: var(--radius-md);
+      background: #0f172a;
+      color: #ffffff;
+      font-size: 13.5px;
+      font-weight: 600;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: all 0.25s ease;
+      pointer-events: none;
+    }
+    #accToast.show {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+    #accToast.success {
+      background: #065f46;
+      border-left: 4px solid #10b981;
+    }
+    #accToast.error {
+      background: #991b1b;
+      border-left: 4px solid #ef4444;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Toast popup -->
+  <div id="accToast"></div>
+
+  <!-- Nội dung chính được bao bởi Layout -->
+  <main id="mainContent">
+
+    <!-- Header Banner -->
+    <div class="acc-header-banner">
+      <div class="acc-banner-info">
+        <h1>🛡️ Quản Lý Tài Khoản & Phân Quyền</h1>
+        <p>Hệ thống thiết lập danh sách nhân viên công ty Thái Mỹ Hương (ID đăng nhập bằng Số điện thoại), phân loại 3 cấp độ tài khoản và ma trận quyền hạn cho từng bước nghiệp vụ.</p>
+      </div>
+      <div>
+        <button type="button" class="acc-btn acc-btn-primary" id="btnMoModalThem" style="background: #ffffff; color: var(--primary); font-weight: 800; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+          <span>➕</span>
+          <span>Thêm Tài Khoản Mới</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 4 Thẻ thống kê nhanh -->
+    <div class="acc-stats-grid">
+      <div class="acc-stat-card">
+        <div class="acc-stat-ic" style="background: #ecfdf5; color: #065f46;">👥</div>
+        <div>
+          <div class="acc-stat-val" id="statTongTk">0</div>
+          <div class="acc-stat-lbl">Tổng tài khoản</div>
+        </div>
+      </div>
+      <div class="acc-stat-card">
+        <div class="acc-stat-ic" style="background: #fee2e2; color: #991b1b;">👑</div>
+        <div>
+          <div class="acc-stat-val" id="statCap1">0</div>
+          <div class="acc-stat-lbl">Cấp 1 (Toàn quyền)</div>
+        </div>
+      </div>
+      <div class="acc-stat-card">
+        <div class="acc-stat-ic" style="background: #fef3c7; color: #92400e;">⭐</div>
+        <div>
+          <div class="acc-stat-val" id="statCap2">0</div>
+          <div class="acc-stat-lbl">Cấp 2 (Cấp Quản lý)</div>
+        </div>
+      </div>
+      <div class="acc-stat-card">
+        <div class="acc-stat-ic" style="background: #e0f2fe; color: #075985;">👤</div>
+        <div>
+          <div class="acc-stat-val" id="statCap3">0</div>
+          <div class="acc-stat-lbl">Cấp 3 (Nhân sự)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabs chuyển đổi -->
+    <div class="acc-tabs-bar">
+      <button type="button" class="acc-tab-btn active" id="tabBtnDanhSach" onclick="chuyenTab('danhsach')">
+        <span>👥</span>
+        <span>Danh Sách Tài Khoản Nhân Viên</span>
+      </button>
+      <button type="button" class="acc-tab-btn" id="tabBtnMaTran" onclick="chuyenTab('matran')">
+        <span>🛡️</span>
+        <span>Ma Trận Phân Quyền Theo Chức Vụ</span>
+      </button>
+    </div>
+
+    <!-- TAB 1: DANH SÁCH TÀI KHOẢN -->
+    <div id="tabContentDanhSach">
+      <div class="acc-card">
+        <!-- Toolbar -->
+        <div class="acc-toolbar">
+          <div class="acc-filters">
+            <div class="acc-search-box">
+              <span class="acc-search-ic">🔍</span>
+              <input type="text" id="inpTimKiem" placeholder="Tìm theo Họ tên hoặc Số điện thoại (ID)..." oninput="locDuLieu()">
+            </div>
+            <select class="acc-select" id="selLocCap" onchange="locDuLieu()">
+              <option value="all">Tất cả cấp độ</option>
+              <option value="1">Cấp 1: Toàn quyền</option>
+              <option value="2">Cấp 2: Cấp quản lý</option>
+              <option value="3">Cấp 3: Nhân sự</option>
+            </select>
+            <select class="acc-select" id="selLocTrangThai" onchange="locDuLieu()">
+              <option value="all">Tất cả trạng thái</option>
+              <option value="hoat_dong">Đang hoạt động</option>
+              <option value="khoa">Đang bị khóa</option>
+            </select>
+          </div>
+          <div class="acc-actions">
+            <button type="button" class="acc-btn acc-btn-outline" onclick="taiDanhSachNhanSu()" title="Tải lại danh sách từ máy chủ">
+              <span>🔄</span>
+              <span>Làm Mới</span>
+            </button>
+            <button type="button" class="acc-btn acc-btn-outline" onclick="napDuLieuMau()" title="Nạp 5 tài khoản mẫu mặc định của công ty">
+              <span>📥</span>
+              <span>Nạp Mẫu</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Bảng danh sách tài khoản -->
+        <div class="acc-table-wrap">
+          <table class="acc-table">
+            <thead>
+              <tr>
+                <th style="width: 50px; text-align: center;">STT</th>
+                <th>Họ và Tên</th>
+                <th>Số Điện Thoại (ID)</th>
+                <th>Chức Vụ</th>
+                <th>Phân Loại Cấp Bậc</th>
+                <th>Trạng Thái</th>
+                <th style="text-align: right; width: 220px;">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="bangNhanSuBody">
+              <tr>
+                <td colspan="7" style="text-align: center; padding: 32px; color: var(--text-muted);">
+                  ⏳ Đang tải dữ liệu tài khoản nhân sự...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: MA TRẬN PHÂN QUYỀN -->
+    <div id="tabContentMaTran" style="display: none;">
+      <div class="acc-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <h3 style="font-size: 16px; font-weight: 800; color: var(--text-main);">Ma Trận Quyền Hạn Nghiệp Vụ</h3>
+            <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 2px;">
+              Cấu hình quyền hạn cho từng chức vụ đối với 7 bước quy trình Bán hàng ➡ MISA và Quản trị hệ thống.
+            </p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="acc-btn acc-btn-outline" onclick="taiMaTranPhanQuyen()">
+              <span>🔄</span>
+              <span>Khôi Phục Gốc</span>
+            </button>
+            <button type="button" class="acc-btn acc-btn-primary" onclick="luuMaTranPhanQuyen()">
+              <span>💾</span>
+              <span>Lưu Ma Trận Quyền</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Chú thích mức quyền -->
+        <div style="display: flex; gap: 16px; margin-bottom: 14px; font-size: 12px; font-weight: 600; flex-wrap: wrap;">
+          <span style="display: inline-flex; align-items: center; gap: 6px;">
+            <span style="display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: #a7f3d0; border: 1px solid #059669;"></span>
+            <span>🟢 Toàn quyền (Thao tác & Duyệt)</span>
+          </span>
+          <span style="display: inline-flex; align-items: center; gap: 6px;">
+            <span style="display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: #fde68a; border: 1px solid #d97706;"></span>
+            <span>🟡 Chỉ xem (Tra cứu số liệu)</span>
+          </span>
+          <span style="display: inline-flex; align-items: center; gap: 6px;">
+            <span style="display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: #e5e7eb; border: 1px solid #9ca3af;"></span>
+            <span>🔴 Không truy cập</span>
+          </span>
+        </div>
+
+        <div class="matrix-table-wrap">
+          <table class="matrix-table" id="bangMaTran">
+            <thead>
+              <tr>
+                <th>Chức Vụ / Vị Trí</th>
+                <th>B1: Tải KiotViet</th>
+                <th>B2: Phiếu Xuất Kho</th>
+                <th>B3: Lưu Trữ Đợt</th>
+                <th>B4: Kiểm Đơn</th>
+                <th>B5: Đối Soát</th>
+                <th>B6: Bảng Kê Tiền</th>
+                <th>B7: Xuất MISA</th>
+                <th>Quản Trị Hệ Thống</th>
+              </tr>
+            </thead>
+            <tbody id="bangMaTranBody">
+              <tr>
+                <td colspan="9" style="text-align: center; padding: 28px; color: var(--text-muted);">
+                  ⏳ Đang nạp ma trận phân quyền...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ========================================================================
+       MODAL: THÊM / CHỈNH SỬA TÀI KHOẢN
+       ======================================================================== -->
+  <div class="acc-modal-overlay" id="modalThemSua">
+    <div class="acc-modal">
+      <div class="acc-modal-header">
+        <h3 id="modalThemSuaTieuDe">➕ Thêm Tài Khoản Mới</h3>
+        <button type="button" class="acc-modal-close" onclick="dongModalThemSua()">✕</button>
+      </div>
+      <form id="formThemSua" onsubmit="xuLyLuuTaiKhoan(event)">
+        <input type="hidden" id="formIsEdit" value="0">
+        <input type="hidden" id="formOldPhone" value="">
+        <div class="acc-modal-body">
+          <div class="form-group">
+            <label class="form-label" for="inpHoTen">Họ và Tên nhân viên <span class="req">*</span></label>
+            <input type="text" class="form-control" id="inpHoTen" placeholder="Ví dụ: Nguyễn Văn An" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="inpSdt">Số điện thoại (ID Đăng nhập) <span class="req">*</span></label>
+            <input type="tel" class="form-control" id="inpSdt" placeholder="Ví dụ: 0903123456" pattern="[0-9]{10,11}" required>
+            <div class="form-help">Số điện thoại chính là ID đăng nhập duy nhất vào hệ thống.</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="inpChucVu">Chức vụ / Vị trí công việc <span class="req">*</span></label>
+            <input type="text" class="form-control" id="inpChucVu" list="dsChucVuGoiY" placeholder="Chọn hoặc nhập chức vụ..." required>
+            <datalist id="dsChucVuGoiY">
+              <option value="Giám đốc Điều hành">
+              <option value="Kế toán Bán hàng">
+              <option value="Kế toán Công nợ">
+              <option value="Kế toán Tổng hợp">
+              <option value="Kiểm duyệt viên">
+              <option value="Thủ kho">
+              <option value="Tài xế">
+              <option value="Nhân viên giao hàng">
+            </datalist>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Phân loại Cấp bậc tài khoản <span class="req">*</span></label>
+            <div class="cap-cards-group">
+              <label class="cap-card-opt cap-opt-1" id="lblCap1" onclick="chonCap(1)">
+                <input type="radio" name="phan_loai_tk" value="1">
+                <div class="cap-opt-title" style="color: #b91c1c;">Cấp 1</div>
+                <div class="cap-opt-desc">Toàn quyền (Admin / GĐ)</div>
+              </label>
+              <label class="cap-card-opt cap-opt-2" id="lblCap2" onclick="chonCap(2)">
+                <input type="radio" name="phan_loai_tk" value="2">
+                <div class="cap-opt-title" style="color: #d97706;">Cấp 2</div>
+                <div class="cap-opt-desc">Cấp Quản lý (Trưởng BP)</div>
+              </label>
+              <label class="cap-card-opt cap-opt-3 selected" id="lblCap3" onclick="chonCap(3)">
+                <input type="radio" name="phan_loai_tk" value="3" checked>
+                <div class="cap-opt-title" style="color: #0284c7;">Cấp 3</div>
+                <div class="cap-opt-desc">Nhân sự (NV, Lái xe)</div>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group" id="groupMatKhau">
+            <label class="form-label" for="inpMatKhau">Mật khẩu khởi tạo <span class="req">*</span></label>
+            <input type="text" class="form-control" id="inpMatKhau" value="123456" placeholder="Mật khẩu ít nhất 6 ký tự...">
+            <div class="form-help">Mặc định là 123456. Nhân viên có thể tự đổi sau.</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="selTrangThai">Trạng thái tài khoản</label>
+            <select class="form-control" id="selTrangThai">
+              <option value="hoat_dong">🟢 Đang hoạt động</option>
+              <option value="khoa">🔒 Đang khóa tài khoản</option>
+            </select>
+          </div>
+        </div>
+        <div class="acc-modal-footer">
+          <button type="button" class="acc-btn acc-btn-outline" onclick="dongModalThemSua()">Hủy Bỏ</button>
+          <button type="submit" class="acc-btn acc-btn-primary" id="btnLuuTaiKhoan">Lưu Tài Khoản</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL: ĐỔI MẬT KHẨU NHANH
+       ======================================================================== -->
+  <div class="acc-modal-overlay" id="modalDoiMk">
+    <div class="acc-modal" style="max-width: 420px;">
+      <div class="acc-modal-header">
+        <h3>🔑 Đổi Mật Khẩu Đăng Nhập</h3>
+        <button type="button" class="acc-modal-close" onclick="dongModalDoiMk()">✕</button>
+      </div>
+      <form id="formDoiMk" onsubmit="xuLyDoiMatKhau(event)">
+        <input type="hidden" id="doiMkSdt" value="">
+        <div class="acc-modal-body">
+          <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+            <div style="font-weight: 700; color: var(--text-main);" id="doiMkHoTen">Họ tên nhân viên</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">SĐT (ID): <b id="doiMkSdtHienThi">090xxxxxxx</b></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="inpMkMoi">Mật khẩu mới <span class="req">*</span></label>
+            <input type="text" class="form-control" id="inpMkMoi" value="123456" placeholder="Nhập mật khẩu mới..." required minlength="4">
+            <div class="form-help">Gợi ý: Đặt mặc định là <b>123456</b> để reset mật khẩu.</div>
+          </div>
+        </div>
+        <div class="acc-modal-footer">
+          <button type="button" class="acc-btn acc-btn-outline" onclick="dongModalDoiMk()">Đóng</button>
+          <button type="submit" class="acc-btn acc-btn-primary">Cập Nhật Mật Khẩu</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- SCRIPT XỬ LÝ DỮ LIỆU & GIAO DIỆN -->
+  <script src="layout.js"></script>
+  <script>
+    // 1. Dữ liệu mặc định ban đầu nếu Supabase chưa có
+    const DS_MAC_DINH = [
+      { so_dien_thoai: '0903160116', ho_ten: 'Ban Giám Đốc', chuc_vu: 'Giám đốc Điều hành', phan_loai_tk: 1, mat_khau_app: '123456', trang_thai: 'hoat_dong' },
+      { so_dien_thoai: '0901000001', ho_ten: 'Kế Toán Bán Hàng', chuc_vu: 'Kế toán Bán hàng', phan_loai_tk: 3, mat_khau_app: '123456', trang_thai: 'hoat_dong' },
+      { so_dien_thoai: '0901000002', ho_ten: 'Kế Toán Công Nợ', chuc_vu: 'Kế toán Công nợ', phan_loai_tk: 3, mat_khau_app: '123456', trang_thai: 'hoat_dong' },
+      { so_dien_thoai: '0901000003', ho_ten: 'Kế Toán Tổng Hợp', chuc_vu: 'Kế toán Tổng hợp', phan_loai_tk: 2, mat_khau_app: '123456', trang_thai: 'hoat_dong' },
+      { so_dien_thoai: '0901000004', ho_ten: 'Kiểm Duyệt Viên', chuc_vu: 'Kiểm duyệt viên', phan_loai_tk: 2, mat_khau_app: '123456', trang_thai: 'hoat_dong' }
+    ];
+
+    // Danh sách các module tương ứng với các cột ma trận
+    const CAC_MODULE = [
+      { id: "buoc1", label: "B1: Tải KiotViet" },
+      { id: "buoc2", label: "B2: Phiếu Kho" },
+      { id: "buoc3", label: "B3: Lưu Trữ" },
+      { id: "buoc4", label: "B4: Kiểm Đơn" },
+      { id: "buoc5", label: "B5: Đối Soát" },
+      { id: "buoc6", label: "B6: Nộp Tiền" },
+      { id: "buoc7", label: "B7: Xuất MISA" },
+      { id: "taikhoan", label: "Quản Trị HT" }
+    ];
+
+    let danhSachNhanSu = [];
+    let maTranPhanQuyen = {};
+    let currentUserProfile = null;
+
+    // Khởi tạo trang
+    document.addEventListener("DOMContentLoaded", async function() {
+      // 1. Tích hợp Layout chuẩn Thái Mỹ Hương
+      const layoutData = await khoiTaoLayout({
+        pageTitle: "Tài Khoản & Phân Quyền",
+        breadcrumb: "Hệ thống Quản trị",
+        activeMenuId: "taikhoan",
+        contentElementId: "mainContent"
+      });
+
+      if (!layoutData) return;
+      currentUserProfile = layoutData.user;
+
+      // 2. Gắn sự kiện nút thêm mới
+      document.getElementById("btnMoModalThem").addEventListener("click", moModalThemMoi);
+
+      // 3. Tải danh sách nhân sự
+      await taiDanhSachNhanSu();
+    });
+
+    // Thông báo Toast
+    function showToast(msg, type = "success") {
+      const toast = document.getElementById("accToast");
+      toast.textContent = msg;
+      toast.className = `show ${type}`;
+      setTimeout(() => {
+        toast.className = "";
+      }, 3200);
+    }
+
+    // Chuyển Tab
+    function chuyenTab(tab) {
+      const tabDanhSach = document.getElementById("tabContentDanhSach");
+      const tabMaTran = document.getElementById("tabContentMaTran");
+      const btnDs = document.getElementById("tabBtnDanhSach");
+      const btnMt = document.getElementById("tabBtnMaTran");
+
+      if (tab === "danhsach") {
+        tabDanhSach.style.display = "block";
+        tabMaTran.style.display = "none";
+        btnDs.classList.add("active");
+        btnMt.classList.remove("active");
+      } else {
+        tabDanhSach.style.display = "none";
+        tabMaTran.style.display = "block";
+        btnDs.classList.remove("active");
+        btnMt.classList.add("active");
+        taiMaTranPhanQuyen();
+      }
+    }
+
+    // =========================================================================
+    // QUẢN LÝ DANH SÁCH TÀI KHOẢN (TAB 1)
+    // =========================================================================
+    async function taiDanhSachNhanSu() {
+      const tbody = document.getElementById("bangNhanSuBody");
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 24px; color: var(--text-muted);">⏳ Đang nạp dữ liệu tài khoản...</td></tr>`;
+
+      let dataFromDb = null;
+      try {
+        const res = await sb.from("nhan_su").select("*").order("tao_luc", { ascending: true });
+        if (!res.error && res.data && res.data.length > 0) {
+          dataFromDb = res.data;
+        }
+      } catch (err) {
+        console.warn("Chưa tải được từ Supabase:", err);
+      }
+
+      if (dataFromDb && dataFromDb.length > 0) {
+        danhSachNhanSu = dataFromDb;
+      } else {
+        // Fallback vào localStorage
+        try {
+          const localData = JSON.parse(localStorage.getItem("danh_sach_nhan_su_local") || "[]");
+          if (localData && localData.length > 0) {
+            danhSachNhanSu = localData;
+          } else {
+            danhSachNhanSu = [...DS_MAC_DINH];
+          }
+        } catch (e) {
+          danhSachNhanSu = [...DS_MAC_DINH];
+        }
+      }
+
+      // Lưu lại vào LocalStorage để đồng bộ 2 lớp
+      localStorage.setItem("danh_sach_nhan_su_local", JSON.stringify(danhSachNhanSu));
+
+      capNhatThongKe();
+      veBangNhanSu(danhSachNhanSu);
+    }
+
+    function capNhatThongKe() {
+      const tong = danhSachNhanSu.length;
+      const c1 = danhSachNhanSu.filter(x => parseInt(x.phan_loai_tk) === 1).length;
+      const c2 = danhSachNhanSu.filter(x => parseInt(x.phan_loai_tk) === 2).length;
+      const c3 = danhSachNhanSu.filter(x => parseInt(x.phan_loai_tk) === 3).length;
+
+      document.getElementById("statTongTk").textContent = tong;
+      document.getElementById("statCap1").textContent = c1;
+      document.getElementById("statCap2").textContent = c2;
+      document.getElementById("statCap3").textContent = c3;
+    }
+
+    function veBangNhanSu(danhSach) {
+      const tbody = document.getElementById("bangNhanSuBody");
+      if (!danhSach || danhSach.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 32px; color: var(--text-muted);">Không tìm thấy tài khoản nhân viên nào phù hợp.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = danhSach.map((ns, idx) => {
+        const cap = parseInt(ns.phan_loai_tk) || 3;
+        let capBadge = `<span class="cap-badge cap-3">🟢 Cấp 3: Nhân sự</span>`;
+        if (cap === 1) capBadge = `<span class="cap-badge cap-1">🔴 Cấp 1: Toàn quyền</span>`;
+        if (cap === 2) capBadge = `<span class="cap-badge cap-2">🟡 Cấp 2: Quản lý</span>`;
+
+        const isLocked = ns.trang_thai === "khoa";
+        const trangThaiBadge = isLocked 
+          ? `<span class="status-badge status-locked">🔒 Bị khóa</span>` 
+          : `<span class="status-badge status-active">🟢 Hoạt động</span>`;
+
+        return `
+          <tr>
+            <td style="text-align: center; color: var(--text-muted); font-weight: 600;">${idx + 1}</td>
+            <td>
+              <div style="font-weight: 700; color: var(--text-main);">${ns.ho_ten || "Chưa đặt tên"}</div>
+              <div style="font-size: 11px; color: var(--text-muted);">${ns.bo_phan || ""}</div>
+            </td>
+            <td>
+              <span style="font-family: monospace; font-weight: 700; font-size: 13px; color: #164e34; background: #ecfdf5; padding: 3px 8px; border-radius: 6px; border: 1px solid #bbf7d0;">
+                📱 ${ns.so_dien_thoai}
+              </span>
+            </td>
+            <td>
+              <span style="font-weight: 600; color: var(--text-main);">${ns.chuc_vu || "Nhân viên"}</span>
+            </td>
+            <td>${capBadge}</td>
+            <td>${trangThaiBadge}</td>
+            <td style="text-align: right;">
+              <div style="display: inline-flex; gap: 5px; flex-wrap: nowrap;">
+                <button type="button" class="btn-row-action" onclick="moModalSua('${ns.so_dien_thoai}')" title="Chỉnh sửa thông tin">
+                  <span>✏️</span> <span>Sửa</span>
+                </button>
+                <button type="button" class="btn-row-action" onclick="moModalDoiMk('${ns.so_dien_thoai}')" title="Đổi mật khẩu">
+                  <span>🔑</span>
+                </button>
+                <button type="button" class="btn-row-action ${isLocked ? '' : 'danger'}" onclick="chuyenTrangThaiKhoa('${ns.so_dien_thoai}')" title="${isLocked ? 'Mở khóa tài khoản' : 'Khóa tài khoản'}">
+                  <span>${isLocked ? '🔓' : '🔒'}</span>
+                </button>
+                <button type="button" class="btn-row-action danger" onclick="xoaTaiKhoan('${ns.so_dien_thoai}')" title="Xóa tài khoản">
+                  <span>🗑️</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function locDuLieu() {
+      const kw = (document.getElementById("inpTimKiem").value || "").toLowerCase().trim();
+      const locCap = document.getElementById("selLocCap").value;
+      const locTt = document.getElementById("selLocTrangThai").value;
+
+      const ketQua = danhSachNhanSu.filter(ns => {
+        const hoTen = (ns.ho_ten || "").toLowerCase();
+        const sdt = (ns.so_dien_thoai || "").toLowerCase();
+        const khopKw = !kw || hoTen.includes(kw) || sdt.includes(kw);
+
+        const cap = String(ns.phan_loai_tk || 3);
+        const khopCap = locCap === "all" || cap === locCap;
+
+        const tt = ns.trang_thai || "hoat_dong";
+        const khopTt = locTt === "all" || tt === locTt;
+
+        return khopKw && khopCap && khopTt;
+      });
+
+      veBangNhanSu(ketQua);
+    }
+
+    // Modal Thêm Mới
+    function moModalThemMoi() {
+      document.getElementById("modalThemSuaTieuDe").textContent = "➕ Thêm Tài Khoản Nhân Viên Mới";
+      document.getElementById("formIsEdit").value = "0";
+      document.getElementById("formOldPhone").value = "";
+      document.getElementById("inpHoTen").value = "";
+      document.getElementById("inpSdt").value = "";
+      document.getElementById("inpSdt").disabled = false;
+      document.getElementById("inpChucVu").value = "";
+      document.getElementById("inpMatKhau").value = "123456";
+      document.getElementById("groupMatKhau").style.display = "block";
+      document.getElementById("selTrangThai").value = "hoat_dong";
+      chonCap(3);
+
+      document.getElementById("modalThemSua").classList.add("show");
+    }
+
+    // Modal Chỉnh Sửa
+    function moModalSua(sdt) {
+      const ns = danhSachNhanSu.find(x => x.so_dien_thoai === sdt);
+      if (!ns) return;
+
+      document.getElementById("modalThemSuaTieuDe").textContent = "✏️ Chỉnh Sửa Tài Khoản Nhân Viên";
+      document.getElementById("formIsEdit").value = "1";
+      document.getElementById("formOldPhone").value = ns.so_dien_thoai;
+      document.getElementById("inpHoTen").value = ns.ho_ten || "";
+      document.getElementById("inpSdt").value = ns.so_dien_thoai;
+      document.getElementById("inpSdt").disabled = true; // Không sửa SĐT là ID
+      document.getElementById("inpChucVu").value = ns.chuc_vu || "";
+      document.getElementById("groupMatKhau").style.display = "none"; // Mật khẩu đổi ở modal riêng
+      document.getElementById("selTrangThai").value = ns.trang_thai || "hoat_dong";
+      chonCap(parseInt(ns.phan_loai_tk) || 3);
+
+      document.getElementById("modalThemSua").classList.add("show");
+    }
+
+    function dongModalThemSua() {
+      document.getElementById("modalThemSua").classList.remove("show");
+    }
+
+    function chonCap(cap) {
+      [1, 2, 3].forEach(c => {
+        const lbl = document.getElementById(`lblCap${c}`);
+        const rdo = lbl.querySelector('input[type="radio"]');
+        if (c === cap) {
+          lbl.classList.add("selected");
+          rdo.checked = true;
+        } else {
+          lbl.classList.remove("selected");
+          rdo.checked = false;
+        }
+      });
+    }
+
+    // Xử lý lưu tài khoản
+    async function xuLyLuuTaiKhoan(e) {
+      e.preventDefault();
+      const isEdit = document.getElementById("formIsEdit").value === "1";
+      const oldPhone = document.getElementById("formOldPhone").value;
+      const hoTen = document.getElementById("inpHoTen").value.trim();
+      let sdt = document.getElementById("inpSdt").value.trim().replace(/\s+/g, '');
+      const chucVu = document.getElementById("inpChucVu").value.trim();
+      const matKhau = document.getElementById("inpMatKhau").value.trim() || "123456";
+      const trangThai = document.getElementById("selTrangThai").value;
+
+      let cap = 3;
+      const rdoCap = document.querySelector('input[name="phan_loai_tk"]:checked');
+      if (rdoCap) cap = parseInt(rdoCap.value) || 3;
+
+      if (!hoTen || !sdt || !chucVu) {
+        alert("Vui lòng điền đầy đủ các mục có dấu sao (*)");
+        return;
+      }
+
+      // Kiểm tra trùng SĐT khi thêm mới
+      if (!isEdit) {
+        const daCo = danhSachNhanSu.some(x => x.so_dien_thoai === sdt);
+        if (daCo) {
+          alert(`Số điện thoại ${sdt} đã tồn tại trong danh sách tài khoản!`);
+          return;
+        }
+      }
+
+      const payload = {
+        so_dien_thoai: sdt,
+        ho_ten: hoTen,
+        chuc_vu: chucVu,
+        phan_loai_tk: cap,
+        trang_thai: trangThai,
+        cap_nhat_luc: new Date().toISOString()
+      };
+
+      if (!isEdit) {
+        payload.mat_khau_app = matKhau;
+        payload.tao_luc = new Date().toISOString();
+      }
+
+      // 1. Cập nhật vào Supabase
+      try {
+        await sb.from("nhan_su").upsert(payload);
+      } catch (err) {
+        console.warn("Lỗi lưu Supabase:", err);
+      }
+
+      // 2. Cập nhật vào bộ nhớ cục bộ & LocalStorage
+      if (isEdit) {
+        const idx = danhSachNhanSu.findIndex(x => x.so_dien_thoai === oldPhone);
+        if (idx !== -1) {
+          danhSachNhanSu[idx] = { ...danhSachNhanSu[idx], ...payload };
+        }
+      } else {
+        danhSachNhanSu.push(payload);
+      }
+
+      localStorage.setItem("danh_sach_nhan_su_local", JSON.stringify(danhSachNhanSu));
+
+      dongModalThemSua();
+      showToast(isEdit ? "✅ Đã cập nhật tài khoản thành công!" : "✅ Đã tạo tài khoản nhân viên mới!", "success");
+      capNhatThongKe();
+      locDuLieu();
+    }
+
+    // Modal Đổi Mật Khẩu
+    function moModalDoiMk(sdt) {
+      const ns = danhSachNhanSu.find(x => x.so_dien_thoai === sdt);
+      if (!ns) return;
+
+      document.getElementById("doiMkSdt").value = ns.so_dien_thoai;
+      document.getElementById("doiMkHoTen").textContent = ns.ho_ten;
+      document.getElementById("doiMkSdtHienThi").textContent = ns.so_dien_thoai;
+      document.getElementById("inpMkMoi").value = "123456";
+
+      document.getElementById("modalDoiMk").classList.add("show");
+    }
+
+    function dongModalDoiMk() {
+      document.getElementById("modalDoiMk").classList.remove("show");
+    }
+
+    async function xuLyDoiMatKhau(e) {
+      e.preventDefault();
+      const sdt = document.getElementById("doiMkSdt").value;
+      const mkMoi = document.getElementById("inpMkMoi").value.trim();
+
+      if (!mkMoi) {
+        alert("Vui lòng nhập mật khẩu mới");
+        return;
+      }
+
+      try {
+        await sb.from("nhan_su").update({ mat_khau_app: mkMoi, cap_nhat_luc: new Date().toISOString() }).eq("so_dien_thoai", sdt);
+      } catch (err) {
+        console.warn("Lỗi đổi MK Supabase:", err);
+      }
+
+      const idx = danhSachNhanSu.findIndex(x => x.so_dien_thoai === sdt);
+      if (idx !== -1) {
+        danhSachNhanSu[idx].mat_khau_app = mkMoi;
+        localStorage.setItem("danh_sach_nhan_su_local", JSON.stringify(danhSachNhanSu));
+      }
+
+      dongModalDoiMk();
+      showToast("✅ Đã cập nhật mật khẩu mới thành công!", "success");
+    }
+
+    // Khóa / Mở Khóa tài khoản
+    async function chuyenTrangThaiKhoa(sdt) {
+      const ns = danhSachNhanSu.find(x => x.so_dien_thoai === sdt);
+      if (!ns) return;
+
+      const trangThaiMoi = ns.trang_thai === "khoa" ? "hoat_dong" : "khoa";
+      const tenHanhDong = trangThaiMoi === "khoa" ? "KHÓA" : "MỞ KHÓA";
+
+      if (!confirm(`Bạn có chắc chắn muốn ${tenHanhDong} tài khoản của "${ns.ho_ten}" không?`)) {
+        return;
+      }
+
+      try {
+        await sb.from("nhan_su").update({ trang_thai: trangThaiMoi, cap_nhat_luc: new Date().toISOString() }).eq("so_dien_thoai", sdt);
+      } catch (err) {}
+
+      ns.trang_thai = trangThaiMoi;
+      localStorage.setItem("danh_sach_nhan_su_local", JSON.stringify(danhSachNhanSu));
+      showToast(`✅ Đã ${tenHanhDong.toLowerCase()} tài khoản thành công!`, "success");
+      locDuLieu();
+    }
+
+    // Xóa tài khoản
+    async function xoaTaiKhoan(sdt) {
+      const ns = danhSachNhanSu.find(x => x.so_dien_thoai === sdt);
+      if (!ns) return;
+
+      if (currentUserProfile && currentUserProfile.so_dien_thoai === sdt) {
+        alert("⚠️ Bạn không thể xóa tài khoản của chính mình khi đang đăng nhập!");
+        return;
+      }
+
+      if (!confirm(`⚠️ CẢNH BÁO: Bạn có chắc chắn muốn XÓA vĩnh viễn tài khoản của "${ns.ho_ten}" (${sdt}) không?`)) {
+        return;
+      }
+
+      try {
+        await sb.from("nhan_su").delete().eq("so_dien_thoai", sdt);
+      } catch (err) {}
+
+      danhSachNhanSu = danhSachNhanSu.filter(x => x.so_dien_thoai !== sdt);
+      localStorage.setItem("danh_sach_nhan_su_local", JSON.stringify(danhSachNhanSu));
+      showToast("🗑️ Đã xóa tài khoản thành công!", "success");
+      capNhatThongKe();
+      locDuLieu();
+    }
+
+    // Nạp dữ liệu mẫu nếu bảng trống
+    function napDuLieuMau() {
+      if (confirm("Bạn có muốn nạp lại 5 tài khoản mẫu mặc định của Thái Mỹ Hương không?")) {
+        DS_MAC_DINH.forEach(d => {
+          if (!danhSachNhanSu.some(x => x.so_dien_thoai === d.so_dien_thoai)) {
+            danhSachNhanSu.push({ ...d });
+          }
+        });
+        localStorage.setItem("danh_sach_nhan_su_local", JSON.stringify(danhSachNhanSu));
+        capNhatThongKe();
+        locDuLieu();
+        showToast("✅ Đã nạp danh sách tài khoản mẫu thành công!", "success");
+      }
+    }
+
+    // =========================================================================
+    // MA TRẬN PHÂN QUYỀN (TAB 2)
+    // =========================================================================
+    async function taiMaTranPhanQuyen() {
+      const tbody = document.getElementById("bangMaTranBody");
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 24px; color: var(--text-muted);">⏳ Đang nạp ma trận quyền...</td></tr>`;
+
+      // 1. Tập hợp các chức vụ duy nhất từ danh sách nhân sự
+      const setChucVu = new Set([
+        "Giám đốc Điều hành",
+        "Kế toán Bán hàng",
+        "Kế toán Công nợ",
+        "Kế toán Tổng hợp",
+        "Kiểm duyệt viên",
+        "Thủ kho",
+        "Tài xế"
+      ]);
+      danhSachNhanSu.forEach(x => {
+        if (x.chuc_vu && x.chuc_vu.trim()) setChucVu.add(x.chuc_vu.trim());
+      });
+      const cacChucVu = Array.from(setChucVu);
+
+      // 2. Lấy dữ liệu phân quyền từ Supabase hoặc LocalStorage
+      maTranPhanQuyen = {};
+      try {
+        const res = await sb.from("phan_quyen_vi_tri").select("*");
+        if (!res.error && res.data) {
+          res.data.forEach(row => {
+            maTranPhanQuyen[row.chuc_vu] = row.cac_quyen || {};
+          });
+        }
+      } catch (err) {}
+
+      // Fallback ma trận mẫu nếu trống
+      if (Object.keys(maTranPhanQuyen).length === 0) {
+        maTranPhanQuyen = {
+          "Giám đốc Điều hành": { buoc1: "all", buoc2: "all", buoc3: "all", buoc4: "all", buoc5: "all", buoc6: "all", buoc7: "all", taikhoan: "all" },
+          "Kế toán Bán hàng":   { buoc1: "all", buoc2: "all", buoc3: "all", buoc4: "view", buoc5: "view", buoc6: "none", buoc7: "none", taikhoan: "none" },
+          "Kế toán Công nợ":   { buoc1: "view", buoc2: "view", buoc3: "view", buoc4: "all", buoc5: "all", buoc6: "view", buoc7: "none", taikhoan: "none" },
+          "Kế toán Tổng hợp":   { buoc1: "all", buoc2: "all", buoc3: "all", buoc4: "all", buoc5: "all", buoc6: "all", buoc7: "all", taikhoan: "view" },
+          "Kiểm duyệt viên":    { buoc1: "view", buoc2: "all", buoc3: "all", buoc4: "all", buoc5: "all", buoc6: "view", buoc7: "none", taikhoan: "none" },
+          "Thủ kho":            { buoc1: "none", buoc2: "all", buoc3: "none", buoc4: "none", buoc5: "none", buoc6: "none", buoc7: "none", taikhoan: "none" },
+          "Tài xế":             { buoc1: "none", buoc2: "view", buoc3: "none", buoc4: "view", buoc5: "none", buoc6: "view", buoc7: "none", taikhoan: "none" }
+        };
+      }
+
+      veBangMaTran(cacChucVu);
+    }
+
+    function veBangMaTran(cacChucVu) {
+      const tbody = document.getElementById("bangMaTranBody");
+      tbody.innerHTML = cacChucVu.map(cv => {
+        const qCuaCv = maTranPhanQuyen[cv] || {};
+
+        const tdModules = CAC_MODULE.map(mod => {
+          const val = qCuaCv[mod.id] || (cv === "Giám đốc Điều hành" ? "all" : "view");
+          return `
+            <td>
+              <select class="matrix-select val-${val}" data-chucvu="${cv}" data-module="${mod.id}" onchange="doiQuyenMaTran(this)">
+                <option value="all" ${val === 'all' ? 'selected' : ''}>🟢 Toàn quyền</option>
+                <option value="view" ${val === 'view' ? 'selected' : ''}>🟡 Chỉ xem</option>
+                <option value="none" ${val === 'none' ? 'selected' : ''}>🔴 Không</option>
+              </select>
+            </td>
+          `;
+        }).join("");
+
+        return `
+          <tr>
+            <td>${cv}</td>
+            ${tdModules}
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function doiQuyenMaTran(sel) {
+      const cv = sel.getAttribute("data-chucvu");
+      const mod = sel.getAttribute("data-module");
+      const val = sel.value;
+
+      sel.className = `matrix-select val-${val}`;
+      if (!maTranPhanQuyen[cv]) maTranPhanQuyen[cv] = {};
+      maTranPhanQuyen[cv][mod] = val;
+    }
+
+    async function luuMaTranPhanQuyen() {
+      const promises = Object.keys(maTranPhanQuyen).map(cv => {
+        return sb.from("phan_quyen_vi_tri").upsert({
+          chuc_vu: cv,
+          cac_quyen: maTranPhanQuyen[cv],
+          cap_nhat_luc: new Date().toISOString()
+        });
+      });
+
+      try {
+        await Promise.all(promises);
+      } catch (e) {
+        console.warn("Lỗi lưu ma trận Supabase:", e);
+      }
+
+      // Lưu cache LocalStorage
+      localStorage.setItem("phan_quyen_vi_tri_local", JSON.stringify(maTranPhanQuyen));
+
+      // Cập nhật session nếu chức vụ của người dùng hiện tại bị thay đổi quyền
+      if (currentUserProfile && currentUserProfile.chuc_vu && maTranPhanQuyen[currentUserProfile.chuc_vu]) {
+        localStorage.setItem("userPermissions", JSON.stringify(maTranPhanQuyen[currentUserProfile.chuc_vu]));
+      }
+
+      showToast("💾 Đã lưu ma trận phân quyền thành công!", "success");
+    }
+  </script>
+</body>
+</html>

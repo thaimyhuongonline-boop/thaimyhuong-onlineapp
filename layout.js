@@ -16,7 +16,8 @@ const DANH_SACH_7_BUOC = [
 
 // Danh sách Menu chính trên Sidebar
 const MENU_CHINH = [
-  { id: "quytrinh", href: "buoc1_upload.html", ic: "🔄", label: "Quy trình Bán hàng ➡ MISA", isProcess: true, desc: "Quy trình 7 bước từ KiotViet sang MISA", roles: ["admin", "quanly", "nhanvien"] }
+  { id: "quytrinh", href: "buoc1_upload.html", ic: "🔄", label: "Quy trình Bán hàng ➡ MISA", isProcess: true, desc: "Quy trình 7 bước từ KiotViet sang MISA", roles: ["admin", "quanly", "nhanvien"] },
+  { id: "taikhoan", href: "quan_ly_taikhoan.html", ic: "🛡️", label: "Tài khoản & Phân quyền", desc: "Quản lý nhân viên & ma trận phân quyền", roles: ["admin"] }
 ];
 
 /**

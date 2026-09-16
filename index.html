@@ -733,9 +733,21 @@
         // 5. Tải ma trận phân quyền của chức vụ tương ứng (nếu có)
         try {
           var chucVu = userData.chuc_vu || userData.vi_tri_cong_viec || "";
-          var pqRes = await sb.from("phan_quyen_vi_tri").select("*").eq("chuc_vu", chucVu).maybeSingle();
-          if (pqRes && pqRes.data) {
-            localStorage.setItem("userPermissions", JSON.stringify(pqRes.data.cac_quyen || {}));
+          var pqData = null;
+          try {
+            var pqRes = await sb.from("phan_quyen_vi_tri").select("*").eq("chuc_vu", chucVu).maybeSingle();
+            if (pqRes && pqRes.data) pqData = pqRes.data.cac_quyen;
+          } catch (e) {}
+
+          if (!pqData) {
+            try {
+              var localMt = JSON.parse(localStorage.getItem("phan_quyen_vi_tri_local") || "{}");
+              if (localMt && localMt[chucVu]) pqData = localMt[chucVu];
+            } catch (e) {}
+          }
+
+          if (pqData) {
+            localStorage.setItem("userPermissions", JSON.stringify(pqData));
           } else {
             localStorage.removeItem("userPermissions");
           }

@@ -111,3 +111,24 @@ async function dangXuat() {
   } catch (e) {}
   window.location.href = "index.html";
 }
+
+/**
+ * Kiểm tra quyền của người dùng hiện tại đối với một module/bước
+ * @param {string} moduleKey - 'buoc1', 'buoc2', ..., 'buoc7', 'taikhoan'
+ * @returns {string} 'all' | 'view' | 'none'
+ */
+function layQuyenModule(moduleKey) {
+  try {
+    const profile = JSON.parse(localStorage.getItem("nhan_su_profile") || "{}");
+    const cap = parseInt(profile.phan_loai_tk || profile.cap_tai_khoan);
+    if (cap === 1) return "all"; // Cấp 1 Toàn quyền mọi module
+
+    const pq = JSON.parse(localStorage.getItem("userPermissions") || "{}");
+    if (pq && pq[moduleKey]) return pq[moduleKey];
+
+    return cap === 2 ? "all" : "view";
+  } catch (e) {
+    return "view";
+  }
+}
+
