@@ -16,12 +16,7 @@ const DANH_SACH_7_BUOC = [
 
 // Danh sách Menu chính trên Sidebar
 const MENU_CHINH = [
-  { id: "trangchu", href: "trang_chu.html", ic: "🏠", label: "Bảng điều khiển", desc: "Báo cáo doanh số & bảng điều khiển", roles: ["admin", "quanly", "nhanvien"] },
-  { id: "quytrinh", href: "buoc1_upload.html", ic: "🔄", label: "Quy trình Bán hàng ➡ MISA", isProcess: true, desc: "Gom các bước quy trình từ KiotViet sang MISA", roles: ["admin", "quanly", "nhanvien"] },
-  { id: "sodotochuc", href: "nhan_su.html", ic: "🗺️", label: "Nhân sự & Tổ chức", desc: "Sơ đồ tổ chức, danh sách & phân quyền Tân Vĩnh Lợi", roles: ["admin", "quanly", "nhanvien"] },
-  { id: "congno", href: "cong_no.html", ic: "💰", label: "Theo dõi công nợ", desc: "Theo dõi công nợ khách hàng & quyết toán xe", roles: ["admin", "quanly", "nhanvien"] },
-  { id: "danhmuc", href: "danh_muc.html", ic: "📚", label: "Danh mục dữ liệu", desc: "Quản lý khách hàng, hàng hóa, xe", roles: ["admin", "quanly"] },
-  { id: "taikhoan", href: "quan_ly_taikhoan.html", ic: "⚙️", label: "Quản trị hệ thống", desc: "Cấu hình tài khoản & phân quyền", roles: ["admin"] }
+  { id: "quytrinh", href: "buoc1_upload.html", ic: "🔄", label: "Quy trình Bán hàng ➡ MISA", isProcess: true, desc: "Quy trình 7 bước từ KiotViet sang MISA", roles: ["admin", "quanly", "nhanvien"] }
 ];
 
 /**
@@ -65,7 +60,7 @@ async function khoiTaoLayout(options = {}) {
   const ngayHienTaiStr = `${days[now.getDay()]}, ${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
 
   // 4. Xác định trang quy trình và menu active
-  const currentPath = window.location.pathname.split("/").pop() || "trang_chu.html";
+  const currentPath = window.location.pathname.split("/").pop() || "buoc1_upload.html";
   const isProcessPage = DANH_SACH_7_BUOC.some(b => b.href === currentPath) || options.activeMenuId === "quytrinh" || (options.activeMenuId && options.activeMenuId.startsWith("buoc"));
 
   // 5. Render Sidebar (Gom 7 bước thành 1 tab)
@@ -73,7 +68,7 @@ async function khoiTaoLayout(options = {}) {
     <aside class="tmh-sidebar" id="tmhSidebar">
       <!-- Header Sidebar -->
       <div class="tmh-sidebar-header">
-        <a href="trang_chu.html" class="tmh-brand-wrap">
+        <a href="buoc1_upload.html" class="tmh-brand-wrap">
           <div class="tmh-brand-logo">
             <img src="logo.png" alt="Logo Thái Mỹ Hương">
           </div>
@@ -105,7 +100,7 @@ async function khoiTaoLayout(options = {}) {
             }
           }
 
-          const isActive = m.isProcess ? isProcessPage : (currentPath === m.href || options.activeMenuId === m.id || (m.id === "sodotochuc" && currentPath === "nhan_su.html"));
+          const isActive = m.isProcess ? isProcessPage : (currentPath === m.href || options.activeMenuId === m.id);
 
           let subMenuHtml = '';
           if (m.isProcess && isProcessPage) {
@@ -162,7 +157,7 @@ async function khoiTaoLayout(options = {}) {
           </svg>
         </button>
         <div class="tmh-topbar-breadcrumb">
-          <a href="trang_chu.html">🏠 Thái Mỹ Hương</a>
+          <a href="buoc1_upload.html">🏠 Thái Mỹ Hương</a>
           <span>/</span>
           <span>${breadcrumb}</span>
           <span>/</span>

@@ -633,7 +633,7 @@
         var localNs = localStorage.getItem("nhan_su_profile");
         var localAcc = localStorage.getItem("userAccount");
         if (localNs && localAcc) {
-          window.location.href = "trang_chu.html";
+          window.location.href = "buoc1_upload.html";
         }
       } catch (err) {
         console.warn("Chưa có phiên làm việc:", err);
@@ -751,7 +751,7 @@
 
         bao(`✅ Đăng nhập thành công! Chào ${userData.ho_ten} (${tenCap})...`, "ok");
         setTimeout(function () {
-          window.location.href = "trang_chu.html";
+          window.location.href = "buoc1_upload.html";
         }, 350);
 
       } catch (e) {
