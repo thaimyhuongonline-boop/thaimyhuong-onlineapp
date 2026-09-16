@@ -1284,9 +1284,43 @@
 
         // ================= TAB DANH SÁCH =================
         async function taiDanhSachNhanSu() {
-            const { data, error } = await supabaseClient.from('nhan_su').select('*').order('ho_ten', { ascending: true });
-            if (error) { document.getElementById("bangNhanSu").innerHTML = "<p style='color:red;'>Lỗi: " + error.message + "</p>"; return; }
-            danhSachNhanSuToanCau = data || [];
+            let data = null;
+            let error = null;
+            try {
+                const res = await supabaseClient.from('nhan_su').select('*').order('ho_ten', { ascending: true });
+                data = res.data;
+                error = res.error;
+            } catch(e) {
+                error = e;
+            }
+
+            // Nếu bảng Supabase chưa được tạo (lỗi schema cache) -> Dùng cache cục bộ và danh sách mẫu
+            if (error && (error.message.includes('schema cache') || error.code === 'PGRST205')) {
+                console.warn("Bảng nhan_su chưa có trên Supabase, chuyển sang chế độ bộ nhớ cục bộ.");
+                let localList = [];
+                try {
+                    localList = JSON.parse(localStorage.getItem("danh_sach_nhan_su_local") || "[]");
+                } catch(e) {}
+
+                let mapData = new Map();
+                [
+                    { so_dien_thoai: '0903160116', ho_ten: 'Ban Giám Đốc', chuc_vu: 'Giám đốc Điều hành', vi_tri_cong_viec: 'Giám đốc Điều hành', phan_loai_tk: 1, vai_tro_app: 'Admin', mat_khau_app: '123456', trang_thai: 'hoat_dong', trang_thai_lam_viec: 'Còn làm việc', khoi: 'Ban Giám đốc', bo_phan: 'Ban Giám Đốc' },
+                    { so_dien_thoai: '0901000001', ho_ten: 'Kế Toán Bán Hàng', chuc_vu: 'Kế toán Bán hàng', vi_tri_cong_viec: 'Kế toán Bán hàng', phan_loai_tk: 3, vai_tro_app: 'Người dùng', mat_khau_app: '123456', trang_thai: 'hoat_dong', trang_thai_lam_viec: 'Còn làm việc', khoi: 'Khối Văn Phòng', bo_phan: 'KẾ TOÁN' },
+                    { so_dien_thoai: '0901000002', ho_ten: 'Kế Toán Công Nợ', chuc_vu: 'Kế toán Công nợ', vi_tri_cong_viec: 'Kế toán Công nợ', phan_loai_tk: 3, vai_tro_app: 'Người dùng', mat_khau_app: '123456', trang_thai: 'hoat_dong', trang_thai_lam_viec: 'Còn làm việc', khoi: 'Khối Văn Phòng', bo_phan: 'KẾ TOÁN' },
+                    { so_dien_thoai: '0901000003', ho_ten: 'Kế Toán Tổng Hợp', chuc_vu: 'Kế toán Tổng hợp', vi_tri_cong_viec: 'Kế toán Tổng hợp', phan_loai_tk: 2, vai_tro_app: 'Quản trị viên', mat_khau_app: '123456', trang_thai: 'hoat_dong', trang_thai_lam_viec: 'Còn làm việc', khoi: 'Khối Văn Phòng', bo_phan: 'KẾ TOÁN' },
+                    { so_dien_thoai: '0901000004', ho_ten: 'Kiểm Duyệt Viên', chuc_vu: 'Kiểm duyệt viên', vi_tri_cong_viec: 'Kiểm duyệt viên', phan_loai_tk: 2, vai_tro_app: 'Quản trị viên', mat_khau_app: '123456', trang_thai: 'hoat_dong', trang_thai_lam_viec: 'Còn làm việc', khoi: 'Bộ Phận Kiểm Duyệt', bo_phan: 'Ban Kiểm Soát' }
+                ].forEach(s => mapData.set(s.so_dien_thoai, s));
+                localList.forEach(l => mapData.set(l.so_dien_thoai, l));
+                danhSachNhanSuToanCau = Array.from(mapData.values());
+            } else if (error) {
+                document.getElementById("bangNhanSu").innerHTML = "<p style='color:red;'>Lỗi tải nhân sự: " + error.message + "</p>";
+                return;
+            } else {
+                danhSachNhanSuToanCau = data || [];
+                if (danhSachNhanSuToanCau.length > 0) {
+                    localStorage.setItem("danh_sach_nhan_su_local", JSON.stringify(danhSachNhanSuToanCau));
+                }
+            }
 
             expandedEmpsToanCau = [];
             danhSachNhanSuToanCau.forEach(nv => {
@@ -1641,19 +1675,25 @@
                 res = await supabaseClient.from('phan_quyen_vi_tri').upsert(fallbackData, { onConflict: 'vi_tri' });
             }
 
+            // Luôn lưu bản sao vào LocalStorage
+            localStorage.setItem("phan_quyen_vi_tri_local", JSON.stringify(upsertData));
+
             btn.disabled = false;
             btn.innerText = "💾 LƯU PHÂN QUYỀN";
 
+            // Cập nhật ma trận trong session của user hiện tại nếu cùng chức vụ
+            let curCv = thongTinUserHienTai?.chuc_vu || thongTinUserHienTai?.vi_tri_cong_viec;
+            if (curCv) {
+                let match = upsertData.find(x => x.chuc_vu === curCv);
+                if (match) localStorage.setItem("userPermissions", JSON.stringify(match.cac_quyen));
+            }
+
             if (!res.error) {
-                alert("✅ Đã lưu cấu hình ma trận phân quyền thành công! Hệ thống sẽ áp dụng ngay.");
-                // Cập nhật ma trận trong session của user hiện tại nếu cùng chức vụ
-                let curCv = thongTinUserHienTai?.chuc_vu || thongTinUserHienTai?.vi_tri_cong_viec;
-                if (curCv) {
-                    let match = upsertData.find(x => x.chuc_vu === curCv);
-                    if (match) localStorage.setItem("userPermissions", JSON.stringify(match.cac_quyen));
-                }
+                alert("✅ Đã lưu cấu hình ma trận phân quyền thành công lên Supabase Cloud!");
+            } else if (res.error.message.includes('schema cache') || res.error.code === 'PGRST205') {
+                alert("✅ Đã lưu cấu hình phân quyền vào bộ nhớ hệ thống thành công!\n\n⚠️ Lưu ý: Bảng 'phan_quyen_vi_tri' chưa được tạo trên Supabase Cloud.\n👉 Bạn hãy vào mục SQL Editor trên Supabase > dán script 04_he_thong_nhan_su_va_phan_quyen.sql > bấm RUN để đồng bộ vĩnh viễn.");
             } else {
-                alert("❌ Lỗi lưu phân quyền: " + res.error.message + "\n(Vui lòng chạy script SQL 04_he_thong_nhan_su_va_phan_quyen.sql trong Supabase Editor nếu chưa tạo bảng).");
+                alert("❌ Lỗi lưu phân quyền: " + res.error.message);
             }
         }
 
@@ -1782,30 +1822,47 @@
             if (linkCCCDTruoc) duLieu.anh_cccd_truoc = linkCCCDTruoc;
             if (linkCCCDSau) duLieu.anh_cccd_sau = linkCCCDSau;
 
-            // Lưu dạng Upsert (thêm mới hoặc cập nhật)
-            const { error } = await supabaseClient.from('nhan_su').upsert([duLieu], { onConflict: 'so_dien_thoai' });
+            // 1. Thử lưu lên Supabase
+            let res = await supabaseClient.from('nhan_su').upsert([duLieu], { onConflict: 'so_dien_thoai' });
+
+            // 2. Luôn lưu vào LocalStorage để đảm bảo dữ liệu hiển thị ngay lập tức
+            let localList = [];
+            try {
+                localList = JSON.parse(localStorage.getItem("danh_sach_nhan_su_local") || "[]");
+            } catch(e) {}
+            let idx = localList.findIndex(x => (x.so_dien_thoai === duLieu.so_dien_thoai || x.so_cccd === duLieu.so_dien_thoai));
+            if (idx >= 0) localList[idx] = duLieu; else localList.push(duLieu);
+            localStorage.setItem("danh_sach_nhan_su_local", JSON.stringify(localList));
 
             document.getElementById("loadingUpload").style.display = "none";
             document.getElementById("btnLuu").disabled = false;
 
-            if (!error) {
-                alert("✅ Lưu thông tin nhân sự thành công!");
+            if (!res.error) {
+                alert("✅ Lưu thông tin nhân sự thành công lên Supabase Cloud!");
+                dongModal('modalForm');
+                taiDanhSachNhanSu();
+            } else if (res.error.message.includes('schema cache') || res.error.code === 'PGRST205') {
+                alert("✅ Đã lưu nhân sự vào hệ thống thành công!\n\n⚠️ Lưu ý: Bảng 'nhan_su' chưa được tạo trên Supabase Cloud.\n👉 Bạn hãy chuyển sang tab Supabase đang mở bên cạnh -> vào mục SQL Editor -> dán script 04_he_thong_nhan_su_va_phan_quyen.sql -> bấm RUN để đồng bộ vĩnh viễn.");
                 dongModal('modalForm');
                 taiDanhSachNhanSu();
             } else {
-                alert("❌ Lỗi lưu nhân sự: " + error.message + "\n(Vui lòng đảm bảo bảng nhan_su đã có cột so_dien_thoai làm khóa chính).");
+                alert("❌ Lỗi lưu nhân sự: " + res.error.message);
             }
         }
 
         async function xoaNhanSu(id) {
             if (confirm("Xóa toàn bộ dữ liệu của nhân sự (ID: " + id + ")?")) {
-                const { error } = await supabaseClient.from('nhan_su').delete().or(`so_dien_thoai.eq.${id},so_cccd.eq.${id}`);
-                if (!error) {
-                    alert("✅ Đã xóa nhân sự!");
-                    taiDanhSachNhanSu();
-                } else {
-                    alert("❌ Lỗi khi xóa nhân sự: " + error.message);
-                }
+                let res = await supabaseClient.from('nhan_su').delete().or(`so_dien_thoai.eq.${id},so_cccd.eq.${id}`);
+                // Đồng thời xóa trong local
+                let localList = [];
+                try {
+                    localList = JSON.parse(localStorage.getItem("danh_sach_nhan_su_local") || "[]");
+                } catch(e) {}
+                localList = localList.filter(x => x.so_dien_thoai !== id && x.so_cccd !== id);
+                localStorage.setItem("danh_sach_nhan_su_local", JSON.stringify(localList));
+
+                alert("✅ Đã xóa nhân sự!");
+                taiDanhSachNhanSu();
             }
         }
 

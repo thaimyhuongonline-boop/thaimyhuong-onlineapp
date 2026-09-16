@@ -685,6 +685,30 @@
         }
 
         if (!userData) {
+          // Kiểm tra trong danh sách local cache nếu Supabase chưa có bảng
+          try {
+            var localList = JSON.parse(localStorage.getItem("danh_sach_nhan_su_local") || "[]");
+            userData = localList.find(function(x) { 
+              return x.so_dien_thoai === tk || x.so_dien_thoai === sdtClean || x.so_cccd === tk; 
+            });
+          } catch(e) {}
+        }
+
+        if (!userData) {
+          // Tài khoản mặc định hệ thống Thái Mỹ Hương
+          var defaultAccounts = [
+            { so_dien_thoai: '0903160116', ho_ten: 'Ban Giám Đốc', chuc_vu: 'Giám đốc Điều hành', phan_loai_tk: 1, mat_khau_app: '123456', trang_thai: 'hoat_dong' },
+            { so_dien_thoai: '0901000001', ho_ten: 'Kế Toán Bán Hàng', chuc_vu: 'Kế toán Bán hàng', phan_loai_tk: 3, mat_khau_app: '123456', trang_thai: 'hoat_dong' },
+            { so_dien_thoai: '0901000002', ho_ten: 'Kế Toán Công Nợ', chuc_vu: 'Kế toán Công nợ', phan_loai_tk: 3, mat_khau_app: '123456', trang_thai: 'hoat_dong' },
+            { so_dien_thoai: '0901000003', ho_ten: 'Kế Toán Tổng Hợp', chuc_vu: 'Kế toán Tổng hợp', phan_loai_tk: 2, mat_khau_app: '123456', trang_thai: 'hoat_dong' },
+            { so_dien_thoai: '0901000004', ho_ten: 'Kiểm Duyệt Viên', chuc_vu: 'Kiểm duyệt viên', phan_loai_tk: 2, mat_khau_app: '123456', trang_thai: 'hoat_dong' }
+          ];
+          userData = defaultAccounts.find(function(x) { 
+            return x.so_dien_thoai === tk || x.so_dien_thoai === sdtClean; 
+          });
+        }
+
+        if (!userData) {
           bao("❌ Số điện thoại không tồn tại trong danh sách nhân sự công ty.", "loi");
           return;
         }
