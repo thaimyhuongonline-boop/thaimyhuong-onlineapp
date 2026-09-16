@@ -45,6 +45,7 @@ async function khoiTaoLayout(options = {}) {
   const vaiTro = nd.vai_tro || "nhanvien";
   const capDo = nd.cap_tai_khoan || (vaiTro === "admin" ? 1 : 3);
   const tenCap = nd.ten_cap || (capDo === 1 ? "Toàn quyền" : (capDo === 2 ? "Cấp Quản lý" : "Nhân sự"));
+  const tenVaiTro = tenCap;
   const chucVu = nd.chuc_vu || "Nhân sự";
   const userInitials = tenNguoiDung.trim().split(" ").map(w => w[0]).slice(-2).join("").toUpperCase() || "TMH";
 

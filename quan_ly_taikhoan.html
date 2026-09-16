@@ -416,33 +416,26 @@
     .acc-modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(15, 23, 42, 0.55);
+      background: rgba(15, 23, 42, 0.65);
       backdrop-filter: blur(4px);
-      display: flex;
+      display: none;
       align-items: center;
       justify-content: center;
-      z-index: 9999;
+      z-index: 9999999;
       padding: 16px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.2s ease;
     }
     .acc-modal-overlay.show {
-      opacity: 1;
-      pointer-events: auto;
+      display: flex !important;
     }
     .acc-modal {
       background: #ffffff;
       border-radius: var(--radius-lg);
       width: 100%;
       max-width: 520px;
-      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
       overflow: hidden;
-      transform: translateY(10px);
-      transition: transform 0.2s ease;
-    }
-    .acc-modal-overlay.show .acc-modal {
-      transform: translateY(0);
+      position: relative;
+      z-index: 10000000;
     }
     .acc-modal-header {
       padding: 18px 24px;
@@ -612,7 +605,7 @@
         <p>Hệ thống thiết lập danh sách nhân viên công ty Thái Mỹ Hương (ID đăng nhập bằng Số điện thoại), phân loại 3 cấp độ tài khoản và ma trận quyền hạn cho từng bước nghiệp vụ.</p>
       </div>
       <div>
-        <button type="button" class="acc-btn acc-btn-primary" id="btnMoModalThem" style="background: #ffffff; color: var(--primary); font-weight: 800; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+        <button type="button" class="acc-btn acc-btn-primary" id="btnMoModalThem" onclick="moModalThemMoi()" style="background: #ffffff; color: var(--primary); font-weight: 800; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
           <span>➕</span>
           <span>Thêm Tài Khoản Mới</span>
         </button>
@@ -686,6 +679,10 @@
             </select>
           </div>
           <div class="acc-actions">
+            <button type="button" class="acc-btn acc-btn-primary" onclick="moModalThemMoi()" title="Tạo tài khoản người dùng mới">
+              <span>➕</span>
+              <span>Thêm Tài Khoản</span>
+            </button>
             <button type="button" class="acc-btn acc-btn-outline" onclick="taiDanhSachNhanSu()" title="Tải lại danh sách từ máy chủ">
               <span>🔄</span>
               <span>Làm Mới</span>
@@ -787,8 +784,6 @@
         </div>
       </div>
     </div>
-
-  </main>
 
   <!-- ========================================================================
        MODAL: THÊM / CHỈNH SỬA TÀI KHOẢN
@@ -902,6 +897,8 @@
     </div>
   </div>
 
+  </main>
+
   <!-- SCRIPT XỬ LÝ DỮ LIỆU & GIAO DIỆN -->
   <script src="layout.js"></script>
   <script>
@@ -933,20 +930,23 @@
     // Khởi tạo trang
     document.addEventListener("DOMContentLoaded", async function() {
       // 1. Tích hợp Layout chuẩn Thái Mỹ Hương
-      const layoutData = await khoiTaoLayout({
-        pageTitle: "Tài Khoản & Phân Quyền",
-        breadcrumb: "Hệ thống Quản trị",
-        activeMenuId: "taikhoan",
-        contentElementId: "mainContent"
-      });
-
-      if (!layoutData) return;
-      currentUserProfile = layoutData.user;
+      try {
+        const layoutData = await khoiTaoLayout({
+          pageTitle: "Tài Khoản & Phân Quyền",
+          breadcrumb: "Hệ thống Quản trị",
+          activeMenuId: "taikhoan",
+          contentElementId: "mainContent"
+        });
+        if (layoutData) currentUserProfile = layoutData.user;
+      } catch (err) {
+        console.warn("Lỗi khởi tạo layout:", err);
+      }
 
       // 2. Gắn sự kiện nút thêm mới
-      document.getElementById("btnMoModalThem").addEventListener("click", moModalThemMoi);
+      const btnThem = document.getElementById("btnMoModalThem");
+      if (btnThem) btnThem.addEventListener("click", moModalThemMoi);
 
-      // 3. Tải danh sách nhân sự
+      // 3. Luôn tải danh sách nhân sự
       await taiDanhSachNhanSu();
     });
 
@@ -1113,6 +1113,11 @@
 
     // Modal Thêm Mới
     function moModalThemMoi() {
+      const modal = document.getElementById("modalThemSua");
+      if (!modal) {
+        alert("Lỗi: Không tìm thấy khung thêm nhân viên.");
+        return;
+      }
       document.getElementById("modalThemSuaTieuDe").textContent = "➕ Thêm Tài Khoản Nhân Viên Mới";
       document.getElementById("formIsEdit").value = "0";
       document.getElementById("formOldPhone").value = "";
@@ -1125,11 +1130,14 @@
       document.getElementById("selTrangThai").value = "hoat_dong";
       chonCap(3);
 
-      document.getElementById("modalThemSua").classList.add("show");
+      modal.classList.add("show");
+      modal.style.display = "flex";
     }
 
     // Modal Chỉnh Sửa
     function moModalSua(sdt) {
+      const modal = document.getElementById("modalThemSua");
+      if (!modal) return;
       const ns = danhSachNhanSu.find(x => x.so_dien_thoai === sdt);
       if (!ns) return;
 
@@ -1144,11 +1152,16 @@
       document.getElementById("selTrangThai").value = ns.trang_thai || "hoat_dong";
       chonCap(parseInt(ns.phan_loai_tk) || 3);
 
-      document.getElementById("modalThemSua").classList.add("show");
+      modal.classList.add("show");
+      modal.style.display = "flex";
     }
 
     function dongModalThemSua() {
-      document.getElementById("modalThemSua").classList.remove("show");
+      const modal = document.getElementById("modalThemSua");
+      if (modal) {
+        modal.classList.remove("show");
+        modal.style.display = "none";
+      }
     }
 
     function chonCap(cap) {
@@ -1235,6 +1248,8 @@
 
     // Modal Đổi Mật Khẩu
     function moModalDoiMk(sdt) {
+      const modal = document.getElementById("modalDoiMk");
+      if (!modal) return;
       const ns = danhSachNhanSu.find(x => x.so_dien_thoai === sdt);
       if (!ns) return;
 
@@ -1243,11 +1258,16 @@
       document.getElementById("doiMkSdtHienThi").textContent = ns.so_dien_thoai;
       document.getElementById("inpMkMoi").value = "123456";
 
-      document.getElementById("modalDoiMk").classList.add("show");
+      modal.classList.add("show");
+      modal.style.display = "flex";
     }
 
     function dongModalDoiMk() {
-      document.getElementById("modalDoiMk").classList.remove("show");
+      const modal = document.getElementById("modalDoiMk");
+      if (modal) {
+        modal.classList.remove("show");
+        modal.style.display = "none";
+      }
     }
 
     async function xuLyDoiMatKhau(e) {
