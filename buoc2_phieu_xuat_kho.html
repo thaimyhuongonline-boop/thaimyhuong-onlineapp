@@ -429,10 +429,26 @@
         <div class="form-group">
           <label>Xe vận chuyển:</label>
           <select id="xeVanChuyen" class="form-control" onchange="onDoiXe()">
-            <option value="HD1 SÁNG">HD1 SÁNG (Xe 1.4 tấn - Đạt/Sinh)</option>
-            <option value="HD1 CHIỀU">HD1 CHIỀU (Xe 1.4 tấn - Đạt/Sinh)</option>
-            <option value="HD2 SÁNG">HD2 SÁNG (Xe 2.5 tấn - Hải)</option>
-            <option value="HD2 CHIỀU">HD2 CHIỀU (Xe 2.5 tấn - Hải)</option>
+            <option value="XE01">XE01 (HĐ1 SÁNG)</option>
+            <option value="XE02">XE02 (HĐ2 SÁNG)</option>
+            <option value="XE03">XE03 (HĐ3 SÁNG)</option>
+            <option value="XE04">XE04 (HĐ1 CHIỀU)</option>
+            <option value="XE05">XE05 (HĐ2 CHIỀU)</option>
+            <option value="XE06">XE06 (HĐ3 CHIỀU)</option>
+            <option value="XE07">XE07 (THUÊ SÁNG)</option>
+            <option value="XE08">XE08 (THUÊ CHIỀU)</option>
+            <option value="XE09">XE09 (ĐEN SÁNG)</option>
+            <option value="XE10">XE10 (ĐEN CHIỀU)</option>
+            <option value="XE11">XE11 (ĐỎ SÁNG)</option>
+            <option value="XE12">XE12 (ĐỎ CHIỀU)</option>
+            <option value="XE13">XE13 (XANH SÁNG)</option>
+            <option value="XE14">XE14 (XANH CHIỀU)</option>
+            <option value="XE15">XE15 (NGUYEN NISSIN)</option>
+            <option value="XE16">XE16 (NGHĨA NS)</option>
+            <option value="XE17">XE17 (VY EM NS)</option>
+            <option value="XE18">XE18 (VŨ)</option>
+            <option value="XE19">XE19 (NGUYỆT)</option>
+            <option value="XE20">XE20 (NAM)</option>
           </select>
         </div>
 
@@ -890,19 +906,40 @@
         } catch (e) {}
       }
 
-      if (dsXe.length === 0) {
-        dsXe = [
-          { ma_xe: "HD1 SÁNG", bien_so: "43C-12345", loai_xe: "Xe tải 1.4 tấn", tai_xe_mac_dinh: "SINH" },
-          { ma_xe: "HD1 CHIỀU", bien_so: "43C-12345", loai_xe: "Xe tải 1.4 tấn", tai_xe_mac_dinh: "SINH" },
-          { ma_xe: "HD2 SÁNG", bien_so: "43C-67890", loai_xe: "Xe tải 2.5 tấn", tai_xe_mac_dinh: "HẢI" },
-          { ma_xe: "HD2 CHIỀU", bien_so: "43C-67890", loai_xe: "Xe tải 2.5 tấn", tai_xe_mac_dinh: "HẢI" }
+      // Tự động nâng cấp nếu máy tính còn lưu danh sách cũ (<= 4 xe hoặc chưa có tiền tố XE)
+      const laDanhSachCu = dsXe.length === 0 || dsXe.length <= 4 || !dsXe.some(x => String(x.ma_xe).startsWith('XE'));
+      if (laDanhSachCu) {
+        dsXe = typeof DANH_SACH_XE_MAC_DINH !== 'undefined' ? [...DANH_SACH_XE_MAC_DINH] : [
+          { ma_xe: "XE01", bien_so: "", loai_xe: "HĐ1 SÁNG", tai_xe_mac_dinh: "SINH", ghi_chu: "HĐ1 SÁNG" },
+          { ma_xe: "XE02", bien_so: "", loai_xe: "HĐ2 SÁNG", tai_xe_mac_dinh: "HẢI", ghi_chu: "HĐ2 SÁNG" },
+          { ma_xe: "XE03", bien_so: "", loai_xe: "HĐ3 SÁNG", tai_xe_mac_dinh: "ĐẠT", ghi_chu: "HĐ3 SÁNG" },
+          { ma_xe: "XE04", bien_so: "", loai_xe: "HĐ1 CHIỀU", tai_xe_mac_dinh: "SINH", ghi_chu: "HĐ1 CHIỀU" },
+          { ma_xe: "XE05", bien_so: "", loai_xe: "HĐ2 CHIỀU", tai_xe_mac_dinh: "HẢI", ghi_chu: "HĐ2 CHIỀU" },
+          { ma_xe: "XE06", bien_so: "", loai_xe: "HĐ3 CHIỀU", tai_xe_mac_dinh: "ĐẠT", ghi_chu: "HĐ3 CHIỀU" },
+          { ma_xe: "XE07", bien_so: "", loai_xe: "THUÊ SÁNG", tai_xe_mac_dinh: "", ghi_chu: "THUÊ SÁNG" },
+          { ma_xe: "XE08", bien_so: "", loai_xe: "THUÊ CHIỀU", tai_xe_mac_dinh: "", ghi_chu: "THUÊ CHIỀU" },
+          { ma_xe: "XE09", bien_so: "", loai_xe: "ĐEN SÁNG", tai_xe_mac_dinh: "", ghi_chu: "ĐEN SÁNG" },
+          { ma_xe: "XE10", bien_so: "", loai_xe: "ĐEN CHIỀU", tai_xe_mac_dinh: "", ghi_chu: "ĐEN CHIỀU" },
+          { ma_xe: "XE11", bien_so: "", loai_xe: "ĐỎ SÁNG", tai_xe_mac_dinh: "", ghi_chu: "ĐỎ SÁNG" },
+          { ma_xe: "XE12", bien_so: "", loai_xe: "ĐỎ CHIỀU", tai_xe_mac_dinh: "", ghi_chu: "ĐỎ CHIỀU" },
+          { ma_xe: "XE13", bien_so: "", loai_xe: "XANH SÁNG", tai_xe_mac_dinh: "", ghi_chu: "XANH SÁNG" },
+          { ma_xe: "XE14", bien_so: "", loai_xe: "XANH CHIỀU", tai_xe_mac_dinh: "", ghi_chu: "XANH CHIỀU" },
+          { ma_xe: "XE15", bien_so: "", loai_xe: "NGUYEN NISSIN", tai_xe_mac_dinh: "", ghi_chu: "NGUYEN NISSIN" },
+          { ma_xe: "XE16", bien_so: "", loai_xe: "NGHĨA NS", tai_xe_mac_dinh: "", ghi_chu: "NGHĨA NS" },
+          { ma_xe: "XE17", bien_so: "", loai_xe: "VY EM NS", tai_xe_mac_dinh: "", ghi_chu: "VY EM NS" },
+          { ma_xe: "XE18", bien_so: "", loai_xe: "VŨ", tai_xe_mac_dinh: "", ghi_chu: "VŨ" },
+          { ma_xe: "XE19", bien_so: "", loai_xe: "NGUYỆT", tai_xe_mac_dinh: "", ghi_chu: "NGUYỆT" },
+          { ma_xe: "XE20", bien_so: "", loai_xe: "NAM", tai_xe_mac_dinh: "", ghi_chu: "NAM" }
         ];
+        try {
+          localStorage.setItem('tmh_danh_muc_danh_sach_xe', JSON.stringify(dsXe));
+        } catch (e) {}
       }
       danhSachXeDanhMuc = dsXe;
 
       // Đổ danh sách vào select xeVanChuyen
       const selXe = document.getElementById('xeVanChuyen');
-      const valCuXe = selXe.value || "HD1 SÁNG";
+      const valCuXe = selXe.value || "XE01";
       selXe.innerHTML = '';
       dsXe.forEach(x => {
         const opt = document.createElement('option');

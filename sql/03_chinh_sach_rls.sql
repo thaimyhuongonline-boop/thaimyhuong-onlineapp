@@ -36,15 +36,15 @@ DECLARE
 BEGIN
     FOREACH tbl IN ARRAY tables LOOP
         EXECUTE format('DROP POLICY IF EXISTS "policy_doc_%s" ON public.%I', tbl, tbl);
-        EXECUTE format('CREATE POLICY "policy_doc_%s" ON public.%I FOR SELECT TO authenticated USING (true)', tbl, tbl);
+        EXECUTE format('CREATE POLICY "policy_doc_%s" ON public.%I FOR SELECT TO anon, authenticated USING (true)', tbl, tbl);
         
         EXECUTE format('DROP POLICY IF EXISTS "policy_ghi_%s" ON public.%I', tbl, tbl);
-        EXECUTE format('CREATE POLICY "policy_ghi_%s" ON public.%I FOR INSERT TO authenticated WITH CHECK (true)', tbl, tbl);
+        EXECUTE format('CREATE POLICY "policy_ghi_%s" ON public.%I FOR INSERT TO anon, authenticated WITH CHECK (true)', tbl, tbl);
         
         EXECUTE format('DROP POLICY IF EXISTS "policy_sua_%s" ON public.%I', tbl, tbl);
-        EXECUTE format('CREATE POLICY "policy_sua_%s" ON public.%I FOR UPDATE TO authenticated USING (true)', tbl, tbl);
+        EXECUTE format('CREATE POLICY "policy_sua_%s" ON public.%I FOR UPDATE TO anon, authenticated USING (true)', tbl, tbl);
         
         EXECUTE format('DROP POLICY IF EXISTS "policy_xoa_%s" ON public.%I', tbl, tbl);
-        EXECUTE format('CREATE POLICY "policy_xoa_%s" ON public.%I FOR DELETE TO authenticated USING (true)', tbl, tbl);
+        EXECUTE format('CREATE POLICY "policy_xoa_%s" ON public.%I FOR DELETE TO anon, authenticated USING (true)', tbl, tbl);
     END LOOP;
 END $$;

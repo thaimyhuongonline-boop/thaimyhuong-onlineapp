@@ -73,13 +73,30 @@ CREATE TABLE IF NOT EXISTS public.danh_sach_xe (
     ghi_chu TEXT
 );
 
-INSERT INTO public.danh_sach_xe (ma_xe, bien_so, loai_xe, tai_xe_mac_dinh)
+INSERT INTO public.danh_sach_xe (ma_xe, bien_so, loai_xe, tai_xe_mac_dinh, ghi_chu)
 VALUES
-('HD1 SÁNG', '43C-12345', 'Xe tải 1.4 tấn', 'SINH'),
-('HD1 CHIỀU', '43C-12345', 'Xe tải 1.4 tấn', 'SINH'),
-('HD2 SÁNG', '43C-67890', 'Xe tải 2.5 tấn', 'HẢI'),
-('HD2 CHIỀU', '43C-67890', 'Xe tải 2.5 tấn', 'HẢI')
-ON CONFLICT (ma_xe) DO NOTHING;
+('XE01', '', 'HĐ1 SÁNG', 'SINH', 'HĐ1 SÁNG'),
+('XE02', '', 'HĐ2 SÁNG', 'HẢI', 'HĐ2 SÁNG'),
+('XE03', '', 'HĐ3 SÁNG', 'ĐẠT', 'HĐ3 SÁNG'),
+('XE04', '', 'HĐ1 CHIỀU', 'SINH', 'HĐ1 CHIỀU'),
+('XE05', '', 'HĐ2 CHIỀU', 'HẢI', 'HĐ2 CHIỀU'),
+('XE06', '', 'HĐ3 CHIỀU', 'ĐẠT', 'HĐ3 CHIỀU'),
+('XE07', '', 'THUÊ SÁNG', '', 'THUÊ SÁNG'),
+('XE08', '', 'THUÊ CHIỀU', '', 'THUÊ CHIỀU'),
+('XE09', '', 'ĐEN SÁNG', '', 'ĐEN SÁNG'),
+('XE10', '', 'ĐEN CHIỀU', '', 'ĐEN CHIỀU'),
+('XE11', '', 'ĐỎ SÁNG', '', 'ĐỎ SÁNG'),
+('XE12', '', 'ĐỎ CHIỀU', '', 'ĐỎ CHIỀU'),
+('XE13', '', 'XANH SÁNG', '', 'XANH SÁNG'),
+('XE14', '', 'XANH CHIỀU', '', 'XANH CHIỀU'),
+('XE15', '', 'NGUYEN NISSIN', '', 'NGUYEN NISSIN'),
+('XE16', '', 'NGHĨA NS', '', 'NGHĨA NS'),
+('XE17', '', 'VY EM NS', '', 'VY EM NS'),
+('XE18', '', 'VŨ', '', 'VŨ'),
+('XE19', '', 'NGUYỆT', '', 'NGUYỆT'),
+('XE20', '', 'NAM', '', 'NAM')
+ON CONFLICT (ma_xe) DO UPDATE 
+SET loai_xe = EXCLUDED.loai_xe, tai_xe_mac_dinh = EXCLUDED.tai_xe_mac_dinh, ghi_chu = EXCLUDED.ghi_chu;
 
 -- 6. BẢNG ĐỔI MÃ KHUYẾN MÃI (Ánh xạ mã KM sang mã thật xuất MISA)
 CREATE TABLE IF NOT EXISTS public.doi_ma_km (
