@@ -901,6 +901,11 @@
           xemLaiDotLuuTru(dotTim);
         }
       }
+
+      // Tự động đồng bộ lại từ Supabase khi người dùng quay lại tab trình duyệt
+      window.addEventListener('focus', async () => {
+        await dongBoLuuTruTuSupabaseChoBuoc2();
+      });
     }
 
     // Đồng bộ danh sách các đợt đã lưu từ Supabase (giúp mọi máy tính và tài khoản đều xem được)
@@ -908,7 +913,13 @@
       if (typeof sb === 'undefined') return;
       try {
         const { data, error } = await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(2000);
-        if (!error && data && data.length > 0) {
+        if (!error && data) {
+          if (data.length === 0) {
+            localStorage.setItem("tmh_lich_su_dot", "[]");
+            localStorage.removeItem("tmh_dot_hien_tai");
+            return;
+          }
+
           const mapDots = new Map();
           data.forEach(r => {
             const mDot = r.ma_dot || `DOT_${r.ngay_giao || 'NGAY'}_${r.xe || 'XE'}`;
@@ -966,16 +977,18 @@
               rd.cacDongChiTietKiotViet = timLocal.cacDongChiTietKiotViet;
             }
           });
-          
-          localLichSu.forEach(ld => {
-            if (!mapDots.has(ld.maDot)) {
-              remoteDots.push(ld);
-            }
-          });
 
+          // Supabase là nguồn sự thật: Tuyệt đối không phục hồi đợt đã bị xóa trên cloud
           localStorage.setItem("tmh_lich_su_dot", JSON.stringify(remoteDots));
-          if (!localStorage.getItem("tmh_dot_hien_tai") && remoteDots.length > 0) {
-            localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(remoteDots[0]));
+          
+          let curDot = null;
+          try { curDot = JSON.parse(localStorage.getItem("tmh_dot_hien_tai") || "null"); } catch(e){}
+          if (curDot && !mapDots.has(curDot.maDot)) {
+            if (remoteDots.length > 0) {
+              localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(remoteDots[0]));
+            } else {
+              localStorage.removeItem("tmh_dot_hien_tai");
+            }
           }
         }
       } catch (e) {

@@ -391,6 +391,11 @@
           await xuLyDocNhieuFile(Array.from(files));
         }
       });
+      // Tự động đồng bộ lại khi người dùng quay lại tab
+      window.addEventListener('focus', async () => {
+        await taiDanhSachFileTuSupabase();
+        veDanhSachFileDaNap();
+      });
     }
 
     async function docFileKiotViet(event) {
@@ -409,39 +414,33 @@
 
       for (const file of fileList) {
         try {
-          const fileData = await docMotFileExcel(file);
-          if (fileData && fileData.length > 0) {
-            // Kiểm tra nếu tên file đã có thì cập nhật hoặc thêm mới
-            const idxCu = danhSachFileDaNap.findIndex(f => f.tenFile === file.name);
-            const fileObj = taoDoiTuongFile(file.name, fileData);
-
-            if (idxCu >= 0) {
-              danhSachFileDaNap[idxCu] = fileObj;
-            } else {
-              danhSachFileDaNap.push(fileObj);
-            }
-            fileCuoiId = fileObj.id;
+          const res = await docMotFileExcel(file);
+          if (res && res.duLieu && res.duLieu.length > 0) {
+            danhSachFileDaNap = danhSachFileDaNap.filter(f => f.id !== res.id);
+            danhSachFileDaNap.unshift(res);
             soFileThanhCong++;
-
-            // Đồng bộ ngầm hàng hoá & khách hàng mới vào Supabase
-            tuDongDongBoDanhMuc(fileData);
+            fileCuoiId = res.id;
+            tuDongDongBoDanhMuc(res.duLieu);
           }
         } catch (err) {
-          console.error("Lỗi đọc file " + file.name + ":", err);
+          console.error("Lỗi đọc file:", file.name, err);
         }
       }
 
       if (soFileThanhCong > 0) {
         luuDanhSachFile();
-        // Mặc định tick chọn file vừa tải lên gần nhất
-        await chonFileDeXuatB2(fileCuoiId || danhSachFileDaNap[0].id);
-        alert(`✅ Đã nạp thành công ${soFileThanhCong} file Excel vào kho! Vui lòng tick chọn file bạn muốn đẩy sang Bước 2.`);
+        if (fileCuoiId) {
+          await chonFileDeXuatB2(fileCuoiId);
+        } else {
+          veDanhSachFileDaNap();
+        }
+        document.getElementById('thongTinFile').innerHTML = `<span style="color:#16a34a; font-weight:600;">✅ Đã nạp thành công ${soFileThanhCong} file Excel KiotViet.</span>`;
       } else {
-        document.getElementById('thongTinFile').innerHTML = '<span style="color:#dc2626;">❌ Không đọc được dữ liệu từ các file đã chọn!</span>';
+        document.getElementById('thongTinFile').innerHTML = `<span style="color:#dc2626; font-weight:600;">❌ Không có file nào hợp lệ hoặc file không chứa dữ liệu.</span>`;
       }
     }
 
-    // Đọc 1 file Excel trả về Promise mảng đối tượng
+    // Đọc 1 file Excel và chuyển đổi thành cấu trúc chuẩn
     function docMotFileExcel(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -449,9 +448,17 @@
           try {
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
-            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            const json = XLSX.utils.sheet_to_json(firstSheet, { defval: null });
-            resolve(json || []);
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+            if (!json || json.length === 0) {
+              resolve(null);
+              return;
+            }
+
+            const thongTin = phanTichFileKiotViet(file.name, json);
+            resolve(thongTin);
           } catch (err) {
             reject(err);
           }
@@ -461,27 +468,28 @@
       });
     }
 
-    // Tạo đối tượng thông tin file đầy đủ
-    function taoDoiTuongFile(tenFile, duLieu) {
-      const hdSet = new Set();
+    // Phân tích dữ liệu 1 file để lấy số HĐ, doanh số, số dòng
+    function phanTichFileKiotViet(tenFile, duLieu) {
+      const cacMaHD = new Set();
       let tongDoanhSo = 0;
 
-      duLieu.forEach(row => {
-        const maHD = layGiaTriCot(row, ['Mã hóa đơn', 'Mã HĐ', 'Mã chứng từ', 'Số hóa đơn', 'Ma hoa don']);
-        if (maHD) hdSet.add(String(maHD).trim());
-        const tt = Number(layGiaTriCot(row, ['Thành tiền', 'Khách cần trả', 'Tổng cộng', 'Tổng tiền', 'Doanh số'])) || 0;
-        tongDoanhSo += tt;
+      duLieu.forEach(r => {
+        const ma = r['Mã hóa đơn'] || r['Mã HĐ'] || r['Số hóa đơn'] || r['Ma hoa don'] || '';
+        if (ma) cacMaHD.add(String(ma).trim());
+
+        const ds = Number(r['Thành tiền'] || r['ThanhTien'] || r['Doanh số'] || r['Tổng tiền'] || 0);
+        if (!isNaN(ds)) tongDoanhSo += ds;
       });
 
-      const now = new Date();
-      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} - ${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+      const fileId = tenFile.trim();
+      const thoiGian = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('vi-VN');
 
       return {
-        id: 'file_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        id: fileId,
         tenFile: tenFile,
-        thoiGian: timeStr,
+        thoiGian: thoiGian,
         duLieu: duLieu,
-        soHD: hdSet.size,
+        soHD: cacMaHD.size,
         soDong: duLieu.length,
         tongDoanhSo: Math.round(tongDoanhSo)
       };
@@ -491,7 +499,12 @@
       if (typeof sb === 'undefined') return;
       try {
         const { data, error } = await sb.from('file_kiot_tam').select('*').order('tao_luc', { ascending: false });
-        if (!error && data && data.length > 0) {
+        if (!error && data) {
+          if (data.length === 0) {
+            danhSachFileDaNap = [];
+            localStorage.setItem("tmh_danh_sach_file_kiot", "[]");
+            return;
+          }
           const map = new Map();
           data.forEach(r => {
             map.set(r.id, {
@@ -504,10 +517,7 @@
               duLieu: r.du_lieu || []
             });
           });
-          // Bổ sung các file local chưa có trên Supabase nếu có
-          danhSachFileDaNap.forEach(f => {
-            if (!map.has(f.id)) map.set(f.id, f);
-          });
+          // Supabase là nguồn sự thật: Tuyệt đối không phục hồi file đã bị xóa trên cloud
           danhSachFileDaNap = Array.from(map.values());
           localStorage.setItem("tmh_danh_sach_file_kiot", JSON.stringify(danhSachFileDaNap));
         }

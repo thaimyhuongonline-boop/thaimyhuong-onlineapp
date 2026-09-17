@@ -113,6 +113,9 @@
         <p class="tmh-page-header-sub">Hồ sơ 18-19 cột đối soát được lưu trữ cố định (khóa chính là Mã Hóa Đơn chống trùng lặp) và archive chi tiết từng dòng hàng hóa vĩnh viễn để phục vụ xuất MISA.</p>
       </div>
       <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-outline" id="btnDongBoCloud" onclick="dongBoThuCongTuCloud()" style="background:#ecfdf5; color:#047857; border-color:#a7f3d0; font-weight:700;">
+          <span>🔄</span> Đồng bộ Cloud
+        </button>
         <button type="button" class="btn btn-outline" onclick="saoLuuLichSu()">
           <span>💾</span> Sao lưu JSON
         </button>
@@ -404,36 +407,70 @@
       // Nạp danh mục xe và nhân sự để phục vụ modal sửa đợt (chọn dropdown như Bước 2)
       await taiDanhMucChoModalSua();
 
-      // 1. Nạp từ localStorage
+      // 1. Nạp từ localStorage trước để render nhanh
       try {
         lichSuDot = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
-      } catch (e) {
-        lichSuDot = [];
-      }
-
-      // 2. Luôn đồng bộ từ Supabase bảng luu_tru (để các máy tính & mọi tài khoản đều xem được dữ liệu mới nhất)
-      await dongBoLuuTruTuSupabase();
-
-      // Đợt hiện tại
-      try {
         dotHienTai = JSON.parse(localStorage.getItem("tmh_dot_hien_tai") || "null");
       } catch (e) {
+        lichSuDot = [];
         dotHienTai = null;
       }
 
-      if (!dotHienTai && lichSuDot.length > 0) {
-        dotHienTai = lichSuDot[0];
-        localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dotHienTai));
-      }
+      // 2. Luôn đồng bộ đè từ Supabase bảng luu_tru (Cloud là nguồn sự thật duy nhất)
+      await dongBoLuuTruTuSupabase();
 
       hienThiDuLieu();
+
+      // 3. Tự động đồng bộ lại khi người dùng quay lại tab trình duyệt
+      window.addEventListener('focus', async () => {
+        await dongBoLuuTruTuSupabase();
+        hienThiDuLieu();
+      });
+
+      // 4. Lắng nghe thay đổi Realtime từ Supabase (nếu có máy khác thêm/sửa/xóa)
+      if (typeof sb !== 'undefined' && sb.channel) {
+        try {
+          sb.channel('rt_luu_tru_b3')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'luu_tru' }, async () => {
+              await dongBoLuuTruTuSupabase();
+              hienThiDuLieu();
+            })
+            .subscribe();
+        } catch (e) {}
+      }
+    }
+
+    async function dongBoThuCongTuCloud() {
+      const btn = document.getElementById('btnDongBoCloud');
+      const oldHtml = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span>⏳</span> Đang đồng bộ...`;
+      }
+      await dongBoLuuTruTuSupabase();
+      hienThiDuLieu();
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<span>✅</span> Đã xong`;
+        setTimeout(() => { btn.innerHTML = oldHtml; }, 1500);
+      }
     }
 
     async function dongBoLuuTruTuSupabase() {
       if (typeof sb === 'undefined') return;
       try {
         const { data, error } = await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(2000);
-        if (!error && data && data.length > 0) {
+        if (!error && data) {
+          if (data.length === 0) {
+            // Không có chuyến xe nào trên Cloud -> Đã bị xóa toàn bộ
+            lichSuDot = [];
+            dotHienTai = null;
+            danhSach18CotHienThi = [];
+            localStorage.setItem("tmh_lich_su_dot", "[]");
+            localStorage.removeItem("tmh_dot_hien_tai");
+            return;
+          }
+
           // Nhóm theo ma_dot
           const mapDots = new Map();
           data.forEach(r => {
@@ -478,7 +515,7 @@
             });
           });
 
-          // Hợp nhất với local nếu có các trường lưu thêm
+          // Giữ lại cacDongChiTietKiotViet từ local nếu có để phục vụ xuất MISA
           let localLichSu = [];
           try {
             localLichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
@@ -492,17 +529,26 @@
             }
           });
 
-          localLichSu.forEach(ld => {
-            if (!mapDots.has(ld.maDot)) {
-              remoteDots.push(ld);
-            }
-          });
-
+          // Supabase là nguồn sự thật: TUYỆT ĐỐI KHÔNG đưa lại các đợt đã bị xóa trên Cloud!
           lichSuDot = remoteDots;
           localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSuDot));
-          if (!dotHienTai && lichSuDot.length > 0) {
-            dotHienTai = lichSuDot[0];
+
+          // Đảm bảo dotHienTai luôn là đợt đang tồn tại trên Cloud
+          let maDotDangXem = dotHienTai ? dotHienTai.maDot : null;
+          if (!maDotDangXem) {
+            try {
+              const dht = JSON.parse(localStorage.getItem("tmh_dot_hien_tai") || "null");
+              if (dht && dht.maDot) maDotDangXem = dht.maDot;
+            } catch(e) {}
+          }
+
+          const timThay = maDotDangXem ? lichSuDot.find(d => d.maDot === maDotDangXem) : null;
+          dotHienTai = timThay || (lichSuDot.length > 0 ? lichSuDot[0] : null);
+
+          if (dotHienTai) {
             localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dotHienTai));
+          } else {
+            localStorage.removeItem("tmh_dot_hien_tai");
           }
         }
       } catch (e) {
@@ -981,13 +1027,17 @@
 
       // Đồng bộ cập nhật lên Supabase luu_tru nếu có
       if (typeof sb !== 'undefined' && d.maDot) {
-        sb.from('luu_tru').update({
-          xe: xeMoi,
-          tai_xe: taiXeMoi,
-          giao_hang: nvGiaoMoi,
-          thu_tien: nvThuMoi,
-          ngay_giao: ngayGiaoMoi
-        }).eq('ma_dot', d.maDot).then(() => {}).catch(err => console.warn(err));
+        try {
+          await sb.from('luu_tru').update({
+            xe: xeMoi,
+            tai_xe: taiXeMoi,
+            giao_hang: nvGiaoMoi,
+            thu_tien: nvThuMoi,
+            ngay_giao: ngayGiaoMoi
+          }).eq('ma_dot', d.maDot);
+        } catch (err) {
+          console.warn("Lỗi cập nhật đợt lên Supabase:", err);
+        }
       }
 
       dongModalSua();
@@ -995,22 +1045,32 @@
       alert("✅ Đã cập nhật thành công thông tin đợt!");
     }
 
-    function xoaDot(idx) {
+    async function xoaDot(idx) {
       const d = lichSuDot[idx];
       if (!d) return;
       if (!confirm(`Bạn có chắc muốn xóa đợt "${d.maDot}" (Xe: ${d.xe}) khỏi kho lưu trữ?`)) return;
 
+      const maDotXoa = d.maDot;
+
+      // 1. Xóa trên Supabase TRƯỚC
+      if (typeof sb !== 'undefined' && maDotXoa) {
+        try {
+          await sb.from('luu_tru').delete().eq('ma_dot', maDotXoa);
+          await sb.from('chi_tiet_hoa_don').delete().eq('ma_dot', maDotXoa);
+        } catch (err) {
+          console.warn("Lỗi xóa đợt trên Supabase:", err);
+        }
+      }
+
+      // 2. Cập nhật dữ liệu cục bộ
       lichSuDot.splice(idx, 1);
       localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSuDot));
 
-      if (dotHienTai && dotHienTai.maDot === d.maDot) {
+      if (dotHienTai && dotHienTai.maDot === maDotXoa) {
         dotHienTai = lichSuDot.length > 0 ? lichSuDot[0] : null;
         if (dotHienTai) localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dotHienTai));
         else localStorage.removeItem("tmh_dot_hien_tai");
       }
-
-      // Xóa trong Supabase nếu có
-      sb.from('luu_tru').delete().eq('ma_dot', d.maDot).then(() => {});
 
       hienThiDuLieu();
       alert("🗑️ Đã xóa đợt điều động khỏi kho lưu trữ!");
