@@ -2657,6 +2657,21 @@
       window.location.href = "buoc3_luu_tru.html";
     }
 
+    // Lắng nghe sự kiện thay đổi dữ liệu từ Bước 3 (khi xóa dòng hóa đơn trong chuyến) để đồng bộ ngay lập tức
+    window.addEventListener('storage', function(e) {
+      if (e.key === 'tmh_lich_su_dot' || e.key === 'tmh_dot_hien_tai') {
+        if (dotLuuTruHienCo && dotLuuTruHienCo.maDot) {
+          try {
+            const ls = JSON.parse(localStorage.getItem('tmh_lich_su_dot') || '[]');
+            const dotMoi = ls.find(d => d.maDot === dotLuuTruHienCo.maDot);
+            if (dotMoi) {
+              xemLaiDotLuuTru(dotMoi);
+            }
+          } catch (err) {}
+        }
+      }
+    });
+
     khoiTaoTrang();
   </script>
 </body>

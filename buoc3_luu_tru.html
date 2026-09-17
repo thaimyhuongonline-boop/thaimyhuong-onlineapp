@@ -124,16 +124,21 @@
     </div>
 
     <!-- Thông tin đợt đang xem -->
-    <div class="hero-meta-bar" id="heroMetaBar">
-      <div class="hero-info-tags">
-        <span>Đang xem: <b class="tag-highlight" id="lblMaDot">CHƯA CHỌN ĐỢT</b></span>
-        <span>Xe: <b id="lblXe">...</b></span>
-        <span>Tài xế: <b id="lblTaiXe">...</b></span>
-        <span>Thu tiền: <b id="lblThuTien">...</b></span>
-        <span>Ngày giao: <b id="lblNgayGiao">...</b></span>
-        <span>Số lượng HĐ: <b id="lblSoHD" style="color:var(--primary); font-weight:800;">0</b></span>
+    <div class="hero-meta-bar" id="heroMetaBar" style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; width: 100%;">
+        <div class="hero-info-tags">
+          <span>Đang xem: <b class="tag-highlight" id="lblMaDot">CHƯA CHỌN ĐỢT</b></span>
+          <span>Xe: <b id="lblXe">...</b></span>
+          <span>Tài xế: <b id="lblTaiXe">...</b></span>
+          <span>Thu tiền: <b id="lblThuTien">...</b></span>
+          <span>Ngày giao: <b id="lblNgayGiao">...</b></span>
+          <span>Số lượng HĐ: <b id="lblSoHD" style="color:var(--primary); font-weight:800;">0</b></span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <input type="text" id="timKiemTongLuuTru" class="form-control" placeholder="🔍 Tìm kiếm hoá đơn trên tổng lưu trữ..." oninput="locDuLieuTongLuuTru(this.value)" style="width: 290px; padding: 7px 12px; font-size: 13px; border-radius: 6px; border: 1.5px solid #cbd5e1;">
+        </div>
       </div>
-      <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+      <div style="display: flex; justify-content: flex-end; gap: 8px; align-items: center; flex-wrap: wrap; width: 100%;">
         <button type="button" class="btn btn-amber btn-sm" onclick="xemLaiPhieuThuVaXuatKho()" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;">
           <span>📄</span> Xem lại Phiếu Thu & Xuất Kho
         </button>
@@ -149,17 +154,23 @@
 
     <!-- Bảng 18 Cột Chi Tiết Đợt -->
     <div class="tmh-card">
-      <div class="tmh-card-header">
-        <div class="tmh-card-title"><span>📋</span> Danh sách 18 cột đối soát chi tiết của chuyến xe</div>
-        <div style="display: flex; gap: 10px; align-items: center;">
-          <input type="text" id="timKiemBang" class="form-control" placeholder="🔍 Tìm kiếm mã HĐ, khách hàng..." oninput="locDuLieuBang()" style="width: 240px; padding: 6px 10px; font-size: 12px;">
+      <div class="tmh-card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+          <div class="tmh-card-title" id="lblTieuDeBang18Cot"><span>📋</span> Danh sách 18 cột đối soát chi tiết của chuyến xe</div>
+          <button type="button" id="btnXoaDongChon" class="btn btn-sm" onclick="xoaCacDongDaChon()" style="display:none; background:#dc2626; color:#ffffff; font-weight:700; border:none; padding:6px 14px; border-radius:6px; box-shadow:0 2px 4px rgba(220,38,38,0.25); cursor:pointer; align-items:center; gap:6px;">
+            <span>🗑️</span> Xóa dòng đã chọn (<span id="soDongChon">0</span>)
+          </button>
         </div>
+        <div id="boxThongBaoTimKiem" style="font-size: 12.5px; color: var(--text-muted);"></div>
       </div>
 
       <div class="tmh-table-wrap" style="max-height: 540px;">
         <table class="tmh-table">
           <thead>
             <tr>
+              <th style="width:36px;" class="text-center">
+                <input type="checkbox" id="chkChonTatCa18Cot" onchange="toggleChonTatCa18Cot(this.checked)" title="Chọn tất cả" style="cursor:pointer; width:15px; height:15px;">
+              </th>
               <th style="width:30px;">STT</th>
               <th>Ngày</th>
               <th>Xe</th>
@@ -500,8 +511,16 @@
       tbody.innerHTML = '';
       document.getElementById('tfoot18Cot').innerHTML = '';
 
+      // Reset checkbox chọn tất cả và nút xóa
+      const chkAll = document.getElementById('chkChonTatCa18Cot');
+      if (chkAll) chkAll.checked = false;
+      const btnXoa = document.getElementById('btnXoaDongChon');
+      if (btnXoa) btnXoa.style.display = 'none';
+      const lblSo = document.getElementById('soDongChon');
+      if (lblSo) lblSo.textContent = '0';
+
       if (!list || list.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="18" class="text-center" style="padding: 28px; color: var(--text-muted);">Không có dữ liệu hiển thị. Hãy hoàn tất Bước 2 để chuyển sang lưu trữ.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="19" class="text-center" style="padding: 28px; color: var(--text-muted);">Không có dữ liệu hiển thị. Hãy hoàn tất Bước 2 để chuyển sang lưu trữ hoặc kiểm tra từ khóa tìm kiếm.</td></tr>';
         return;
       }
 
@@ -519,6 +538,9 @@
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
+          <td class="text-center" style="width:36px;">
+            <input type="checkbox" class="chk-dong-18cot" value="${r.maHD || ''}" onchange="capNhatTrangThaiNutXoa()" style="cursor:pointer; width:15px; height:15px;">
+          </td>
           <td class="text-center">${idx + 1}</td>
           <td>${r.ngay || ''}</td>
           <td class="text-bold" style="color:var(--primary);">${r.xe || ''}</td>
@@ -546,7 +568,7 @@
 
       document.getElementById('tfoot18Cot').innerHTML = `
         <tr style="background:#f1f5f9; font-weight:800;">
-          <td colspan="10" class="text-center">TỔNG CỘNG (${list.length} HÓA ĐƠN)</td>
+          <td colspan="11" class="text-center">TỔNG CỘNG (${list.length} HÓA ĐƠN)</td>
           <td class="text-right">${formatTien(sumDoanhSo)}</td>
           <td class="text-right">${formatTien(sumGiamSP)}</td>
           <td class="text-right">${formatTien(sumGiamHD)}</td>
@@ -559,21 +581,179 @@
       `;
     }
 
-    function locDuLieuBang() {
-      const q = document.getElementById('timKiemBang').value.toLowerCase().trim();
-      if (!q) {
-        veBang18Cot(danhSach18CotHienThi);
-        return;
-      }
-      const kq = danhSach18CotHienThi.filter(r => 
-        (r.maHD && r.maHD.toLowerCase().includes(q)) ||
-        (r.tenKH && r.tenKH.toLowerCase().includes(q)) ||
-        (r.maKH && r.maKH.toLowerCase().includes(q))
-      );
-      veBang18Cot(kq);
+    function toggleChonTatCa18Cot(chon) {
+      const checkboxes = document.querySelectorAll('.chk-dong-18cot');
+      checkboxes.forEach(chk => {
+        chk.checked = chon;
+      });
+      capNhatTrangThaiNutXoa();
     }
 
-    function hienThiLichSu() {
+    function capNhatTrangThaiNutXoa() {
+      const checkboxes = document.querySelectorAll('.chk-dong-18cot:checked');
+      const btnXoa = document.getElementById('btnXoaDongChon');
+      const lblSo = document.getElementById('soDongChon');
+      const count = checkboxes.length;
+      if (lblSo) lblSo.textContent = count;
+      if (btnXoa) {
+        btnXoa.style.display = count > 0 ? 'inline-flex' : 'none';
+      }
+      const chkAll = document.getElementById('chkChonTatCa18Cot');
+      const allBoxes = document.querySelectorAll('.chk-dong-18cot');
+      if (chkAll && allBoxes.length > 0) {
+        chkAll.checked = (count === allBoxes.length);
+      }
+    }
+
+    async function xoaCacDongDaChon() {
+      const checkboxes = Array.from(document.querySelectorAll('.chk-dong-18cot:checked'));
+      if (checkboxes.length === 0) {
+        alert("Vui lòng tick chọn ít nhất 1 dòng hóa đơn cần xóa!");
+        return;
+      }
+
+      const cacMaHD = checkboxes.map(cb => cb.value.trim()).filter(Boolean);
+      if (cacMaHD.length === 0) return;
+
+      const tenDot = dotHienTai ? dotHienTai.maDot : 'đợt lưu trữ';
+      const xacNhan = confirm(`Bạn có chắc chắn muốn xóa ${cacMaHD.length} hóa đơn đã chọn khỏi ${tenDot}?\n\nSau khi xóa, dữ liệu sẽ được tự động đồng bộ sang Bước 2 (cập nhật bảng kê thu tiền & phiếu xuất kho tương ứng, đồng thời giải phóng hóa đơn để có thể điều động sang chuyến khác).`);
+      if (!xacNhan) return;
+
+      const tapHopXoa = new Set(cacMaHD);
+
+      // 1. Cập nhật đợt hiện tại
+      if (dotHienTai) {
+        if (Array.isArray(dotHienTai.danhSachChiTiet)) {
+          dotHienTai.danhSachChiTiet = dotHienTai.danhSachChiTiet.filter(r => !tapHopXoa.has(String(r.maHD).trim()));
+        }
+        if (Array.isArray(dotHienTai.danhSachHD)) {
+          dotHienTai.danhSachHD = dotHienTai.danhSachHD.filter(m => !tapHopXoa.has(String(m).trim()));
+        }
+        if (Array.isArray(dotHienTai.cacDongChiTietKiotViet)) {
+          dotHienTai.cacDongChiTietKiotViet = dotHienTai.cacDongChiTietKiotViet.filter(item => {
+            const m = item['Mã hóa đơn'] || item.maHD || item.ma_hd;
+            return !tapHopXoa.has(String(m).trim());
+          });
+        }
+        dotHienTai.soLuongHD = dotHienTai.danhSachChiTiet ? dotHienTai.danhSachChiTiet.length : 0;
+        dotHienTai.tongTien = (dotHienTai.danhSachChiTiet || []).reduce((sum, r) => sum + (Number(r.thanhTien) || 0), 0);
+        if (dotHienTai.danhSachChiTiet) {
+          dotHienTai.danhSachChiTiet.forEach((r, idx) => { r.stt = idx + 1; });
+        }
+        localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dotHienTai));
+      }
+
+      // 2. Cập nhật tất cả các đợt trong lichSuDot
+      lichSuDot.forEach(d => {
+        let coThayDoi = false;
+        if (Array.isArray(d.danhSachChiTiet)) {
+          const soLuongTruoc = d.danhSachChiTiet.length;
+          d.danhSachChiTiet = d.danhSachChiTiet.filter(r => !tapHopXoa.has(String(r.maHD).trim()));
+          if (d.danhSachChiTiet.length !== soLuongTruoc) coThayDoi = true;
+        }
+        if (Array.isArray(d.danhSachHD)) {
+          d.danhSachHD = d.danhSachHD.filter(m => !tapHopXoa.has(String(m).trim()));
+        }
+        if (Array.isArray(d.cacDongChiTietKiotViet)) {
+          d.cacDongChiTietKiotViet = d.cacDongChiTietKiotViet.filter(item => {
+            const m = item['Mã hóa đơn'] || item.maHD || item.ma_hd;
+            return !tapHopXoa.has(String(m).trim());
+          });
+        }
+        if (coThayDoi) {
+          d.soLuongHD = d.danhSachChiTiet ? d.danhSachChiTiet.length : 0;
+          d.tongTien = (d.danhSachChiTiet || []).reduce((sum, r) => sum + (Number(r.thanhTien) || 0), 0);
+          if (d.danhSachChiTiet) {
+            d.danhSachChiTiet.forEach((r, idx) => { r.stt = idx + 1; });
+          }
+        }
+      });
+      localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSuDot));
+
+      // 3. Xóa dữ liệu tương ứng trên Supabase luu_tru & chi_tiet_hoa_don
+      if (typeof sb !== 'undefined') {
+        try {
+          const arrXoa = Array.from(tapHopXoa);
+          await sb.from('luu_tru').delete().in('ma_hd', arrXoa);
+          await sb.from('chi_tiet_hoa_don').delete().in('ma_hd', arrXoa);
+        } catch (err) {
+          console.warn("Lỗi khi xóa trên Supabase:", err);
+        }
+      }
+
+      // 4. Cập nhật lại giao diện
+      const q = document.getElementById('timKiemTongLuuTru') ? document.getElementById('timKiemTongLuuTru').value.trim() : '';
+      if (q) {
+        locDuLieuTongLuuTru(q);
+      } else {
+        hienThiDuLieu();
+      }
+
+      alert(`✅ Đã xóa thành công ${cacMaHD.length} hóa đơn! Dữ liệu đã được đồng bộ sang Bước 2.`);
+    }
+
+    function locDuLieuTongLuuTru(q) {
+      q = (q || '').trim().toLowerCase();
+      const lblTieuDe = document.getElementById('lblTieuDeBang18Cot');
+      const boxThongBao = document.getElementById('boxThongBaoTimKiem');
+
+      if (!q) {
+        if (lblTieuDe) lblTieuDe.innerHTML = '<span>📋</span> Danh sách 18 cột đối soát chi tiết của chuyến xe';
+        if (boxThongBao) boxThongBao.textContent = '';
+        danhSach18CotHienThi = (dotHienTai && dotHienTai.danhSachChiTiet) ? dotHienTai.danhSachChiTiet : [];
+        veBang18Cot(danhSach18CotHienThi);
+        hienThiLichSu();
+        return;
+      }
+
+      let ketQua18Cot = [];
+      const tapHopMaDotKhop = new Set();
+
+      lichSuDot.forEach(d => {
+        let dotKhop = false;
+        const maDotStr = (d.maDot || '').toLowerCase();
+        const xeStr = (d.xe || '').toLowerCase();
+        const taiXeStr = (d.taiXe || '').toLowerCase();
+        const ngayStr = (d.ngayGiao || '').toLowerCase();
+
+        if (maDotStr.includes(q) || xeStr.includes(q) || taiXeStr.includes(q) || ngayStr.includes(q)) {
+          dotKhop = true;
+        }
+
+        if (Array.isArray(d.danhSachChiTiet)) {
+          d.danhSachChiTiet.forEach(r => {
+            const maHD = (r.maHD || '').toLowerCase();
+            const tenKH = (r.tenKH || '').toLowerCase();
+            const maKH = (r.maKH || '').toLowerCase();
+            const nguoiBan = (r.nguoiBan || '').toLowerCase();
+            const xe = (r.xe || d.xe || '').toLowerCase();
+            const ngay = (r.ngay || d.ngayGiao || '').toLowerCase();
+
+            if (maHD.includes(q) || tenKH.includes(q) || maKH.includes(q) || nguoiBan.includes(q) || xe.includes(q) || ngay.includes(q) || maDotStr.includes(q)) {
+              ketQua18Cot.push(r);
+              dotKhop = true;
+            }
+          });
+        }
+
+        if (dotKhop && d.maDot) {
+          tapHopMaDotKhop.add(d.maDot);
+        }
+      });
+
+      danhSach18CotHienThi = ketQua18Cot;
+      if (lblTieuDe) {
+        lblTieuDe.innerHTML = `<span>🔍</span> Kết quả tìm kiếm tổng lưu trữ: <b>${ketQua18Cot.length}</b> hóa đơn`;
+      }
+      if (boxThongBao) {
+        boxThongBao.innerHTML = `Khớp trên <b>${tapHopMaDotKhop.size}</b> đợt điều động`;
+      }
+
+      veBang18Cot(ketQua18Cot);
+      hienThiLichSu(tapHopMaDotKhop);
+    }
+
+    function hienThiLichSu(tapHopMaDotKhop = null) {
       const tbody = document.getElementById('tbodyLichSu');
       tbody.innerHTML = '';
 
@@ -582,7 +762,17 @@
         return;
       }
 
-      lichSuDot.forEach((d, idx) => {
+      const danhSachHienThi = tapHopMaDotKhop 
+        ? lichSuDot.filter(d => tapHopMaDotKhop.has(d.maDot))
+        : lichSuDot;
+
+      if (danhSachHienThi.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center" style="padding:20px; color:var(--text-muted);">Không tìm thấy đợt điều động nào phù hợp với từ khóa.</td></tr>';
+        return;
+      }
+
+      danhSachHienThi.forEach((d) => {
+        const idx = lichSuDot.findIndex(item => item.maDot === d.maDot);
         const tr = document.createElement('tr');
         const tg = d.thoiGianTao ? new Date(d.thoiGianTao).toLocaleDateString('vi-VN') : '—';
         const laDotDangXem = dotHienTai && dotHienTai.maDot === d.maDot;

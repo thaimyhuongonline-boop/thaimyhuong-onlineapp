@@ -733,69 +733,171 @@
       window.location.href = "buoc2_phieu_xuat_kho.html";
     }
 
-    // Tự động đồng bộ Khách hàng & Hàng hóa mới vào Supabase (chạy ngầm, tự động không cần bấm nút)
+    // Tự động đồng bộ Khách hàng & Hàng hóa mới vào Danh mục (nếu trùng giữ cái cũ, chỉ cập nhật cái mới)
     async function tuDongDongBoDanhMuc(duLieu) {
       if (!duLieu || duLieu.length === 0) return;
-      if (typeof sb === 'undefined') return;
 
       try {
-        const danhSachKH = new Map();
-        const danhSachHang = new Map();
+        // -------------------------------------------------------------
+        // 1. ĐỒNG BỘ KHÁCH HÀNG (KHÁCH MỚI THÊM VÀO, TRÙNG GIỮ NGUYÊN CŨ)
+        // -------------------------------------------------------------
+        let dsKHCuaLocal = [];
+        try {
+          dsKHCuaLocal = JSON.parse(localStorage.getItem('tmh_danh_muc_khach_hang') || '[]');
+        } catch (e) {
+          dsKHCuaLocal = [];
+        }
 
+        // Tập hợp mã khách hàng hiện có (case-insensitive)
+        const setMaKHHienCo = new Set(
+          dsKHCuaLocal.map(k => String(k.ma_kh || '').trim().toLowerCase()).filter(Boolean)
+        );
+
+        // Lấy thêm mã KH từ Supabase nếu có
+        if (typeof sb !== 'undefined') {
+          try {
+            const { data } = await sb.from('khach_hang').select('ma_kh');
+            if (data && data.length > 0) {
+              data.forEach(r => {
+                if (r.ma_kh) setMaKHHienCo.add(String(r.ma_kh).trim().toLowerCase());
+              });
+            }
+          } catch (e) {}
+        }
+
+        const danhSachKHMoi = [];
+
+        // -------------------------------------------------------------
+        // 2. ĐỒNG BỘ HÀNG HÓA (HÀNG MỚI THÊM VÀO, TRÙNG GIỮ NGUYÊN CŨ)
+        // -------------------------------------------------------------
+        let dsHangCuaLocal = [];
+        try {
+          dsHangCuaLocal = JSON.parse(localStorage.getItem('tmh_danh_muc_hang_hoa') || '[]');
+        } catch (e) {
+          dsHangCuaLocal = [];
+        }
+
+        // Tập hợp mã hàng hiện có (case-insensitive)
+        const setMaHangHienCo = new Set(
+          dsHangCuaLocal.map(h => String(h.ma_hang || '').trim().toLowerCase()).filter(Boolean)
+        );
+
+        // Lấy thêm mã hàng từ Supabase nếu có
+        if (typeof sb !== 'undefined') {
+          try {
+            const { data } = await sb.from('hang_hoa').select('ma_hang');
+            if (data && data.length > 0) {
+              data.forEach(r => {
+                if (r.ma_hang) setMaHangHienCo.add(String(r.ma_hang).trim().toLowerCase());
+              });
+            }
+          } catch (e) {}
+        }
+
+        const danhSachHangMoi = [];
         const danhSachNguoiBanRaw = new Set();
 
+        // -------------------------------------------------------------
+        // 3. QUÉT DỮ LIỆU TỪ FILE KIOTVIET
+        // -------------------------------------------------------------
         duLieu.forEach(r => {
+          // --- Khách hàng ---
           const maKH = layGiaTriCot(r, ['Mã khách hàng', 'Mã KH', 'Mã đối tác']);
-          const tenKH = layGiaTriCot(r, ['Tên khách hàng', 'Tên KH', 'Khách hàng']);
-          const diaChi = layGiaTriCot(r, ['Địa chỉ', 'Khu vực', 'Địa chỉ giao hàng']);
-          const dienThoai = layGiaTriCot(r, ['Điện thoại', 'Số điện thoại', 'SĐT']);
-
           if (maKH) {
-            danhSachKH.set(String(maKH).trim(), {
-              ma_kh: String(maKH).trim(),
-              ten_kh: tenKH ? String(tenKH).trim() : '',
-              dia_chi: diaChi ? String(diaChi).trim() : null,
-              dien_thoai: dienThoai ? String(dienThoai).trim() : null
-            });
+            const maKHStr = String(maKH).trim();
+            const maKHKey = maKHStr.toLowerCase();
+            // Nếu bị trùng thì giữ cái cũ, chỉ thêm nếu là khách hàng mới
+            if (!setMaKHHienCo.has(maKHKey)) {
+              setMaKHHienCo.add(maKHKey);
+              const tenKH = layGiaTriCot(r, ['Tên khách hàng', 'Tên KH', 'Khách hàng']);
+              const diaChi = layGiaTriCot(r, ['Địa chỉ', 'Khu vực', 'Địa chỉ giao hàng']);
+              const dienThoai = layGiaTriCot(r, ['Điện thoại', 'Số điện thoại', 'SĐT']);
+              const khuVuc = layGiaTriCot(r, ['Khu vực', 'Tuyến đường', 'Tuyến']);
+
+              danhSachKHMoi.push({
+                ma_kh: maKHStr,
+                ten_kh: tenKH ? String(tenKH).trim() : maKHStr,
+                dia_chi: diaChi ? String(diaChi).trim() : '',
+                dien_thoai: dienThoai ? String(dienThoai).trim() : '',
+                khu_vuc: khuVuc ? String(khuVuc).trim() : '',
+                ma_so_thue: '',
+                ghi_chu: 'Tự động đồng bộ từ Bước 1'
+              });
+            }
           }
 
-          const maHang = layGiaTriCot(r, ['Mã hàng', 'Mã hàng hóa', 'Mã SP']);
-          const tenHang = layGiaTriCot(r, ['Tên hàng', 'Tên hàng hóa', 'Tên SP']);
-          const dvt = layGiaTriCot(r, ['Đơn vị tính', 'ĐVT']) || 'Thùng';
-          const quyCach = parseSoLuongChuan(layGiaTriCot(r, ['Quy cách', 'QuyCach'])) || 1;
-          const donGia = Number(layGiaTriCot(r, ['Đơn giá', 'Giá bán'])) || 0;
-
+          // --- Hàng hóa ---
+          const maHang = layGiaTriCot(r, ['Mã hàng', 'Mã hàng hóa', 'Mã SP', 'Ma hang']);
           if (maHang) {
-            danhSachHang.set(String(maHang).trim(), {
-              ma_hang: String(maHang).trim(),
-              ten_hang: tenHang ? String(tenHang).trim() : '',
-              dvt: String(dvt).trim(),
-              quy_cach: quyCach,
-              gia_ban: donGia
-            });
+            const maHangStr = String(maHang).trim();
+            const maHangKey = maHangStr.toLowerCase();
+            // Nếu bị trùng thì giữ cái cũ, chỉ thêm nếu là hàng hóa mới
+            if (!setMaHangHienCo.has(maHangKey)) {
+              setMaHangHienCo.add(maHangKey);
+              const tenHang = layGiaTriCot(r, ['Tên hàng', 'Tên hàng hóa', 'Tên SP', 'Ten hang']);
+              const dvt = layGiaTriCot(r, ['Đơn vị tính', 'ĐVT']) || 'Thùng';
+              const quyCach = parseSoLuongChuan(layGiaTriCot(r, ['Quy cách', 'QuyCach'])) || 1;
+              const donGia = Number(layGiaTriCot(r, ['Đơn giá', 'Giá bán'])) || 0;
+
+              danhSachHangMoi.push({
+                ma_hang: maHangStr,
+                ten_hang: tenHang ? String(tenHang).trim() : maHangStr,
+                dvt: String(dvt).trim(),
+                quy_cach: quyCach,
+                gia_ban: donGia,
+                ghi_chu: 'Tự động đồng bộ từ Bước 1'
+              });
+            }
           }
 
+          // --- Người bán ---
           const nguoiBan = layGiaTriCot(r, ['Người bán', 'Nhân viên bán', 'Nhân viên', 'Người tạo']);
           if (nguoiBan) danhSachNguoiBanRaw.add(String(nguoiBan).trim());
         });
 
-        const promises = [];
-        if (danhSachKH.size > 0) {
-          promises.push(sb.from('khach_hang').upsert(Array.from(danhSachKH.values())));
-        }
-        if (danhSachHang.size > 0) {
-          promises.push(sb.from('hang_hoa').upsert(Array.from(danhSachHang.values())));
+        // -------------------------------------------------------------
+        // 4. LƯU KHÁCH HÀNG MỚI VÀO LOCALSTORAGE & SUPABASE
+        // -------------------------------------------------------------
+        if (danhSachKHMoi.length > 0) {
+          const dsKHTong = [...dsKHCuaLocal, ...danhSachKHMoi];
+          localStorage.setItem('tmh_danh_muc_khach_hang', JSON.stringify(dsKHTong));
+
+          if (typeof sb !== 'undefined') {
+            try {
+              // Dùng insert thay vì upsert để bảo đảm không đè dữ liệu cũ
+              await sb.from('khach_hang').insert(danhSachKHMoi);
+            } catch (errSupabase) {
+              console.warn("Lỗi insert khách hàng mới lên Supabase:", errSupabase);
+            }
+          }
+          console.log(`[Tự động đồng bộ] Đã thêm ${danhSachKHMoi.length} khách hàng mới vào Danh mục.`);
         }
 
-        if (promises.length > 0) {
-          await Promise.all(promises);
-          console.log(`[Tự động đồng bộ] Đã cập nhật ${danhSachKH.size} khách hàng & ${danhSachHang.size} hàng hóa mới vào Supabase.`);
+        // -------------------------------------------------------------
+        // 5. LƯU HÀNG HÓA MỚI VÀO LOCALSTORAGE & SUPABASE
+        // -------------------------------------------------------------
+        if (danhSachHangMoi.length > 0) {
+          const dsHangTong = [...dsHangCuaLocal, ...danhSachHangMoi];
+          localStorage.setItem('tmh_danh_muc_hang_hoa', JSON.stringify(dsHangTong));
+
+          if (typeof sb !== 'undefined') {
+            try {
+              // Dùng insert thay vì upsert để bảo đảm không đè dữ liệu cũ
+              await sb.from('hang_hoa').insert(danhSachHangMoi);
+            } catch (errSupabase) {
+              console.warn("Lỗi insert hàng hóa mới lên Supabase:", errSupabase);
+            }
+          }
+          console.log(`[Tự động đồng bộ] Đã thêm ${danhSachHangMoi.length} hàng hóa mới vào Danh mục.`);
         }
 
-        // Tự động đồng bộ Người Bán vào Danh mục - Nhân viên kinh doanh
+        // -------------------------------------------------------------
+        // 6. ĐỒNG BỘ NGƯỜI BÁN MỚI VÀO NHÂN VIÊN KINH DOANH
+        // -------------------------------------------------------------
         if (danhSachNguoiBanRaw.size > 0) {
           await tuDongDongBoNhanVienKinhDoanh(Array.from(danhSachNguoiBanRaw));
         }
+
       } catch (err) {
         console.warn("Lỗi đồng bộ tự động danh mục nền:", err);
       }
