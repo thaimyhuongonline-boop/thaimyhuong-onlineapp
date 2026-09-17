@@ -257,10 +257,64 @@
         }
       }
 
-      // Nạp danh sách đợt
+      // Nạp danh sách đợt và đồng bộ từ Supabase luu_tru
       try {
         lichSuDot = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
       } catch (e) {}
+
+      if (typeof sb !== 'undefined') {
+        try {
+          const { data: remoteLuuTru } = await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(2000);
+          if (remoteLuuTru && remoteLuuTru.length > 0) {
+            const mapDots = new Map();
+            remoteLuuTru.forEach(r => {
+              const mDot = r.ma_dot || `DOT_${r.ngay_giao || 'NGAY'}_${r.xe || 'XE'}`;
+              if (!mapDots.has(mDot)) {
+                mapDots.set(mDot, {
+                  maDot: mDot,
+                  ngayGiao: r.ngay_giao,
+                  xe: r.xe,
+                  taiXe: r.tai_xe,
+                  nvGiao: r.giao_hang,
+                  nvThu: r.thu_tien,
+                  soLuongHD: 0,
+                  danhSachHD: [],
+                  danhSachChiTiet: [],
+                  thoiGianTao: r.tao_luc,
+                  daKiemDon: r.da_kiem_don
+                });
+              }
+              const d = mapDots.get(mDot);
+              d.soLuongHD++;
+              d.danhSachHD.push(r.ma_hd);
+              d.danhSachChiTiet.push({
+                stt: r.stt,
+                ngay: r.ngay_giao,
+                xe: r.xe,
+                taiXe: r.tai_xe,
+                giaoHang: r.giao_hang,
+                thuTien: r.thu_tien,
+                maHD: r.ma_hd,
+                tenKH: r.ten_kh,
+                nguoiBan: r.nguoiBan || r.nguoi_ban,
+                maKH: r.ma_kh,
+                doanhSo: r.doanh_so,
+                giamGiaSP: r.giam_gia_sp,
+                giamGiaHD: r.giam_gia_hd,
+                thanhTien: r.thanh_tien,
+                tienMat: r.tien_mat,
+                chuyenKhoan: r.chuyen_khoan,
+                traVe: r.tra_ve,
+                noPhatSinh: r.no_phat_sinh
+              });
+            });
+            const merged = Array.from(mapDots.values());
+            lichSuDot.forEach(ld => { if (!mapDots.has(ld.maDot)) merged.push(ld); });
+            lichSuDot = merged;
+            localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSuDot));
+          }
+        } catch(e) {}
+      }
 
       // Lấy đợt cần kiểm
       try {

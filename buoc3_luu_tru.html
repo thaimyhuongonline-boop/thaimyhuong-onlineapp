@@ -411,10 +411,8 @@
         lichSuDot = [];
       }
 
-      // 2. Nếu trong localStorage chưa có, đồng bộ từ Supabase bảng luu_tru
-      if (lichSuDot.length === 0) {
-        await dongBoLuuTruTuSupabase();
-      }
+      // 2. Luôn đồng bộ từ Supabase bảng luu_tru (để các máy tính & mọi tài khoản đều xem được dữ liệu mới nhất)
+      await dongBoLuuTruTuSupabase();
 
       // Đợt hiện tại
       try {
@@ -432,9 +430,10 @@
     }
 
     async function dongBoLuuTruTuSupabase() {
+      if (typeof sb === 'undefined') return;
       try {
-        const { data } = await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(200);
-        if (data && data.length > 0) {
+        const { data, error } = await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(2000);
+        if (!error && data && data.length > 0) {
           // Nhóm theo ma_dot
           const mapDots = new Map();
           data.forEach(r => {
@@ -479,8 +478,32 @@
             });
           });
 
-          lichSuDot = Array.from(mapDots.values());
+          // Hợp nhất với local nếu có các trường lưu thêm
+          let localLichSu = [];
+          try {
+            localLichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
+          } catch (e) {}
+
+          const remoteDots = Array.from(mapDots.values());
+          remoteDots.forEach(rd => {
+            const timLocal = localLichSu.find(ld => ld.maDot === rd.maDot);
+            if (timLocal && Array.isArray(timLocal.cacDongChiTietKiotViet)) {
+              rd.cacDongChiTietKiotViet = timLocal.cacDongChiTietKiotViet;
+            }
+          });
+
+          localLichSu.forEach(ld => {
+            if (!mapDots.has(ld.maDot)) {
+              remoteDots.push(ld);
+            }
+          });
+
+          lichSuDot = remoteDots;
           localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSuDot));
+          if (!dotHienTai && lichSuDot.length > 0) {
+            dotHienTai = lichSuDot[0];
+            localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dotHienTai));
+          }
         }
       } catch (e) {
         console.warn("Chưa đồng bộ Supabase:", e);

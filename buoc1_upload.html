@@ -351,6 +351,9 @@
         danhSachFileDaNap = [];
       }
 
+      // 2. Đồng bộ danh sách file nạp từ Supabase (giúp cùng tài khoản hoặc tài khoản khác trên máy tính khác đều thấy)
+      await taiDanhSachFileTuSupabase();
+
       // Khôi phục file đang chọn
       fileDangChonId = localStorage.getItem("tmh_kiotviet_selected_id") || null;
 
@@ -484,8 +487,53 @@
       };
     }
 
+    async function taiDanhSachFileTuSupabase() {
+      if (typeof sb === 'undefined') return;
+      try {
+        const { data, error } = await sb.from('file_kiot_tam').select('*').order('tao_luc', { ascending: false });
+        if (!error && data && data.length > 0) {
+          const map = new Map();
+          data.forEach(r => {
+            map.set(r.id, {
+              id: r.id,
+              tenFile: r.ten_file,
+              soHD: r.so_hd || 0,
+              soDong: r.so_dong || 0,
+              tongDoanhSo: Number(r.tong_doanh_so) || 0,
+              thoiGian: r.thoi_gian,
+              duLieu: r.du_lieu || []
+            });
+          });
+          // Bổ sung các file local chưa có trên Supabase nếu có
+          danhSachFileDaNap.forEach(f => {
+            if (!map.has(f.id)) map.set(f.id, f);
+          });
+          danhSachFileDaNap = Array.from(map.values());
+          localStorage.setItem("tmh_danh_sach_file_kiot", JSON.stringify(danhSachFileDaNap));
+        }
+      } catch (err) {
+        console.warn("Chưa tải được file_kiot_tam từ Supabase (bảng có thể chưa tạo):", err);
+      }
+    }
+
     function luuDanhSachFile() {
       localStorage.setItem("tmh_danh_sach_file_kiot", JSON.stringify(danhSachFileDaNap));
+      if (typeof sb !== 'undefined' && danhSachFileDaNap.length > 0) {
+        try {
+          const rows = danhSachFileDaNap.map(f => ({
+            id: f.id,
+            ten_file: f.tenFile,
+            so_hd: f.soHD,
+            so_dong: f.soDong,
+            tong_doanh_so: f.tongDoanhSo,
+            thoi_gian: f.thoiGian,
+            du_lieu: f.duLieu
+          }));
+          sb.from('file_kiot_tam').upsert(rows, { onConflict: 'id' }).then(() => {}).catch(err => console.warn(err));
+        } catch (err) {
+          console.warn("Chưa đồng bộ file_kiot_tam lên Supabase:", err);
+        }
+      }
     }
 
     // Chọn 1 file để kích hoạt đẩy sang Bước 2 (Yêu cầu 2)
@@ -574,6 +622,10 @@
 
       danhSachFileDaNap = danhSachFileDaNap.filter(x => x.id !== fileId);
       luuDanhSachFile();
+
+      if (typeof sb !== 'undefined') {
+        sb.from('file_kiot_tam').delete().eq('id', fileId).then(() => {}).catch(() => {});
+      }
 
       if (fileDangChonId === fileId) {
         if (danhSachFileDaNap.length > 0) {
@@ -736,6 +788,9 @@
 
       // 2. YÊU CẦU: Dữ liệu được chọn rồi sau khi đẩy qua bước 2 sẽ xoá ở bộ nhớ tạm
       if (fileDangChonId) {
+        if (typeof sb !== 'undefined') {
+          sb.from('file_kiot_tam').delete().eq('id', fileDangChonId).then(() => {}).catch(() => {});
+        }
         danhSachFileDaNap = danhSachFileDaNap.filter(f => f.id !== fileDangChonId);
         luuDanhSachFile();
         localStorage.removeItem("tmh_kiotviet_selected_id");
@@ -1013,6 +1068,10 @@
       localStorage.removeItem("tmh_kiotviet_filenames");
       sessionStorage.removeItem("tmh_kiotviet_data");
       sessionStorage.removeItem("tmh_kiotviet_filename");
+
+      if (typeof sb !== 'undefined') {
+        sb.from('file_kiot_tam').delete().neq('id', '_none_').then(() => {}).catch(() => {});
+      }
 
       const cardDanhSach = document.getElementById('cardDanhSachFile');
       if (cardDanhSach) cardDanhSach.style.display = 'none';

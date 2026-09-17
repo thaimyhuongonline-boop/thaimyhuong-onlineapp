@@ -835,8 +835,25 @@
       const urlParams = new URLSearchParams(window.location.search);
       const maDotUrl = urlParams.get('maDot');
 
+      // 0. Luôn đồng bộ danh sách các đợt lưu trữ từ Supabase để các tài khoản & máy tính khác đều xem được
+      await dongBoLuuTruTuSupabaseChoBuoc2();
+
       // Đọc dữ liệu từ localStorage hoặc sessionStorage của Bước 1
-      const cache = localStorage.getItem("tmh_kiotviet_data") || sessionStorage.getItem("tmh_kiotviet_data");
+      let cache = localStorage.getItem("tmh_kiotviet_data") || sessionStorage.getItem("tmh_kiotviet_data");
+
+      // Nếu máy này chưa có dữ liệu tạm, thử kiểm tra file nạp gần nhất từ Supabase (file_kiot_tam)
+      if ((!cache || cache === "[]") && typeof sb !== 'undefined') {
+        try {
+          const { data: fileMoi } = await sb.from('file_kiot_tam').select('*').order('tao_luc', { ascending: false }).limit(1);
+          if (fileMoi && fileMoi.length > 0 && fileMoi[0].du_lieu && fileMoi[0].du_lieu.length > 0) {
+            duLieuGoc = fileMoi[0].du_lieu;
+            cache = JSON.stringify(duLieuGoc);
+            localStorage.setItem("tmh_kiotviet_data", cache);
+            localStorage.setItem("tmh_kiotviet_filename", fileMoi[0].ten_file || "");
+          }
+        } catch (e) {}
+      }
+
       if (!cache || cache === "[]") {
         // Nếu không có dữ liệu tạm ở Bước 1 nhưng có lịch sử các đợt đã lưu, vẫn cho phép vào trang để xem lại phiếu cũ
         let lichSuKiemTra = [];
@@ -883,6 +900,86 @@
         if (dotTim) {
           xemLaiDotLuuTru(dotTim);
         }
+      }
+    }
+
+    // Đồng bộ danh sách các đợt đã lưu từ Supabase (giúp mọi máy tính và tài khoản đều xem được)
+    async function dongBoLuuTruTuSupabaseChoBuoc2() {
+      if (typeof sb === 'undefined') return;
+      try {
+        const { data, error } = await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(2000);
+        if (!error && data && data.length > 0) {
+          const mapDots = new Map();
+          data.forEach(r => {
+            const mDot = r.ma_dot || `DOT_${r.ngay_giao || 'NGAY'}_${r.xe || 'XE'}`;
+            if (!mapDots.has(mDot)) {
+              mapDots.set(mDot, {
+                maDot: mDot,
+                ngayGiao: r.ngay_giao,
+                ngayRaw: r.ngay_giao,
+                xe: r.xe,
+                taiXe: r.tai_xe,
+                nvGiao: r.giao_hang,
+                nvThu: r.thu_tien,
+                soLuongHD: 0,
+                danhSachHD: [],
+                danhSachChiTiet: [],
+                thoiGianTao: r.tao_luc,
+                daKiemDon: r.da_kiem_don
+              });
+            }
+            const d = mapDots.get(mDot);
+            d.soLuongHD++;
+            d.danhSachHD.push(r.ma_hd);
+            d.danhSachChiTiet.push({
+              stt: r.stt,
+              ngay: r.ngay_giao,
+              xe: r.xe,
+              taiXe: r.tai_xe,
+              giaoHang: r.giao_hang,
+              thuTien: r.thu_tien,
+              maHD: r.ma_hd,
+              tenKH: r.ten_kh,
+              nguoiBan: r.nguoi_ban || r.nguoiBan,
+              maKH: r.ma_kh,
+              doanhSo: r.doanh_so,
+              giamGiaSP: r.giam_gia_sp,
+              giamGiaHD: r.giam_gia_hd,
+              thanhTien: r.thanh_tien,
+              tienMat: r.tien_mat,
+              chuyenKhoan: r.chuyen_khoan,
+              traVe: r.tra_ve,
+              noPhatSinh: r.no_phat_sinh
+            });
+          });
+
+          // Hợp nhất với localStorage hiện có
+          let localLichSu = [];
+          try {
+            localLichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
+          } catch(e) {}
+          
+          const remoteDots = Array.from(mapDots.values());
+          remoteDots.forEach(rd => {
+            const timLocal = localLichSu.find(ld => ld.maDot === rd.maDot);
+            if (timLocal && Array.isArray(timLocal.cacDongChiTietKiotViet)) {
+              rd.cacDongChiTietKiotViet = timLocal.cacDongChiTietKiotViet;
+            }
+          });
+          
+          localLichSu.forEach(ld => {
+            if (!mapDots.has(ld.maDot)) {
+              remoteDots.push(ld);
+            }
+          });
+
+          localStorage.setItem("tmh_lich_su_dot", JSON.stringify(remoteDots));
+          if (!localStorage.getItem("tmh_dot_hien_tai") && remoteDots.length > 0) {
+            localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(remoteDots[0]));
+          }
+        }
+      } catch (e) {
+        console.warn("Chưa đồng bộ luu_tru từ Supabase ở Bước 2:", e);
       }
     }
 
