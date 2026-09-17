@@ -9,19 +9,36 @@
   <script src="config.js"></script>
   <link rel="stylesheet" href="layout.css">
   <style>
-    /* Bảng Đối Soát Kiểm Đơn */
+    /* Tối ưu bảng đối soát kiểm đơn: hiển thị vừa vặn chiều ngang, không tràn viền */
+    .tmh-table {
+      width: 100%;
+      table-layout: auto;
+    }
+    .tmh-table th, .tmh-table td {
+      padding: 6px 7px;
+      font-size: 12px;
+      vertical-align: middle;
+    }
+    .col-tenkh {
+      white-space: normal !important;
+      word-break: break-word;
+      line-height: 1.35;
+      font-size: 12px;
+      min-width: 140px;
+    }
     .input-tien {
       width: 100%;
-      min-width: 90px;
-      padding: 6px 8px;
+      min-width: 72px;
+      padding: 5px 6px;
       border: 1px solid var(--border-color);
       border-radius: 4px;
-      font-size: 12.5px;
+      font-size: 12px;
       text-align: right;
       font-weight: 700;
       font-family: inherit;
       outline: none;
       transition: var(--transition);
+      box-sizing: border-box;
     }
     .input-tien:focus {
       border-color: var(--primary);
@@ -31,27 +48,22 @@
 
     .select-tk {
       width: 100%;
-      min-width: 130px;
-      padding: 6px 8px;
+      min-width: 110px;
+      max-width: 135px;
+      padding: 5px 4px;
       border: 1px solid var(--border-color);
       border-radius: 4px;
-      font-size: 11.5px;
+      font-size: 11px;
       font-family: inherit;
       background: #ffffff;
       outline: none;
+      box-sizing: border-box;
     }
 
-    .chk-giao-lai {
-      width: 18px;
-      height: 18px;
-      accent-color: #dc2626;
-      cursor: pointer;
-    }
-
-    /* KPI tóm tắt kiểm đơn */
+    /* KPI tóm tắt kiểm đơn: 5 chỉ số tài chính tương ứng 5 cột */
     .kpi-kiemdon-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
       gap: 12px;
     }
     .kpi-kd-card {
@@ -87,7 +99,7 @@
     <div class="tmh-page-header">
       <div>
         <h1 class="tmh-page-header-title"><span>📋</span> Bước 4: Kiểm Đơn Giao Về & Phân Loại Thanh Toán</h1>
-        <p class="tmh-page-header-sub">Đối soát thực tế khi lái xe về bến: Nhập số tiền mặt thu được, chọn tài khoản nhận chuyển khoản (đối chiếu mã MISA), ghi nhận hàng trả về và tách đơn giao lại.</p>
+        <p class="tmh-page-header-sub">Đối soát thực tế khi lái xe về bến: Nhập số tiền mặt thu được, chọn tài khoản nhận chuyển khoản (đối chiếu mã MISA) và ghi nhận hàng trả về.</p>
       </div>
       <div style="display: flex; gap: 8px; flex-wrap: wrap;">
         <button type="button" class="btn btn-outline" onclick="datLaiTien()">
@@ -142,10 +154,6 @@
         <div class="lbl">Còn Nợ Phát Sinh</div>
         <div class="val" id="kpiConNo" style="color:#dc2626;">0 đ</div>
       </div>
-      <div class="kpi-kd-card">
-        <div class="lbl">Đơn Giao Lại</div>
-        <div class="val" id="kpiGiaoLai" style="color:#b91c1c;">0 đơn</div>
-      </div>
     </div>
 
     <!-- Bảng Đối Soát Hóa Đơn -->
@@ -157,25 +165,42 @@
         </div>
       </div>
 
-      <div class="tmh-table-wrap" style="max-height: 560px;">
+      <div class="tmh-table-wrap">
         <table class="tmh-table">
           <thead>
             <tr>
-              <th style="width:30px;">STT</th>
-              <th style="width:85px;">Mã HĐ</th>
+              <th style="width:32px;" class="text-center">STT</th>
+              <th style="width:80px;">Mã HĐ</th>
               <th>Tên Khách Hàng</th>
-              <th class="text-right" style="width:95px;">Thành Tiền</th>
-              <th style="width:110px;">Tiền Mặt</th>
-              <th style="width:110px;">Chuyển Khoản</th>
-              <th style="width:150px;">Tài Khoản Nhận</th>
-              <th style="width:100px;">Hàng Trả Về</th>
-              <th class="text-right" style="width:95px;">Còn Nợ</th>
-              <th style="width:45px;" class="text-center" title="Đánh dấu để gỡ khỏi lưu trữ và xếp chuyến giao lại">Giao Lại?</th>
+              <th class="text-right" style="width:85px;">Thành Tiền</th>
+              <th style="width:95px;">Tiền Mặt</th>
+              <th style="width:95px;">Chuyển Khoản</th>
+              <th style="width:130px;">Tài Khoản Nhận</th>
+              <th style="width:85px;">Hàng Trả Về</th>
+              <th class="text-right" style="width:85px;">Còn Nợ</th>
             </tr>
           </thead>
           <tbody id="tbodyKiemDon"></tbody>
           <tfoot id="tfootKiemDon"></tfoot>
         </table>
+      </div>
+
+      <!-- Thanh nút bấm phía dưới để tính tiền xong không cần cuộn lên trên -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-subtle); flex-wrap: wrap; gap: 10px;">
+        <div style="font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
+          <span>💡</span> <i>Kiểm tra kỹ tiền mặt và chuyển khoản trước khi bấm Lưu kết quả để chuyển sang Bước 5.</i>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" class="btn btn-outline" onclick="datLaiTien()">
+            <span>🔄</span> Đặt lại 0đ
+          </button>
+          <button type="button" class="btn btn-outline" onclick="xuatExcelKiemDon()">
+            <span>📊</span> Xuất Excel
+          </button>
+          <button type="button" class="btn btn-primary" onclick="luuKetQuaKiemDon()" style="padding: 9px 20px; font-weight: 700; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);">
+            <span>💾</span> Lưu kết quả & Sang Bước 5 ➡
+          </button>
+        </div>
       </div>
     </div>
 
@@ -299,25 +324,38 @@
       if (daLuu) {
         try {
           danhSachDon = JSON.parse(daLuu);
+          if (dot.danhSachChiTiet) {
+            danhSachDon.forEach(d => {
+              const matched = dot.danhSachChiTiet.find(x => x.maHD === d.maHD);
+              if (matched && (matched.laGiaoLai || matched.laDonGiaoLai || (matched.ghiChu && String(matched.ghiChu).toLowerCase().includes('giao lại')))) {
+                d.laGiaoLai = true;
+              }
+            });
+          }
         } catch (e) {
           danhSachDon = [];
         }
       } else if (dot.danhSachChiTiet && dot.danhSachChiTiet.length > 0) {
-        danhSachDon = dot.danhSachChiTiet.map((hd, idx) => ({
-          stt: idx + 1,
-          maHD: hd.maHD,
-          tenKH: hd.tenKH,
-          maKH: hd.maKH,
-          thanhTien: hd.thanhTien || 0,
-          tienMat: hd.thanhTien || 0, // Mặc định đề xuất thu đủ tiền mặt
-          chuyenKhoan: 0,
-          taiKhoanNhan: "Tiền mặt lái xe",
-          tkMISA: "1111",
-          traVe: 0,
-          conNo: 0,
-          ngayGiao: hd.ngay || dot.ngayGiao,
-          giaoLai: false
-        }));
+        danhSachDon = dot.danhSachChiTiet.map((hd, idx) => {
+          const laGL = !!hd.laGiaoLai || !!hd.laDonGiaoLai || (hd.ghiChu && String(hd.ghiChu).toLowerCase().includes('giao lại'));
+          return {
+            stt: idx + 1,
+            maHD: hd.maHD,
+            tenKH: hd.tenKH,
+            maKH: hd.maKH,
+            ghiChu: hd.ghiChu || '',
+            laGiaoLai: laGL,
+            thanhTien: hd.thanhTien || 0,
+            tienMat: hd.thanhTien || 0, // Mặc định đề xuất thu đủ tiền mặt
+            chuyenKhoan: 0,
+            taiKhoanNhan: "Tiền mặt lái xe",
+            tkMISA: "1111",
+            traVe: 0,
+            conNo: 0,
+            ngayGiao: hd.ngay || dot.ngayGiao,
+            giaoLai: laGL
+          };
+        });
       } else {
         danhSachDon = [];
       }
@@ -329,7 +367,7 @@
       const tbody = document.getElementById('tbodyKiemDon');
       tbody.innerHTML = '';
 
-      let sumThanhTien = 0, sumTienMat = 0, sumChuyenKhoan = 0, sumTraVe = 0, sumConNo = 0, countGiaoLai = 0;
+      let sumThanhTien = 0, sumTienMat = 0, sumChuyenKhoan = 0, sumTraVe = 0, sumConNo = 0;
 
       ds.forEach((item, idx) => {
         item.conNo = Math.max(0, item.thanhTien - item.tienMat - item.chuyenKhoan - item.traVe);
@@ -339,13 +377,20 @@
         sumChuyenKhoan += item.chuyenKhoan;
         sumTraVe += item.traVe;
         sumConNo += item.conNo;
-        if (item.giaoLai) countGiaoLai++;
+
+        const isGiaoLai = !!item.laGiaoLai || !!item.giaoLai || (item.ghiChu && String(item.ghiChu).toLowerCase().includes('giao lại'));
+        const badgeGiaoLai = isGiaoLai 
+          ? '<span style="background:#fee2e2; color:#b91c1c; font-size:10.5px; font-weight:800; padding:1px 5px; border-radius:4px; margin-left:4px; display:inline-block; vertical-align:middle;" title="Đơn được giao lại">🔄 Giao lại</span>' 
+          : '';
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td class="text-center">${idx + 1}</td>
-          <td class="text-bold" style="color:#1e3a8a;">${item.maHD}</td>
-          <td>${item.tenKH}</td>
+          <td class="text-bold" style="color:#1e3a8a; white-space:nowrap;">
+            ${item.maHD}
+            ${badgeGiaoLai}
+          </td>
+          <td class="col-tenkh">${item.tenKH || ''}</td>
           <td class="text-right text-bold">${formatTien(item.thanhTien)}</td>
           <td>
             <input type="text" class="input-tien" value="${formatTien(item.tienMat)}" 
@@ -369,14 +414,11 @@
           <td class="text-right ${item.conNo > 0 ? 'debt-badge' : 'paid-badge'}">
             ${formatTien(item.conNo)}
           </td>
-          <td class="text-center">
-            <input type="checkbox" class="chk-giao-lai" ${item.giaoLai ? 'checked' : ''} onchange="onChangeGiaoLai(${idx}, this.checked)" title="Tách để giao lại chuyến sau">
-          </td>
         `;
         tbody.appendChild(tr);
       });
 
-      // Tfoot
+      // Tfoot (Tổng cộng 9 cột tương ứng)
       document.getElementById('tfootKiemDon').innerHTML = `
         <tr style="background:#f8fafc; font-weight:800;">
           <td colspan="3" class="text-center">TỔNG CỘNG (${ds.length} HÓA ĐƠN)</td>
@@ -386,17 +428,15 @@
           <td></td>
           <td class="text-right" style="color:#d97706;">${formatTien(sumTraVe)}</td>
           <td class="text-right ${sumConNo > 0 ? 'debt-badge' : 'paid-badge'}">${formatTien(sumConNo)}</td>
-          <td class="text-center" style="color:#dc2626; font-size:11px;">${countGiaoLai} đơn</td>
         </tr>
       `;
 
       // Cập nhật KPI cards
-      document.getElementById('kpiThanhTien').textContent = formatTien(sumThanhTien) + ' đ';
-      document.getElementById('kpiTienMat').textContent = formatTien(sumTienMat) + ' đ';
-      document.getElementById('kpiChuyenKhoan').textContent = formatTien(sumChuyenKhoan) + ' đ';
-      document.getElementById('kpiTraVe').textContent = formatTien(sumTraVe) + ' đ';
-      document.getElementById('kpiConNo').textContent = formatTien(sumConNo) + ' đ';
-      document.getElementById('kpiGiaoLai').textContent = `${countGiaoLai} đơn`;
+      if (document.getElementById('kpiThanhTien')) document.getElementById('kpiThanhTien').textContent = formatTien(sumThanhTien) + ' đ';
+      if (document.getElementById('kpiTienMat')) document.getElementById('kpiTienMat').textContent = formatTien(sumTienMat) + ' đ';
+      if (document.getElementById('kpiChuyenKhoan')) document.getElementById('kpiChuyenKhoan').textContent = formatTien(sumChuyenKhoan) + ' đ';
+      if (document.getElementById('kpiTraVe')) document.getElementById('kpiTraVe').textContent = formatTien(sumTraVe) + ' đ';
+      if (document.getElementById('kpiConNo')) document.getElementById('kpiConNo').textContent = formatTien(sumConNo) + ' đ';
     }
 
     function onFocusTien(inp) {
@@ -426,8 +466,9 @@
         danhSachDon[idx].tkMISA = '1111';
       }
 
-      // Nếu có hàng trả về > 0, gợi ý tích "Giao lại?"
-      if (field === 'traVe' && val > 0 && !danhSachDon[idx].giaoLai) {
+      // Nếu có hàng trả về > 0, đánh dấu để tách vào danh sách chờ giao lại
+      if (field === 'traVe' && val > 0) {
+        danhSachDon[idx].laGiaoLai = true;
         danhSachDon[idx].giaoLai = true;
       }
 
@@ -452,7 +493,6 @@
         item.chuyenKhoan = 0;
         item.traVe = 0;
         item.conNo = item.thanhTien;
-        item.giaoLai = false;
       });
       veBangKiemDon(danhSachDon);
     }
@@ -509,8 +549,8 @@
         }
       } catch (e) {}
 
-      // 3. Tách và lưu các đơn giao lại vào Supabase & localStorage
-      const donGiaoLaiList = danhSachDon.filter(d => d.giaoLai);
+      // 3. Tách và lưu các đơn giao lại vào Supabase & localStorage (nếu có hàng trả về hoặc đơn giao lại)
+      const donGiaoLaiList = danhSachDon.filter(d => d.giaoLai || d.laGiaoLai || (d.traVe > 0));
       let danhSachGiaoLaiHienCo = [];
       try {
         danhSachGiaoLaiHienCo = JSON.parse(localStorage.getItem("tmh_don_giao_lai") || "[]");
@@ -552,7 +592,7 @@
           tk_misa: d.tkMISA,
           tra_ve: d.traVe,
           con_no: d.conNo,
-          giao_lai: d.giaoLai
+          giao_lai: !!d.giaoLai || !!d.laGiaoLai || (d.traVe > 0)
         }));
         await sb.from('kiem_don').insert(dongKiemDon);
 
@@ -592,7 +632,7 @@
         []
       ];
 
-      const headers = ["STT", "Mã Hóa Đơn", "Tên Khách Hàng", "Thành Tiền", "Tiền Mặt", "Chuyển Khoản", "Tài Khoản Nhận", "Trả Về", "Còn Nợ", "Giao Lại?"];
+      const headers = ["STT", "Mã Hóa Đơn", "Tên Khách Hàng", "Thành Tiền", "Tiền Mặt", "Chuyển Khoản", "Tài Khoản Nhận", "Trả Về", "Còn Nợ"];
       wsData.push(headers.map(h => ({ v: h, s: { font: { bold: true }, fill: { fgColor: { rgb: "FFF2CC" } } } })));
 
       let sumTT = 0, sumTM = 0, sumCK = 0, sumTV = 0, sumCN = 0;
@@ -607,8 +647,7 @@
           { v: item.chuyenKhoan, t: "n", z: "#,##0" },
           { v: item.taiKhoanNhan || "", t: "s" },
           { v: item.traVe, t: "n", z: "#,##0" },
-          { v: item.conNo, t: "n", z: "#,##0" },
-          { v: item.giaoLai ? "Có" : "Không", t: "s" }
+          { v: item.conNo, t: "n", z: "#,##0" }
         ]);
       });
 
@@ -620,8 +659,7 @@
         { v: sumCK, t: "n", z: "#,##0" },
         null,
         { v: sumTV, t: "n", z: "#,##0" },
-        { v: sumCN, t: "n", z: "#,##0" },
-        null
+        { v: sumCN, t: "n", z: "#,##0" }
       ]);
 
       const ws = XLSX.utils.aoa_to_sheet(wsData);
