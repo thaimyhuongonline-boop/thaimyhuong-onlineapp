@@ -255,6 +255,40 @@
       font-style: italic;
     }
 
+    /* Bộ lọc Excel-style trên tiêu đề cột Chẵn & Lẻ */
+    .th-filter-box {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+    }
+    .th-filter-select {
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid #94a3b8;
+      border-radius: 3px;
+      font-size: 9px;
+      font-weight: 800;
+      cursor: pointer;
+      padding: 0 2px;
+      color: #0f172a;
+      outline: none;
+      line-height: 1.2;
+      height: 18px;
+    }
+    .th-filter-select:hover {
+      background: #ffffff;
+      border-color: #2563eb;
+    }
+    .th-filter-active {
+      background-color: #fef08a !important; /* Vàng nhạt như Excel khi cột đang bật lọc */
+      border-color: #ca8a04 !important;
+    }
+    .th-filter-active .th-filter-select {
+      background: #fde047 !important;
+      border-color: #a16207 !important;
+      color: #713f12 !important;
+    }
+
     /* Khi In Khổ A4 - Tự căn vừa vặn toàn bộ bề ngang giấy A4 */
     @page {
       size: A4 portrait;
@@ -279,7 +313,7 @@
         visibility: hidden;
       }
 
-      #tmhSidebar, .tmh-topbar, .tmh-footer, .dispatch-card, .preview-tabs, .tmh-page-header, .no-print, .xuatkho-filter-bar {
+      #tmhSidebar, .tmh-topbar, .tmh-footer, .dispatch-card, .preview-tabs, .tmh-page-header, .no-print, .xuatkho-filter-bar, .th-filter-select {
         display: none !important;
       }
 
@@ -337,6 +371,9 @@
       /* Tránh trình duyệt tự lặp lại tfoot trên từng trang */
       tfoot {
         display: table-row-group !important;
+      }
+      .print-active .th-filter-select {
+        display: none !important;
       }
     }
   </style>
@@ -561,16 +598,31 @@
               <div>Thu tiền: <b id="lblThuTienXuatKho">...</b></div>
             </div>
 
-            <!-- Thanh Tiêu Đề Bộ Lọc & Nút Copy 2 Cột (Mã Hàng & Tổng SL) - Ẩn khi In -->
+            <!-- Thanh Tiêu Đề Bộ Lọc & Nút Copy 3 Cột (Mã Hàng, Chẵn, Lẻ) - Ẩn khi In -->
             <div class="xuatkho-filter-bar no-print" style="margin-top: 10px; margin-bottom: 8px; padding: 8px 12px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between;">
-              <div style="display: flex; gap: 8px; align-items: center; flex: 1; min-width: 280px;">
+              <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; flex: 1; min-width: 280px;">
                 <span style="font-weight: 700; font-size: 12px; color: #334155;">🔍 Lọc phiếu:</span>
-                <input type="text" id="filterXuatKhoText" class="form-control" placeholder="Lọc theo mã hàng, tên hàng..." oninput="locDuLieuXuatKho()" style="flex: 1; padding: 5px 10px; font-size: 12px;">
-                <select id="filterXuatKhoLoai" class="form-control" onchange="locDuLieuXuatKho()" style="width: 145px; padding: 5px 8px; font-size: 12px; font-weight: 600;">
+                <input type="text" id="filterXuatKhoText" class="form-control" placeholder="Lọc mã, tên hàng..." oninput="locDuLieuXuatKho()" style="width: 140px; padding: 5px 8px; font-size: 12px;">
+                <select id="filterXuatKhoLoai" class="form-control" onchange="locDuLieuXuatKho()" style="width: 130px; padding: 5px 8px; font-size: 12px; font-weight: 600;">
                   <option value="tat_ca">Tất cả mặt hàng</option>
                   <option value="hang_ban">Chỉ hàng bán</option>
                   <option value="khuyen_mai">Chỉ khuyến mãi (KM)</option>
                 </select>
+                <!-- Bộ lọc Cột Chẵn (Yêu cầu 3: lọc loại bỏ giá trị 0 như Excel/Google Sheets) -->
+                <select id="filterXuatKhoChan" class="form-control" onchange="locDuLieuXuatKho()" style="width: 140px; padding: 5px 8px; font-size: 12px; font-weight: 600;" title="Lọc dữ liệu cột Chẵn">
+                  <option value="tat_ca">Cột Chẵn: Tất cả</option>
+                  <option value="bo_khong">⚡ Cột Chẵn: Bỏ 0 (>0)</option>
+                  <option value="chi_khong">Cột Chẵn: Chỉ lấy 0</option>
+                </select>
+                <!-- Bộ lọc Cột Lẻ (Yêu cầu 3: lọc loại bỏ giá trị 0 như Excel/Google Sheets) -->
+                <select id="filterXuatKhoLe" class="form-control" onchange="locDuLieuXuatKho()" style="width: 130px; padding: 5px 8px; font-size: 12px; font-weight: 600;" title="Lọc dữ liệu cột Lẻ">
+                  <option value="tat_ca">Cột Lẻ: Tất cả</option>
+                  <option value="bo_khong">⚡ Cột Lẻ: Bỏ 0 (>0)</option>
+                  <option value="chi_khong">Cột Lẻ: Chỉ lấy 0</option>
+                </select>
+                <button type="button" class="btn btn-outline btn-sm" id="btnDatLaiLoc" onclick="datLaiLocXuatKho()" style="display: none; padding: 5px 8px; font-size: 11px; font-weight: 700; color: #dc2626; border-color: #fca5a5;" title="Bỏ tất cả bộ lọc">
+                  ✕ Bỏ lọc
+                </button>
               </div>
               <div style="display: flex; gap: 8px; align-items: center;">
                 <span id="badgeSoDongLocXuatKho" style="font-size: 11px; font-weight: 700; color: var(--primary);"></span>
@@ -589,8 +641,26 @@
                   <th style="width:5%;">QC</th>
                   <th style="width:6%;">ĐVT</th>
                   <th style="width:7%;">Tổng SL</th>
-                  <th style="width:6%;">Chẵn</th>
-                  <th style="width:5%;">Lẻ</th>
+                  <th style="width:6%; position: relative;" id="thHeaderChan" title="Lọc cột Chẵn (Excel-style)">
+                    <div class="th-filter-box">
+                      <span>Chẵn</span>
+                      <select id="thFilterChan" onchange="dongBoLocChan(this.value)" class="th-filter-select" title="Lọc cột Chẵn (Bỏ giá trị 0)">
+                        <option value="tat_ca">▼ Tất cả</option>
+                        <option value="bo_khong">⚡ Bỏ 0 (>0)</option>
+                        <option value="chi_khong">0 Chỉ lấy = 0</option>
+                      </select>
+                    </div>
+                  </th>
+                  <th style="width:5%; position: relative;" id="thHeaderLe" title="Lọc cột Lẻ (Excel-style)">
+                    <div class="th-filter-box">
+                      <span>Lẻ</span>
+                      <select id="thFilterLe" onchange="dongBoLocLe(this.value)" class="th-filter-select" title="Lọc cột Lẻ (Bỏ giá trị 0)">
+                        <option value="tat_ca">▼ Tất cả</option>
+                        <option value="bo_khong">⚡ Bỏ 0 (>0)</option>
+                        <option value="chi_khong">0 Chỉ lấy = 0</option>
+                      </select>
+                    </div>
+                  </th>
                   <th style="width:9%;">Đơn Giá</th>
                   <th style="width:10%;">Thành Tiền</th>
                   <th style="width:10%;">Ghi Chú</th>
@@ -1749,6 +1819,7 @@
         tr.setAttribute('data-chan', chan);
         tr.setAttribute('data-le', le);
         tr.setAttribute('data-km', h.laKhuyenMai ? '1' : '0');
+        tr.setAttribute('data-thanhtien', h.thanhTien || 0);
 
         tr.innerHTML = `
           <td class="text-center">${stt++}</td>
@@ -1828,35 +1899,130 @@
     }
 
     // ========================================================
-    // YÊU CẦU 2: BỘ LỌC PHIẾU XUẤT KHO VÀ COPY 2 CỘT CHO EXCEL
+    // YÊU CẦU 2 & 3: BỘ LỌC PHIẾU XUẤT KHO VÀ COPY 3 CỘT CHO EXCEL
+    // LỌC CỘT CHẴN VÀ LẺ LOẠI BỎ GIÁ TRỊ 0 (EXCEL / GOOGLE SHEETS STYLE)
     // ========================================================
+    function dongBoLocChan(val) {
+      const selBar = document.getElementById('filterXuatKhoChan');
+      if (selBar) selBar.value = val;
+      locDuLieuXuatKho();
+    }
+
+    function dongBoLocLe(val) {
+      const selBar = document.getElementById('filterXuatKhoLe');
+      if (selBar) selBar.value = val;
+      locDuLieuXuatKho();
+    }
+
+    function datLaiLocXuatKho() {
+      if (document.getElementById('filterXuatKhoText')) document.getElementById('filterXuatKhoText').value = '';
+      if (document.getElementById('filterXuatKhoLoai')) document.getElementById('filterXuatKhoLoai').value = 'tat_ca';
+      if (document.getElementById('filterXuatKhoChan')) document.getElementById('filterXuatKhoChan').value = 'tat_ca';
+      if (document.getElementById('filterXuatKhoLe')) document.getElementById('filterXuatKhoLe').value = 'tat_ca';
+      if (document.getElementById('thFilterChan')) document.getElementById('thFilterChan').value = 'tat_ca';
+      if (document.getElementById('thFilterLe')) document.getElementById('thFilterLe').value = 'tat_ca';
+      locDuLieuXuatKho();
+    }
+
     function locDuLieuXuatKho() {
       const tuKhoa = (document.getElementById('filterXuatKhoText')?.value || '').trim().toLowerCase();
       const loai = document.getElementById('filterXuatKhoLoai')?.value || 'tat_ca';
+      const locChan = document.getElementById('filterXuatKhoChan')?.value || document.getElementById('thFilterChan')?.value || 'tat_ca';
+      const locLe = document.getElementById('filterXuatKhoLe')?.value || document.getElementById('thFilterLe')?.value || 'tat_ca';
+
+      // Đồng bộ giá trị 2 chiều giữa header bảng và thanh lọc
+      if (document.getElementById('filterXuatKhoChan')) document.getElementById('filterXuatKhoChan').value = locChan;
+      if (document.getElementById('thFilterChan')) document.getElementById('thFilterChan').value = locChan;
+      if (document.getElementById('filterXuatKhoLe')) document.getElementById('filterXuatKhoLe').value = locLe;
+      if (document.getElementById('thFilterLe')) document.getElementById('thFilterLe').value = locLe;
+
+      // Cập nhật trạng thái đổi màu vàng nhạt (Excel-style) cho th khi đang kích hoạt lọc
+      const thChan = document.getElementById('thHeaderChan');
+      if (thChan) {
+        if (locChan !== 'tat_ca') thChan.classList.add('th-filter-active');
+        else thChan.classList.remove('th-filter-active');
+      }
+      const thLe = document.getElementById('thHeaderLe');
+      if (thLe) {
+        if (locLe !== 'tat_ca') thLe.classList.add('th-filter-active');
+        else thLe.classList.remove('th-filter-active');
+      }
+
       const rows = document.querySelectorAll('#tbodyXuatKho tr.row-item-hang');
       let demHien = 0;
+      let tongChanHien = 0;
+      let tongLeHien = 0;
+      let tongTienHien = 0;
 
       rows.forEach(tr => {
         const mahang = (tr.getAttribute('data-mahang') || '').toLowerCase();
         const tenhang = (tr.getAttribute('data-tenhang') || '').toLowerCase();
         const laKM = tr.getAttribute('data-km') === '1';
+        const valChan = Number(tr.getAttribute('data-chan')) || 0;
+        const valLe = Number(tr.getAttribute('data-le')) || 0;
+        const valTien = Number(tr.getAttribute('data-thanhtien')) || 0;
 
         let khopTuKhoa = !tuKhoa || mahang.includes(tuKhoa) || tenhang.includes(tuKhoa);
         let khopLoai = true;
         if (loai === 'hang_ban') khopLoai = !laKM;
         else if (loai === 'khuyen_mai') khopLoai = laKM;
 
-        if (khopTuKhoa && khopLoai) {
+        // Lọc cột Chẵn: loại bỏ số 0 (chỉ lấy >0) hoặc chỉ lấy 0
+        let khopChan = true;
+        if (locChan === 'bo_khong') khopChan = valChan > 0;
+        else if (locChan === 'chi_khong') khopChan = valChan === 0;
+
+        // Lọc cột Lẻ: loại bỏ số 0 (chỉ lấy >0) hoặc chỉ lấy 0
+        let khopLe = true;
+        if (locLe === 'bo_khong') khopLe = valLe > 0;
+        else if (locLe === 'chi_khong') khopLe = valLe === 0;
+
+        if (khopTuKhoa && khopLoai && khopChan && khopLe) {
           tr.style.display = '';
           demHien++;
+          tongChanHien += valChan;
+          tongLeHien += valLe;
+          tongTienHien += valTien;
         } else {
           tr.style.display = 'none';
         }
       });
 
+      const laCoLoc = !!tuKhoa || loai !== 'tat_ca' || locChan !== 'tat_ca' || locLe !== 'tat_ca';
+
+      // Cập nhật nút Đặt lại lọc
+      const btnReset = document.getElementById('btnDatLaiLoc');
+      if (btnReset) {
+        btnReset.style.display = laCoLoc ? 'inline-flex' : 'none';
+      }
+
+      // Cập nhật dòng TỔNG CỘNG HÀNG HÓA theo số lượng dòng đang hiển thị
+      const trTong = document.querySelector('#tbodyXuatKho tr.row-tong-hang');
+      if (trTong) {
+        if (laCoLoc) {
+          trTong.innerHTML = `
+            <td colspan="6" class="text-center" style="font-weight:800;">TỔNG CỘNG (${demHien} DÒNG ĐANG HIỂN THỊ)</td>
+            <td class="text-center" style="font-weight:800; white-space:nowrap;">${tongChanHien}</td>
+            <td class="text-center" style="font-weight:800; white-space:nowrap;">${tongLeHien}</td>
+            <td></td>
+            <td class="text-right cell-num" style="font-weight:800; white-space:nowrap;">${formatTien(tongTienHien)}</td>
+            <td></td>
+          `;
+        } else {
+          trTong.innerHTML = `
+            <td colspan="6" class="text-center" style="font-weight:800;">TỔNG CỘNG HÀNG HÓA</td>
+            <td class="text-center" style="font-weight:800; white-space:nowrap;">${danhSachHangHoaXuatKhoToanCuc.tongChan || 0}</td>
+            <td class="text-center" style="font-weight:800; white-space:nowrap;">${danhSachHangHoaXuatKhoToanCuc.tongLe || 0}</td>
+            <td></td>
+            <td class="text-right cell-num" style="font-weight:800; white-space:nowrap;">${formatTien(danhSachHangHoaXuatKhoToanCuc.tongTien || 0)}</td>
+            <td></td>
+          `;
+        }
+      }
+
       const badge = document.getElementById('badgeSoDongLocXuatKho');
       if (badge) {
-        if (tuKhoa || loai !== 'tat_ca') {
+        if (laCoLoc) {
           badge.textContent = `Hiện ${demHien} / ${rows.length} mặt hàng`;
         } else {
           badge.textContent = `Tổng: ${rows.length} mặt hàng`;

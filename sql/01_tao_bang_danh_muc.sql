@@ -84,8 +84,8 @@ ON CONFLICT (ma_xe) DO NOTHING;
 -- 6. BẢNG ĐỔI MÃ KHUYẾN MÃI (Ánh xạ mã KM sang mã thật xuất MISA)
 CREATE TABLE IF NOT EXISTS public.doi_ma_km (
     ma_km VARCHAR(100) PRIMARY KEY,
+    ten_km TEXT,
     ma_that VARCHAR(100) NOT NULL,
     ten_that TEXT,
-    quy_cach NUMERIC DEFAULT 1,
     ghi_chu TEXT
 );

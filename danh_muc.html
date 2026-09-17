@@ -309,15 +309,17 @@
         khoaChinh: "ma_km",
         localKey: "tmh_danh_muc_doi_ma_km",
         cot: [
-          { id: "ma_km", ten: "Mã Hàng Khuyến Mãi (KiotViet)", batBuoc: true, type: "text" },
-          { id: "ma_that", ten: "Mã Hàng Thật (MISA)", batBuoc: true, type: "text" },
-          { id: "ten_that", ten: "Tên Hàng Thật Xuất MISA", batBuoc: false, type: "text" },
-          { id: "quy_cach", ten: "Quy Cách (Số lượng/thùng)", batBuoc: false, type: "number", macDinh: 1 },
-          { id: "ghi_chu", ten: "Ghi Chú", batBuoc: false, type: "text" }
+          { id: "ma_km", ten: "Mã KM", batBuoc: true, type: "text" },
+          { id: "ten_km", ten: "Tên KM (đối chiếu)", batBuoc: false, type: "text" },
+          { id: "ma_that", ten: "Mã hàng thật", batBuoc: true, type: "text" },
+          { id: "ten_that", ten: "Tên hàng thật", batBuoc: false, type: "text" }
         ],
         seed: [
-          { ma_km: "KM_NAMNGU", ma_that: "NL01", ten_that: "Nước mắm Nam Ngư Đệ Nhị 900ml", quy_cach: 15, ghi_chu: "Khuyến mãi mua 10 tặng 1" },
-          { ma_km: "KM_CHINSU", ma_that: "CH01", ten_that: "Tương ớt Chinsu 250g", quy_cach: 24, ghi_chu: "Hàng khuyến mãi kèm hóa đơn" }
+          { ma_km: "20TANG1", ten_km: "KM Mì Phomai (THÙNG)", ma_that: "18301", ten_that: "Mì Cay Nissin Mì Xào Hương Vị Gà Cay Phô Mai Hàn Quốc" },
+          { ma_km: "KMP900", ten_km: "KM POCARI 900ml", ma_that: "PS00009", ten_that: "Thức uống bổ sung ION Pocari Sweat chai 900ML" },
+          { ma_km: "KM500", ten_km: "Khuyến mãi Điểm mới P500ml", ma_that: "FG200001", ten_that: "Pocari Sweat chai 500ml B6 - NĐ" },
+          { ma_km: "SP000118", ten_km: "KHUYẾN MÃI Nước Cốt Dừa Xim Mom Cooks 200ml (NHỎ)", ma_that: "25000066", ten_that: "Nước cốt dừa Xim Mom Cooks 200ml" },
+          { ma_km: "SP000119", ten_km: "KM Nước Cốt Dừa Xim Mom Cooks 400ml", ma_that: "20100436", ten_that: "Nước cốt dừa Xim Mom Cooks 400ml" }
         ]
       }
     };

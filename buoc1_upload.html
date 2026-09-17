@@ -135,14 +135,42 @@
     <!-- Upload Card -->
     <div class="tmh-card">
       <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileKiotViet').click()">
-        <input type="file" id="fileKiotViet" accept=".xlsx, .xls, .csv" style="display: none;" onchange="docFileKiotViet(event)">
+        <input type="file" id="fileKiotViet" accept=".xlsx, .xls, .csv" multiple style="display: none;" onchange="docFileKiotViet(event)">
         <div class="upload-icon">📊</div>
-        <div class="upload-title">Kéo thả file Excel KiotViet vào đây hoặc bấm để chọn file</div>
-        <div class="upload-desc">Định dạng hỗ trợ: .xlsx, .xls, .csv từ KiotViet (Bán hàng / Hóa đơn chi tiết)</div>
+        <div class="upload-title">Kéo thả một hoặc nhiều file Excel KiotViet vào đây (hoặc bấm để chọn)</div>
+        <div class="upload-desc">Định dạng hỗ trợ: .xlsx, .xls, .csv từ KiotViet (Bán hàng / Hóa đơn chi tiết). Có thể nạp nhiều file và tick chọn file cần xử lý.</div>
         <button type="button" class="btn btn-blue">
-          <span>📁</span> Chọn file từ máy tính
+          <span>📁</span> Chọn một hoặc nhiều file từ máy tính
         </button>
         <div id="thongTinFile" style="margin-top: 14px; font-weight: 700; font-size: 13.5px;"></div>
+      </div>
+    </div>
+
+    <!-- Danh Sách File Excel Đã Nạp (Có Ô Tick Chọn 1 File Cần Đẩy Sang Bước 2) -->
+    <div class="tmh-card" id="cardDanhSachFile" style="display: none; margin-bottom: 20px;">
+      <div class="tmh-card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <div class="tmh-card-title">
+          <span>📑</span> Danh sách file Excel đã nạp (Tick chọn 1 file để đẩy sang Bước 2)
+        </div>
+        <div style="font-size: 12.5px; color: var(--text-muted);">
+          Đã nạp <b id="lblSoLuongFile" style="color: var(--primary);">0</b> file
+        </div>
+      </div>
+      <div class="tmh-table-wrap">
+        <table class="tmh-table" style="font-size: 13px;">
+          <thead>
+            <tr>
+              <th style="width: 130px; text-align: center;">CHỌN ĐẨY B2</th>
+              <th>Tên File Excel</th>
+              <th class="text-center" style="width: 90px;">Số HĐ</th>
+              <th class="text-center" style="width: 100px;">Dòng Hàng</th>
+              <th class="text-right" style="width: 140px;">Tổng Doanh Số</th>
+              <th class="text-center" style="width: 130px;">Thời Gian</th>
+              <th class="text-center" style="width: 90px;">Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyDanhSachFile"></tbody>
+        </table>
       </div>
     </div>
 
@@ -189,14 +217,14 @@
     <div class="action-bar" id="actionBar">
       <div class="action-bar-info">
         <span>✅</span>
-        <span id="txtTrangThaiFile">Đã đọc và lưu tạm dữ liệu thành công! Bạn có thể tiếp tục sang Bước 2 hoặc nạp thêm file khác.</span>
+        <span id="txtTrangThaiFile">Đã đọc dữ liệu thành công! Bạn có thể chọn file cần xử lý và tiếp tục sang Bước 2.</span>
       </div>
       <div class="action-btns">
-        <button type="button" class="btn btn-outline" style="color:#dc2626; border-color:#fca5a5;" onclick="xoaDuLieuTam()" title="Xóa toàn bộ dữ liệu đang lưu tạm để nạp lại từ đầu">
+        <button type="button" class="btn btn-outline" style="color:#dc2626; border-color:#fca5a5;" onclick="xoaDuLieuTam()" title="Xóa toàn bộ các file đang lưu tạm để nạp lại từ đầu">
           <span>🗑️</span> Xóa kho tạm
         </button>
         <button type="button" class="btn btn-primary" onclick="chuyenSangBuoc2()">
-          <span>Tiếp tục: Bước 2 - Phiếu thu & Xuất kho</span>
+          <span>Tiếp tục: Bước 2 - Tạo PXK & DSTT</span>
           <span>➡</span>
         </button>
       </div>
@@ -226,9 +254,16 @@
 
   <script src="layout.js"></script>
   <script>
+    let danhSachFileDaNap = []; // [{ id, tenFile, thoiGian, duLieu, soHD, soDong, tongDoanhSo }]
+    let fileDangChonId = null;
     let duLieuKiotViet = [];
     let xemToanBo = false;
     let tapHopHoaDonBuoc3 = new Map(); // maHD -> { maDot, xe, ngayGiao }
+
+    function formatTien(so) {
+      if (so === null || so === undefined || isNaN(so)) return '0';
+      return Math.round(Number(so)).toLocaleString('vi-VN');
+    }
 
     // Helper an toàn trích xuất số lượng lẻ (Tránh lỗi 0.5 biến thành 5 do parse hàng nghìn)
     function parseSoLuongChuan(val) {
@@ -243,7 +278,6 @@
           str = str.replace(/\./g, '').replace(',', '.');
         }
       } else if (str.indexOf(',') !== -1) {
-        // Có thể dấu phẩy là thập phân kiểu VN (0,5)
         str = str.replace(',', '.');
       }
       const num = parseFloat(str);
@@ -299,28 +333,6 @@
       }
     }
 
-    // Helper gộp dữ liệu upload mới vào kho tạm mà không xóa dữ liệu cũ chưa xử lý
-    function mergeDuLieuUpload(duLieuCu, duLieuMoi) {
-      if (!duLieuCu || duLieuCu.length === 0) return duLieuMoi;
-      if (!duLieuMoi || duLieuMoi.length === 0) return duLieuCu;
-
-      // Lấy danh sách các hóa đơn trong file mới nạp
-      const cacHDMoi = new Set();
-      duLieuMoi.forEach(r => {
-        const m = layGiaTriCot(r, ['Mã hóa đơn', 'Mã HĐ', 'Mã chứng từ', 'Số hóa đơn', 'Ma hoa don']);
-        if (m) cacHDMoi.add(String(m).trim());
-      });
-
-      // Giữ lại các dòng cũ KHÔNG nằm trong danh sách HĐ mới nạp (nếu file mới có HĐ trùng thì cập nhật theo file mới)
-      const ketQua = duLieuCu.filter(r => {
-        const m = layGiaTriCot(r, ['Mã hóa đơn', 'Mã HĐ', 'Mã chứng từ', 'Số hóa đơn', 'Ma hoa don']);
-        return !m || !cacHDMoi.has(String(m).trim());
-      });
-
-      ketQua.push(...duLieuMoi);
-      return ketQua;
-    }
-
     async function khoiTaoTrang() {
       const layoutData = await khoiTaoLayout({
         pageTitle: "Bước 1: Tải Dữ Liệu KiotViet",
@@ -329,29 +341,44 @@
       });
       if (!layoutData) return;
 
-      // Kiểm tra xem trong localStorage hoặc sessionStorage đã có sẵn dữ liệu lưu tạm chưa
-      const cache = localStorage.getItem("tmh_kiotviet_data") || sessionStorage.getItem("tmh_kiotviet_data");
-      if (cache) {
-        try {
-          duLieuKiotViet = JSON.parse(cache);
-          if (duLieuKiotViet && duLieuKiotViet.length > 0) {
-            let fNames = '';
-            try {
-              const arr = JSON.parse(localStorage.getItem("tmh_kiotviet_filenames") || "[]");
-              if (arr.length > 0) fNames = arr.join(', ');
-            } catch(e) {}
-            if (!fNames) fNames = sessionStorage.getItem("tmh_kiotviet_filename") || "Dữ liệu đang lưu tạm";
+      // 1. Tải danh sách file đã lưu từ localStorage
+      try {
+        const savedFiles = localStorage.getItem("tmh_danh_sach_file_kiot");
+        if (savedFiles) {
+          danhSachFileDaNap = JSON.parse(savedFiles) || [];
+        }
+      } catch (e) {
+        danhSachFileDaNap = [];
+      }
 
-            document.getElementById('thongTinFile').innerHTML = 
-              `<span style="color:#16a34a;">📦 Kho tạm hiện có <b>${duLieuKiotViet.length}</b> dòng dữ liệu (${fNames}). Dữ liệu chưa xử lý được lưu giữ, bạn có thể nạp thêm hoặc tiếp tục Bước 2.</span>`;
-            await capNhatGiaoDienSauKhiCoDuLieu();
-          }
-        } catch (e) {
-          console.warn(e);
+      // Khôi phục file đang chọn hoặc chuyển đổi từ cache cũ
+      fileDangChonId = localStorage.getItem("tmh_kiotviet_selected_id") || null;
+
+      // Nếu chưa có danh sách file nhưng có dữ liệu cũ trong localStorage, tự động chuyển đổi
+      if (danhSachFileDaNap.length === 0) {
+        const oldCache = localStorage.getItem("tmh_kiotviet_data");
+        if (oldCache) {
+          try {
+            const oldData = JSON.parse(oldCache);
+            if (Array.isArray(oldData) && oldData.length > 0) {
+              const oldName = localStorage.getItem("tmh_kiotviet_filename") || "File_KiotViet_Truoc.xlsx";
+              const fileObj = taoDoiTuongFile(oldName, oldData);
+              danhSachFileDaNap.push(fileObj);
+              fileDangChonId = fileObj.id;
+              luuDanhSachFile();
+            }
+          } catch (e) {}
         }
       }
 
-      // Kéo thả file
+      if (danhSachFileDaNap.length > 0) {
+        if (!fileDangChonId || !danhSachFileDaNap.some(f => f.id === fileDangChonId)) {
+          fileDangChonId = danhSachFileDaNap[0].id;
+        }
+        await chonFileDeXuatB2(fileDangChonId, false);
+      }
+
+      // Kéo thả một hoặc nhiều file
       const dropZone = document.getElementById('dropZone');
       ['dragenter', 'dragover'].forEach(name => {
         dropZone.addEventListener(name, (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
@@ -359,67 +386,219 @@
       ['dragleave', 'drop'].forEach(name => {
         dropZone.addEventListener(name, (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); });
       });
-      dropZone.addEventListener('drop', (e) => {
+      dropZone.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
         const files = e.dataTransfer.files;
-        if (files.length > 0) docFile(files[0]);
+        if (files && files.length > 0) {
+          await xuLyDocNhieuFile(Array.from(files));
+        }
       });
     }
 
-    function docFileKiotViet(event) {
-      const file = event.target.files[0];
-      if (file) docFile(file);
+    async function docFileKiotViet(event) {
+      const files = event.target.files;
+      if (files && files.length > 0) {
+        await xuLyDocNhieuFile(Array.from(files));
+      }
+      event.target.value = '';
     }
 
-    function docFile(file) {
-      document.getElementById('thongTinFile').innerHTML = '<span style="color:#2563eb;">⏳ Đang phân tích file Excel KiotViet…</span>';
+    // Xử lý nạp nhiều file Excel cùng lúc
+    async function xuLyDocNhieuFile(fileList) {
+      document.getElementById('thongTinFile').innerHTML = `<span style="color:#2563eb;">⏳ Đang phân tích ${fileList.length} file Excel KiotViet…</span>`;
+      let soFileThanhCong = 0;
+      let fileCuoiId = null;
 
-      const reader = new FileReader();
-      reader.onload = async function(e) {
+      for (const file of fileList) {
         try {
-          const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const fileData = await docMotFileExcel(file);
+          if (fileData && fileData.length > 0) {
+            // Kiểm tra nếu tên file đã có thì cập nhật hoặc thêm mới
+            const idxCu = danhSachFileDaNap.findIndex(f => f.tenFile === file.name);
+            const fileObj = taoDoiTuongFile(file.name, fileData);
 
-          const duLieuMoi = XLSX.utils.sheet_to_json(firstSheet, { defval: null });
+            if (idxCu >= 0) {
+              danhSachFileDaNap[idxCu] = fileObj;
+            } else {
+              danhSachFileDaNap.push(fileObj);
+            }
+            fileCuoiId = fileObj.id;
+            soFileThanhCong++;
 
-          if (!duLieuMoi || duLieuMoi.length === 0) {
-            alert("File không có dữ liệu!");
-            document.getElementById('thongTinFile').innerHTML = '<span style="color:#dc2626;">❌ File trống!</span>';
-            return;
+            // Đồng bộ ngầm hàng hoá & khách hàng mới vào Supabase
+            tuDongDongBoDanhMuc(fileData);
           }
-
-          // 1. Gộp vào kho dữ liệu tạm (không xóa dữ liệu cũ chưa xử lý)
-          duLieuKiotViet = mergeDuLieuUpload(duLieuKiotViet, duLieuMoi);
-
-          // Lưu vào localStorage & sessionStorage
-          localStorage.setItem("tmh_kiotviet_data", JSON.stringify(duLieuKiotViet));
-          sessionStorage.setItem("tmh_kiotviet_data", JSON.stringify(duLieuKiotViet));
-
-          let danhSachFile = [];
-          try {
-            danhSachFile = JSON.parse(localStorage.getItem("tmh_kiotviet_filenames") || "[]");
-          } catch(err) {}
-          if (!danhSachFile.includes(file.name)) danhSachFile.push(file.name);
-          localStorage.setItem("tmh_kiotviet_filenames", JSON.stringify(danhSachFile));
-          sessionStorage.setItem("tmh_kiotviet_filename", danhSachFile.join(', '));
-
-          document.getElementById('thongTinFile').innerHTML = 
-            `<span style="color:#16a34a;">✅ Đã nạp thành công file "${file.name}" (${duLieuMoi.length} dòng). Kho tạm hiện có <b>${duLieuKiotViet.length}</b> dòng dữ liệu.</span>`;
-
-          xemToanBo = false;
-
-          // 2. Tự động quét và đồng bộ Khách hàng & Hàng hóa mới vào Supabase ngầm (không cần bấm nút)
-          tuDongDongBoDanhMuc(duLieuMoi);
-
-          // 3. Cập nhật giao diện & kiểm tra đơn giao lại
-          await capNhatGiaoDienSauKhiCoDuLieu();
-
-        } catch (error) {
-          alert("Lỗi đọc file: " + error.message);
-          document.getElementById('thongTinFile').innerHTML = `<span style="color:#dc2626;">❌ Lỗi: ${error.message}</span>`;
+        } catch (err) {
+          console.error("Lỗi đọc file " + file.name + ":", err);
         }
+      }
+
+      if (soFileThanhCong > 0) {
+        luuDanhSachFile();
+        // Mặc định tick chọn file vừa tải lên gần nhất
+        await chonFileDeXuatB2(fileCuoiId || danhSachFileDaNap[0].id);
+        alert(`✅ Đã nạp thành công ${soFileThanhCong} file Excel vào kho! Vui lòng tick chọn file bạn muốn đẩy sang Bước 2.`);
+      } else {
+        document.getElementById('thongTinFile').innerHTML = '<span style="color:#dc2626;">❌ Không đọc được dữ liệu từ các file đã chọn!</span>';
+      }
+    }
+
+    // Đọc 1 file Excel trả về Promise mảng đối tượng
+    function docMotFileExcel(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(firstSheet, { defval: null });
+            resolve(json || []);
+          } catch (err) {
+            reject(err);
+          }
+        };
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(file);
+      });
+    }
+
+    // Tạo đối tượng thông tin file đầy đủ
+    function taoDoiTuongFile(tenFile, duLieu) {
+      const hdSet = new Set();
+      let tongDoanhSo = 0;
+
+      duLieu.forEach(row => {
+        const maHD = layGiaTriCot(row, ['Mã hóa đơn', 'Mã HĐ', 'Mã chứng từ', 'Số hóa đơn', 'Ma hoa don']);
+        if (maHD) hdSet.add(String(maHD).trim());
+        const tt = Number(layGiaTriCot(row, ['Thành tiền', 'Khách cần trả', 'Tổng cộng', 'Tổng tiền', 'Doanh số'])) || 0;
+        tongDoanhSo += tt;
+      });
+
+      const now = new Date();
+      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} - ${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+
+      return {
+        id: 'file_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        tenFile: tenFile,
+        thoiGian: timeStr,
+        duLieu: duLieu,
+        soHD: hdSet.size,
+        soDong: duLieu.length,
+        tongDoanhSo: Math.round(tongDoanhSo)
       };
-      reader.readAsArrayBuffer(file);
+    }
+
+    function luuDanhSachFile() {
+      localStorage.setItem("tmh_danh_sach_file_kiot", JSON.stringify(danhSachFileDaNap));
+    }
+
+    // Chọn 1 file để kích hoạt đẩy sang Bước 2 (Yêu cầu 2)
+    async function chonFileDeXuatB2(fileId, hienThongBao = true) {
+      const f = danhSachFileDaNap.find(x => x.id === fileId);
+      if (!f) return;
+
+      fileDangChonId = fileId;
+      duLieuKiotViet = f.duLieu;
+
+      // Lưu trữ dữ liệu file đang được chọn sang các biến dùng chung cho Bước 2
+      localStorage.setItem("tmh_kiotviet_selected_id", fileId);
+      localStorage.setItem("tmh_kiotviet_data", JSON.stringify(duLieuKiotViet));
+      sessionStorage.setItem("tmh_kiotviet_data", JSON.stringify(duLieuKiotViet));
+      localStorage.setItem("tmh_kiotviet_filename", f.tenFile);
+      sessionStorage.setItem("tmh_kiotviet_filename", f.tenFile);
+
+      // Cập nhật thông báo trạng thái
+      document.getElementById('thongTinFile').innerHTML = 
+        `<span style="color:#16a34a;">🎯 Đang chọn file: <b>"${f.tenFile}"</b> (${f.soHD} HĐ, ${f.soDong} dòng hàng, ${formatTien(f.tongDoanhSo)} đ). Dữ liệu này sẽ được chuyển sang Bước 2.</span>`;
+
+      veBangDanhSachFile();
+      await capNhatGiaoDienSauKhiCoDuLieu();
+    }
+
+    // Vẽ bảng danh sách các file đã nạp với ô tick radio chọn
+    function veBangDanhSachFile() {
+      const card = document.getElementById('cardDanhSachFile');
+      const tbody = document.getElementById('tbodyDanhSachFile');
+      const lblSo = document.getElementById('lblSoLuongFile');
+
+      if (!danhSachFileDaNap || danhSachFileDaNap.length === 0) {
+        card.style.display = 'none';
+        return;
+      }
+
+      card.style.display = 'block';
+      if (lblSo) lblSo.textContent = danhSachFileDaNap.length;
+      tbody.innerHTML = '';
+
+      danhSachFileDaNap.forEach(f => {
+        const laFileChon = f.id === fileDangChonId;
+        const tr = document.createElement('tr');
+        if (laFileChon) tr.style.backgroundColor = '#ecfdf5';
+
+        tr.innerHTML = `
+          <td class="text-center" style="vertical-align: middle;">
+            <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; margin: 0; font-weight: 700;">
+              <input type="radio" 
+                     name="radioChonFileB2" 
+                     value="${f.id}" 
+                     ${laFileChon ? 'checked' : ''} 
+                     onchange="chonFileDeXuatB2('${f.id}')"
+                     style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);">
+              <span style="font-size: 11px; color: ${laFileChon ? '#15803d' : '#64748b'};">
+                ${laFileChon ? '✓ Đang chọn' : 'Chọn'}
+              </span>
+            </label>
+          </td>
+          <td style="vertical-align: middle;">
+            <span style="font-size: 15px; margin-right: 4px;">📄</span>
+            <strong style="color: ${laFileChon ? '#15803d' : 'var(--text-main)'}; font-size: 13.5px;">${f.tenFile}</strong>
+            ${laFileChon ? '<span style="background: #dcfce7; color: #15803d; font-size: 10.5px; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">👉 Sẽ đẩy sang B2</span>' : ''}
+          </td>
+          <td class="text-center text-bold" style="vertical-align: middle;">${f.soHD.toLocaleString('vi-VN')}</td>
+          <td class="text-center" style="vertical-align: middle;">${f.soDong.toLocaleString('vi-VN')}</td>
+          <td class="text-right text-bold cell-num" style="vertical-align: middle; color: var(--primary);">${formatTien(f.tongDoanhSo)} đ</td>
+          <td class="text-center" style="font-size: 11.5px; color: var(--text-muted); vertical-align: middle;">${f.thoiGian}</td>
+          <td class="text-center" style="vertical-align: middle;">
+            <button type="button" class="btn btn-outline btn-sm" style="color: #dc2626; padding: 4px 8px;" onclick="xoaMotFile('${f.id}', event)" title="Xóa file này khỏi danh sách">
+              🗑️ Xóa
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Xóa một file khỏi danh sách
+    async function xoaMotFile(fileId, event) {
+      if (event) event.stopPropagation();
+      const f = danhSachFileDaNap.find(x => x.id === fileId);
+      if (!f) return;
+
+      if (!confirm(`Bạn có chắc chắn muốn xóa file "${f.tenFile}" khỏi danh sách?`)) return;
+
+      danhSachFileDaNap = danhSachFileDaNap.filter(x => x.id !== fileId);
+      luuDanhSachFile();
+
+      if (fileDangChonId === fileId) {
+        if (danhSachFileDaNap.length > 0) {
+          await chonFileDeXuatB2(danhSachFileDaNap[0].id);
+        } else {
+          fileDangChonId = null;
+          duLieuKiotViet = [];
+          localStorage.removeItem("tmh_kiotviet_selected_id");
+          localStorage.removeItem("tmh_kiotviet_data");
+          sessionStorage.removeItem("tmh_kiotviet_data");
+          document.getElementById('cardDanhSachFile').style.display = 'none';
+          document.getElementById('kpiGrid').style.display = 'none';
+          document.getElementById('actionBar').style.display = 'none';
+          document.getElementById('previewWrap').style.display = 'none';
+          document.getElementById('thongTinFile').innerHTML = '<span style="color:#64748b;">Đã xóa file. Vui lòng nạp file Excel mới.</span>';
+        }
+      } else {
+        veBangDanhSachFile();
+      }
     }
 
     async function capNhatGiaoDienSauKhiCoDuLieu() {

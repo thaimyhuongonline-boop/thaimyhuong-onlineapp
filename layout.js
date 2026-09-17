@@ -7,7 +7,7 @@
 const DANH_SACH_7_BUOC = [
   { id: "buoc1", href: "buoc1_upload.html", ic: "📥", label: "1. Tải KiotViet", desc: "Nạp file Excel bán hàng & đồng bộ DM" },
   { id: "buoc2", href: "buoc2_phieu_xuat_kho.html", ic: "📊", label: "2. Tạo PXK & DSTT", desc: "Tạo phiếu xuất kho & danh sách thu tiền" },
-  { id: "buoc3", href: "buoc3_luu_tru.html", ic: "🗄️", label: "3. Lưu trữ đợt", desc: "Quản lý 18 cột đối soát & chi tiết HĐ" },
+  { id: "buoc3", href: "buoc3_luu_tru.html", ic: "🗄️", label: "3. Lưu trữ", desc: "Quản lý 18 cột đối soát & chi tiết HĐ" },
   { id: "buoc4", href: "buoc4_kiem_don.html", ic: "📋", label: "4. Kiểm đơn", desc: "Đối soát tiền mặt, CK & tách đơn giao lại" },
   { id: "buoc5", href: "buoc5_bao_cao.html", ic: "💾", label: "5. Báo cáo đối soát", desc: "Tổng hợp MISA & gỡ đơn giao lại" },
   { id: "buoc6", href: "buoc6_nop_tien.html", ic: "📗", label: "6. Bảng kê nộp tiền", desc: "Đếm mệnh giá tiền mặt & sổ nộp xe" },

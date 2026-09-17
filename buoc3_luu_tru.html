@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bước 3: Lưu Trữ Đợt Điều Động — THÁI MỸ HƯƠNG</title>
+  <title>Bước 3: Lưu Trữ — THÁI MỸ HƯƠNG</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="config.js"></script>
@@ -109,7 +109,7 @@
     <!-- Page Header -->
     <div class="tmh-page-header">
       <div>
-        <h1 class="tmh-page-header-title"><span>🗄️</span> Bước 3: Lưu Trữ Đợt Điều Động & Chi Tiết Hóa Đơn</h1>
+        <h1 class="tmh-page-header-title"><span>🗄️</span> Bước 3: Lưu Trữ & Chi Tiết Hóa Đơn</h1>
         <p class="tmh-page-header-sub">Hồ sơ 18-19 cột đối soát được lưu trữ cố định (khóa chính là Mã Hóa Đơn chống trùng lặp) và archive chi tiết từng dòng hàng hóa vĩnh viễn để phục vụ xuất MISA.</p>
       </div>
       <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -206,7 +206,7 @@
               <th class="text-center">Số Đơn</th>
               <th class="text-center">Thời Gian Tạo</th>
               <th class="text-center">Trạng Thái</th>
-              <th class="text-center">Thao Tác</th>
+              <th class="text-center" style="min-width: 290px;">Thao Tác</th>
             </tr>
           </thead>
           <tbody id="tbodyLichSu"></tbody>
@@ -224,32 +224,32 @@
         <input type="hidden" id="editDotIndex">
         <div class="form-group">
           <label>Mã đợt:</label>
-          <input type="text" id="editMaDot" class="form-control" readonly style="background:#f1f5f9;">
+          <input type="text" id="editMaDot" class="form-control" readonly style="background:#f1f5f9; color:#64748b; font-weight:700;">
         </div>
         <div class="form-group">
           <label>Xe vận chuyển:</label>
-          <input type="text" id="editXe" class="form-control">
+          <select id="editXe" class="form-control" onchange="onDoiXeModalSua()"></select>
         </div>
         <div class="form-group">
           <label>Tài xế:</label>
-          <input type="text" id="editTaiXe" class="form-control">
+          <select id="editTaiXe" class="form-control"></select>
         </div>
         <div class="form-group">
           <label>Nhân viên giao hàng:</label>
-          <input type="text" id="editGiaoHang" class="form-control">
+          <select id="editGiaoHang" class="form-control"></select>
         </div>
         <div class="form-group">
           <label>Nhân viên thu tiền:</label>
-          <input type="text" id="editThuTien" class="form-control">
+          <select id="editThuTien" class="form-control"></select>
         </div>
         <div class="form-group">
           <label>Ngày giao:</label>
-          <input type="text" id="editNgayGiao" class="form-control">
+          <input type="date" id="editNgayGiao" class="form-control">
         </div>
 
         <div style="display:flex; justify-content: flex-end; gap: 8px; margin-top: 10px;">
           <button type="button" class="btn btn-outline" onclick="dongModalSua()">Hủy</button>
-          <button type="button" class="btn btn-primary" onclick="luuSuaDot()">Lưu thay đổi</button>
+          <button type="button" class="btn btn-primary" style="background:#15803d; border-color:#15803d; font-weight:700;" onclick="luuSuaDot()">Lưu thay đổi</button>
         </div>
       </div>
     </div>
@@ -261,19 +261,118 @@
     let dotHienTai = null;
     let lichSuDot = [];
     let danhSach18CotHienThi = [];
+    let danhSachXeDanhMuc = [];
+    let danhSachNhanVienDanhMuc = [];
 
     function formatTien(so) {
       if (so === null || so === undefined || isNaN(so)) return '0';
       return Math.round(Number(so)).toLocaleString('vi-VN');
     }
 
+    // Chuyển đổi định dạng ngày DD/MM/YYYY sang YYYY-MM-DD cho input date
+    function dinhDangNgayIso(val) {
+      if (!val) return '';
+      val = String(val).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+      const m = val.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+      if (m) {
+        return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+      }
+      return '';
+    }
+
+    // Chuyển đổi định dạng ngày YYYY-MM-DD sang DD/MM/YYYY để lưu trữ và hiển thị
+    function dinhDangNgayHienThi(val) {
+      if (!val) return '';
+      val = String(val).trim();
+      if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(val)) return val;
+      const m = val.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+      if (m) {
+        return `${m[3].padStart(2, '0')}/${m[2].padStart(2, '0')}/${m[1]}`;
+      }
+      return val;
+    }
+
+    // Tải danh mục xe và nhân sự từ Supabase hoặc LocalStorage giống như Bước 2
+    async function taiDanhMucChoModalSua() {
+      // 1. Danh sách xe
+      let dsXe = [];
+      try {
+        if (typeof sb !== 'undefined') {
+          const { data } = await sb.from('danh_sach_xe').select('*');
+          if (data && data.length > 0) dsXe = data;
+        }
+      } catch (e) {}
+
+      if (dsXe.length === 0) {
+        try {
+          const localXe = JSON.parse(localStorage.getItem('tmh_danh_muc_danh_sach_xe') || '[]');
+          if (localXe && localXe.length > 0) dsXe = localXe;
+        } catch (e) {}
+      }
+
+      if (dsXe.length === 0) {
+        dsXe = [
+          { ma_xe: "HD1 SÁNG", bien_so: "43C-12345", loai_xe: "Xe tải 1.4 tấn", tai_xe_mac_dinh: "SINH" },
+          { ma_xe: "HD1 CHIỀU", bien_so: "43C-12345", loai_xe: "Xe tải 1.4 tấn", tai_xe_mac_dinh: "SINH" },
+          { ma_xe: "HD2 SÁNG", bien_so: "43C-67890", loai_xe: "Xe tải 2.5 tấn", tai_xe_mac_dinh: "HẢI" },
+          { ma_xe: "HD2 CHIỀU", bien_so: "43C-67890", loai_xe: "Xe tải 2.5 tấn", tai_xe_mac_dinh: "HẢI" },
+          { ma_xe: "XE01", bien_so: "43C-11111", loai_xe: "Xe tải 1.5 tấn", tai_xe_mac_dinh: "ĐẠT" },
+          { ma_xe: "XE02", bien_so: "43C-22222", loai_xe: "Xe tải 2.0 tấn", tai_xe_mac_dinh: "ĐẠT" }
+        ];
+      }
+      danhSachXeDanhMuc = dsXe;
+
+      // 2. Danh sách nhân sự
+      const setNhanSu = new Set(['SINH', 'HẢI', 'ĐẠT', 'NAM', 'TUẤN']);
+      dsXe.forEach(x => {
+        if (x.tai_xe_mac_dinh) setNhanSu.add(String(x.tai_xe_mac_dinh).trim());
+      });
+
+      try {
+        if (typeof sb !== 'undefined') {
+          const { data } = await sb.from('nv_giao_hang_tai_xe').select('ho_ten, vai_tro');
+          if (data && data.length > 0) {
+            data.forEach(u => {
+              if (u.ho_ten) setNhanSu.add(String(u.ho_ten).trim());
+            });
+          }
+        }
+      } catch (e) {}
+
+      try {
+        const localNV = JSON.parse(localStorage.getItem('tmh_danh_muc_nv_giao_hang_tai_xe') || '[]');
+        if (localNV && localNV.length > 0) {
+          localNV.forEach(u => {
+            if (u.ho_ten) setNhanSu.add(String(u.ho_ten).trim());
+          });
+        }
+      } catch (e) {}
+
+      danhSachNhanVienDanhMuc = Array.from(setNhanSu).sort((a, b) => a.localeCompare(b, 'vi'));
+    }
+
+    function onDoiXeModalSua() {
+      const xeVal = document.getElementById('editXe').value;
+      const xeObj = danhSachXeDanhMuc.find(x => x.ma_xe === xeVal);
+      if (xeObj && xeObj.tai_xe_mac_dinh) {
+        const selTai = document.getElementById('editTaiXe');
+        if (Array.from(selTai.options).some(o => o.value === xeObj.tai_xe_mac_dinh)) {
+          selTai.value = xeObj.tai_xe_mac_dinh;
+        }
+      }
+    }
+
     async function khoiTaoTrang() {
       const layoutData = await khoiTaoLayout({
-        pageTitle: "Bước 3: Lưu Trữ Đợt Điều Động",
+        pageTitle: "Bước 3: Lưu Trữ",
         breadcrumb: "Quy trình 7 bước",
         activeMenuId: "buoc3"
       });
       if (!layoutData) return;
+
+      // Nạp danh mục xe và nhân sự để phục vụ modal sửa đợt (chọn dropdown như Bước 2)
+      await taiDanhMucChoModalSua();
 
       // 1. Nạp từ localStorage
       try {
@@ -487,13 +586,13 @@
           <td class="text-center">
             ${daKiem ? '<span style="background:#dcfce7; color:#15803d; padding:2px 8px; border-radius:9999px; font-weight:700; font-size:10.5px;">✓ Đã kiểm B4</span>' : '<span style="background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:9999px; font-weight:700; font-size:10.5px;">⏳ Chưa kiểm B4</span>'}
           </td>
-          <td class="text-center">
-            <div style="display: inline-flex; gap: 4px;">
+          <td class="text-center" style="white-space:nowrap;">
+            <div style="display: inline-flex; gap: 4px; align-items: center;">
               <button type="button" class="btn btn-outline btn-sm" onclick="xemDot(${idx})" title="Xem 18 cột đợt này">👁️ 18 cột</button>
               <button type="button" class="btn btn-outline btn-sm" style="color:#d97706; font-weight:700; border-color:#fde68a; background:#fffbeb;" onclick="xemPhieuThuVaXuatKho(${idx})" title="Xem lại Phiếu Thu & Xuất Kho">📄 2 Phiếu</button>
               <button type="button" class="btn btn-outline btn-sm" onclick="moModalSuaDot(${idx})" title="Sửa thông tin">✏️ Sửa</button>
               <button type="button" class="btn btn-primary btn-sm" onclick="kiemDonDot(${idx})" title="Chuyển sang Bước 4">📋 B4</button>
-              <button type="button" class="btn btn-outline btn-sm" style="color:#dc2626;" onclick="xoaDot(${idx})" title="Xóa đợt">🗑️</button>
+              <button type="button" class="btn btn-outline btn-sm" style="color:#dc2626; border-color:#fca5a5; background:#fff1f2; font-weight:700;" onclick="xoaDot(${idx})" title="Xóa đợt này">🗑️ Xóa</button>
             </div>
           </td>
         `;
@@ -546,11 +645,67 @@
       if (!d) return;
       document.getElementById('editDotIndex').value = idx;
       document.getElementById('editMaDot').value = d.maDot || '';
-      document.getElementById('editXe').value = d.xe || '';
-      document.getElementById('editTaiXe').value = d.taiXe || '';
-      document.getElementById('editGiaoHang').value = d.nvGiao || '';
-      document.getElementById('editThuTien').value = d.nvThu || '';
-      document.getElementById('editNgayGiao').value = d.ngayGiao || '';
+
+      // Đổ danh sách xe vào editXe
+      const selXe = document.getElementById('editXe');
+      selXe.innerHTML = '';
+      danhSachXeDanhMuc.forEach(x => {
+        const opt = document.createElement('option');
+        opt.value = x.ma_xe;
+        const moTa = [x.loai_xe || x.bien_so, x.tai_xe_mac_dinh].filter(Boolean).join(' - ');
+        opt.textContent = moTa ? `${x.ma_xe} (${moTa})` : x.ma_xe;
+        selXe.appendChild(opt);
+      });
+      if (d.xe && !Array.from(selXe.options).some(o => o.value === d.xe)) {
+        const optCustom = document.createElement('option');
+        optCustom.value = d.xe;
+        optCustom.textContent = d.xe;
+        selXe.appendChild(optCustom);
+      }
+      if (d.xe) selXe.value = d.xe;
+
+      // Đổ danh sách nhân sự vào 3 select (Tài xế, Giao hàng, Thu tiền)
+      ['editTaiXe', 'editGiaoHang', 'editThuTien'].forEach(elemId => {
+        const sel = document.getElementById(elemId);
+        sel.innerHTML = '';
+        if (elemId === 'editGiaoHang') {
+          const optBlank = document.createElement('option');
+          optBlank.value = '';
+          optBlank.textContent = '-- Chọn nhân viên giao hàng --';
+          sel.appendChild(optBlank);
+        }
+        danhSachNhanVienDanhMuc.forEach(nv => {
+          const opt = document.createElement('option');
+          opt.value = nv;
+          opt.textContent = nv;
+          sel.appendChild(opt);
+        });
+      });
+
+      // Gán giá trị và bảo toàn nếu có giá trị riêng
+      const ganVaBaoToanVal = (selId, val) => {
+        const sel = document.getElementById(selId);
+        if (!val) {
+          if (selId === 'editGiaoHang') sel.value = '';
+          return;
+        }
+        if (!Array.from(sel.options).some(o => o.value === val)) {
+          const opt = document.createElement('option');
+          opt.value = val;
+          opt.textContent = val;
+          sel.appendChild(opt);
+        }
+        sel.value = val;
+      };
+
+      ganVaBaoToanVal('editTaiXe', d.taiXe);
+      ganVaBaoToanVal('editGiaoHang', d.nvGiao);
+      ganVaBaoToanVal('editThuTien', d.nvThu);
+
+      // Gán ngày giao dạng ISO YYYY-MM-DD cho input date
+      const isoDate = dinhDangNgayIso(d.ngayGiao);
+      document.getElementById('editNgayGiao').value = isoDate || new Date().toISOString().slice(0, 10);
+
       document.getElementById('modalSuaDot').style.display = 'flex';
     }
 
@@ -563,19 +718,26 @@
       if (idx < 0 || idx >= lichSuDot.length) return;
 
       const d = lichSuDot[idx];
-      d.xe = document.getElementById('editXe').value.trim();
-      d.taiXe = document.getElementById('editTaiXe').value.trim();
-      d.nvGiao = document.getElementById('editGiaoHang').value.trim();
-      d.nvThu = document.getElementById('editThuTien').value.trim();
-      d.ngayGiao = document.getElementById('editNgayGiao').value.trim();
+      const xeMoi = document.getElementById('editXe').value.trim();
+      const taiXeMoi = document.getElementById('editTaiXe').value.trim();
+      const nvGiaoMoi = document.getElementById('editGiaoHang').value.trim();
+      const nvThuMoi = document.getElementById('editThuTien').value.trim();
+      const ngayGiaoIso = document.getElementById('editNgayGiao').value;
+      const ngayGiaoMoi = dinhDangNgayHienThi(ngayGiaoIso);
 
-      if (d.danhSachChiTiet) {
+      d.xe = xeMoi;
+      d.taiXe = taiXeMoi;
+      d.nvGiao = nvGiaoMoi;
+      d.nvThu = nvThuMoi;
+      d.ngayGiao = ngayGiaoMoi;
+
+      if (d.danhSachChiTiet && Array.isArray(d.danhSachChiTiet)) {
         d.danhSachChiTiet.forEach(r => {
-          r.xe = d.xe;
-          r.taiXe = d.taiXe;
-          r.giaoHang = d.nvGiao;
-          r.thuTien = d.nvThu;
-          r.ngay = d.ngayGiao;
+          r.xe = xeMoi;
+          r.taiXe = taiXeMoi;
+          r.giaoHang = nvGiaoMoi;
+          r.thuTien = nvThuMoi;
+          r.ngay = ngayGiaoMoi;
         });
       }
 
@@ -584,9 +746,21 @@
         dotHienTai = d;
         localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(d));
       }
+
+      // Đồng bộ cập nhật lên Supabase luu_tru nếu có
+      if (typeof sb !== 'undefined' && d.maDot) {
+        sb.from('luu_tru').update({
+          xe: xeMoi,
+          tai_xe: taiXeMoi,
+          giao_hang: nvGiaoMoi,
+          thu_tien: nvThuMoi,
+          ngay_giao: ngayGiaoMoi
+        }).eq('ma_dot', d.maDot).then(() => {}).catch(err => console.warn(err));
+      }
+
       dongModalSua();
       hienThiDuLieu();
-      alert("✅ Đã cập nhật thành công thông tin đợt điều động!");
+      alert("✅ Đã cập nhật thành công thông tin đợt!");
     }
 
     function xoaDot(idx) {

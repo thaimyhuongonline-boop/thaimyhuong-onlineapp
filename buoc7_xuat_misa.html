@@ -219,18 +219,29 @@
     }
 
     async function taiDoiMaKM() {
+      let listKM = [];
       try {
-        const { data } = await sb.from('doi_ma_km').select('*');
-        if (data && data.length > 0) {
-          data.forEach(k => {
-            mapDoiMaKM.set(String(k.ma_km).trim().toUpperCase(), {
-              maThat: k.ma_that,
-              tenThat: k.ten_that,
-              quyCach: k.quy_cach
-            });
-          });
+        if (typeof sb !== 'undefined') {
+          const { data } = await sb.from('doi_ma_km').select('*');
+          if (data && data.length > 0) listKM = data;
         }
       } catch (e) {}
+
+      if (listKM.length === 0) {
+        try {
+          const localKM = JSON.parse(localStorage.getItem('tmh_danh_muc_doi_ma_km') || '[]');
+          if (localKM && localKM.length > 0) listKM = localKM;
+        } catch (e) {}
+      }
+
+      if (listKM && listKM.length > 0) {
+        listKM.forEach(k => {
+          mapDoiMaKM.set(String(k.ma_km).trim().toUpperCase(), {
+            maThat: k.ma_that,
+            tenThat: k.ten_that
+          });
+        });
+      }
     }
 
     function renderDropdownChonDot() {
