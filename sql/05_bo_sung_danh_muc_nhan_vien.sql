@@ -59,7 +59,10 @@ CREATE POLICY "policy_nv_kd_all" ON public.nv_kinh_doanh FOR ALL TO anon, authen
 -- Nạp dữ liệu mẫu ban đầu cho NVKD
 INSERT INTO public.nv_kinh_doanh (ma_nv, ho_ten, so_dien_thoai, email, khu_vuc, ghi_chu)
 VALUES
-    ('NVKD01', 'Nguyễn Văn An', '0905111222', 'an.nguyen@thaimyhuong.vn', 'Đà Nẵng (Hòa Xuân, Cẩm Lệ)', 'Kinh doanh phụ trách đại lý Đà Nẵng'),
-    ('NVKD02', 'Trần Thị Mai', '0905333444', 'mai.tran@thaimyhuong.vn', 'Quảng Nam (Điện Bàn, Hội An)', 'Kinh doanh phụ trách đại lý Quảng Nam')
+    ('NVKD01', 'Nguyễn Tống Duy Nam', '0902 978 458', 'duynam.nguyen@thaimyhuong.vn', 'BIÊN HOÀ', 'Kinh doanh phụ trách tuyến Biên Hoà'),
+    ('NVKD02', 'Nguyễn Hồng Phúc', '0708105164', 'hongphuc.nguyen@thaimyhuong.vn', 'Đà Nẵng', 'Kinh doanh phụ trách đại lý Đà Nẵng'),
+    ('NVKD03', 'Nguyễn Văn An', '0905111222', 'an.nguyen@thaimyhuong.vn', 'Đà Nẵng (Hòa Xuân, Cẩm Lệ)', 'Kinh doanh phụ trách đại lý Đà Nẵng'),
+    ('NVKD04', 'Trần Thị Mai', '0905333444', 'mai.tran@thaimyhuong.vn', 'Quảng Nam (Điện Bàn, Hội An)', 'Kinh doanh phụ trách đại lý Quảng Nam')
 ON CONFLICT (ma_nv) DO UPDATE
 SET ho_ten = EXCLUDED.ho_ten, khu_vuc = EXCLUDED.khu_vuc;
+

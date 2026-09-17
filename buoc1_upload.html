@@ -742,6 +742,8 @@
         const danhSachKH = new Map();
         const danhSachHang = new Map();
 
+        const danhSachNguoiBanRaw = new Set();
+
         duLieu.forEach(r => {
           const maKH = layGiaTriCot(r, ['Mã khách hàng', 'Mã KH', 'Mã đối tác']);
           const tenKH = layGiaTriCot(r, ['Tên khách hàng', 'Tên KH', 'Khách hàng']);
@@ -772,6 +774,9 @@
               gia_ban: donGia
             });
           }
+
+          const nguoiBan = layGiaTriCot(r, ['Người bán', 'Nhân viên bán', 'Nhân viên', 'Người tạo']);
+          if (nguoiBan) danhSachNguoiBanRaw.add(String(nguoiBan).trim());
         });
 
         const promises = [];
@@ -786,8 +791,93 @@
           await Promise.all(promises);
           console.log(`[Tự động đồng bộ] Đã cập nhật ${danhSachKH.size} khách hàng & ${danhSachHang.size} hàng hóa mới vào Supabase.`);
         }
+
+        // Tự động đồng bộ Người Bán vào Danh mục - Nhân viên kinh doanh
+        if (danhSachNguoiBanRaw.size > 0) {
+          await tuDongDongBoNhanVienKinhDoanh(Array.from(danhSachNguoiBanRaw));
+        }
       } catch (err) {
         console.warn("Lỗi đồng bộ tự động danh mục nền:", err);
+      }
+    }
+
+    // Tự động cập nhật Người Bán mới vào Danh mục - Nhân viên kinh doanh
+    async function tuDongDongBoNhanVienKinhDoanh(danhSachNguoiBan) {
+      if (!danhSachNguoiBan || danhSachNguoiBan.length === 0) return;
+
+      let dsHienCo = [];
+      try {
+        dsHienCo = JSON.parse(localStorage.getItem('tmh_danh_muc_nv_kinh_doanh') || '[]');
+      } catch (e) {
+        dsHienCo = [];
+      }
+
+      const setTenHienCo = new Set(dsHienCo.map(u => (u.ho_ten || '').trim().toLowerCase()));
+      const danhSachMoiThem = [];
+
+      danhSachNguoiBan.forEach(raw => {
+        if (!raw) return;
+        const str = String(raw).trim();
+        if (!str || str === '(Giao lại chuyến trước)' || str.toLowerCase().includes('giao lại')) return;
+
+        let hoTen = str;
+        let sdt = '';
+        let khuVuc = '';
+
+        const matchKhuVuc = str.match(/\(([^)]+)\)\s*$/);
+        let strConLai = str;
+        if (matchKhuVuc) {
+          khuVuc = matchKhuVuc[1].trim();
+          strConLai = str.substring(0, matchKhuVuc.index).trim();
+        }
+
+        if (strConLai.includes('-')) {
+          const parts = strConLai.split('-');
+          hoTen = parts[0].trim();
+          sdt = parts.slice(1).join('-').trim();
+        } else {
+          hoTen = strConLai;
+        }
+
+        if (!hoTen) return;
+        const tenKey = hoTen.toLowerCase();
+        if (setTenHienCo.has(tenKey)) return;
+
+        const maSlug = hoTen
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/đ/g, 'd')
+          .replace(/Đ/g, 'D')
+          .toUpperCase()
+          .replace(/[^A-Z0-9]/g, '')
+          .slice(0, 12);
+        const maNV = `KD_${maSlug || String(Date.now()).slice(-4)}`;
+
+        const itemMoi = {
+          ma_nv: maNV,
+          ho_ten: hoTen,
+          so_dien_thoai: sdt,
+          email: '',
+          khu_vuc: khuVuc,
+          ghi_chu: `Tự động cập nhật từ KiotViet (${str})`
+        };
+
+        setTenHienCo.add(tenKey);
+        dsHienCo.push(itemMoi);
+        danhSachMoiThem.push(itemMoi);
+      });
+
+      if (danhSachMoiThem.length > 0) {
+        localStorage.setItem('tmh_danh_muc_nv_kinh_doanh', JSON.stringify(dsHienCo));
+        console.log(`[Tự động đồng bộ NVKD] Đã thêm ${danhSachMoiThem.length} nhân viên kinh doanh mới vào Danh mục.`);
+
+        if (typeof sb !== 'undefined') {
+          try {
+            await sb.from('nv_kinh_doanh').upsert(danhSachMoiThem, { onConflict: 'ma_nv' });
+          } catch (err) {
+            console.warn("Chưa đồng bộ nv_kinh_doanh lên Supabase:", err);
+          }
+        }
       }
     }
 

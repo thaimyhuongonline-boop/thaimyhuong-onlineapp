@@ -289,7 +289,7 @@
       color: #713f12 !important;
     }
 
-    /* Khi In Khổ A4 - Tự căn vừa vặn toàn bộ bề ngang giấy A4 */
+    /* Khi In Khổ A4 - Tự căn vừa vặn từ trên xuống (top-aligned) chuẩn trang giấy A4 */
     @page {
       size: A4 portrait;
       margin: 8mm 6mm 10mm 6mm;
@@ -304,22 +304,47 @@
     @media print {
       html, body {
         width: 100% !important;
+        height: auto !important;
+        min-height: 0 !important;
         margin: 0 !important;
         padding: 0 !important;
         background: #ffffff !important;
+        display: block !important;
       }
 
-      body * {
-        visibility: hidden;
+      /* Đặt toàn bộ các container bao ngoài về dạng block đơn giản không lề, không đệm để không đẩy trang in */
+      #tmhAppWrapper, .tmh-layout, .tmh-main-wrapper, #tmhMainWrapper,
+      .tmh-page-body, #tmhPageBody, #mainContent, main, .b2-grid, .tmh-card {
+        display: block !important;
+        position: static !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        min-height: 0 !important;
+        height: auto !important;
       }
 
-      #tmhSidebar, .tmh-topbar, .tmh-footer, .dispatch-card, .preview-tabs, .tmh-page-header, .no-print, .xuatkho-filter-bar, .th-filter-select {
+      /* Ẩn triệt để tất cả các thành phần giao diện không in */
+      #tmhSidebar, .tmh-sidebar, .tmh-topbar, .tmh-footer,
+      .tmh-stepper-wrap, .tmh-page-header, .dispatch-card, .preview-tabs,
+      .no-print, .xuatkho-filter-bar, .th-filter-select,
+      #boxThongBaoGhepDon, #manHinhCho, #modalLichSuPhieu, #modalThemNhanVienNhanh {
         display: none !important;
       }
 
-      /* Kích hoạt tab đang in hiển thị toàn bộ 100% bề ngang A4 */
+      /* Ẩn tab không in để không chiếm diện tích */
+      #tabContentBangKe:not(.print-active),
+      #tabContentXuatKho:not(.print-active) {
+        display: none !important;
+      }
+
+      /* Tab đang in hiển thị sát từ đỉnh trang xuống (căn từ trên xuống) */
       .print-active, .print-active * {
-        visibility: visible;
+        visibility: visible !important;
       }
 
       .print-active {
@@ -336,7 +361,7 @@
         width: 100% !important;
         max-width: 100% !important;
         margin: 0 !important;
-        padding: 0 !important;
+        padding: 0 !important; /* Căn thẳng hàng từ trên xuống theo lề trang in @page */
         border: none !important;
         box-shadow: none !important;
         box-sizing: border-box !important;
@@ -371,9 +396,6 @@
       /* Tránh trình duyệt tự lặp lại tfoot trên từng trang */
       tfoot {
         display: table-row-group !important;
-      }
-      .print-active .th-filter-select {
-        display: none !important;
       }
     }
   </style>
@@ -641,26 +663,8 @@
                   <th style="width:5%;">QC</th>
                   <th style="width:6%;">ĐVT</th>
                   <th style="width:7%;">Tổng SL</th>
-                  <th style="width:6%; position: relative;" id="thHeaderChan" title="Lọc cột Chẵn (Excel-style)">
-                    <div class="th-filter-box">
-                      <span>Chẵn</span>
-                      <select id="thFilterChan" onchange="dongBoLocChan(this.value)" class="th-filter-select" title="Lọc cột Chẵn (Bỏ giá trị 0)">
-                        <option value="tat_ca">▼ Tất cả</option>
-                        <option value="bo_khong">⚡ Bỏ 0 (>0)</option>
-                        <option value="chi_khong">0 Chỉ lấy = 0</option>
-                      </select>
-                    </div>
-                  </th>
-                  <th style="width:5%; position: relative;" id="thHeaderLe" title="Lọc cột Lẻ (Excel-style)">
-                    <div class="th-filter-box">
-                      <span>Lẻ</span>
-                      <select id="thFilterLe" onchange="dongBoLocLe(this.value)" class="th-filter-select" title="Lọc cột Lẻ (Bỏ giá trị 0)">
-                        <option value="tat_ca">▼ Tất cả</option>
-                        <option value="bo_khong">⚡ Bỏ 0 (>0)</option>
-                        <option value="chi_khong">0 Chỉ lấy = 0</option>
-                      </select>
-                    </div>
-                  </th>
+                  <th style="width:6%;">Chẵn</th>
+                  <th style="width:5%;">Lẻ</th>
                   <th style="width:9%;">Đơn Giá</th>
                   <th style="width:10%;">Thành Tiền</th>
                   <th style="width:10%;">Ghi Chú</th>
@@ -1013,6 +1017,88 @@
     }
 
     // ========================================================
+    // TỰ ĐỘNG CẬP NHẬT NGƯỜI BÁN VÀO DANH MỤC - NHÂN VIÊN KINH DOANH
+    // ========================================================
+    async function tuDongDongBoNhanVienKinhDoanh(danhSachNguoiBan) {
+      if (!danhSachNguoiBan || danhSachNguoiBan.length === 0) return;
+
+      let dsHienCo = [];
+      try {
+        dsHienCo = JSON.parse(localStorage.getItem('tmh_danh_muc_nv_kinh_doanh') || '[]');
+      } catch (e) {
+        dsHienCo = [];
+      }
+
+      const setTenHienCo = new Set(dsHienCo.map(u => (u.ho_ten || '').trim().toLowerCase()));
+      const danhSachMoiThem = [];
+
+      danhSachNguoiBan.forEach(raw => {
+        if (!raw) return;
+        const str = String(raw).trim();
+        if (!str || str === '(Giao lại chuyến trước)' || str.toLowerCase().includes('giao lại')) return;
+
+        let hoTen = str;
+        let sdt = '';
+        let khuVuc = '';
+
+        const matchKhuVuc = str.match(/\(([^)]+)\)\s*$/);
+        let strConLai = str;
+        if (matchKhuVuc) {
+          khuVuc = matchKhuVuc[1].trim();
+          strConLai = str.substring(0, matchKhuVuc.index).trim();
+        }
+
+        if (strConLai.includes('-')) {
+          const parts = strConLai.split('-');
+          hoTen = parts[0].trim();
+          sdt = parts.slice(1).join('-').trim();
+        } else {
+          hoTen = strConLai;
+        }
+
+        if (!hoTen) return;
+        const tenKey = hoTen.toLowerCase();
+        if (setTenHienCo.has(tenKey)) return;
+
+        const maSlug = hoTen
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/đ/g, 'd')
+          .replace(/Đ/g, 'D')
+          .toUpperCase()
+          .replace(/[^A-Z0-9]/g, '')
+          .slice(0, 12);
+        const maNV = `KD_${maSlug || String(Date.now()).slice(-4)}`;
+
+        const itemMoi = {
+          ma_nv: maNV,
+          ho_ten: hoTen,
+          so_dien_thoai: sdt,
+          email: '',
+          khu_vuc: khuVuc,
+          ghi_chu: `Tự động cập nhật từ KiotViet (${str})`
+        };
+
+        setTenHienCo.add(tenKey);
+        dsHienCo.push(itemMoi);
+        danhSachMoiThem.push(itemMoi);
+      });
+
+      if (danhSachMoiThem.length > 0) {
+        localStorage.setItem('tmh_danh_muc_nv_kinh_doanh', JSON.stringify(dsHienCo));
+        console.log(`[Tự động đồng bộ NVKD] Đã thêm ${danhSachMoiThem.length} nhân viên kinh doanh mới vào Danh mục.`);
+
+        if (typeof sb !== 'undefined') {
+          try {
+            await sb.from('nv_kinh_doanh').upsert(danhSachMoiThem, { onConflict: 'ma_nv' });
+          } catch (err) {
+            console.warn("Chưa đồng bộ nv_kinh_doanh lên Supabase:", err);
+          }
+        }
+      }
+    }
+
+    // ========================================================
     // CÁC HÀM THÊM NHANH NHÂN VIÊN GIAO HÀNG & TÀI XẾ (YÊU CẦU 2)
     // ========================================================
     function moModalThemNhanVienNhanh(loai) {
@@ -1222,6 +1308,16 @@
 
       danhSachHoaDon = Array.from(mapHD.values());
       veDanhSachHoaDon();
+
+      // Tự động kiểm tra và đồng bộ Người Bán từ duLieuGoc vào Danh mục - Nhân viên kinh doanh
+      if (Array.isArray(duLieuGoc) && duLieuGoc.length > 0) {
+        const dsNguoiBanDuLieuGoc = duLieuGoc
+          .map(r => layGiaTri(r, ['Người bán', 'Nhân viên bán', 'Nhân viên', 'Người tạo']))
+          .filter(Boolean);
+        if (dsNguoiBanDuLieuGoc.length > 0) {
+          tuDongDongBoNhanVienKinhDoanh(dsNguoiBanDuLieuGoc);
+        }
+      }
     }
 
     function veDanhSachHoaDon(filterText = '') {
@@ -1635,6 +1731,8 @@
       let tongDoanhSo = 0, tongGiamSP = 0, tongGiamHD = 0, tongThanhTien = 0;
       let stt = 1;
       danhSachHoaDonChiTietToanCuc = Array.from(mapHoaDonChiTiet.values());
+      // Tự động cập nhật Người Bán vào Danh mục - Nhân viên kinh doanh
+      tuDongDongBoNhanVienKinhDoanh(danhSachHoaDonChiTietToanCuc.map(x => x.nguoiBan));
 
       danhSachHoaDonChiTietToanCuc.forEach(hd => {
         if (!hd.daLuuDotTruoc) {
@@ -1899,54 +1997,23 @@
     }
 
     // ========================================================
-    // YÊU CẦU 2 & 3: BỘ LỌC PHIẾU XUẤT KHO VÀ COPY 3 CỘT CHO EXCEL
+    // BỘ LỌC PHIẾU XUẤT KHO VÀ COPY 3 CỘT CHO EXCEL
     // LỌC CỘT CHẴN VÀ LẺ LOẠI BỎ GIÁ TRỊ 0 (EXCEL / GOOGLE SHEETS STYLE)
     // ========================================================
-    function dongBoLocChan(val) {
-      const selBar = document.getElementById('filterXuatKhoChan');
-      if (selBar) selBar.value = val;
-      locDuLieuXuatKho();
-    }
-
-    function dongBoLocLe(val) {
-      const selBar = document.getElementById('filterXuatKhoLe');
-      if (selBar) selBar.value = val;
-      locDuLieuXuatKho();
-    }
 
     function datLaiLocXuatKho() {
       if (document.getElementById('filterXuatKhoText')) document.getElementById('filterXuatKhoText').value = '';
       if (document.getElementById('filterXuatKhoLoai')) document.getElementById('filterXuatKhoLoai').value = 'tat_ca';
       if (document.getElementById('filterXuatKhoChan')) document.getElementById('filterXuatKhoChan').value = 'tat_ca';
       if (document.getElementById('filterXuatKhoLe')) document.getElementById('filterXuatKhoLe').value = 'tat_ca';
-      if (document.getElementById('thFilterChan')) document.getElementById('thFilterChan').value = 'tat_ca';
-      if (document.getElementById('thFilterLe')) document.getElementById('thFilterLe').value = 'tat_ca';
       locDuLieuXuatKho();
     }
 
     function locDuLieuXuatKho() {
       const tuKhoa = (document.getElementById('filterXuatKhoText')?.value || '').trim().toLowerCase();
       const loai = document.getElementById('filterXuatKhoLoai')?.value || 'tat_ca';
-      const locChan = document.getElementById('filterXuatKhoChan')?.value || document.getElementById('thFilterChan')?.value || 'tat_ca';
-      const locLe = document.getElementById('filterXuatKhoLe')?.value || document.getElementById('thFilterLe')?.value || 'tat_ca';
-
-      // Đồng bộ giá trị 2 chiều giữa header bảng và thanh lọc
-      if (document.getElementById('filterXuatKhoChan')) document.getElementById('filterXuatKhoChan').value = locChan;
-      if (document.getElementById('thFilterChan')) document.getElementById('thFilterChan').value = locChan;
-      if (document.getElementById('filterXuatKhoLe')) document.getElementById('filterXuatKhoLe').value = locLe;
-      if (document.getElementById('thFilterLe')) document.getElementById('thFilterLe').value = locLe;
-
-      // Cập nhật trạng thái đổi màu vàng nhạt (Excel-style) cho th khi đang kích hoạt lọc
-      const thChan = document.getElementById('thHeaderChan');
-      if (thChan) {
-        if (locChan !== 'tat_ca') thChan.classList.add('th-filter-active');
-        else thChan.classList.remove('th-filter-active');
-      }
-      const thLe = document.getElementById('thHeaderLe');
-      if (thLe) {
-        if (locLe !== 'tat_ca') thLe.classList.add('th-filter-active');
-        else thLe.classList.remove('th-filter-active');
-      }
+      const locChan = document.getElementById('filterXuatKhoChan')?.value || 'tat_ca';
+      const locLe = document.getElementById('filterXuatKhoLe')?.value || 'tat_ca';
 
       const rows = document.querySelectorAll('#tbodyXuatKho tr.row-item-hang');
       let demHien = 0;
