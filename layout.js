@@ -6,7 +6,7 @@
 // Danh sách chi tiết 7 bước quy trình chuyển dữ liệu từ KiotViet sang MISA
 const DANH_SACH_7_BUOC = [
   { id: "buoc1", href: "buoc1_upload.html", ic: "📥", label: "1. Tải KiotViet", desc: "Nạp file Excel bán hàng & đồng bộ DM" },
-  { id: "buoc2", href: "buoc2_phieu_xuat_kho.html", ic: "📊", label: "2. Phiếu xuất kho", desc: "Tạo danh sách thu tiền & phiếu kho" },
+  { id: "buoc2", href: "buoc2_phieu_xuat_kho.html", ic: "📊", label: "2. Tạo PXK & DSTT", desc: "Tạo phiếu xuất kho & danh sách thu tiền" },
   { id: "buoc3", href: "buoc3_luu_tru.html", ic: "🗄️", label: "3. Lưu trữ đợt", desc: "Quản lý 18 cột đối soát & chi tiết HĐ" },
   { id: "buoc4", href: "buoc4_kiem_don.html", ic: "📋", label: "4. Kiểm đơn", desc: "Đối soát tiền mặt, CK & tách đơn giao lại" },
   { id: "buoc5", href: "buoc5_bao_cao.html", ic: "💾", label: "5. Báo cáo đối soát", desc: "Tổng hợp MISA & gỡ đơn giao lại" },
@@ -17,6 +17,7 @@ const DANH_SACH_7_BUOC = [
 // Danh sách Menu chính trên Sidebar
 const MENU_CHINH = [
   { id: "quytrinh", href: "buoc1_upload.html", ic: "🔄", label: "Quy trình Bán hàng ➡ MISA", isProcess: true, desc: "Quy trình 7 bước từ KiotViet sang MISA", roles: ["admin", "quanly", "nhanvien"] },
+  { id: "danhmuc", href: "danh_muc.html", ic: "📚", label: "Danh Mục", desc: "Hàng hoá, Khách hàng, Xe, Ngân hàng, Nhân sự...", roles: ["admin", "quanly", "nhanvien"] },
   { id: "taikhoan", href: "quan_ly_taikhoan.html", ic: "🛡️", label: "Tài khoản & Phân quyền", desc: "Quản lý nhân viên & ma trận phân quyền", roles: ["admin"] }
 ];
 

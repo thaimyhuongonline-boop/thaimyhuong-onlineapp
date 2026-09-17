@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Danh Mục Nền Tảng — CÔNG TY TNHH THÁI MỸ HƯƠNG</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <script src="config.js"></script>
+  <link rel="stylesheet" href="layout.css">
+  <style>
+    .dm-header-banner {
+      background: linear-gradient(135deg, #184e36 0%, #236446 60%, #2d7e59 100%);
+      color: #ffffff;
+      border-radius: var(--radius-lg);
+      padding: 24px 28px;
+      margin-bottom: 24px;
+      box-shadow: 0 8px 24px rgba(35, 100, 70, 0.15);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .dm-banner-info h1 {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .dm-banner-info p {
+      font-size: 13.5px;
+      opacity: 0.9;
+      max-width: 680px;
+      line-height: 1.5;
+    }
+    .badge-tag {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-weight: 700;
+    }
+    .badge-green { background: #dcfce7; color: #15803d; }
+    .badge-blue { background: #dbeafe; color: #1e40af; }
+    .badge-amber { background: #fef3c7; color: #b45309; }
+    .badge-purple { background: #f3e8ff; color: #6b21a8; }
+    .badge-gray { background: #f1f5f9; color: #475569; }
+  </style>
+</head>
+<body>
+
+  <main id="mainContent" style="display:none;">
+    
+    <!-- Banner Giới Thiệu -->
+    <div class="dm-header-banner">
+      <div class="dm-banner-info">
+        <h1><span>📚</span> Quản Lý Danh Mục Nền Tảng</h1>
+        <p>Hệ thống danh mục dùng chung đồng bộ giữa KiotViet, Quy trình giao hàng và phần mềm kế toán MISA: Hàng hoá, Khách hàng, Xe, Ngân hàng, Nhân viên & Khuyến mãi.</p>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" class="btn btn-outline" onclick="taiDuLieuHienTai(true)" style="background: rgba(255,255,255,0.15); color: #fff; border-color: rgba(255,255,255,0.3); font-weight: 700;">
+          <span>🔄</span> Làm mới dữ liệu
+        </button>
+      </div>
+    </div>
+
+    <!-- 8 Tabs Danh Mục Chính -->
+    <div class="dm-tabs-container" id="dmTabsContainer">
+      <button type="button" class="dm-tab-btn active" onclick="chuyenTabDanhMuc('hang_hoa')" id="tabBtn_hang_hoa">
+        <span>📦</span> Hàng hoá <span class="dm-tab-badge" id="badge_hang_hoa">0</span>
+      </button>
+      <button type="button" class="dm-tab-btn" onclick="chuyenTabDanhMuc('khach_hang')" id="tabBtn_khach_hang">
+        <span>👥</span> Khách hàng <span class="dm-tab-badge" id="badge_khach_hang">0</span>
+      </button>
+      <button type="button" class="dm-tab-btn" onclick="chuyenTabDanhMuc('danh_sach_xe')" id="tabBtn_danh_sach_xe">
+        <span>🚚</span> Xe <span class="dm-tab-badge" id="badge_danh_sach_xe">0</span>
+      </button>
+      <button type="button" class="dm-tab-btn" onclick="chuyenTabDanhMuc('tai_khoan_ngan_hang')" id="tabBtn_tai_khoan_ngan_hang">
+        <span>💳</span> Tài khoản ngân hàng <span class="dm-tab-badge" id="badge_tai_khoan_ngan_hang">0</span>
+      </button>
+      <button type="button" class="dm-tab-btn" onclick="chuyenTabDanhMuc('dinh_khoan_hang_hoa')" id="tabBtn_dinh_khoan_hang_hoa">
+        <span>📑</span> Định khoản hàng hoá <span class="dm-tab-badge" id="badge_dinh_khoan_hang_hoa">0</span>
+      </button>
+      <button type="button" class="dm-tab-btn" onclick="chuyenTabDanhMuc('nv_kinh_doanh')" id="tabBtn_nv_kinh_doanh">
+        <span>💼</span> Nhân viên kinh doanh <span class="dm-tab-badge" id="badge_nv_kinh_doanh">0</span>
+      </button>
+      <button type="button" class="dm-tab-btn" onclick="chuyenTabDanhMuc('nv_giao_hang_tai_xe')" id="tabBtn_nv_giao_hang_tai_xe">
+        <span>🛵</span> Nhân viên giao hàng & tài xế <span class="dm-tab-badge" id="badge_nv_giao_hang_tai_xe">0</span>
+      </button>
+      <button type="button" class="dm-tab-btn" onclick="chuyenTabDanhMuc('doi_ma_km')" id="tabBtn_doi_ma_km">
+        <span>🎁</span> Đổi mã khuyến mãi <span class="dm-tab-badge" id="badge_doi_ma_km">0</span>
+      </button>
+    </div>
+
+    <!-- Toolbar: Tìm kiếm & Thao tác -->
+    <div class="dm-toolbar">
+      <div class="dm-search-wrap">
+        <input type="text" id="inpTimKiem" class="form-control" placeholder="🔍 Tìm kiếm trong danh mục..." oninput="locDuLieu()">
+      </div>
+      <div class="dm-actions-wrap">
+        <button type="button" class="btn btn-primary" onclick="moModalThem()">
+          <span>➕</span> Thêm mới
+        </button>
+        <button type="button" class="btn btn-outline" onclick="taiFileMauExcel()">
+          <span>📥</span> Tải file mẫu Excel
+        </button>
+        <label class="btn btn-outline" style="cursor: pointer; margin-bottom: 0;">
+          <span>📤</span> Nhập từ Excel
+          <input type="file" id="inpFileExcel" accept=".xlsx, .xls" style="display: none;" onchange="docFileExcel(event)">
+        </label>
+        <button type="button" class="btn btn-outline" onclick="xuatFileExcel()">
+          <span>💾</span> Xuất Excel
+        </button>
+      </div>
+    </div>
+
+    <!-- Bảng Dữ Liệu -->
+    <div class="dm-table-card">
+      <div class="dm-table-responsive">
+        <table class="dm-table">
+          <thead id="dmTableHead">
+            <!-- Render động các cột -->
+          </thead>
+          <tbody id="dmTableBody">
+            <!-- Render động các dòng dữ liệu -->
+          </tbody>
+        </table>
+      </div>
+      <div id="dmEmptyState" style="display:none; text-align:center; padding: 48px 20px; color: var(--text-muted);">
+        <div style="font-size: 38px; margin-bottom: 8px;">📭</div>
+        <div style="font-size: 15px; font-weight: 700; color: var(--text-main);">Không tìm thấy dữ liệu</div>
+        <p style="font-size: 13px; margin-top: 4px;">Chưa có bản ghi nào hoặc không khớp với từ khóa tìm kiếm.</p>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Modal Thêm / Sửa Bản Ghi Danh Mục -->
+  <div class="tmh-modal-overlay" id="modalThemSua">
+    <div class="tmh-modal-box">
+      <div class="tmh-modal-header">
+        <div class="tmh-modal-title" id="modalTieuDe">
+          <span>➕</span> Thêm mới bản ghi
+        </div>
+        <button type="button" class="tmh-modal-close" onclick="dongModalThemSua()">✕</button>
+      </div>
+      <form id="formThemSua" onsubmit="xuLyLuuBanGhi(event)">
+        <input type="hidden" id="modalIsEdit" value="0">
+        <input type="hidden" id="modalEditKey" value="">
+        <div class="tmh-modal-body" id="modalBodyFields">
+          <!-- Render động các input -->
+        </div>
+        <div class="tmh-modal-footer">
+          <button type="button" class="btn btn-outline" onclick="dongModalThemSua()">Hủy bỏ</button>
+          <button type="submit" class="btn btn-primary" id="btnSubmitModal">
+            <span>💾</span> Lưu thông tin
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="layout.js"></script>
+  <script>
+    /* ====================================================================
+     * ĐỊNH NGHĨA CẤU TRÚC 8 BẢNG DANH MỤC
+     * ==================================================================== */
+    const CAU_HINH_DANH_MUC = {
+      hang_hoa: {
+        ten: "Hàng hoá",
+        khoaChinh: "ma_hang",
+        localKey: "tmh_danh_muc_hang_hoa",
+        cot: [
+          { id: "ma_hang", ten: "Mã Hàng", batBuoc: true, type: "text" },
+          { id: "ten_hang", ten: "Tên Hàng Hóa", batBuoc: true, type: "text" },
+          { id: "dvt", ten: "Đơn Vị Tính", batBuoc: false, type: "text", macDinh: "Thùng" },
+          { id: "quy_cach", ten: "Quy Cách (Số lượng/thùng)", batBuoc: false, type: "number", macDinh: 1 },
+          { id: "gia_ban", ten: "Giá Bán (VNĐ)", batBuoc: false, type: "number", macDinh: 0 },
+          { id: "ghi_chu", ten: "Ghi Chú", batBuoc: false, type: "text" }
+        ],
+        seed: [
+          { ma_hang: "NL01", ten_hang: "Nước mắm Nam Ngư Đệ Nhị 900ml", dvt: "Thùng", quy_cach: 15, gia_ban: 280000, ghi_chu: "Hàng bán chạy" },
+          { ma_hang: "NL02", ten_hang: "Nước mắm Nam Ngư Cá Cơm Chai Thủy Tinh 500ml", dvt: "Thùng", quy_cach: 12, gia_ban: 340000, ghi_chu: "Cao cấp" },
+          { ma_hang: "CH01", ten_hang: "Tương ớt Chinsu 250g", dvt: "Thùng", quy_cach: 24, gia_ban: 265000, ghi_chu: "" },
+          { ma_hang: "CH02", ten_hang: "Nước tương Chinsu Nấm Shiitake 330ml", dvt: "Thùng", quy_cach: 24, gia_ban: 310000, ghi_chu: "" },
+          { ma_hang: "OM01", ten_hang: "Mì Omachi Sườn Hầm Ngũ Quả", dvt: "Thùng", quy_cach: 30, gia_ban: 215000, ghi_chu: "" }
+        ]
+      },
+      khach_hang: {
+        ten: "Khách hàng",
+        khoaChinh: "ma_kh",
+        localKey: "tmh_danh_muc_khach_hang",
+        cot: [
+          { id: "ma_kh", ten: "Mã Khách Hàng", batBuoc: true, type: "text" },
+          { id: "ten_kh", ten: "Tên Khách Hàng / Đại Lý", batBuoc: true, type: "text" },
+          { id: "dia_chi", ten: "Địa Chỉ Giao Hàng", batBuoc: false, type: "text" },
+          { id: "dien_thoai", ten: "Điện Thoại Liên Hệ", batBuoc: false, type: "text" },
+          { id: "khu_vuc", ten: "Khu Vực Tuyến Đường", batBuoc: false, type: "text" },
+          { id: "ma_so_thue", ten: "Mã Số Thuế", batBuoc: false, type: "text" },
+          { id: "ghi_chu", ten: "Ghi Chú", batBuoc: false, type: "text" }
+        ],
+        seed: [
+          { ma_kh: "KH001", ten_kh: "Đại Lý Ngọc Lan", dia_chi: "128 Ông Ích Khiêm, Hải Châu, Đà Nẵng", dien_thoai: "0905123456", khu_vuc: "Tuyến Hải Châu", ma_so_thue: "", ghi_chu: "Khách quen" },
+          { ma_kh: "KH002", ten_kh: "Tạp Hóa Thanh Tâm", dia_chi: "45 Mẹ Thứ, Hòa Xuân, Cẩm Lệ", dien_thoai: "0905234567", khu_vuc: "Tuyến Hòa Xuân", ma_so_thue: "", ghi_chu: "Giao buổi sáng" },
+          { ma_kh: "KH003", ten_kh: "Siêu Thị Mini VinaMart", dia_chi: "89 Nguyễn Lương Bằng, Liên Chiểu", dien_thoai: "0905345678", khu_vuc: "Tuyến Liên Chiểu", ma_so_thue: "0401889988", ghi_chu: "Xuất hóa đơn GTGT" }
+        ]
+      },
+      danh_sach_xe: {
+        ten: "Xe vận chuyển",
+        khoaChinh: "ma_xe",
+        localKey: "tmh_danh_muc_danh_sach_xe",
+        cot: [
+          { id: "ma_xe", ten: "Mã Chuyến Xe", batBuoc: true, type: "text" },
+          { id: "bien_so", ten: "Biển Số Xe", batBuoc: false, type: "text" },
+          { id: "loai_xe", ten: "Loại Xe / Tải Trọng", batBuoc: false, type: "text" },
+          { id: "tai_xe_mac_dinh", ten: "Tài Xế Mặc Định", batBuoc: false, type: "text" },
+          { id: "ghi_chu", ten: "Ghi Chú", batBuoc: false, type: "text" }
+        ],
+        seed: [
+          { ma_xe: "HD1 SÁNG", bien_so: "43C-12345", loai_xe: "Xe tải 1.4 tấn", tai_xe_mac_dinh: "SINH", ghi_chu: "Tuyến Trung tâm & Cẩm Lệ buổi sáng" },
+          { ma_xe: "HD1 CHIỀU", bien_so: "43C-12345", loai_xe: "Xe tải 1.4 tấn", tai_xe_mac_dinh: "SINH", ghi_chu: "Tuyến Hòa Vang & Sơn Trà buổi chiều" },
+          { ma_xe: "HD2 SÁNG", bien_so: "43C-67890", loai_xe: "Xe tải 2.5 tấn", tai_xe_mac_dinh: "HẢI", ghi_chu: "Tuyến Liên Chiểu & Thanh Khê buổi sáng" },
+          { ma_xe: "HD2 CHIỀU", bien_so: "43C-67890", loai_xe: "Xe tải 2.5 tấn", tai_xe_mac_dinh: "HẢI", ghi_chu: "Tuyến Quảng Nam & Điện Bàn buổi chiều" }
+        ]
+      },
+      tai_khoan_ngan_hang: {
+        ten: "Tài khoản ngân hàng",
+        khoaChinh: "ten_tk",
+        localKey: "tmh_danh_muc_tai_khoan_ngan_hang",
+        cot: [
+          { id: "ten_tk", ten: "Tên Hiển Thị", batBuoc: true, type: "text" },
+          { id: "so_tk", ten: "Số Tài Khoản", batBuoc: false, type: "text" },
+          { id: "ten_ngan_hang", ten: "Tên Ngân Hàng", batBuoc: false, type: "text" },
+          { id: "chu_tai_khoan", ten: "Chủ Tài Khoản", batBuoc: false, type: "text" },
+          { id: "tk_misa", ten: "TK MISA", batBuoc: false, type: "text", macDinh: "11211" },
+          { id: "mac_dinh", ten: "Mặc Định", batBuoc: false, type: "boolean", macDinh: false },
+          { id: "ghi_chu", ten: "Ghi Chú", batBuoc: false, type: "text" }
+        ],
+        seed: [
+          { ten_tk: "VCB - 0041000266096 (Thái Mỹ Hương)", so_tk: "0041000266096", ten_ngan_hang: "Vietcombank", chu_tai_khoan: "CÔNG TY TNHH THÁI MỸ HƯƠNG", tk_misa: "11211", mac_dinh: true, ghi_chu: "TK công ty chính" },
+          { ten_tk: "VCB - 0041000123456 (Cá nhân Đạt)", so_tk: "0041000123456", ten_ngan_hang: "Vietcombank", chu_tai_khoan: "NGUYỄN TẤN ĐẠT", tk_misa: "11212", mac_dinh: false, ghi_chu: "Thu nộp nhanh" },
+          { ten_tk: "MBBank - 0905801918 (Cá nhân)", so_tk: "0905801918", ten_ngan_hang: "MBBank", chu_tai_khoan: "THÁI MỸ HƯƠNG", tk_misa: "11213", mac_dinh: false, ghi_chu: "" },
+          { ten_tk: "Tiền mặt lái xe", so_tk: "TIEN_MAT", ten_ngan_hang: "Tiền mặt", chu_tai_khoan: "Lái xe thu nộp", tk_misa: "1111", mac_dinh: false, ghi_chu: "Thu tiền mặt khi giao hàng" }
+        ]
+      },
+      dinh_khoan_hang_hoa: {
+        ten: "Định khoản hàng hoá",
+        khoaChinh: "ma_hang",
+        localKey: "tmh_danh_muc_dinh_khoan_hang_hoa",
+        cot: [
+          { id: "ma_hang", ten: "Mã Hàng", batBuoc: true, type: "text" },
+          { id: "ten_hang", ten: "Tên Hàng Hóa", batBuoc: false, type: "text" },
+          { id: "thue_suat", ten: "Thuế Suất GTGT (%)", batBuoc: false, type: "number", macDinh: 10 },
+          { id: "tk_doanh_thu", ten: "TK Doanh Thu", batBuoc: false, type: "text", macDinh: "5111" },
+          { id: "tk_gia_von", ten: "TK Giá Vốn", batBuoc: false, type: "text", macDinh: "632" },
+          { id: "ma_kho", ten: "Mã Kho MISA", batBuoc: false, type: "text", macDinh: "KHO01" },
+          { id: "tk_kho", ten: "TK Kho", batBuoc: false, type: "text", macDinh: "1561" },
+          { id: "tk_chi_phi", ten: "TK Chi Phí", batBuoc: false, type: "text", macDinh: "641" }
+        ],
+        seed: [
+          { ma_hang: "NL01", ten_hang: "Nước mắm Nam Ngư Đệ Nhị 900ml", thue_suat: 10, tk_doanh_thu: "5111", tk_gia_von: "632", ma_kho: "KHO01", tk_kho: "1561", tk_chi_phi: "641" },
+          { ma_hang: "NL02", ten_hang: "Nước mắm Nam Ngư Cá Cơm Chai Thủy Tinh 500ml", thue_suat: 10, tk_doanh_thu: "5111", tk_gia_von: "632", ma_kho: "KHO01", tk_kho: "1561", tk_chi_phi: "641" },
+          { ma_hang: "CH01", ten_hang: "Tương ớt Chinsu 250g", thue_suat: 10, tk_doanh_thu: "5111", tk_gia_von: "632", ma_kho: "KHO01", tk_kho: "1561", tk_chi_phi: "641" },
+          { ma_hang: "OM01", ten_hang: "Mì Omachi Sườn Hầm Ngũ Quả", thue_suat: 8, tk_doanh_thu: "5111", tk_gia_von: "632", ma_kho: "KHO01", tk_kho: "1561", tk_chi_phi: "641" }
+        ]
+      },
+      nv_kinh_doanh: {
+        ten: "Nhân viên kinh doanh",
+        khoaChinh: "ma_nv",
+        localKey: "tmh_danh_muc_nv_kinh_doanh",
+        cot: [
+          { id: "ma_nv", ten: "Mã Nhân Viên", batBuoc: true, type: "text" },
+          { id: "ho_ten", ten: "Họ và Tên", batBuoc: true, type: "text" },
+          { id: "so_dien_thoai", ten: "Số Điện Thoại", batBuoc: false, type: "text" },
+          { id: "email", ten: "Email", batBuoc: false, type: "text" },
+          { id: "khu_vuc", ten: "Khu Vực Phụ Trách", batBuoc: false, type: "text" },
+          { id: "ghi_chu", ten: "Ghi Chú", batBuoc: false, type: "text" }
+        ],
+        seed: [
+          { ma_nv: "NVKD01", ho_ten: "Nguyễn Văn An", so_dien_thoai: "0905111222", email: "an.nguyen@thaimyhuong.vn", khu_vuc: "Đà Nẵng (Hòa Xuân, Cẩm Lệ)", ghi_chu: "Phụ trách đại lý Hải Châu & Cẩm Lệ" },
+          { ma_nv: "NVKD02", ho_ten: "Trần Thị Mai", so_dien_thoai: "0905333444", email: "mai.tran@thaimyhuong.vn", khu_vuc: "Quảng Nam (Điện Bàn, Hội An)", ghi_chu: "Phụ trách tuyến Quảng Nam" }
+        ]
+      },
+      nv_giao_hang_tai_xe: {
+        ten: "Nhân viên giao hàng & tài xế",
+        khoaChinh: "ma_nv",
+        localKey: "tmh_danh_muc_nv_giao_hang_tai_xe",
+        cot: [
+          { id: "ma_nv", ten: "Mã Nhân Viên", batBuoc: true, type: "text" },
+          { id: "ho_ten", ten: "Họ và Tên", batBuoc: true, type: "text" },
+          { id: "vai_tro", ten: "Vai Trò", batBuoc: false, type: "select", options: ["Tài xế", "Nhân viên giao hàng", "Nhân viên thu tiền", "Tài xế & Giao hàng", "Giao hàng & Thu tiền"] },
+          { id: "so_dien_thoai", ten: "Số Điện Thoại", batBuoc: false, type: "text" },
+          { id: "ghi_chu", ten: "Ghi Chú", batBuoc: false, type: "text" }
+        ],
+        seed: [
+          { ma_nv: "TX01", ho_ten: "SINH", vai_tro: "Tài xế", so_dien_thoai: "0905001001", ghi_chu: "Lái xe tải HD1" },
+          { ma_nv: "TX02", ho_ten: "HẢI", vai_tro: "Tài xế", so_dien_thoai: "0905001002", ghi_chu: "Lái xe tải HD2" },
+          { ma_nv: "GH01", ho_ten: "ĐẠT", vai_tro: "Giao hàng & Thu tiền", so_dien_thoai: "0905001003", ghi_chu: "Kiêm thủ quỹ thu tiền xe" },
+          { ma_nv: "GH02", ho_ten: "NAM", vai_tro: "Nhân viên giao hàng", so_dien_thoai: "0905001004", ghi_chu: "Giao nhận hàng hóa" },
+          { ma_nv: "GH03", ho_ten: "TUẤN", vai_tro: "Nhân viên giao hàng", so_dien_thoai: "0905001005", ghi_chu: "Giao nhận hàng hóa" }
+        ]
+      },
+      doi_ma_km: {
+        ten: "Đổi mã khuyến mãi",
+        khoaChinh: "ma_km",
+        localKey: "tmh_danh_muc_doi_ma_km",
+        cot: [
+          { id: "ma_km", ten: "Mã Hàng Khuyến Mãi (KiotViet)", batBuoc: true, type: "text" },
+          { id: "ma_that", ten: "Mã Hàng Thật (MISA)", batBuoc: true, type: "text" },
+          { id: "ten_that", ten: "Tên Hàng Thật Xuất MISA", batBuoc: false, type: "text" },
+          { id: "quy_cach", ten: "Quy Cách (Số lượng/thùng)", batBuoc: false, type: "number", macDinh: 1 },
+          { id: "ghi_chu", ten: "Ghi Chú", batBuoc: false, type: "text" }
+        ],
+        seed: [
+          { ma_km: "KM_NAMNGU", ma_that: "NL01", ten_that: "Nước mắm Nam Ngư Đệ Nhị 900ml", quy_cach: 15, ghi_chu: "Khuyến mãi mua 10 tặng 1" },
+          { ma_km: "KM_CHINSU", ma_that: "CH01", ten_that: "Tương ớt Chinsu 250g", quy_cach: 24, ghi_chu: "Hàng khuyến mãi kèm hóa đơn" }
+        ]
+      }
+    };
+
+    let tabHienTai = "hang_hoa";
+    let duLieuBangHienTai = [];
+    let duLieuLoc = [];
+
+    // Khởi tạo layout & trang
+    async function khoiTaoTrang() {
+      await khoiTaoLayout({
+        pageTitle: "Danh Mục Nền Tảng",
+        breadcrumb: "Danh Mục",
+        activeMenuId: "danhmuc"
+      });
+
+      // Tải và đếm số lượng bản ghi cho toàn bộ 8 tabs
+      await capNhatTatCaBadges();
+
+      // Mặc định mở tab đầu tiên: hang_hoa
+      chuyenTabDanhMuc("hang_hoa");
+    }
+
+    // Cập nhật số lượng của từng tab
+    async function capNhatTatCaBadges() {
+      for (const key in CAU_HINH_DANH_MUC) {
+        const data = await layDuLieuBang(key);
+        const badge = document.getElementById(`badge_${key}`);
+        if (badge) badge.textContent = data.length;
+      }
+    }
+
+    // Lấy dữ liệu từ Supabase hoặc fallback LocalStorage
+    async function layDuLieuBang(tenBang) {
+      const cfg = CAU_HINH_DANH_MUC[tenBang];
+      let danhSach = [];
+
+      // 1. Thử lấy từ Supabase
+      try {
+        if (typeof sb !== 'undefined') {
+          const { data, error } = await sb.from(tenBang).select('*');
+          if (!error && data && data.length > 0) {
+            danhSach = data;
+          }
+        }
+      } catch (e) {
+        console.warn(`Chưa lấy được bảng ${tenBang} từ Supabase:`, e);
+      }
+
+      // 2. Thử lấy từ LocalStorage nếu Supabase rỗng
+      if (danhSach.length === 0) {
+        try {
+          const raw = localStorage.getItem(cfg.localKey);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              danhSach = parsed;
+            }
+          }
+        } catch (e) {}
+      }
+
+      // 3. Sử dụng dữ liệu seed khởi tạo nếu vẫn rỗng
+      if (danhSach.length === 0 && cfg.seed && cfg.seed.length > 0) {
+        danhSach = [...cfg.seed];
+        localStorage.setItem(cfg.localKey, JSON.stringify(danhSach));
+      }
+
+      return danhSach;
+    }
+
+    // Chuyển tab danh mục
+    async function chuyenTabDanhMuc(tenBang) {
+      tabHienTai = tenBang;
+
+      // Cập nhật active button tab
+      document.querySelectorAll(".dm-tab-btn").forEach(btn => btn.classList.remove("active"));
+      const btnActive = document.getElementById(`tabBtn_${tenBang}`);
+      if (btnActive) btnActive.classList.add("active");
+
+      // Đặt lại ô tìm kiếm
+      document.getElementById("inpTimKiem").value = "";
+
+      // Nạp dữ liệu
+      await taiDuLieuHienTai();
+    }
+
+    // Nạp dữ liệu cho tab hiện tại
+    async function taiDuLieuHienTai(hienThongBao = false) {
+      duLieuBangHienTai = await layDuLieuBang(tabHienTai);
+      duLieuLoc = [...duLieuBangHienTai];
+      veBangDuLieu();
+
+      // Cập nhật badge tab hiện tại
+      const badge = document.getElementById(`badge_${tabHienTai}`);
+      if (badge) badge.textContent = duLieuBangHienTai.length;
+
+      if (hienThongBao) {
+        alert(`✅ Đã làm mới danh mục "${CAU_HINH_DANH_MUC[tabHienTai].ten}" (${duLieuBangHienTai.length} bản ghi)`);
+      }
+    }
+
+    // Vẽ giao diện bảng dữ liệu
+    function veBangDuLieu() {
+      const cfg = CAU_HINH_DANH_MUC[tabHienTai];
+      const thead = document.getElementById("dmTableHead");
+      const tbody = document.getElementById("dmTableBody");
+      const emptyState = document.getElementById("dmEmptyState");
+
+      // 1. Header
+      let headHtml = `<tr><th style="width: 50px; text-align: center;">STT</th>`;
+      cfg.cot.forEach(col => {
+        headHtml += `<th>${col.ten}</th>`;
+      });
+      headHtml += `<th style="width: 140px; text-align: center;">Thao Tác</th></tr>`;
+      thead.innerHTML = headHtml;
+
+      // 2. Body
+      if (!duLieuLoc || duLieuLoc.length === 0) {
+        tbody.innerHTML = "";
+        emptyState.style.display = "block";
+        return;
+      }
+      emptyState.style.display = "none";
+
+      let bodyHtml = "";
+      duLieuLoc.forEach((row, idx) => {
+        const valKhoa = row[cfg.khoaChinh];
+        bodyHtml += `<tr><td style="text-align: center; color: var(--text-muted); font-weight: 700;">${idx + 1}</td>`;
+        
+        cfg.cot.forEach(col => {
+          let val = row[col.id];
+          let displayVal = val !== null && val !== undefined ? val : "";
+
+          // Định dạng theo kiểu dữ liệu
+          if (col.type === "number" && typeof val === "number") {
+            if (col.id.includes("gia")) {
+              displayVal = `<b style="color: var(--primary);">${val.toLocaleString("vi-VN")} đ</b>`;
+            } else {
+              displayVal = `<b>${val}</b>`;
+            }
+          } else if (col.type === "boolean") {
+            displayVal = val 
+              ? `<span class="badge-tag badge-green">✓ Mặc định</span>` 
+              : `<span class="badge-tag badge-gray">—</span>`;
+          } else if (col.id === "vai_tro") {
+            displayVal = `<span class="badge-tag badge-blue">${val || ""}</span>`;
+          } else if (col.id === cfg.khoaChinh) {
+            displayVal = `<strong style="color: var(--text-main); font-weight: 800;">${displayVal}</strong>`;
+          }
+
+          bodyHtml += `<td>${displayVal}</td>`;
+        });
+
+        bodyHtml += `
+          <td style="text-align: center; white-space: nowrap;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="moModalSua('${encodeURIComponent(valKhoa)}')">
+              ✏️ Sửa
+            </button>
+            <button type="button" class="btn btn-outline btn-sm" style="color: var(--accent-red); margin-left: 4px;" onclick="xoaBanGhi('${encodeURIComponent(valKhoa)}')">
+              🗑️ Xóa
+            </button>
+          </td>
+        </tr>`;
+      });
+
+      tbody.innerHTML = bodyHtml;
+    }
+
+    // Lọc dữ liệu theo từ khóa
+    function locDuLieu() {
+      const tuKhoa = document.getElementById("inpTimKiem").value.trim().toLowerCase();
+      if (!tuKhoa) {
+        duLieuLoc = [...duLieuBangHienTai];
+      } else {
+        duLieuLoc = duLieuBangHienTai.filter(row => {
+          return Object.values(row).some(val => {
+            if (val === null || val === undefined) return false;
+            return String(val).toLowerCase().includes(tuKhoa);
+          });
+        });
+      }
+      veBangDuLieu();
+    }
+
+    // Mở Modal Thêm mới
+    function moModalThem() {
+      const cfg = CAU_HINH_DANH_MUC[tabHienTai];
+      document.getElementById("modalIsEdit").value = "0";
+      document.getElementById("modalEditKey").value = "";
+      document.getElementById("modalTieuDe").innerHTML = `<span>➕</span> Thêm Mới — ${cfg.ten}`;
+      document.getElementById("btnSubmitModal").innerHTML = `<span>💾</span> Lưu Thêm Mới`;
+
+      renderCacFieldModal(null);
+      document.getElementById("modalThemSua").classList.add("show");
+    }
+
+    // Mở Modal Chỉnh sửa
+    function moModalSua(keyEncoded) {
+      const key = decodeURIComponent(keyEncoded);
+      const cfg = CAU_HINH_DANH_MUC[tabHienTai];
+      const dong = duLieuBangHienTai.find(r => String(r[cfg.khoaChinh]) === String(key));
+      if (!dong) return;
+
+      document.getElementById("modalIsEdit").value = "1";
+      document.getElementById("modalEditKey").value = key;
+      document.getElementById("modalTieuDe").innerHTML = `<span>✏️</span> Chỉnh Sửa — ${cfg.ten}`;
+      document.getElementById("btnSubmitModal").innerHTML = `<span>💾</span> Cập Nhật Thay Đổi`;
+
+      renderCacFieldModal(dong);
+      document.getElementById("modalThemSua").classList.add("show");
+    }
+
+    // Đóng Modal
+    function dongModalThemSua() {
+      document.getElementById("modalThemSua").classList.remove("show");
+    }
+
+    // Render form fields trong modal
+    function renderCacFieldModal(data = null) {
+      const cfg = CAU_HINH_DANH_MUC[tabHienTai];
+      const container = document.getElementById("modalBodyFields");
+      const isEdit = data !== null;
+
+      let html = "";
+      cfg.cot.forEach(col => {
+        const val = data ? (data[col.id] !== undefined ? data[col.id] : "") : (col.macDinh !== undefined ? col.macDinh : "");
+        const isKhoaChinh = col.id === cfg.khoaChinh;
+        const readOnly = isEdit && isKhoaChinh ? "readonly style='background:#f1f5f9; cursor:not-allowed;'" : "";
+        const batBuocText = col.batBuoc ? " <span style='color:red;'>*</span>" : "";
+
+        if (col.type === "select" && col.options) {
+          html += `
+            <div class="form-group">
+              <label style="font-weight: 700; font-size: 13px;">${col.ten}:${batBuocText}</label>
+              <select id="inp_${col.id}" class="form-control" ${col.batBuoc ? "required" : ""}>
+                ${col.options.map(opt => `<option value="${opt}" ${String(val) === String(opt) ? "selected" : ""}>${opt}</option>`).join("")}
+              </select>
+            </div>
+          `;
+        } else if (col.type === "boolean") {
+          html += `
+            <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px;">
+              <input type="checkbox" id="inp_${col.id}" ${val ? "checked" : ""} style="width: 18px; height: 18px; cursor: pointer;">
+              <label for="inp_${col.id}" style="font-weight: 700; font-size: 13px; cursor: pointer;">${col.ten}</label>
+            </div>
+          `;
+        } else {
+          html += `
+            <div class="form-group">
+              <label style="font-weight: 700; font-size: 13px;">${col.ten}:${batBuocText}</label>
+              <input type="${col.type === 'number' ? 'number' : 'text'}" 
+                     id="inp_${col.id}" 
+                     class="form-control" 
+                     value="${val !== null && val !== undefined ? val : ''}" 
+                     ${readOnly} 
+                     ${col.batBuoc ? "required" : ""}>
+            </div>
+          `;
+        }
+      });
+
+      container.innerHTML = html;
+    }
+
+    // Xử lý lưu bản ghi khi bấm Submit Modal
+    async function xuLyLuuBanGhi(event) {
+      event.preventDefault();
+      const cfg = CAU_HINH_DANH_MUC[tabHienTai];
+      const isEdit = document.getElementById("modalIsEdit").value === "1";
+      const editKey = document.getElementById("modalEditKey").value;
+
+      const banGhiMoi = {};
+      cfg.cot.forEach(col => {
+        const el = document.getElementById(`inp_${col.id}`);
+        if (!el) return;
+
+        if (col.type === "boolean") {
+          banGhiMoi[col.id] = el.checked;
+        } else if (col.type === "number") {
+          const raw = el.value.trim();
+          banGhiMoi[col.id] = raw === "" ? null : Number(raw);
+        } else {
+          banGhiMoi[col.id] = el.value.trim();
+        }
+      });
+
+      // Kiểm tra khóa chính
+      if (!banGhiMoi[cfg.khoaChinh]) {
+        alert(`Vui lòng nhập trường "${cfg.cot.find(c => c.id === cfg.khoaChinh).ten}"!`);
+        return;
+      }
+
+      // 1. Lưu vào Supabase
+      try {
+        if (typeof sb !== 'undefined') {
+          await sb.from(tabHienTai).upsert(banGhiMoi);
+        }
+      } catch (e) {
+        console.warn("Lỗi lưu Supabase:", e);
+      }
+
+      // 2. Lưu vào LocalStorage
+      let dsLocal = [];
+      try {
+        dsLocal = JSON.parse(localStorage.getItem(cfg.localKey) || "[]");
+      } catch (e) {}
+
+      const idx = dsLocal.findIndex(r => String(r[cfg.khoaChinh]) === String(banGhiMoi[cfg.khoaChinh]));
+      if (idx >= 0) {
+        dsLocal[idx] = { ...dsLocal[idx], ...banGhiMoi };
+      } else {
+        dsLocal.push(banGhiMoi);
+      }
+      localStorage.setItem(cfg.localKey, JSON.stringify(dsLocal));
+
+      dongModalThemSua();
+      await taiDuLieuHienTai();
+      await capNhatTatCaBadges();
+
+      alert(`✅ Đã lưu bản ghi "${banGhiMoi[cfg.khoaChinh]}" thành công!`);
+    }
+
+    // Xóa bản ghi
+    async function xoaBanGhi(keyEncoded) {
+      const key = decodeURIComponent(keyEncoded);
+      const cfg = CAU_HINH_DANH_MUC[tabHienTai];
+
+      if (!confirm(`Bạn có chắc chắn muốn xóa bản ghi "${key}" khỏi danh mục "${cfg.ten}" không?`)) {
+        return;
+      }
+
+      // 1. Xóa Supabase
+      try {
+        if (typeof sb !== 'undefined') {
+          await sb.from(tabHienTai).delete().eq(cfg.khoaChinh, key);
+        }
+      } catch (e) {
+        console.warn("Lỗi xóa Supabase:", e);
+      }
+
+      // 2. Xóa LocalStorage
+      let dsLocal = [];
+      try {
+        dsLocal = JSON.parse(localStorage.getItem(cfg.localKey) || "[]");
+      } catch (e) {}
+
+      dsLocal = dsLocal.filter(r => String(r[cfg.khoaChinh]) !== String(key));
+      localStorage.setItem(cfg.localKey, JSON.stringify(dsLocal));
+
+      await taiDuLieuHienTai();
+      await capNhatTatCaBadges();
+
+      alert(`🗑️ Đã xóa bản ghi "${key}" thành công!`);
+    }
+
+    // Tải file mẫu Excel chuẩn cho từng bảng
+    function taiFileMauExcel() {
+      const cfg = CAU_HINH_DANH_MUC[tabHienTai];
+      const headers = cfg.cot.map(c => c.id);
+      const headersDisplay = cfg.cot.map(c => c.ten);
+
+      // Dữ liệu mẫu
+      const sampleRow = cfg.cot.map(c => {
+        if (c.type === 'number') return c.macDinh !== undefined ? c.macDinh : 0;
+        if (c.type === 'boolean') return "TRUE";
+        return c.macDinh || "";
+      });
+
+      const wsData = [headersDisplay, headers, sampleRow];
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+      // Định dạng header
+      ws['!cols'] = cfg.cot.map(() => ({ wch: 22 }));
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Template");
+      XLSX.writeFile(wb, `Mau_Nhap_${tabHienTai}.xlsx`);
+    }
+
+    // Đọc file Excel người dùng upload
+    function docFileExcel(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const cfg = CAU_HINH_DANH_MUC[tabHienTai];
+      const reader = new FileReader();
+
+      reader.onload = async function(e) {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: "array" });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+          if (!rows || rows.length < 2) {
+            alert("File Excel không có dữ liệu hoặc định dạng không đúng!");
+            return;
+          }
+
+          // Dòng 1 hoặc 2 là tên trường ID
+          let headerRowIdx = 0;
+          let headerCols = rows[0].map(c => String(c).trim());
+
+          // Kiểm tra xem dòng 1 hay dòng 2 chứa mã trường kỹ thuật (ma_hang, ma_kh, etc.)
+          const hasTechnicalId = cfg.cot.some(c => headerCols.includes(c.id));
+          if (!hasTechnicalId && rows.length >= 2) {
+            const row2Cols = rows[1].map(c => String(c).trim());
+            if (cfg.cot.some(c => row2Cols.includes(c.id))) {
+              headerRowIdx = 1;
+              headerCols = row2Cols;
+            }
+          }
+
+          const mapField = new Map();
+          headerCols.forEach((h, colIdx) => {
+            const hLow = h.toLowerCase();
+            cfg.cot.forEach(c => {
+              if (c.id.toLowerCase() === hLow || c.ten.toLowerCase() === hLow) {
+                mapField.set(colIdx, c);
+              }
+            });
+          });
+
+          const danhSachMoi = [];
+          for (let r = headerRowIdx + 1; r < rows.length; r++) {
+            const rowData = rows[r];
+            if (!rowData || rowData.length === 0) continue;
+
+            const item = {};
+            let coDuLieu = false;
+
+            mapField.forEach((colCfg, colIdx) => {
+              let cellVal = rowData[colIdx];
+              if (cellVal !== undefined && cellVal !== null && String(cellVal).trim() !== "") {
+                coDuLieu = true;
+                if (colCfg.type === "number") {
+                  cellVal = Number(cellVal) || 0;
+                } else if (colCfg.type === "boolean") {
+                  cellVal = String(cellVal).toUpperCase() === "TRUE" || String(cellVal) === "1";
+                } else {
+                  cellVal = String(cellVal).trim();
+                }
+                item[colCfg.id] = cellVal;
+              }
+            });
+
+            if (coDuLieu && item[cfg.khoaChinh]) {
+              danhSachMoi.push(item);
+            }
+          }
+
+          if (danhSachMoi.length === 0) {
+            alert("Không tìm thấy dòng dữ liệu hợp lệ trong file!");
+            return;
+          }
+
+          // 1. Thử lưu Supabase
+          try {
+            if (typeof sb !== 'undefined') {
+              await sb.from(tabHienTai).upsert(danhSachMoi);
+            }
+          } catch (err) {
+            console.warn("Lỗi lưu Supabase:", err);
+          }
+
+          // 2. Lưu vào LocalStorage
+          let dsLocal = [];
+          try {
+            dsLocal = JSON.parse(localStorage.getItem(cfg.localKey) || "[]");
+          } catch (e) {}
+
+          danhSachMoi.forEach(item => {
+            const idx = dsLocal.findIndex(r => String(r[cfg.khoaChinh]) === String(item[cfg.khoaChinh]));
+            if (idx >= 0) {
+              dsLocal[idx] = { ...dsLocal[idx], ...item };
+            } else {
+              dsLocal.push(item);
+            }
+          });
+          localStorage.setItem(cfg.localKey, JSON.stringify(dsLocal));
+
+          alert(`✅ Đã nạp thành công ${danhSachMoi.length} dòng vào danh mục "${cfg.ten}"!`);
+          await taiDuLieuHienTai();
+          await capNhatTatCaBadges();
+
+        } catch (err) {
+          alert("Lỗi khi đọc file Excel: " + err.message);
+        }
+      };
+
+      reader.readAsArrayBuffer(file);
+      event.target.value = "";
+    }
+
+    // Xuất file Excel dữ liệu danh mục hiện tại
+    function xuatFileExcel() {
+      const cfg = CAU_HINH_DANH_MUC[tabHienTai];
+      if (!duLieuBangHienTai || duLieuBangHienTai.length === 0) {
+        alert("Danh mục hiện tại chưa có dữ liệu để xuất!");
+        return;
+      }
+
+      const headersDisplay = cfg.cot.map(c => c.ten);
+      const rowsData = [headersDisplay];
+
+      duLieuBangHienTai.forEach(row => {
+        const rowVals = cfg.cot.map(c => {
+          let val = row[c.id];
+          if (val === null || val === undefined) return "";
+          return val;
+        });
+        rowsData.push(rowVals);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(rowsData);
+      ws['!cols'] = cfg.cot.map(() => ({ wch: 22 }));
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, cfg.ten.substring(0, 31));
+      XLSX.writeFile(wb, `Danh_Muc_${tabHienTai}_${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
+
+    khoiTaoTrang();
+  </script>
+</body>
+</html>
