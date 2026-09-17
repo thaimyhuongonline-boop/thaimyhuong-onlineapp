@@ -991,7 +991,7 @@
       document.getElementById('modalSuaDot').style.display = 'none';
     }
 
-    function luuSuaDot() {
+    async function luuSuaDot() {
       const idx = Number(document.getElementById('editDotIndex').value);
       if (idx < 0 || idx >= lichSuDot.length) return;
 
