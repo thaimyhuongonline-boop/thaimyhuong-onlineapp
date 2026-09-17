@@ -351,31 +351,25 @@
         danhSachFileDaNap = [];
       }
 
-      // Khôi phục file đang chọn hoặc chuyển đổi từ cache cũ
+      // Khôi phục file đang chọn
       fileDangChonId = localStorage.getItem("tmh_kiotviet_selected_id") || null;
-
-      // Nếu chưa có danh sách file nhưng có dữ liệu cũ trong localStorage, tự động chuyển đổi
-      if (danhSachFileDaNap.length === 0) {
-        const oldCache = localStorage.getItem("tmh_kiotviet_data");
-        if (oldCache) {
-          try {
-            const oldData = JSON.parse(oldCache);
-            if (Array.isArray(oldData) && oldData.length > 0) {
-              const oldName = localStorage.getItem("tmh_kiotviet_filename") || "File_KiotViet_Truoc.xlsx";
-              const fileObj = taoDoiTuongFile(oldName, oldData);
-              danhSachFileDaNap.push(fileObj);
-              fileDangChonId = fileObj.id;
-              luuDanhSachFile();
-            }
-          } catch (e) {}
-        }
-      }
 
       if (danhSachFileDaNap.length > 0) {
         if (!fileDangChonId || !danhSachFileDaNap.some(f => f.id === fileDangChonId)) {
           fileDangChonId = danhSachFileDaNap[0].id;
         }
         await chonFileDeXuatB2(fileDangChonId, false);
+      } else {
+        fileDangChonId = null;
+        duLieuKiotViet = [];
+        const cardDanhSach = document.getElementById('cardDanhSachFile');
+        if (cardDanhSach) cardDanhSach.style.display = 'none';
+        const kpiGrid = document.getElementById('kpiGrid');
+        if (kpiGrid) kpiGrid.style.display = 'none';
+        const actionBar = document.getElementById('actionBar');
+        if (actionBar) actionBar.style.display = 'none';
+        const previewWrap = document.getElementById('previewWrap');
+        if (previewWrap) previewWrap.style.display = 'none';
       }
 
       // Kéo thả một hoặc nhiều file
@@ -730,6 +724,23 @@
         alert("Kho lưu tạm hiện chưa có dữ liệu. Vui lòng nạp file KiotViet trước!");
         return;
       }
+
+      // 1. Lưu trữ dữ liệu file đang chọn sang bộ nhớ dùng chung cho Bước 2
+      localStorage.setItem("tmh_kiotviet_data", JSON.stringify(duLieuKiotViet));
+      sessionStorage.setItem("tmh_kiotviet_data", JSON.stringify(duLieuKiotViet));
+      const fileChon = danhSachFileDaNap.find(f => f.id === fileDangChonId);
+      if (fileChon) {
+        localStorage.setItem("tmh_kiotviet_filename", fileChon.tenFile);
+        sessionStorage.setItem("tmh_kiotviet_filename", fileChon.tenFile);
+      }
+
+      // 2. YÊU CẦU: Dữ liệu được chọn rồi sau khi đẩy qua bước 2 sẽ xoá ở bộ nhớ tạm
+      if (fileDangChonId) {
+        danhSachFileDaNap = danhSachFileDaNap.filter(f => f.id !== fileDangChonId);
+        luuDanhSachFile();
+        localStorage.removeItem("tmh_kiotviet_selected_id");
+      }
+
       window.location.href = "buoc2_phieu_xuat_kho.html";
     }
 
@@ -985,7 +996,7 @@
 
     // Xóa kho dữ liệu tạm nếu người dùng muốn làm mới toàn bộ
     function xoaDuLieuTam() {
-      if (!duLieuKiotViet || duLieuKiotViet.length === 0) {
+      if ((!duLieuKiotViet || duLieuKiotViet.length === 0) && (!danhSachFileDaNap || danhSachFileDaNap.length === 0)) {
         alert("Kho lưu tạm hiện đang trống!");
         return;
       }
@@ -993,11 +1004,18 @@
         return;
       }
       duLieuKiotViet = [];
+      danhSachFileDaNap = [];
+      fileDangChonId = null;
+      localStorage.removeItem("tmh_danh_sach_file_kiot");
+      localStorage.removeItem("tmh_kiotviet_selected_id");
       localStorage.removeItem("tmh_kiotviet_data");
+      localStorage.removeItem("tmh_kiotviet_filename");
       localStorage.removeItem("tmh_kiotviet_filenames");
       sessionStorage.removeItem("tmh_kiotviet_data");
       sessionStorage.removeItem("tmh_kiotviet_filename");
 
+      const cardDanhSach = document.getElementById('cardDanhSachFile');
+      if (cardDanhSach) cardDanhSach.style.display = 'none';
       document.getElementById('thongTinFile').innerHTML = '<span style="color:#64748b;">Đã làm trống kho dữ liệu tạm. Vui lòng nạp file Excel mới.</span>';
       document.getElementById('kpiGrid').style.display = 'none';
       document.getElementById('actionBar').style.display = 'none';
