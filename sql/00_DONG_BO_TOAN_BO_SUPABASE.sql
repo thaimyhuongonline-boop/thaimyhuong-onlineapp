@@ -240,6 +240,93 @@ CREATE TABLE IF NOT EXISTS public.nv_kinh_doanh (
     ghi_chu TEXT
 );
 
+-- Bảng Hàng Hóa & Quy Cách
+CREATE TABLE IF NOT EXISTS public.hang_hoa (
+    ma_hang VARCHAR(100) PRIMARY KEY,
+    ten_hang TEXT NOT NULL,
+    dvt VARCHAR(50) DEFAULT 'Thùng',
+    quy_cach NUMERIC DEFAULT 1,
+    gia_ban NUMERIC DEFAULT 0,
+    ghi_chu TEXT,
+    tao_luc TIMESTAMPTZ DEFAULT NOW(),
+    cap_nhat_luc TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.hang_hoa ADD COLUMN IF NOT EXISTS dvt VARCHAR(50) DEFAULT 'Thùng';
+ALTER TABLE public.hang_hoa ADD COLUMN IF NOT EXISTS quy_cach NUMERIC DEFAULT 1;
+ALTER TABLE public.hang_hoa ADD COLUMN IF NOT EXISTS gia_ban NUMERIC DEFAULT 0;
+ALTER TABLE public.hang_hoa ADD COLUMN IF NOT EXISTS ghi_chu TEXT;
+ALTER TABLE public.hang_hoa ADD COLUMN IF NOT EXISTS tao_luc TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE public.hang_hoa ADD COLUMN IF NOT EXISTS cap_nhat_luc TIMESTAMPTZ DEFAULT NOW();
+
+-- Bảng Khách Hàng
+CREATE TABLE IF NOT EXISTS public.khach_hang (
+    ma_kh VARCHAR(100) PRIMARY KEY,
+    ten_kh TEXT NOT NULL,
+    dia_chi TEXT,
+    dien_thoai VARCHAR(50),
+    khu_vuc VARCHAR(150),
+    ma_so_thue VARCHAR(50),
+    nguoi_tao VARCHAR(100),
+    ghi_chu TEXT,
+    tao_luc TIMESTAMPTZ DEFAULT NOW(),
+    cap_nhat_luc TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.khach_hang ADD COLUMN IF NOT EXISTS dia_chi TEXT;
+ALTER TABLE public.khach_hang ADD COLUMN IF NOT EXISTS dien_thoai VARCHAR(50);
+ALTER TABLE public.khach_hang ADD COLUMN IF NOT EXISTS khu_vuc VARCHAR(150);
+ALTER TABLE public.khach_hang ADD COLUMN IF NOT EXISTS ma_so_thue VARCHAR(50);
+ALTER TABLE public.khach_hang ADD COLUMN IF NOT EXISTS nguoi_tao VARCHAR(100);
+ALTER TABLE public.khach_hang ADD COLUMN IF NOT EXISTS ghi_chu TEXT;
+ALTER TABLE public.khach_hang ADD COLUMN IF NOT EXISTS tao_luc TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE public.khach_hang ADD COLUMN IF NOT EXISTS cap_nhat_luc TIMESTAMPTZ DEFAULT NOW();
+
+-- Bảng Định Khoản Hàng Hóa (Xuất MISA)
+CREATE TABLE IF NOT EXISTS public.dinh_khoan_hang_hoa (
+    ma_hang VARCHAR(100) PRIMARY KEY,
+    ten_hang TEXT,
+    thue_suat NUMERIC DEFAULT 10,
+    tk_doanh_thu VARCHAR(20) DEFAULT '5111',
+    tk_gia_von VARCHAR(20) DEFAULT '632',
+    ma_kho VARCHAR(50) DEFAULT 'KHO01',
+    tk_kho VARCHAR(20) DEFAULT '1561',
+    tk_chi_phi VARCHAR(20) DEFAULT '641',
+    tao_luc TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Bảng Danh Sách Xe
+CREATE TABLE IF NOT EXISTS public.danh_sach_xe (
+    ma_xe VARCHAR(50) PRIMARY KEY,
+    bien_so VARCHAR(50),
+    loai_xe VARCHAR(100),
+    tai_xe_mac_dinh VARCHAR(100),
+    ghi_chu TEXT
+);
+
+INSERT INTO public.danh_sach_xe (ma_xe, bien_so, loai_xe, tai_xe_mac_dinh, ghi_chu)
+VALUES
+('XE01', '', 'HĐ1 SÁNG', 'SINH', 'HĐ1 SÁNG'),
+('XE02', '', 'HĐ2 SÁNG', 'HẢI', 'HĐ2 SÁNG'),
+('XE03', '', 'HĐ3 SÁNG', 'ĐẠT', 'HĐ3 SÁNG'),
+('XE04', '', 'HĐ1 CHIỀU', 'SINH', 'HĐ1 CHIỀU'),
+('XE05', '', 'HĐ2 CHIỀU', 'HẢI', 'HĐ2 CHIỀU'),
+('XE06', '', 'HĐ3 CHIỀU', 'ĐẠT', 'HĐ3 CHIỀU'),
+('XE07', '', 'THUÊ SÁNG', '', 'THUÊ SÁNG'),
+('XE08', '', 'THUÊ CHIỀU', '', 'THUÊ CHIỀU'),
+('XE09', '', 'ĐEN SÁNG', '', 'ĐEN SÁNG'),
+('XE10', '', 'ĐEN CHIỀU', '', 'ĐEN CHIỀU'),
+('XE11', '', 'ĐỎ SÁNG', '', 'ĐỎ SÁNG'),
+('XE12', '', 'ĐỎ CHIỀU', '', 'ĐỎ CHIỀU'),
+('XE13', '', 'XANH SÁNG', '', 'XANH SÁNG'),
+('XE14', '', 'XANH CHIỀU', '', 'XANH CHIỀU'),
+('XE15', '', 'NGUYEN NISSIN', '', 'NGUYEN NISSIN'),
+('XE16', '', 'NGHĨA NS', '', 'NGHĨA NS'),
+('XE17', '', 'VY EM NS', '', 'VY EM NS'),
+('XE18', '', 'VŨ', '', 'VŨ'),
+('XE19', '', 'NGUYỆT', '', 'NGUYỆT'),
+('XE20', '', 'NAM', '', 'NAM')
+ON CONFLICT (ma_xe) DO UPDATE 
+SET loai_xe = EXCLUDED.loai_xe, tai_xe_mac_dinh = EXCLUDED.tai_xe_mac_dinh, ghi_chu = EXCLUDED.ghi_chu;
+
 -- ----------------------------------------------------------------------------
 -- 9. BẬT ROW LEVEL SECURITY (RLS) VÀ CẤP TOÀN QUYỀN ĐỌC/GHI/SỬA/XÓA
 -- ----------------------------------------------------------------------------

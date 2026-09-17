@@ -958,8 +958,13 @@
 
           if (typeof sb !== 'undefined') {
             try {
-              // Dùng insert thay vì upsert để bảo đảm không đè dữ liệu cũ
-              await sb.from('hang_hoa').insert(danhSachHangMoi);
+              // Gửi các trường tương thích để tránh lỗi PGRST204 thiếu cột trên Supabase
+              const dsHangSb = danhSachHangMoi.map(h => ({
+                ma_hang: h.ma_hang,
+                ten_hang: h.ten_hang,
+                quy_cach: h.quy_cach
+              }));
+              await sb.from('hang_hoa').insert(dsHangSb);
             } catch (errSupabase) {
               console.warn("Lỗi insert hàng hóa mới lên Supabase:", errSupabase);
             }

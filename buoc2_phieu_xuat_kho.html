@@ -1328,18 +1328,78 @@
     }
 
     async function taiDanhMucQuyCach() {
+      // 1. Đọc từ LocalStorage của Danh mục Hàng hóa trước
       try {
-        const { data } = await sb.from('hang_hoa').select('ma_hang, quy_cach');
-        if (data && data.length > 0) {
-          data.forEach(h => {
-            if (h.ma_hang && h.quy_cach) {
+        const localHang = JSON.parse(localStorage.getItem('tmh_danh_muc_hang_hoa') || '[]');
+        if (Array.isArray(localHang)) {
+          localHang.forEach(h => {
+            if (h.ma_hang && h.quy_cach && Number(h.quy_cach) > 0) {
               mapQuyCach.set(String(h.ma_hang).trim().toUpperCase(), Number(h.quy_cach));
             }
           });
         }
+      } catch (e) {}
+
+      // 2. Tải và đồng bộ quy cách từ Supabase
+      try {
+        if (typeof sb !== 'undefined') {
+          const { data, error } = await sb.from('hang_hoa').select('ma_hang, quy_cach');
+          if (!error && data && data.length > 0) {
+            data.forEach(h => {
+              if (h.ma_hang && h.quy_cach && Number(h.quy_cach) > 0) {
+                mapQuyCach.set(String(h.ma_hang).trim().toUpperCase(), Number(h.quy_cach));
+              }
+            });
+          }
+        }
       } catch (e) {
-        console.warn("Chưa tải được quy cách:", e);
+        console.warn("Chưa tải được quy cách từ Supabase:", e);
       }
+    }
+
+    // Sửa nhanh quy cách đóng gói trực tiếp trên bảng Bước 2
+    async function suaQuyCachNhanh(maHang, quyCachHienTai) {
+      const mh = String(maHang).trim().toUpperCase();
+      const input = prompt(`Nhập quy cách đóng gói mới (số lượng / thùng) cho mã hàng [${mh}]:`, quyCachHienTai || 1);
+      if (input === null) return;
+
+      const raw = String(input).trim().replace(',', '.');
+      const newQc = parseFloat(raw);
+      if (isNaN(newQc) || newQc <= 0) {
+        alert("⚠️ Quy cách không hợp lệ! Vui lòng nhập số dương lớn hơn 0.");
+        return;
+      }
+
+      // 1. Cập nhật Map bộ nhớ hiện tại
+      mapQuyCach.set(mh, newQc);
+
+      // 2. Cập nhật LocalStorage tmh_danh_muc_hang_hoa
+      try {
+        let dsHang = JSON.parse(localStorage.getItem('tmh_danh_muc_hang_hoa') || '[]');
+        const idx = dsHang.findIndex(x => String(x.ma_hang).trim().toUpperCase() === mh);
+        if (idx >= 0) {
+          dsHang[idx].quy_cach = newQc;
+        } else {
+          dsHang.push({ ma_hang: mh, ten_hang: mh, dvt: 'Thùng', quy_cach: newQc });
+        }
+        localStorage.setItem('tmh_danh_muc_hang_hoa', JSON.stringify(dsHang));
+      } catch (e) {}
+
+      // 3. Cập nhật Supabase hang_hoa (chỉ gửi ma_hang, quy_cach để tương thích 100% schema)
+      try {
+        if (typeof sb !== 'undefined') {
+          await sb.from('hang_hoa').upsert({ ma_hang: mh, quy_cach: newQc });
+        }
+      } catch (e) {
+        console.warn("Lỗi cập nhật quy cách lên Supabase:", e);
+      }
+
+      // 4. Vẽ lại bảng PXK ngay lập tức với số kiện Chẵn/Lẻ mới
+      if (window.dongKiotVietHienTaiChoPXK) {
+        taoPhieuXuatKhoTongHop(window.dongKiotVietHienTaiChoPXK);
+      }
+
+      alert(`✅ Đã cập nhật quy cách mã "${mh}" = ${newQc} và tính lại số kiện Chẵn/Lẻ!`);
     }
 
     async function trichXuatDanhSachHoaDon() {
@@ -1953,6 +2013,7 @@
     // - Dòng Banner chứng từ & HĐ GTGT (#d9e1f2) ở dưới cùng
     // ========================================================
     function taoPhieuXuatKhoTongHop(dongKiotViet) {
+      window.dongKiotVietHienTaiChoPXK = dongKiotViet;
       const mapHangHoa = new Map();
 
       // YÊU CẦU 5: Tự động ghép chi tiết hàng hóa của đợt lưu trữ cũ nếu có
@@ -2070,7 +2131,7 @@
           <td class="text-center">${stt++}</td>
           <td class="text-bold">${h.maHang}</td>
           <td>${h.tenHang}</td>
-          <td class="text-center" style="white-space:nowrap;">${qc}</td>
+          <td class="text-center" style="white-space:nowrap; cursor:pointer;" title="Bấm để sửa nhanh quy cách" onclick="suaQuyCachNhanh('${h.maHang}', ${qc})"><span style="color:#0284c7; font-weight:700; text-decoration:underline;">${qc}</span> ✏️</td>
           <td class="text-center" style="white-space:nowrap;">${h.dvt}</td>
           <td class="text-center text-bold" style="white-space:nowrap;">${h.tongSL}</td>
           <td class="text-center" style="white-space:nowrap;">${chan}</td>
