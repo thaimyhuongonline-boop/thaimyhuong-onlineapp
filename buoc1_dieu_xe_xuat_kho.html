@@ -454,11 +454,14 @@
         <h1 class="tmh-page-header-title"><span>📊</span> Bước 1: Nạp Excel, Điều Động Xe & Tạo PXK</h1>
         <p class="tmh-page-header-sub">Kéo thả file Excel KiotViet, tự động cập nhật danh mục, chia đơn theo chuyến xe và tạo Phiếu Xuất Kho, Bảng Kê Thu Tiền.</p>
       </div>
-      <div style="display:flex; gap:8px;">
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
         <label class="btn btn-primary" style="cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:6px;" title="Nạp hoặc ghép bổ sung file Excel KiotViet">
           <span>📂</span> Nạp / Ghép File Excel
           <input type="file" id="fileExcelNhanhBuoc2" accept=".xlsx,.xls" multiple style="display:none;" onchange="napNhanhFileExcelBuoc2(this)">
         </label>
+        <button type="button" class="btn btn-outline" onclick="moModalXemLaiChuyenXe()" style="font-weight:700; color:#1d4ed8; border-color:#93c5fd; background:#eff6ff;" title="Xem lại Phiếu xuất kho và Danh sách thu tiền của các chuyến xe đã làm">
+          <span>🕒</span> Xem Lại Biểu Mẫu Đã Làm
+        </button>
         <a href="danh_muc.html" class="btn btn-outline" style="text-decoration:none;">
           <span>📚</span> Xem Danh Mục
         </a>
@@ -582,6 +585,17 @@
       <!-- CỘT PHẢI: XEM TRƯỚC 2 BIỂU MẪU & XUẤT FILE -->
       <div class="preview-card">
         
+        <!-- Thanh thông báo đang xem lại biểu mẫu cũ -->
+        <div id="bannerDangXemLai" style="display:none; background:#eff6ff; border-bottom:1px solid #bfdbfe; padding:8px 14px; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:#1e40af;">
+            <span style="font-size:16px;">📌</span>
+            <span>Đang xem lại biểu mẫu: <b id="lblDangXemLaiDot">--</b></span>
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="thoatCheDoXemLai()" style="background:#ffffff; border-color:#93c5fd; color:#1d4ed8; font-weight:700; height:28px; padding:0 10px;">
+            ✖️ Thoát Xem Lại
+          </button>
+        </div>
+
         <div class="preview-toolbar">
           <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
             <div class="tab-group">
@@ -753,6 +767,27 @@
         </div>
         <div style="padding:10px 18px; border-top:1px solid var(--border-color); background:#f8fafc; display:flex; justify-content:flex-end;">
           <button type="button" class="btn btn-outline btn-sm" onclick="dongQuanLyDanhMuc()">Đóng</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL XEM LẠI BIỂU MẪU ĐÃ LÀM (PHIẾU XUẤT KHO & DANH SÁCH THU TIỀN) -->
+    <div id="modalXemLaiBieuMau" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:99999; align-items:center; justify-content:center; backdrop-filter:blur(2px);">
+      <div style="background:#ffffff; border-radius:var(--radius-md); width:720px; max-width:94vw; box-shadow:var(--shadow-lg); border:1px solid var(--border-color); overflow:hidden; display:flex; flex-direction:column; max-height:85vh;">
+        <div style="padding:14px 18px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:#f8fafc;">
+          <h4 style="margin:0; font-size:14.5px; font-weight:800; color:var(--text-main); display:flex; align-items:center; gap:6px;">
+            <span>🕒</span> Danh Sách Chuyến Xe & Biểu Mẫu Đã Lập
+          </h4>
+          <button type="button" onclick="dongModalXemLaiChuyenXe()" style="border:none; background:transparent; font-size:20px; cursor:pointer; color:var(--text-muted);">&times;</button>
+        </div>
+        <div style="padding:8px 18px; background:#f1f5f9; border-bottom:1px solid var(--border-subtle); font-size:12px; color:var(--text-muted);">
+          Chọn một chuyến xe bên dưới để mở lại Phiếu Xuất Kho (Mẫu 2) và Bảng Kê Thu Tiền (Mẫu 1) để xem lại, in A4 hoặc xuất Excel:
+        </div>
+        <div id="danhSachChuyenXeDaLam" style="padding:14px 18px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:10px;">
+          <!-- Render bằng JS -->
+        </div>
+        <div style="padding:10px 18px; border-top:1px solid var(--border-color); background:#f8fafc; display:flex; justify-content:flex-end;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="dongModalXemLaiChuyenXe()">Đóng</button>
         </div>
       </div>
     </div>
@@ -1357,6 +1392,178 @@
     }
 
     // ========================================================
+    // XEM LẠI BIỂU MẪU ĐÃ LÀM (PHIẾU XUẤT KHO & BẢNG KÊ THU TIỀN)
+    // ========================================================
+
+    function moModalXemLaiChuyenXe() {
+      const modal = document.getElementById('modalXemLaiBieuMau');
+      const container = document.getElementById('danhSachChuyenXeDaLam');
+      modal.style.display = 'flex';
+
+      let lichSu = [];
+      try {
+        lichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
+      } catch(e) {}
+
+      if (lichSu.length === 0) {
+        container.innerHTML = `
+          <div style="padding:40px 20px; text-align:center; color:var(--text-muted);">
+            <div style="font-size:32px; margin-bottom:8px;">📭</div>
+            <div style="font-weight:700; font-size:14px; color:var(--text-main);">Chưa có chuyến xe nào được lưu trong hệ thống.</div>
+            <div style="font-size:12px; margin-top:4px;">Khi bạn chọn xe và bấm "Lưu Chuyến Xe", dữ liệu sẽ được lưu lại để bạn có thể mở xem lại, in A4 hoặc xuất Excel bất cứ lúc nào.</div>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = '';
+      lichSu.forEach(dot => {
+        const item = document.createElement('div');
+        item.style.cssText = "background:#ffffff; border:1px solid var(--border-color); border-radius:6px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center; gap:12px; transition:all 0.2s;";
+        item.onmouseenter = () => item.style.borderColor = "var(--primary)";
+        item.onmouseleave = () => item.style.borderColor = "var(--border-color)";
+
+        const daQT = dot.daQuyetToan ? `<span style="color:#16a34a; font-weight:700;">✅ Đã quyết toán Bước 2</span>` : `<span style="color:#ea580c; font-weight:700;">⏳ Chờ tính tiền</span>`;
+        const soHD = dot.soLuongHD || (dot.danhSachHD && dot.danhSachHD.length) || 0;
+        const tongTien = dot.tongTien || 0;
+
+        item.innerHTML = `
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px; flex-wrap:wrap;">
+              <span style="font-size:14px; font-weight:800; color:var(--text-main);">🚚 ${dot.xe}</span>
+              <span style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:700; color:#475569;">📅 ${dot.ngayGiao || dot.ngayRaw || 'Hôm nay'}</span>
+              <span style="font-size:11px;">${daQT}</span>
+            </div>
+            <div style="font-size:12px; color:var(--text-muted); display:flex; gap:12px; flex-wrap:wrap;">
+              <span>👤 Tài xế: <b>${dot.taiXe || 'Chưa rõ'}</b></span>
+              <span>📦 Số hóa đơn: <b>${soHD} HĐ</b></span>
+              <span>💰 Tổng tiền: <b style="color:#16a34a;">${formatTien(tongTien)} đ</b></span>
+              ${dot.nvGiao ? `<span>Lơ xe: ${dot.nvGiao}</span>` : ''}
+            </div>
+          </div>
+          <div style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
+            <button type="button" class="btn btn-primary btn-sm" onclick="xemLaiMotChuyenXe('${dot.maDot}')" title="Mở lại biểu mẫu Phiếu xuất kho và Bảng kê thu tiền của chuyến xe này">
+              <span>👁️</span> Xem Biểu Mẫu
+            </button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="xoaMotChuyenXeKhoiLichSu('${dot.maDot}')" style="color:#dc2626; border-color:#fca5a5;" title="Xóa chuyến xe này khỏi lịch sử">
+              <span>🗑️</span>
+            </button>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function dongModalXemLaiChuyenXe() {
+      document.getElementById('modalXemLaiBieuMau').style.display = 'none';
+    }
+
+    let duLieuTamTruocKhiXemLai = null;
+
+    function xemLaiMotChuyenXe(maDot) {
+      dongModalXemLaiChuyenXe();
+
+      let lichSu = [];
+      try {
+        lichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
+      } catch(e) {}
+
+      const dot = lichSu.find(d => d.maDot === maDot);
+      if (!dot) {
+        alert("Không tìm thấy dữ liệu của chuyến xe này!");
+        return;
+      }
+
+      // Lưu tạm trạng thái hiện tại nếu chưa lưu
+      if (!duLieuTamTruocKhiXemLai) {
+        duLieuTamTruocKhiXemLai = {
+          danhSachHoaDon: [...danhSachHoaDon],
+          duLieuKiotViet: [...duLieuKiotViet]
+        };
+      }
+
+      // Điền thông tin xe và nhân sự
+      if (dot.xe) document.getElementById('xeVanChuyen').value = dot.xe;
+      if (dot.taiXe) document.getElementById('taiXe').value = dot.taiXe;
+      if (dot.nvGiao) document.getElementById('nvGiaoHang').value = dot.nvGiao;
+      if (dot.nvThu) document.getElementById('nvThuTien').value = dot.nvThu;
+      if (dot.ngayRaw) document.getElementById('ngayGiaoHang').value = dot.ngayRaw;
+
+      // Nạp chi tiết hàng hóa KiotViet của đợt này
+      if (Array.isArray(dot.cacDongChiTietKiotViet) && dot.cacDongChiTietKiotViet.length > 0) {
+        duLieuKiotViet = dot.cacDongChiTietKiotViet;
+      }
+
+      // Nạp danh sách hóa đơn
+      if (Array.isArray(dot.danhSachChiTiet) && dot.danhSachChiTiet.length > 0) {
+        danhSachHoaDon = dot.danhSachChiTiet.map(item => ({
+          maHD: item.maHD || item.ma_hd || '',
+          tenKH: item.tenKH || item.ten_kh || 'Khách Lẻ',
+          tongTien: parseFloat(item.thanhTien || item.thanh_tien || 0),
+          chon: true,
+          laGiaoLai: !!item.laGiaoLai
+        }));
+      } else if (Array.isArray(dot.danhSachHD)) {
+        danhSachHoaDon = dot.danhSachHD.map(m => ({
+          maHD: m,
+          tenKH: 'Khách hàng',
+          tongTien: 0,
+          chon: true
+        }));
+      }
+
+      veDanhSachCheckboxHD();
+      chayTaoPhieu();
+
+      // Hiển thị banner đang xem lại
+      const banner = document.getElementById('bannerDangXemLai');
+      if (banner) {
+        banner.style.display = 'flex';
+        document.getElementById('lblDangXemLaiDot').textContent = `${dot.xe} (${dot.ngayGiao || 'Hôm nay'}) — Tài xế: ${dot.taiXe} (${danhSachHoaDon.length} HĐ)`;
+      }
+
+      hienThiToast(`👁️ Đang xem lại biểu mẫu chuyến xe "${dot.xe}"! Bạn có thể In A4 hoặc Xuất Excel.`);
+    }
+
+    function thoatCheDoXemLai() {
+      const banner = document.getElementById('bannerDangXemLai');
+      if (banner) banner.style.display = 'none';
+
+      if (duLieuTamTruocKhiXemLai) {
+        danhSachHoaDon = duLieuTamTruocKhiXemLai.danhSachHoaDon || [];
+        duLieuKiotViet = duLieuTamTruocKhiXemLai.duLieuKiotViet || [];
+        duLieuTamTruocKhiXemLai = null;
+      } else {
+        napDuLieuTuBuoc1();
+      }
+
+      veDanhSachCheckboxHD();
+      if (danhSachHoaDon.length > 0 && danhSachHoaDon.some(h => h.chon)) {
+        chayTaoPhieu();
+      } else {
+        document.getElementById('manHinhCho').style.display = 'block';
+        document.getElementById('viewBangKe').style.display = 'none';
+        document.getElementById('viewXuatKho').style.display = 'none';
+        document.getElementById('btnLuuBuoc3').style.display = 'none';
+      }
+
+      hienThiToast("Đã quay lại trạng thái điều xe mới.");
+    }
+
+    function xoaMotChuyenXeKhoiLichSu(maDot) {
+      if (!confirm("Bạn có chắc chắn muốn xóa chuyến xe này khỏi lịch sử lưu trữ?")) return;
+      let lichSu = [];
+      try { lichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]"); } catch(e){}
+      lichSu = lichSu.filter(d => d.maDot !== maDot);
+      localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSu));
+      if (typeof sb !== 'undefined') {
+        sb.from('luu_tru').delete().eq('ma_dot', maDot).then(() => {});
+      }
+      moModalXemLaiChuyenXe(); // Render lại danh sách
+      hienThiToast("🗑️ Đã xóa chuyến xe khỏi lịch sử!");
+    }
+
+    // ========================================================
     // SAO CHÉP 3 CỘT: MÃ HÀNG, CHẴN, LẺ (DÁN EXCEL)
     // ========================================================
     function copy3CotChanLe() {
@@ -1452,6 +1659,33 @@
       napDropdownXe();
       napDropdownNhanSu();
       await napQuyCachHangHoa();
+
+      // Dọn dẹp dữ liệu KiotViet tạm nếu các hóa đơn đã được phân hết vào các chuyến xe đã lưu
+      try {
+        const lichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
+        if (lichSu.length > 0) {
+          const setMaDaLuu = new Set();
+          lichSu.forEach(d => {
+            if (Array.isArray(d.danhSachHD)) d.danhSachHD.forEach(m => setMaDaLuu.add(String(m).trim().toUpperCase()));
+            if (Array.isArray(d.danhSachChiTiet)) d.danhSachChiTiet.forEach(c => setMaDaLuu.add(String(c.maHD || c.ma_hd || '').trim().toUpperCase()));
+          });
+
+          let rawKiot = JSON.parse(localStorage.getItem("tmh_kiotviet_data") || "[]");
+          if (Array.isArray(rawKiot) && rawKiot.length > 0) {
+            // Chỉ giữ lại những hóa đơn THỰC SỰ CHƯA ĐƯỢC CHIA XE
+            const rawMoi = rawKiot.filter(r => !setMaDaLuu.has(String(r['Mã hóa đơn'] || '').trim().toUpperCase()));
+            if (rawMoi.length !== rawKiot.length) {
+              if (rawMoi.length > 0) {
+                localStorage.setItem("tmh_kiotviet_data", JSON.stringify(rawMoi));
+              } else {
+                localStorage.removeItem("tmh_kiotviet_data");
+                localStorage.removeItem("tmh_danh_sach_ten_file");
+              }
+            }
+          }
+        }
+      } catch (e) {}
+
       napDuLieuTuBuoc1();
       kiemTraBannerDonGiaoLai();
 
@@ -1617,45 +1851,27 @@
       veDanhSachCheckboxHD();
     }
 
-    // Kiểm tra đơn giao lại từ lịch sử các đợt lưu trữ (Bước 3 / Supabase)
+    // Kiểm tra đơn giao lại (CHỈ NHỮNG ĐƠN ĐƯỢC XÁC NHẬN HẸN GIAO LẠI TỪ BƯỚC 2)
     function kiemTraDonGiaoLaiChoDanhSachHD() {
-      const mapDonDaLuu = new Map();
+      let dsGL = [];
       try {
-        const lichSuDot = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
-        lichSuDot.forEach(d => {
-          if (Array.isArray(d.danhSachChiTiet)) {
-            d.danhSachChiTiet.forEach(item => {
-              const m = String(item.maHD || item.ma_hd || '').trim().toUpperCase();
-              if (m && !mapDonDaLuu.has(m)) {
-                mapDonDaLuu.set(m, {
-                  maDot: d.maDot,
-                  xe: d.xe,
-                  ngayGiao: d.ngayGiao,
-                  taiXe: d.taiXe
-                });
-              }
-            });
-          } else if (Array.isArray(d.danhSachHD)) {
-            d.danhSachHD.forEach(m => {
-              m = String(m || '').trim().toUpperCase();
-              if (m && !mapDonDaLuu.has(m)) {
-                mapDonDaLuu.set(m, {
-                  maDot: d.maDot,
-                  xe: d.xe,
-                  ngayGiao: d.ngayGiao,
-                  taiXe: d.taiXe
-                });
-              }
-            });
-          }
-        });
+        dsGL = JSON.parse(localStorage.getItem("tmh_danh_sach_cho_giao_lai") || "[]");
       } catch (e) {}
 
+      const mapGL = new Map();
+      dsGL.forEach(item => {
+        const m = String(item.maHD || '').trim().toUpperCase();
+        if (m) mapGL.set(m, item);
+      });
+
       danhSachHoaDon.forEach(h => {
-        const cu = mapDonDaLuu.get(h.maHD.toUpperCase());
-        if (cu) {
+        const gl = mapGL.get(h.maHD.toUpperCase());
+        if (gl) {
           h.laGiaoLai = true;
-          h.thongTinCu = cu;
+          h.thongTinCu = {
+            xe: gl.xeCu || '',
+            ngayGiao: gl.ngayCu || ''
+          };
         } else {
           h.laGiaoLai = false;
         }
@@ -2669,9 +2885,25 @@
         }
       }
 
-      // Đánh dấu các hóa đơn đã điều xe trong bộ nhớ tạm
-      hoaDonDuocChon.forEach(h => { h.daDieuXe = true; });
-      const conLai = danhSachHoaDon.filter(h => !h.daDieuXe);
+      // TỰ ĐỘNG XÓA HÓA ĐƠN ĐÃ ĐIỀU XE KHỎI DANH SÁCH CHỜ (TRÁNH NẰM LẠI GÂY HIỂU LẦM)
+      const setHDChon = new Set(hoaDonDuocChon.map(h => h.maHD.toUpperCase()));
+      duLieuKiotViet = duLieuKiotViet.filter(r => !setHDChon.has(String(r['Mã hóa đơn'] || '').trim().toUpperCase()));
+      danhSachHoaDon = danhSachHoaDon.filter(h => !setHDChon.has(h.maHD.toUpperCase()));
+
+      if (duLieuKiotViet.length > 0) {
+        localStorage.setItem("tmh_kiotviet_data", JSON.stringify(duLieuKiotViet));
+        const badgeEl = document.getElementById('fileInfoBadge');
+        if (badgeEl) {
+          badgeEl.innerHTML = `📄 Dữ liệu còn lại (<b>${danhSachHoaDon.length}</b> HĐ chưa chia xe)`;
+        }
+      } else {
+        localStorage.removeItem("tmh_kiotviet_data");
+        localStorage.removeItem("tmh_danh_sach_ten_file");
+        const badgeEl = document.getElementById('fileInfoBadge');
+        if (badgeEl) badgeEl.style.display = 'none';
+      }
+
+      veDanhSachCheckboxHD();
 
       let thongBao = `💾 Đã lưu thành công đợt điều động "${maDot}"!\n\n` +
             `• Xe: ${xe}\n` +
@@ -2682,12 +2914,11 @@
         thongBao += `• Đã tự động đồng bộ ${soDonGiaoLai} đơn giao lại với kho lưu trữ Bước 3!\n`;
       }
 
-      if (conLai.length > 0) {
-        const tiepTuc = confirm(thongBao + `\n📌 Vẫn còn ${conLai.length} hóa đơn chưa chia xe.\n\n` +
+      if (danhSachHoaDon.length > 0) {
+        const tiepTuc = confirm(thongBao + `\n📌 Vẫn còn ${danhSachHoaDon.length} hóa đơn chưa chia xe.\n\n` +
           `• Bấm [OK] để TIẾP TỤC ĐIỀU XE TIẾP THEO cho các đơn còn lại.\n` +
           `• Bấm [Hủy / Cancel] để chuyển ngay sang Bước 2 (Quyết toán thu tiền khi xe về).`);
         if (tiepTuc) {
-          danhSachHoaDon = conLai;
           chonTatCaHD(true);
           chayTaoPhieu();
           return;
