@@ -12,32 +12,32 @@
        CSS CHUYÊN BIỆT CHO TRANG QUẢN LÝ TÀI KHOẢN & PHÂN QUYỀN
        ========================================================================== */
     .acc-header-banner {
-      background: linear-gradient(135deg, #184e36 0%, #236446 60%, #2d7e59 100%);
-      color: #ffffff;
-      border-radius: var(--radius-lg);
-      padding: 24px 28px;
-      margin-bottom: 24px;
-      box-shadow: 0 8px 24px rgba(35, 100, 70, 0.15);
+      background: #ffffff;
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      margin-bottom: 18px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 20px;
+      gap: 16px;
       flex-wrap: wrap;
     }
     .acc-banner-info h1 {
-      font-size: 22px;
+      font-size: 18px;
       font-weight: 800;
-      letter-spacing: -0.3px;
-      margin-bottom: 6px;
+      color: var(--text-main);
+      margin-bottom: 4px;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
     .acc-banner-info p {
-      font-size: 13.5px;
-      opacity: 0.9;
+      font-size: 13px;
+      color: var(--text-muted);
       max-width: 680px;
-      line-height: 1.5;
+      line-height: 1.45;
     }
 
     /* Thống kê 4 thẻ */
@@ -601,11 +601,11 @@
     <!-- Header Banner -->
     <div class="acc-header-banner">
       <div class="acc-banner-info">
-        <h1>🛡️ Quản Lý Tài Khoản & Phân Quyền</h1>
+        <h1><span>🛡️</span> Quản Lý Tài Khoản & Phân Quyền</h1>
         <p>Hệ thống thiết lập danh sách nhân viên công ty Thái Mỹ Hương (ID đăng nhập bằng Số điện thoại), phân loại 3 cấp độ tài khoản và ma trận quyền hạn cho từng bước nghiệp vụ.</p>
       </div>
       <div>
-        <button type="button" class="acc-btn acc-btn-primary" id="btnMoModalThem" onclick="moModalThemMoi()" style="background: #ffffff; color: var(--primary); font-weight: 800; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+        <button type="button" class="acc-btn acc-btn-primary" id="btnMoModalThem" onclick="moModalThemMoi()">
           <span>➕</span>
           <span>Thêm Tài Khoản Mới</span>
         </button>

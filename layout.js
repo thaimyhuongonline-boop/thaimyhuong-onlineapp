@@ -16,6 +16,7 @@ const DANH_SACH_7_BUOC = [
 
 // Danh sách Menu chính trên Sidebar
 const MENU_CHINH = [
+  { id: "tongquan", href: "trang_chu.html", ic: "🧭", label: "Tổng quan Quy trình", desc: "Trung tâm điều phối 7 bước KiotViet ➡ MISA", roles: ["admin", "quanly", "nhanvien"] },
   { id: "quytrinh", href: "buoc1_upload.html", ic: "🔄", label: "Quy trình Bán hàng ➡ MISA", isProcess: true, desc: "Quy trình 7 bước từ KiotViet sang MISA", roles: ["admin", "quanly", "nhanvien"] },
   { id: "danhmuc", href: "danh_muc.html", ic: "📚", label: "Danh Mục", desc: "Hàng hoá, Khách hàng, Xe, Ngân hàng, Nhân sự...", roles: ["admin", "quanly", "nhanvien"] },
   { id: "taikhoan", href: "quan_ly_taikhoan.html", ic: "🛡️", label: "Tài khoản & Phân quyền", desc: "Quản lý nhân viên & ma trận phân quyền", roles: ["admin"] }
@@ -71,7 +72,7 @@ async function khoiTaoLayout(options = {}) {
     <aside class="tmh-sidebar" id="tmhSidebar">
       <!-- Header Sidebar -->
       <div class="tmh-sidebar-header">
-        <a href="buoc1_upload.html" class="tmh-brand-wrap">
+        <a href="trang_chu.html" class="tmh-brand-wrap">
           <div class="tmh-brand-logo">
             <img src="logo.png" alt="Logo Thái Mỹ Hương">
           </div>
@@ -160,7 +161,7 @@ async function khoiTaoLayout(options = {}) {
           </svg>
         </button>
         <div class="tmh-topbar-breadcrumb">
-          <a href="buoc1_upload.html">🏠 Thái Mỹ Hương</a>
+          <a href="trang_chu.html">🏠 Thái Mỹ Hương</a>
           <span>/</span>
           <span>${breadcrumb}</span>
           <span>/</span>
@@ -204,12 +205,11 @@ async function khoiTaoLayout(options = {}) {
       <div class="tmh-stepper-wrap">
         <div class="tmh-stepper-header">
           <div class="tmh-stepper-title">
-            <span>🔄</span>
-            <span>7 BƯỚC QUY TRÌNH CHUYỂN DỮ LIỆU: KIOTVIET ➡ MISA</span>
+            <span>🔄 Quy trình 7 bước KiotViet ➡ MISA</span>
           </div>
-          <div class="tmh-stepper-sub">
-            Chọn bước để chuyển đổi liên hoàn trong quy trình xử lý
-          </div>
+          <a href="trang_chu.html" class="tmh-stepper-sub" style="text-decoration:none; color:var(--primary); font-weight:700;">
+            ← Xem toàn bộ quy trình
+          </a>
         </div>
         <div class="tmh-stepper-track">
           ${DANH_SACH_7_BUOC.map((b, idx) => {
@@ -219,7 +219,7 @@ async function khoiTaoLayout(options = {}) {
                 <span class="tmh-stepper-num">${idx + 1}</span>
                 <span>${b.label}</span>
               </a>
-              ${idx < DANH_SACH_7_BUOC.length - 1 ? '<span class="tmh-stepper-arrow">➡</span>' : ''}
+              ${idx < DANH_SACH_7_BUOC.length - 1 ? '<span class="tmh-stepper-arrow">›</span>' : ''}
             `;
           }).join('')}
         </div>

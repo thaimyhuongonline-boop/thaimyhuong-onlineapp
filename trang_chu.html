@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trung Tâm Quy Trình 7 Bước — CÔNG TY TNHH THÁI MỸ HƯƠNG</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <link rel="stylesheet" href="layout.css">
+  <style>
+    /* Phong cách tối giản, tinh gọn cho Dashboard Trung tâm Quy trình */
+    .pipeline-summary {
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .pipeline-summary-text h1 {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .pipeline-summary-text p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+    .pipeline-quick-stats {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .quick-stat-badge {
+      padding: 6px 12px;
+      background: #f8fafc;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .quick-stat-badge b {
+      color: var(--primary);
+    }
+
+    /* Danh sách các bước tuần tự */
+    .pipeline-steps-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .pipeline-step-card {
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      display: grid;
+      grid-template-columns: 48px 1fr auto;
+      align-items: center;
+      gap: 16px;
+      transition: var(--transition);
+      position: relative;
+    }
+    .pipeline-step-card:hover {
+      border-color: #cbd5e1;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .step-badge-num {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background: #f1f5f9;
+      color: #334155;
+      font-size: 15px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border-color);
+    }
+    .step-badge-num.active-step {
+      background: var(--primary-light);
+      color: var(--primary);
+      border-color: #bbf7d0;
+    }
+
+    .step-content {
+      min-width: 0;
+    }
+    .step-header-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 4px;
+      flex-wrap: wrap;
+    }
+    .step-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+    .step-tag {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      background: #f1f5f9;
+      color: #475569;
+    }
+    .step-tag.green {
+      background: #dcfce7;
+      color: #15803d;
+    }
+    .step-tag.amber {
+      background: #fef3c7;
+      color: #b45309;
+    }
+    .step-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    .step-action {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Khối phụ trợ (Danh mục & Tài khoản) */
+    .support-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 14px;
+      margin-top: 10px;
+    }
+    .support-card {
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+    .support-card-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .support-icon {
+      font-size: 24px;
+    }
+    .support-card-info h3 {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 2px;
+    }
+    .support-card-info p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    @media (max-width: 768px) {
+      .pipeline-step-card {
+        grid-template-columns: 40px 1fr;
+        gap: 12px;
+      }
+      .step-action {
+        grid-column: 1 / -1;
+        justify-content: flex-end;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <main id="mainContent" style="display:none;">
+
+    <!-- Tóm tắt đầu trang -->
+    <div class="pipeline-summary">
+      <div class="pipeline-summary-text">
+        <h1><span>🧭</span> Trung Tâm Quy Trình Bán Hàng ➡ Kế Toán MISA</h1>
+        <p>Hệ thống xử lý khép kín 7 bước dành riêng cho Công ty TNHH Thái Mỹ Hương. Bấm vào từng bước theo đúng thứ tự để làm việc.</p>
+      </div>
+      <div class="pipeline-quick-stats">
+        <div class="quick-stat-badge">
+          <span>📦 Kho lưu trữ:</span> <b id="statLuuTru">Đang tải...</b>
+        </div>
+        <div class="quick-stat-badge">
+          <span>📋 Chờ kiểm đơn:</span> <b id="statChoKiem">Đang tải...</b>
+        </div>
+        <div class="quick-stat-badge">
+          <span>🚚 Chuyến xe:</span> <b>20 chuyến</b>
+        </div>
+      </div>
+    </div>
+
+    <!-- Danh sách 7 Bước chuẩn quy trình -->
+    <div class="pipeline-steps-list">
+
+      <!-- BƯỚC 1 -->
+      <div class="pipeline-step-card">
+        <div class="step-badge-num active-step">1</div>
+        <div class="step-content">
+          <div class="step-header-row">
+            <span class="step-title">Bước 1: Tải & Phân Tích Dữ Liệu KiotViet</span>
+            <span class="step-tag green">Đầu vào</span>
+          </div>
+          <div class="step-desc">
+            Nạp file Excel xuất từ KiotViet. Tự động nhận diện khách hàng mới, mã hàng mới, phân tích quy cách và số lượng lẻ (thùng/lon) để chuẩn bị chia xe.
+          </div>
+        </div>
+        <div class="step-action">
+          <a href="buoc1_upload.html" class="btn btn-primary btn-sm">
+            <span>Mở nạp file</span>
+            <span>➡</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- BƯỚC 2 -->
+      <div class="pipeline-step-card">
+        <div class="step-badge-num">2</div>
+        <div class="step-content">
+          <div class="step-header-row">
+            <span class="step-title">Bước 2: Tạo Phiếu Xuất Kho & Danh Sách Thu Tiền</span>
+            <span class="step-tag">Chia xe & In ấn</span>
+          </div>
+          <div class="step-desc">
+            Bóc tách đơn hàng theo 20 chuyến xe giao trong ngày. Tự động tính chẵn/lẻ, sắp xếp khuyến mãi lên trên, xuất Excel và in phiếu xuất kho cho kho bãi & tài xế.
+          </div>
+        </div>
+        <div class="step-action">
+          <a href="buoc2_phieu_xuat_kho.html" class="btn btn-outline btn-sm">
+            <span>Tạo PXK & DSTT</span>
+            <span>➡</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- BƯỚC 3 -->
+      <div class="pipeline-step-card">
+        <div class="step-badge-num">3</div>
+        <div class="step-content">
+          <div class="step-header-row">
+            <span class="step-title">Bước 3: Lưu Trữ Đối Soát & Chi Tiết Hóa Đơn</span>
+            <span class="step-tag">Kho dữ liệu</span>
+          </div>
+          <div class="step-desc">
+            Ghi nhận 19 cột đối soát vào hệ thống cơ sở dữ liệu Supabase, khóa mã hóa đơn chống trùng lặp, lưu trữ vĩnh viễn chi tiết từng dòng hàng phục vụ MISA.
+          </div>
+        </div>
+        <div class="step-action">
+          <a href="buoc3_luu_tru.html" class="btn btn-outline btn-sm">
+            <span>Xem kho lưu trữ</span>
+            <span>➡</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- BƯỚC 4 -->
+      <div class="pipeline-step-card">
+        <div class="step-badge-num">4</div>
+        <div class="step-content">
+          <div class="step-header-row">
+            <span class="step-title">Bước 4: Kiểm Đơn Giao Về & Thu Tiền</span>
+            <span class="step-tag amber">Đối soát xe</span>
+          </div>
+          <div class="step-desc">
+            Khi xe giao hàng về: đối chiếu số tiền thực tế tài xế thu (tiền mặt, chuyển khoản, nợ phát sinh, hàng trả về). Đánh dấu các đơn giao không được để giao lại.
+          </div>
+        </div>
+        <div class="step-action">
+          <a href="buoc4_kiem_don.html" class="btn btn-outline btn-sm">
+            <span>Kiểm đơn xe</span>
+            <span>➡</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- BƯỚC 5 -->
+      <div class="pipeline-step-card">
+        <div class="step-badge-num">5</div>
+        <div class="step-content">
+          <div class="step-header-row">
+            <span class="step-title">Bước 5: Báo Cáo Đối Soát & Gỡ Đơn Giao Lại</span>
+            <span class="step-tag">Chốt doanh số</span>
+          </div>
+          <div class="step-desc">
+            Gỡ bỏ các đơn tick "Giao lại" ra khỏi kho lưu trữ (tránh tính nợ oan và để nạp lại đợt sau). Cập nhật chính xác doanh thu thực tế vào hồ sơ.
+          </div>
+        </div>
+        <div class="step-action">
+          <a href="buoc5_bao_cao.html" class="btn btn-outline btn-sm">
+            <span>Báo cáo đối soát</span>
+            <span>➡</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- BƯỚC 6 -->
+      <div class="pipeline-step-card">
+        <div class="step-badge-num">6</div>
+        <div class="step-content">
+          <div class="step-header-row">
+            <span class="step-title">Bước 6: Bảng Kê Nộp Tiền & Đếm Mệnh Giá</span>
+            <span class="step-tag">Thu quỹ</span>
+          </div>
+          <div class="step-desc">
+            Bảng kiểm đếm tiền mặt theo từng mệnh giá (500k, 200k, 100k...), đối chiếu chênh lệch giữa tiền nộp thực tế và tiền trên hóa đơn, ghi sổ nộp tiền xe.
+          </div>
+        </div>
+        <div class="step-action">
+          <a href="buoc6_nop_tien.html" class="btn btn-outline btn-sm">
+            <span>Bảng kê nộp tiền</span>
+            <span>➡</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- BƯỚC 7 -->
+      <div class="pipeline-step-card">
+        <div class="step-badge-num">7</div>
+        <div class="step-content">
+          <div class="step-header-row">
+            <span class="step-title">Bước 7: Xuất File Bán Hàng MISA Chuẩn 69 Cột</span>
+            <span class="step-tag green">Đầu ra Kế toán</span>
+          </div>
+          <div class="step-desc">
+            Tự động gom chi tiết hóa đơn, định khoản TK Nợ (1111, 1121x, 1311, 13881), tách thuế VAT (8%, 10%), xuất file Excel 69 cột nạp trực tiếp vào MISA.
+          </div>
+        </div>
+        <div class="step-action">
+          <a href="buoc7_xuat_misa.html" class="btn btn-primary btn-sm">
+            <span>Xuất file MISA</span>
+            <span>➡</span>
+          </a>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Khối Chức Năng Hỗ Trợ -->
+    <div style="margin-top: 24px; margin-bottom: 8px;">
+      <h2 style="font-size: 14px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">
+        Chức năng Hỗ trợ & Quản trị nền tảng
+      </h2>
+    </div>
+
+    <div class="support-grid">
+      <div class="support-card">
+        <div class="support-card-info">
+          <div class="support-icon">📚</div>
+          <div>
+            <h3>Danh Mục Nền Tảng</h3>
+            <p>Hàng hóa, khách hàng, 20 xe, tài khoản NH, định khoản...</p>
+          </div>
+        </div>
+        <a href="danh_muc.html" class="btn btn-outline btn-sm">Mở</a>
+      </div>
+
+      <div class="support-card" id="cardQuanLyTaiKhoan">
+        <div class="support-card-info">
+          <div class="support-icon">🛡️</div>
+          <div>
+            <h3>Tài Khoản & Phân Quyền</h3>
+            <p>Phân loại 3 cấp (Toàn quyền, Quản lý, Nhân sự), ma trận quyền</p>
+          </div>
+        </div>
+        <a href="quan_ly_taikhoan.html" class="btn btn-outline btn-sm">Quản lý</a>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="layout.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", async function() {
+      // 1. Khởi tạo layout chung
+      const ctx = await khoiTaoLayout({
+        pageTitle: "Tổng quan Quy trình",
+        breadcrumb: "Bảng Điều Phối",
+        activeMenuId: "tongquan"
+      });
+
+      if (!ctx) return;
+
+      // 2. Ẩn menu Tài khoản nếu không phải cấp 1 (Toàn quyền)
+      if (ctx.capTaiKhoan !== 1) {
+        const cardTk = document.getElementById("cardQuanLyTaiKhoan");
+        if (cardTk) cardTk.style.display = "none";
+      }
+
+      // 3. Tải số liệu thống kê nhanh từ Supabase để người dùng biết tình trạng dữ liệu
+      taiThongKeNhanh();
+    });
+
+    async function taiThongKeNhanh() {
+      try {
+        // Đếm số đơn trong bảng luu_tru
+        const resLt = await sb.from("luu_tru").select("ma_hd, da_kiem_don", { count: "exact" });
+        if (resLt && resLt.data) {
+          const tongDon = resLt.data.length;
+          const choKiem = resLt.data.filter(d => !d.da_kiem_don).length;
+          
+          document.getElementById("statLuuTru").textContent = `${tongDon} hóa đơn`;
+          document.getElementById("statChoKiem").textContent = `${choKiem} đơn`;
+        } else {
+          document.getElementById("statLuuTru").textContent = "0 hóa đơn";
+          document.getElementById("statChoKiem").textContent = "0 đơn";
+        }
+      } catch (e) {
+        document.getElementById("statLuuTru").textContent = "Đã sẵn sàng";
+        document.getElementById("statChoKiem").textContent = "Sẵn sàng";
+      }
+    }
+  </script>
+</body>
+</html>
