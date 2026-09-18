@@ -1,59 +1,34 @@
 # SỔ BÀN GIAO — THAY ĐỔI CỦA CODER
 
-- **Lượt thực hiện:** 2
-- **Thời gian:** 18/09/2026 (20:35)
+- **Lượt thực hiện:** 3
+- **Thời gian:** 18/09/2026 (21:08)
 - **Vai trò:** CODER (Người viết code)
-- **Nhiệm vụ:** Hoàn thiện Bước 1 (kho lưu tạm, đẩy B2 xóa đúng file, giữ file còn lại, nút xóa chủ động), theo dõi biến động giá bán sản phẩm qua các thời kỳ, và chuẩn hóa giao diện Google System.
+- **Nhiệm vụ:** Hoán đổi vị trí hiển thị giữa "Kho lưu trữ các đợt điều động xe đã tạo" và "Danh sách 18 cột đối soát chi tiết của chuyến xe" trong Bước 3 (`buoc3_luu_tru.html`), giữ nguyên 100% logic code.
 
 ---
 
-## 1. Danh sách file đã chỉnh sửa (Lượt 2)
+## 1. Danh sách file đã chỉnh sửa (Lượt 3)
 
-### 1. `buoc1_upload.html` [HOÀN THIỆN BƯỚC 1 & BIẾN ĐỘNG GIÁ]
-- **Bộ nhớ lưu tạm độc lập:**
-  * Mỗi file Excel nạp vào được cấp một ID riêng và lưu vào danh sách kho tạm `danhSachFileDaNap` (đồng bộ LocalStorage và Supabase `file_kiot_tam`).
-  * Khi chọn 1 file và bấm **"Tiếp tục sang Bước 2" (`chuyenSangBuoc2`)**:
-    + Chỉ xóa đúng file được chọn khỏi `file_kiot_tam` và `localStorage`.
-    + Các file khác chưa đẩy **vẫn nằm nguyên 100%** trong kho tạm của Bước 1.
-  * Giữ nguyên nút xóa chủ động `🗑️ Xóa` ở từng dòng file và nút `🗑️ Xóa kho tạm` toàn bộ để nhân viên xử lý khi nạp nhầm file.
-- **Theo dõi biến động giá bán tự động (`tuDongDongBoDanhMuc`):**
-  * Đọc danh mục hàng hóa hiện có: Khi quét dòng hàng từ file KiotViet, nếu phát hiện đơn giá `donGia > 0` và khác với giá bán hiện tại `gia_ban`:
-    + Tự động cập nhật `gia_ban` mới nhất.
-    + Thêm bản ghi biến động vào mảng `lich_su_gia`: ngày giờ, giá cũ, giá mới, chênh lệch (+/- VNĐ), mã HĐ.
-    + Cập nhật đồng thời vào LocalStorage và bảng `hang_hoa` trên Supabase.
-  * Hiển thị thanh cảnh báo Google Chip `#chipBienDongGia`: *"Phát hiện X mặt hàng có biến động giá bán [Xem chi tiết]"*.
-  * Modal `#modalBienDongGia` phong cách Google Material để nhân viên kế toán xem chi tiết các mặt hàng vừa đổi giá.
-
-### 2. `layout.css` [CHUẨN HÓA TOÀN DIỆN PHONG CÁCH GOOGLE SYSTEM]
-- **Bảng màu & Design Tokens Google Material:**
-  * Nền: Google Gray `#f8f9fa`, mặt thẻ `#ffffff`.
-  * Đường viền: Google Border `#dadce0`, đường kẻ phụ `#f1f3f4`.
-  * Màu xanh thương hiệu Thái Mỹ Hương: Google Sheets Green `#137333`, hover `#0d652d`, soft `#e6f4ea`.
-  * Màu chữ Google: Tiêu đề `#202124`, thân văn bản `#3c4043`, chú thích phụ `#5f6368`.
-- **Form controls chuẩn Google Workspace:**
-  * Định nghĩa chuẩn `.form-group`, `.form-label` (chữ xám đậm, font-weight 600, khoảng cách 5px).
-  * Định nghĩa chuẩn `.form-control`: Chiều cao 38px, viền mảnh `#dadce0`, bo góc `4px`, focus viền xanh Google `#1a73e8` với bóng nhẹ 2px, readonly màu xám nhạt `#f1f3f4`.
-- **Modal Dialog chuẩn Google:**
-  * `.tmh-modal-box`: Viền mảnh `#dadce0`, bo góc 8px, đổ bóng êm dịu `0 8px 24px rgba(60,64,67,0.15)`.
-  * Nút đóng tròn dạng Google close button (hover nền xám `#f1f3f4`).
-  * Hệ thống lưới `.modal-form-grid`: 2 cột cân đối, các trường dài (tên hàng, tên khách, địa chỉ, ghi chú) tự động trải rộng 2 cột (`col-span-2`), các trường ngắn (mã, đơn vị tính, quy cách, giá bán) chia đôi đều tăm tắp.
-
-### 3. `danh_muc.html` [MODAL GOOGLE SYSTEM & LỊCH SỬ BIẾN ĐỘNG GIÁ]
-- **Khắc phục triệt để lỗi giao diện modal cũ:**
-  * Modal "Chỉnh Sửa — Hàng hoá" (ảnh chụp của khách) được chuyển sang cấu trúc `.modal-form-grid` 2 cột của Google System: nhãn và ô input xếp dọc ngay ngắn, độ rộng 100%, không còn bị lệch hay co dúm.
-- **Hiển thị lịch sử biến động giá của sản phẩm:**
-  * Trong modal chỉnh sửa hàng hóa: Bổ sung bảng "Lịch sử biến động giá bán (X mốc giá)" liệt kê chi tiết từng lần thay đổi giá qua các hóa đơn KiotViet hoặc chỉnh sửa thủ công.
-  * Trên bảng danh mục Hàng hóa chính: Hiển thị badge xanh `📈 X mốc giá` ngay cạnh giá bán để nhân viên bấm vào xem nhanh.
-  * Khi nhân viên chỉnh sửa giá bán thủ công trong danh mục, hệ thống cũng tự động ghi nhận một mốc lịch sử giá mới.
+### `buoc3_luu_tru.html` [HOÁN ĐỔI VỊ TRÍ 2 KHỐI GIAO DIỆN & ĐIỀU CHỈNH CUỘN]
+1. **Hoán đổi cấu trúc DOM:**
+   - **Đưa khối "Kho lưu trữ các đợt điều động xe đã tạo" (`tbodyLichSu`) lên trên cùng**:
+     * Ngay sau tiêu đề trang `tmh-page-header`.
+     * Giúp nhân viên khi vào Bước 3 là thấy ngay bảng tổng hợp các đợt xe đã tạo (STT, Mã đợt, Ngày giao, Xe, Tài xế, Thu tiền, Số đơn, Trạng thái, Thao tác).
+   - **Đưa khối "Thông tin đợt đang xem & Thanh điều hướng" (`heroMetaBar`) xuống liền sau bảng đợt xe**:
+     * Đóng vai trò làm thanh điều phối & tìm kiếm cho đợt được chọn (hiển thị mã đợt, xe, ngày giao, số lượng HĐ, ô tìm kiếm hóa đơn, nút xem lại 2 phiếu, xuất Excel 18 cột, tiếp tục B4).
+   - **Đưa khối "Danh sách 18 cột đối soát chi tiết của chuyến xe" (`tbody18Cot`) xuống dưới**:
+     * Hiển thị bảng chi tiết các hóa đơn của đợt đang chọn, cho phép tick chọn xóa dòng, đối soát số liệu kế toán.
+2. **Cập nhật hàm cuộn mượt mà `xemDot(idx)`:**
+   - Thay vì `window.scrollTo({ top: 0 })` (vốn dùng cho bố cục cũ khi danh sách đợt nằm ở đáy), cập nhật thành `document.getElementById('heroMetaBar').scrollIntoView({ behavior: 'smooth' })`.
+   - Khi nhân viên click vào nút `👁️ 18 cột` ở bất kỳ đợt nào trên danh sách phía trên, màn hình sẽ tự động cuộn mượt mà đến phần thông tin và bảng chi tiết 18 cột phía dưới.
 
 ---
 
-## 2. Cam kết kỹ thuật & Nghiệp vụ
-- Giữ nguyên 100% thuật toán tách thùng hộp chẵn/lẻ, chiết khấu khuyến mãi, tách VAT 8%/10%, định khoản tài khoản nợ có MISA.
-- Không sửa trang đăng nhập `index.html`.
-- Dữ liệu lưu tạm và đồng bộ Supabase tuân thủ đúng cơ chế phi đồng bộ `async/await`.
+## 2. Cam kết bảo toàn 100% code nghiệp vụ
+- Toàn bộ các hàm logic: `veBang18Cot()`, `hienThiLichSu()`, `xoaDot()`, `moModalSuaDot()`, `xuatExcel18Cot()`, `dongBoThuCongTuCloud()`, `saoLuuLichSu()`, `khoiPhucLichSu()`, `locDuLieuTongLuuTru()`, `kiemDonDot()`, `chuyenSangBuoc4()` đều được giữ nguyên 100%, không bị sửa đổi hay loại bỏ bất kỳ logic nào.
+- Giữ nguyên các ID phần tử DOM để các hàm JavaScript truy vấn chính xác.
 
 ---
 
 ## 3. Trạng thái bàn giao
-- **Trạng thái:** HOÀN TẤT. Chuyển sang TESTER nghiệm thu chi tiết các kịch bản.
+- **Trạng thái:** HOÀN THÀNH. Chuyển giao sang TESTER kiểm tra tính toàn vẹn và hành vi người dùng.
