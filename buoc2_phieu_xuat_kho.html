@@ -455,9 +455,9 @@
         <p class="tmh-page-header-sub">Kéo thả file Excel KiotViet, tự động cập nhật danh mục, chia đơn theo chuyến xe và tạo Phiếu Xuất Kho, Bảng Kê Thu Tiền.</p>
       </div>
       <div style="display:flex; gap:8px;">
-        <label class="btn btn-primary" style="cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:6px;" title="Nạp file Excel KiotViet trực tiếp">
-          <span>📂</span> Chọn File Excel KiotViet
-          <input type="file" id="fileExcelNhanhBuoc2" accept=".xlsx,.xls" style="display:none;" onchange="napNhanhFileExcelBuoc2(this)">
+        <label class="btn btn-primary" style="cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:6px;" title="Nạp hoặc ghép bổ sung file Excel KiotViet">
+          <span>📂</span> Nạp / Ghép File Excel
+          <input type="file" id="fileExcelNhanhBuoc2" accept=".xlsx,.xls" multiple style="display:none;" onchange="napNhanhFileExcelBuoc2(this)">
         </label>
         <a href="danh_muc.html" class="btn btn-outline" style="text-decoration:none;">
           <span>📚</span> Xem Danh Mục
@@ -470,11 +470,11 @@
       
       <!-- CỘT TRÁI: THIẾT LẬP CHUYẾN XE & CHỌN HÓA ĐƠN -->
       <div class="control-card">
-        <!-- KHU VỰC NẠP FILE EXCEL KIOTVIET (KÉO THẢ & NÚT CHỌN) -->
+        <!-- KHU VỰC NẠP FILE EXCEL KIOTVIET (KÉO THẢ & NÚT CHỌN, HỖ TRỢ GHÉP NHIỀU FILE) -->
         <div class="upload-mini-box" id="dropZoneBuoc2" onclick="document.getElementById('fileExcelNhanhBuoc2').click()">
           <div style="font-size:22px; line-height:1;">📥</div>
           <div style="font-size:12.5px; font-weight:700; color:var(--text-main);">Kéo & Thả file Excel KiotViet vào đây</div>
-          <div style="font-size:11px; color:var(--text-muted);">hoặc bấm để chọn file (.xlsx, .xls)</div>
+          <div style="font-size:11px; color:var(--text-muted);">Hỗ trợ chọn hoặc thả <b>nhiều file</b> để tự động <b>ghép bổ sung</b></div>
           <div id="fileInfoBadge" style="display:none; margin-top:4px; font-size:11px; padding:3px 8px; border-radius:4px; background:#dcfce7; color:#15803d; font-weight:700;"></div>
         </div>
 
@@ -539,12 +539,14 @@
         <div class="form-group">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <label>Hóa đơn theo xe (<span id="badgeSoHDChon" style="color:var(--primary); font-weight:800;">0/0</span>):</label>
-            <div style="display:flex; gap:6px; align-items:center;">
+            <div style="display:flex; gap:5px; align-items:center;">
               <a href="javascript:void(0)" onclick="chonTatCaHD(true)" style="font-size:11px; font-weight:700; color:var(--primary); text-decoration:none;">Chọn hết</a>
               <span style="color:var(--text-muted); font-size:11px;">|</span>
               <a href="javascript:void(0)" onclick="chonTatCaHD(false)" style="font-size:11px; font-weight:700; color:var(--text-muted); text-decoration:none;">Bỏ chọn</a>
               <span style="color:var(--text-muted); font-size:11px;">|</span>
-              <a href="javascript:void(0)" onclick="xoaCacHDDaChon()" style="font-size:11px; font-weight:700; color:#dc2626; text-decoration:none;" title="Xóa các hóa đơn đã tick chọn khỏi danh sách tạm">🗑️ Xóa</a>
+              <a href="javascript:void(0)" onclick="xoaCacHDDaChon()" style="font-size:11px; font-weight:700; color:#dc2626; text-decoration:none;" title="Xóa các hóa đơn đã tick chọn khỏi danh sách tạm">🗑️ Xóa chọn</a>
+              <span style="color:var(--text-muted); font-size:11px;">|</span>
+              <a href="javascript:void(0)" onclick="xoaSachToanBoDuLieu()" style="font-size:11px; font-weight:700; color:#b91c1c; text-decoration:none;" title="Xóa sạch toàn bộ danh sách hóa đơn để nạp lại từ đầu">🧹 Xóa hết</a>
             </div>
           </div>
           <input type="text" id="timKiemHD" class="form-control" placeholder="🔍 Tìm mã HĐ hoặc khách hàng..." oninput="locDanhSachHD()">
@@ -1439,6 +1441,19 @@
       await napQuyCachHangHoa();
       napDuLieuTuBuoc1();
 
+      // Phục hồi badge hiển thị file đã nạp nếu có dữ liệu
+      try {
+        const danhSachTenFile = JSON.parse(localStorage.getItem('tmh_danh_sach_ten_file') || '[]');
+        const badgeEl = document.getElementById('fileInfoBadge');
+        if (badgeEl && duLieuKiotViet && duLieuKiotViet.length > 0) {
+          badgeEl.style.display = 'block';
+          const fileText = danhSachTenFile.length > 2 
+            ? `${danhSachTenFile.length} file (${danhSachTenFile.slice(0, 2).join(', ')}...)`
+            : (danhSachTenFile.length > 0 ? danhSachTenFile.join(' + ') : 'Dữ liệu KiotViet');
+          badgeEl.innerHTML = `📄 <b>${fileText}</b> (${danhSachHoaDon.length} HĐ, ${duLieuKiotViet.length} dòng)`;
+        }
+      } catch (e) {}
+
       // Kiểm tra nếu mở từ Bước 3 xem lại biểu mẫu đợt cụ thể (?maDot=...)
       const urlParams = new URLSearchParams(window.location.search);
       const paramMaDot = urlParams.get('maDot');
@@ -1562,7 +1577,8 @@
         duLieuKiotViet = [];
       }
 
-      // Gom nhóm danh sách hóa đơn duy nhất
+      // Gom nhóm danh sách hóa đơn duy nhất (giữ nguyên trạng thái tick chọn nếu đã có)
+      const trangThaiCu = new Map((danhSachHoaDon || []).map(h => [h.maHD, h.chon]));
       const mapHD = new Map();
       duLieuKiotViet.forEach(r => {
         const maHD = String(r['Mã hóa đơn'] || '').trim().toUpperCase();
@@ -1576,7 +1592,7 @@
             maHD: maHD,
             tenKH: tenKH,
             tongTien: 0,
-            chon: true
+            chon: trangThaiCu.has(maHD) ? trangThaiCu.get(maHD) : true
           });
         }
         mapHD.get(maHD).tongTien += thanhTien;
@@ -1684,6 +1700,75 @@
 
     function locDanhSachHD() {
       veDanhSachCheckboxHD();
+    }
+
+    // Xóa các hóa đơn đã tick chọn khỏi danh sách tạm
+    function xoaCacHDDaChon() {
+      const cacHDXoa = danhSachHoaDon.filter(h => h.chon);
+      if (cacHDXoa.length === 0) {
+        alert("⚠️ Vui lòng tick chọn ít nhất 1 hóa đơn để xóa!");
+        return;
+      }
+      if (!confirm(`Bạn có chắc chắn muốn xóa ${cacHDXoa.length} hóa đơn đã chọn khỏi danh sách tạm?`)) {
+        return;
+      }
+      const setMaHDXoa = new Set(cacHDXoa.map(h => h.maHD));
+      danhSachHoaDon = danhSachHoaDon.filter(h => !setMaHDXoa.has(h.maHD));
+      duLieuKiotViet = duLieuKiotViet.filter(r => {
+        const m = String(r['Mã hóa đơn'] || '').trim().toUpperCase();
+        return !setMaHDXoa.has(m);
+      });
+
+      if (duLieuKiotViet.length === 0) {
+        localStorage.removeItem("tmh_kiotviet_data");
+        localStorage.removeItem("tmh_danh_sach_ten_file");
+        const badgeEl = document.getElementById('fileInfoBadge');
+        if (badgeEl) badgeEl.style.display = 'none';
+        document.getElementById('manHinhCho').style.display = 'block';
+        document.getElementById('viewBangKe').style.display = 'none';
+        document.getElementById('viewXuatKho').style.display = 'none';
+        document.getElementById('btnLuuBuoc3').style.display = 'none';
+      } else {
+        localStorage.setItem("tmh_kiotviet_data", JSON.stringify(duLieuKiotViet));
+        const badgeEl = document.getElementById('fileInfoBadge');
+        if (badgeEl) {
+          let danhSachTenFile = JSON.parse(localStorage.getItem('tmh_danh_sach_ten_file') || '[]');
+          const fileText = danhSachTenFile.length > 2 
+            ? `${danhSachTenFile.length} file (${danhSachTenFile.slice(0, 2).join(', ')}...)`
+            : (danhSachTenFile.length > 0 ? danhSachTenFile.join(' + ') : 'Dữ liệu Excel');
+          badgeEl.innerHTML = `📄 <b>${fileText}</b> (${danhSachHoaDon.length} HĐ, ${duLieuKiotViet.length} dòng)`;
+        }
+      }
+
+      veDanhSachCheckboxHD();
+      chayTaoPhieu();
+      hienThiToast(`🗑️ Đã xóa ${cacHDXoa.length} hóa đơn khỏi danh sách tạm!`);
+    }
+
+    // Xóa sạch toàn bộ danh sách hóa đơn tạm để nạp lại từ đầu
+    function xoaSachToanBoDuLieu() {
+      if (!duLieuKiotViet || duLieuKiotViet.length === 0) {
+        alert("Danh sách hiện đang trống!");
+        return;
+      }
+      if (!confirm("Bạn có chắc chắn muốn XÓA SẠCH toàn bộ danh sách hóa đơn hiện tại để nạp lại từ đầu?")) {
+        return;
+      }
+      duLieuKiotViet = [];
+      danhSachHoaDon = [];
+      localStorage.removeItem("tmh_kiotviet_data");
+      localStorage.removeItem("tmh_danh_sach_ten_file");
+      const badgeEl = document.getElementById('fileInfoBadge');
+      if (badgeEl) {
+        badgeEl.style.display = 'none';
+        badgeEl.removeAttribute('data-files');
+      }
+      napDuLieuTuBuoc1();
+      document.getElementById('manHinhCho').style.display = 'block';
+      document.getElementById('viewBangKe').style.display = 'none';
+      document.getElementById('viewXuatKho').style.display = 'none';
+      document.getElementById('btnLuuBuoc3').style.display = 'none';
+      hienThiToast("🧹 Đã xóa sạch danh sách hóa đơn tạm!");
     }
 
     // ========================================================
@@ -2529,18 +2614,20 @@
         const dt = e.dataTransfer;
         const files = dt.files;
         if (files && files.length > 0) {
-          xuLyFileExcelKiotViet(files[0]);
+          xuLyDanhSachFilesExcel(Array.from(files));
         }
       }, false);
     }
 
     // ========================================================
-    // XỬ LÝ FILE EXCEL KIOTVIET (KÉO THẢ HOẶC CHỌN FILE)
+    // XỬ LÝ FILE EXCEL KIOTVIET (GHÉP BỔ SUNG & NẠP MỚI)
     // TỰ ĐỘNG ĐỒNG BỘ DANH MỤC & NHẬN DIỆN ĐƠN GIAO LẠI
     // ========================================================
     function napNhanhFileExcelBuoc2(input) {
-      const file = input.files && input.files[0];
-      if (file) xuLyFileExcelKiotViet(file);
+      const files = input.files;
+      if (files && files.length > 0) {
+        xuLyDanhSachFilesExcel(Array.from(files));
+      }
       input.value = '';
     }
 
@@ -2562,35 +2649,81 @@
     }
 
     function xuLyFileExcelKiotViet(file) {
-      if (!file) return;
+      if (file) xuLyDanhSachFilesExcel([file]);
+    }
 
-      const reader = new FileReader();
-      reader.onload = async function(e) {
-        try {
-          const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const firstSheet = workbook.SheetNames[0];
-          const rawRows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], { defval: "" });
+    async function xuLyDanhSachFilesExcel(files) {
+      if (!files || files.length === 0) return;
 
-          if (!rawRows || rawRows.length === 0) {
-            alert("⚠️ File không có dữ liệu hàng hóa nào!");
-            return;
+      // 1. Kiểm tra xem danh sách hiện tại đã có dữ liệu chưa để hỏi ghép file
+      let cheDoGhep = true; // Mặc định là GHÉP BỔ SUNG
+      const hienCo = (Array.isArray(duLieuKiotViet) && duLieuKiotViet.length > 0) ? duLieuKiotViet.length : 0;
+      const soHDCu = Array.isArray(danhSachHoaDon) ? danhSachHoaDon.length : 0;
+
+      if (hienCo > 0) {
+        const hoiGhep = confirm(
+          `📥 PHÁT HIỆN ĐANG CÓ ${soHDCu} HÓA ĐƠN TRONG DANH SÁCH!\n\n` +
+          `• Bấm [OK] để GHÉP BỔ SUNG ${files.length > 1 ? files.length + ' file mới' : 'file mới'} vào danh sách hiện tại (giữ nguyên ${soHDCu} HĐ cũ).\n` +
+          `• Bấm [HỦY / Cancel] để XÓA CŨ VÀ NẠP MỚI (chỉ lấy dữ liệu file vừa chọn).`
+        );
+        cheDoGhep = hoiGhep;
+      }
+
+      // Khởi tạo danh sách dòng tổng hợp
+      let duLieuTongHop = (cheDoGhep && Array.isArray(duLieuKiotViet)) ? [...duLieuKiotViet] : [];
+      let danhSachTenFile = cheDoGhep ? JSON.parse(localStorage.getItem('tmh_danh_sach_ten_file') || '[]') : [];
+
+      // Tập hợp chữ ký các dòng đã có để chống trùng lặp dòng khi nạp lặp
+      const setDongDaCo = new Set();
+      duLieuTongHop.forEach(r => {
+        const sig = `${r['Mã hóa đơn']}‖${r['Mã hàng']}‖${r['Đơn giá']}‖${r['Số lượng']}`;
+        setDongDaCo.add(sig);
+      });
+
+      // Đọc danh mục hiện có để đối chiếu tự động cập nhật
+      const dmKhach = JSON.parse(localStorage.getItem('tmh_danh_muc_khach_hang') || '[]');
+      const dmHang = JSON.parse(localStorage.getItem('tmh_danh_muc_hang_hoa') || '[]');
+      const dmNV = JSON.parse(localStorage.getItem('tmh_danh_muc_nv_kinh_doanh') || '[]');
+
+      const setMaKH = new Set(dmKhach.map(k => String(k.ma_kh || k.ma || '').trim().toUpperCase()).filter(Boolean));
+      const setMaHang = new Set(dmHang.map(h => String(h.ma_sp || h.ma_hang || h.ma || '').trim().toUpperCase()).filter(Boolean));
+      const setTenNV = new Set(dmNV.map(n => String(n.ten_nv || n.ho_ten || n.ten || '').trim().toUpperCase()).filter(Boolean));
+
+      const khachMoiThem = [];
+      const hangMoiThem = [];
+      const nvMoiThem = [];
+
+      let tongDongMoiThem = 0;
+      let tongDongBoQuaTrung = 0;
+
+      // Đọc từng file Excel qua Promise
+      const docFileExcelPromise = (file) => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            try {
+              const data = new Uint8Array(e.target.result);
+              const workbook = XLSX.read(data, { type: 'array' });
+              const firstSheet = workbook.SheetNames[0];
+              const rawRows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], { defval: "" });
+              resolve({ fileName: file.name, rows: rawRows });
+            } catch (err) {
+              reject(err);
+            }
+          };
+          reader.onerror = () => reject(new Error(`Không thể đọc file ${file.name}`));
+          reader.readAsArrayBuffer(file);
+        });
+      };
+
+      try {
+        for (const file of files) {
+          const ketQua = await docFileExcelPromise(file);
+          if (!danhSachTenFile.includes(ketQua.fileName)) {
+            danhSachTenFile.push(ketQua.fileName);
           }
 
-          // 1. Đọc danh mục hiện có để đối chiếu tự động cập nhật
-          const dmKhach = JSON.parse(localStorage.getItem('tmh_danh_muc_khach_hang') || '[]');
-          const dmHang = JSON.parse(localStorage.getItem('tmh_danh_muc_hang_hoa') || '[]');
-          const dmNV = JSON.parse(localStorage.getItem('tmh_danh_muc_nv_kinh_doanh') || '[]');
-
-          const setMaKH = new Set(dmKhach.map(k => String(k.ma_kh || k.ma || '').trim().toUpperCase()).filter(Boolean));
-          const setMaHang = new Set(dmHang.map(h => String(h.ma_sp || h.ma_hang || h.ma || '').trim().toUpperCase()).filter(Boolean));
-          const setTenNV = new Set(dmNV.map(n => String(n.ten_nv || n.ho_ten || n.ten || '').trim().toUpperCase()).filter(Boolean));
-
-          const khachMoiThem = [];
-          const hangMoiThem = [];
-          const nvMoiThem = [];
-
-          const dongHopLe = [];
+          const rawRows = ketQua.rows || [];
           rawRows.forEach(r => {
             const maHD = String(layGiaTri_(r, ['Mã hóa đơn', 'Mã HĐ', 'Mã chứng từ', 'Số hóa đơn', 'Ma hoa don']) || '').trim().toUpperCase();
             if (!maHD || maHD.includes('TỔNG')) return;
@@ -2633,7 +2766,14 @@
             const ghiChu = String(layGiaTri_(r, ['Ghi chú', 'Diễn giải']) || '').trim();
             const giamHD = parseVNNumber_(layGiaTri_(r, ['Giảm giá HĐ', 'Giảm giá hóa đơn', 'Chiết khấu HĐ']));
 
-            dongHopLe.push({
+            const sig = `${maHD}‖${maHang}‖${donGiaThucTe}‖${sl}`;
+            if (setDongDaCo.has(sig)) {
+              tongDongBoQuaTrung++;
+              return; // Tránh trùng lặp dòng khi nạp lặp
+            }
+            setDongDaCo.add(sig);
+
+            duLieuTongHop.push({
               'Mã hóa đơn': maHD,
               'Mã hàng': maHang,
               'Tên hàng': tenHang,
@@ -2648,6 +2788,7 @@
               'Giảm giá hóa đơn': giamHD,
               'Ghi chú': ghiChu
             });
+            tongDongMoiThem++;
 
             // Đồng bộ Khách hàng mới
             if (maKH && !setMaKH.has(maKH)) {
@@ -2668,58 +2809,64 @@
               nvMoiThem.push({ ten_nv: nguoiBan, ho_ten: nguoiBan, vi_tri: 'Kinh doanh' });
             }
           });
-
-          if (dongHopLe.length === 0) {
-            alert("⚠️ Không tìm thấy dòng dữ liệu hàng hóa hợp lệ nào trong file!");
-            return;
-          }
-
-          // Lưu tự động cập nhật danh mục vào LocalStorage & Supabase
-          if (khachMoiThem.length > 0) {
-            localStorage.setItem('tmh_danh_muc_khach_hang', JSON.stringify([...dmKhach, ...khachMoiThem]));
-            upsertSupabaseTuTu_('khach_hang', khachMoiThem);
-          }
-          if (hangMoiThem.length > 0) {
-            localStorage.setItem('tmh_danh_muc_hang_hoa', JSON.stringify([...dmHang, ...hangMoiThem]));
-            upsertSupabaseTuTu_('hang_hoa', hangMoiThem);
-          }
-          if (nvMoiThem.length > 0) {
-            localStorage.setItem('tmh_danh_muc_nv_kinh_doanh', JSON.stringify([...dmNV, ...nvMoiThem]));
-            upsertSupabaseTuTu_('nv_kinh_doanh', nvMoiThem);
-          }
-
-          // Cập nhật bộ nhớ dữ liệu KiotViet
-          localStorage.setItem("tmh_kiotviet_data", JSON.stringify(dongHopLe));
-          duLieuKiotViet = dongHopLe;
-          napDuLieuTuBuoc1();
-          chayTaoPhieu();
-
-          // Cập nhật hiển thị badge thông tin file nạp
-          const badgeEl = document.getElementById('fileInfoBadge');
-          if (badgeEl) {
-            badgeEl.style.display = 'block';
-            badgeEl.innerHTML = `📄 <b>${file.name}</b> (${danhSachHoaDon.length} HĐ, ${dongHopLe.length} dòng)`;
-          }
-
-          // Đếm số đơn giao lại
-          const soDonGiaoLai = danhSachHoaDon.filter(h => h.laGiaoLai).length;
-
-          let thongBao = `✅ Đã nạp thành công file "${file.name}"!\n\n` +
-            `• Số lượng hóa đơn: ${danhSachHoaDon.length}\n` +
-            `• Số lượng dòng hàng: ${dongHopLe.length}\n`;
-
-          if (khachMoiThem.length > 0) thongBao += `• Khách hàng mới tự cập nhật: +${khachMoiThem.length}\n`;
-          if (hangMoiThem.length > 0) thongBao += `• Hàng hóa mới tự cập nhật: +${hangMoiThem.length}\n`;
-          if (soDonGiaoLai > 0) thongBao += `• Đơn giao lại phát hiện: ${soDonGiaoLai} đơn (đã gắn cờ 🔄 Giao lại)\n`;
-
-          alert(thongBao + `\n📌 Dữ liệu đã sẵn sàng bên cột trái. Hãy chọn xe và tick chọn đơn để xuất phiếu.`);
-          hienThiToast(`✅ Đã nạp thành công ${dongHopLe.length} dòng dữ liệu từ file Excel!`);
-
-        } catch (err) {
-          alert("Lỗi đọc file Excel: " + err.message);
         }
-      };
-      reader.readAsArrayBuffer(file);
+
+        if (duLieuTongHop.length === 0) {
+          alert("⚠️ Không tìm thấy dòng dữ liệu hàng hóa hợp lệ nào trong file!");
+          return;
+        }
+
+        // Lưu tự động cập nhật danh mục vào LocalStorage & Supabase
+        if (khachMoiThem.length > 0) {
+          localStorage.setItem('tmh_danh_muc_khach_hang', JSON.stringify([...dmKhach, ...khachMoiThem]));
+          upsertSupabaseTuTu_('khach_hang', khachMoiThem);
+        }
+        if (hangMoiThem.length > 0) {
+          localStorage.setItem('tmh_danh_muc_hang_hoa', JSON.stringify([...dmHang, ...hangMoiThem]));
+          upsertSupabaseTuTu_('hang_hoa', hangMoiThem);
+        }
+        if (nvMoiThem.length > 0) {
+          localStorage.setItem('tmh_danh_muc_nv_kinh_doanh', JSON.stringify([...dmNV, ...nvMoiThem]));
+          upsertSupabaseTuTu_('nv_kinh_doanh', nvMoiThem);
+        }
+
+        // Cập nhật bộ nhớ dữ liệu KiotViet
+        localStorage.setItem("tmh_kiotviet_data", JSON.stringify(duLieuTongHop));
+        localStorage.setItem("tmh_danh_sach_ten_file", JSON.stringify(danhSachTenFile));
+        duLieuKiotViet = duLieuTongHop;
+
+        napDuLieuTuBuoc1();
+        chayTaoPhieu();
+
+        // Cập nhật hiển thị badge thông tin file nạp
+        const badgeEl = document.getElementById('fileInfoBadge');
+        if (badgeEl) {
+          badgeEl.style.display = 'block';
+          const fileText = danhSachTenFile.length > 2 
+            ? `${danhSachTenFile.length} file (${danhSachTenFile.slice(0, 2).join(', ')}...)`
+            : danhSachTenFile.join(' + ');
+          badgeEl.innerHTML = `📄 <b>${fileText}</b> (${danhSachHoaDon.length} HĐ, ${duLieuTongHop.length} dòng)`;
+        }
+
+        // Đếm số đơn giao lại
+        const soDonGiaoLai = danhSachHoaDon.filter(h => h.laGiaoLai).length;
+
+        let thongBao = `✅ ${cheDoGhep && hienCo > 0 ? 'GHÉP BỔ SUNG' : 'NẠP MỚI'} THÀNH CÔNG!\n\n` +
+          `• File đã nạp: ${danhSachTenFile.join(', ')}\n` +
+          `• Tổng số hóa đơn: ${danhSachHoaDon.length} HĐ\n` +
+          `• Tổng số dòng hàng: ${duLieuTongHop.length} dòng (+${tongDongMoiThem} dòng mới` + 
+          (tongDongBoQuaTrung > 0 ? `, bỏ qua ${tongDongBoQuaTrung} dòng trùng` : '') + `)\n`;
+
+        if (khachMoiThem.length > 0) thongBao += `• Khách hàng mới tự cập nhật: +${khachMoiThem.length}\n`;
+        if (hangMoiThem.length > 0) thongBao += `• Hàng hóa mới tự cập nhật: +${hangMoiThem.length}\n`;
+        if (soDonGiaoLai > 0) thongBao += `• Đơn giao lại phát hiện: ${soDonGiaoLai} đơn (đã gắn cờ 🔄 Giao lại)\n`;
+
+        alert(thongBao + `\n📌 Dữ liệu đã sẵn sàng trong danh sách. Hãy tick chọn đơn và xuất phiếu.`);
+        hienThiToast(`✅ Đã nạp thành công! Hiện có ${danhSachHoaDon.length} HĐ (${duLieuTongHop.length} dòng)`);
+
+      } catch (err) {
+        alert("Lỗi đọc file Excel: " + err.message);
+      }
     }
 
     // Khởi chạy khi tải trang
