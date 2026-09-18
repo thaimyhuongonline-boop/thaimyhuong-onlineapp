@@ -806,19 +806,102 @@
       return null;
     }
 
-    // Helper an toàn trích xuất số lượng lẻ (Tránh lỗi 0.5 biến thành 5)
-    function parseSoLuongChuan(val) {
-      if (val === null || val === undefined || val === '') return 0;
-      if (typeof val === 'number') return val;
-      let str = String(val).trim();
-      if (str.indexOf(',') !== -1 && str.indexOf('.') !== -1) {
-        if (str.indexOf(',') < str.indexOf('.')) str = str.replace(/,/g, '');
-        else str = str.replace(/\./g, '').replace(',', '.');
-      } else if (str.indexOf(',') !== -1) {
-        str = str.replace(',', '.');
+    /* ====================================================================
+     * ★ CÁC HÀM XỬ LÝ LÕI TỪ APPS SCRIPT THÁI MỸ HƯƠNG (BẢN 24/07/2026 - v2) ★
+     * ==================================================================== */
+    var MA_CHUNG_TU = ["HĐ"];
+
+    function laChungTu_(maHang) {
+      var m = String(maHang == null ? "" : maHang).trim().toUpperCase();
+      if (m === "") return false;
+      for (var i = 0; i < MA_CHUNG_TU.length; i++) {
+        if (m === String(MA_CHUNG_TU[i]).trim().toUpperCase()) return true;
       }
-      const num = parseFloat(str);
-      return isNaN(num) ? 0 : num;
+      return false;
+    }
+
+    // Ép kiểu số theo định dạng Việt Nam / KiotViet chuẩn từ Apps Script
+    function parseVNNumber_(val) {
+      if (val === undefined || val === null) return 0;
+      if (typeof val === 'number') return val;
+
+      var str = val.toString().trim().replace(/\s/g, '');
+      if (str === "") return 0;
+
+      str = str.replace(/[đĐ$]/g, '').replace(/VND/gi, '');
+      if (str === "") return 0;
+
+      var am = false;
+      if (str.charAt(0) === '-') { am = true; str = str.substring(1); }
+      if (str.charAt(0) === '(' && str.charAt(str.length - 1) === ')') {
+        am = true; str = str.substring(1, str.length - 1);
+      }
+
+      if (str.indexOf(',') !== -1) {
+        var viTri      = str.lastIndexOf(',');
+        var phanNguyen = str.substring(0, viTri).replace(/[.,]/g, '');
+        var phanLe     = str.substring(viTri + 1).replace(/[^0-9]/g, '');
+        str = (phanNguyen === "" ? "0" : phanNguyen) + '.' + (phanLe === "" ? "0" : phanLe);
+      } else {
+        str = str.replace(/\./g, '');
+      }
+
+      var num = parseFloat(str);
+      if (isNaN(num)) return 0;
+      return am ? -num : num;
+    }
+
+    function parseSoLuongChuan(val) {
+      return parseVNNumber_(val);
+    }
+
+    function soSanhMaHang_(a, b) {
+      var ma = String(a.ma || a.maHang || ''), mb = String(b.ma || b.maHang || '');
+      try {
+        var c = ma.localeCompare(mb, 'vi', { numeric: true });
+        if (c !== 0) return c;
+      } catch (e) {
+        if (ma !== mb) return (ma < mb) ? -1 : 1;
+      }
+      return (b.donGia || 0) - (a.donGia || 0);
+    }
+
+    function soSanhKMTruoc_(a, b) {
+      var kmA = (a.donGia === 0) ? 0 : 1;   // KM = 0 → lên trước
+      var kmB = (b.donGia === 0) ? 0 : 1;
+      if (kmA !== kmB) return kmA - kmB;
+
+      var ma = String(a.ma || a.maHang || ''), mb = String(b.ma || b.maHang || '');
+      try {
+        var c = ma.localeCompare(mb, 'vi', { numeric: true });
+        if (c !== 0) return c;
+      } catch (e) {
+        if (ma !== mb) return (ma < mb) ? -1 : 1;
+      }
+      return (b.donGia || 0) - (a.donGia || 0);
+    }
+
+    function taoDongXuatKho_(item, stt) {
+      var qc = item.qc > 0 ? item.qc : 1;
+
+      var tongSL = item.tongSL;
+      var dau    = tongSL < 0 ? -1 : 1;
+      var absSL  = Math.abs(tongSL);
+
+      var soNguyen = Math.floor(absSL);                 // phần kiện nguyên
+      var phanLe   = absSL - soNguyen;                  // phần thập phân (0 ≤ … < 1)
+
+      var chan = soNguyen * dau;                        // Chẵn
+      var le   = Math.round(phanLe * qc) * dau;         // Lẻ = phần lẻ × quy cách
+
+      var ghiChu = (item.donGia === 0) ? "HÀNG KHUYẾN MÃI" : "";
+
+      return {
+        row:  [stt, item.ma, item.ten, qc, item.dvt,
+               item.tongSL, chan, le, item.donGia, item.thanhTien, ghiChu],
+        chan: chan,
+        le:   le
+      };
     }
 
     async function khoiTaoTrang() {
@@ -1774,77 +1857,61 @@
 
     function chonXemDotTuModal(idx) {
       let lichSu = [];
-      try {
-        lichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
-      } catch (e) {}
-
+      try { lichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]"); } catch (e) {}
       if (lichSu[idx]) {
         dongModalLichSuPhieu();
         xemLaiDotLuuTru(lichSu[idx]);
       }
     }
 
-    // ========================================================
-    // TÍNH TOÁN VÀ TẠO 2 BIỂU MẪU (Có hỗ trợ tự động ghép dữ liệu)
-    // ========================================================
     function chayTaoPhieu() {
       const hoaDonDuocChon = new Set(danhSachHoaDon.filter(h => h.chon).map(h => h.maHD));
       if (hoaDonDuocChon.size === 0 && (!dotLuuTruHienCo || !dotLuuTruHienCo.danhSachChiTiet || dotLuuTruHienCo.danhSachChiTiet.length === 0)) {
         alert("Vui lòng chọn ít nhất 1 hóa đơn để tạo phiếu!");
         return;
       }
-
       const xe = document.getElementById('xeVanChuyen').value;
       const taiXe = document.getElementById('taiXe').value || '...................';
       const ngayRaw = document.getElementById('ngayGiaoHang').value;
       const nvGiao = document.getElementById('nvGiaoHang').value || '...................';
       const nvThu = document.getElementById('nvThuTien').value || '...................';
-
       let ngayDinhDang = ngayRaw;
       if (ngayRaw) {
         const parts = ngayRaw.split('-');
         if (parts.length === 3) ngayDinhDang = `${parts[2]}/${parts[1]}/${parts[0]}`;
       }
-
-      // Gán vào biểu mẫu 1
       document.getElementById('lblXeBangKe').textContent = xe;
       document.getElementById('lblTaiXeBangKe').textContent = taiXe;
       document.getElementById('lblNgayBangKe').textContent = ngayDinhDang;
       document.getElementById('lblGiaoHangBangKe').textContent = nvGiao;
       document.getElementById('lblThuTienBangKe').textContent = nvThu;
 
-      // Gán vào biểu mẫu 2
       document.getElementById('lblXeXuatKho').textContent = xe;
       document.getElementById('lblTaiXeXuatKho').textContent = taiXe;
       document.getElementById('lblNgayXuatKho').textContent = ngayDinhDang;
       document.getElementById('lblGiaoHangXuatKho').textContent = nvGiao;
       document.getElementById('lblThuTienXuatKho').textContent = nvThu;
 
-      // Lọc các dòng theo hóa đơn được chọn
       const cacDongTheoXe = duLieuGoc.filter(r => {
         const maHD = layGiaTri(r, ['Mã hóa đơn', 'Mã HĐ', 'Mã chứng từ', 'Số hóa đơn', 'Ma hoa don']);
         return maHD && hoaDonDuocChon.has(String(maHD).trim());
       });
 
-      // Tạo Mẫu 1: Bảng kê thu tiền (tự ghép dữ liệu lưu trữ cũ nếu có)
       taoBangKeThuTien(cacDongTheoXe);
-
-      // Tạo Mẫu 2: Phiếu xuất kho tổng hợp (tự ghép dữ liệu lưu trữ cũ nếu có)
       taoPhieuXuatKhoTongHop(cacDongTheoXe);
 
-      // Hiển thị khung kết quả & nút lưu Bước 3
       document.getElementById('manHinhCho').style.display = 'none';
       document.getElementById('btnLuuBuoc3Side').style.display = 'flex';
       chuyenTab(tabHienTai);
     }
 
     // ========================================================
-    // 1. TẠO BẢNG KÊ THU TIỀN HÀNG (MẪU 1)
+    // 1. TẠO BẢNG KÊ THU TIỀN HÀNG (MẪU 1 CHUẨN APPS SCRIPT)
     // ========================================================
     function taoBangKeThuTien(dongKiotViet) {
       const mapHoaDonChiTiet = new Map();
 
-      // YÊU CẦU 5: Tự động ghép các hóa đơn đã lưu trữ trước của chuyến xe này
+      // Ghép các hóa đơn đã lưu trữ trước của chuyến xe này (nếu đang xem lại đợt)
       if (dotLuuTruHienCo && Array.isArray(dotLuuTruHienCo.danhSachChiTiet)) {
         dotLuuTruHienCo.danhSachChiTiet.forEach(dCu => {
           if (dCu.maHD) {
@@ -1854,11 +1921,11 @@
               maKH: dCu.maKH || '',
               tenKH: dCu.tenKH || '',
               nguoiBan: dCu.nguoiBan || '',
-              doanhSo: Number(dCu.doanhSo) || 0,
-              giamGiaSP: Number(dCu.giamGiaSP) || 0,
-              giamGiaHD: Number(dCu.giamGiaHD) || 0,
-              tongLineThanhTien: Number(dCu.doanhSo) || Number(dCu.thanhTien) || 0,
-              thanhTien: Number(dCu.thanhTien) || 0,
+              doanhSo: parseVNNumber_(dCu.doanhSo),
+              giamGiaSP: parseVNNumber_(dCu.giamGiaSP),
+              giamGiaHD: parseVNNumber_(dCu.giamGiaHD),
+              tongLineThanhTien: parseVNNumber_(dCu.doanhSo) || parseVNNumber_(dCu.thanhTien),
+              thanhTien: parseVNNumber_(dCu.thanhTien),
               ghiChu: dCu.ghiChu || '',
               laDonGiaoLai: !!dCu.laGiaoLai,
               daLuuDotTruoc: true
@@ -1867,35 +1934,33 @@
         });
       }
 
-      // Xử lý các hóa đơn bổ sung mới được chọn
+      // Xử lý các hóa đơn bổ sung mới được chọn theo thuật toán Apps Script
       dongKiotViet.forEach(r => {
-        const maHD = String(layGiaTri(r, ['Mã hóa đơn', 'Mã HĐ', 'Mã chứng từ', 'Số hóa đơn', 'Ma hoa don'])).trim();
-        const soLuong = parseSoLuongChuan(layGiaTri(r, ['Số lượng', 'SL', 'SoLuong']));
-        const donGia = Number(layGiaTri(r, ['Đơn giá', 'Giá bán', 'DonGia'])) || 0;
+        const maHD = String(layGiaTri(r, ['Mã hóa đơn', 'Mã HĐ', 'Mã chứng từ', 'Số hóa đơn', 'Ma hoa don']) || '').trim().toUpperCase();
+        if (!maHD) return;
 
+        const maHang = String(layGiaTri(r, ['Mã hàng', 'Mã SP', 'MaHang']) || '').trim();
+        if (maHang === "" || maHang.toLowerCase().includes("tổng")) return;
+
+        const sl = parseVNNumber_(layGiaTri(r, ['Số lượng', 'SL', 'SoLuong']));
+        const donGia = parseVNNumber_(layGiaTri(r, ['Đơn giá', 'Giá bán', 'DonGia']));
         const thanhTienRaw = layGiaTri(r, ['Thành tiền', 'ThanhTien', 'Khách cần trả', 'Cần thu']);
-        const lineThanhTien = (thanhTienRaw !== null && !isNaN(Number(thanhTienRaw))) ? Number(thanhTienRaw) : (soLuong * donGia);
-        const lineDoanhSo = (soLuong > 0 && donGia > 0) ? (soLuong * donGia) : lineThanhTien;
+        const thanhTien = thanhTienRaw !== null && thanhTienRaw !== undefined ? parseVNNumber_(thanhTienRaw) : (sl * donGia);
 
-        let lineGiamSP = Number(layGiaTri(r, ['Giảm giá SP', 'Giảm giá', 'Chiết khấu'])) || 0;
-        if (lineGiamSP === 0 && lineDoanhSo > lineThanhTien) {
-          lineGiamSP = lineDoanhSo - lineThanhTien;
-        }
-
-        const giamGiaHD = Number(layGiaTri(r, ['Giảm giá HĐ', 'Giảm giá hóa đơn', 'Chiết khấu HĐ'])) || 0;
+        const giamHD = parseVNNumber_(layGiaTri(r, ['Giảm giá HĐ', 'Giảm giá hóa đơn', 'Chiết khấu HĐ']));
 
         if (!mapHoaDonChiTiet.has(maHD)) {
           const itemHD = danhSachHoaDon.find(x => x.maHD === maHD);
           const laGiaoLai = itemHD ? itemHD.laDonGiaoLai : false;
           mapHoaDonChiTiet.set(maHD, {
             maHD: maHD,
-            maKH: layGiaTri(r, ['Mã khách hàng', 'Mã KH', 'Mã đối tác']) || '',
-            tenKH: layGiaTri(r, ['Tên khách hàng', 'Tên KH', 'Khách hàng']) || '',
-            nguoiBan: layGiaTri(r, ['Người bán', 'Nhân viên bán', 'Nhân viên', 'Người tạo']) || '',
+            maKH: String(layGiaTri(r, ['Mã khách hàng', 'Mã KH', 'Mã đối tác']) || '').trim(),
+            tenKH: String(layGiaTri(r, ['Tên khách hàng', 'Tên KH', 'Khách hàng']) || 'Khách Lẻ').trim(),
+            nguoiBan: String(layGiaTri(r, ['Người bán', 'Nhân viên bán hàng', 'Nhân viên', 'Người tạo']) || '').trim(),
             doanhSo: 0,
             giamGiaSP: 0,
-            giamGiaHD: giamGiaHD,
-            tongLineThanhTien: 0,
+            giamGiaHD: giamHD,
+            thanhTienDong: 0,
             thanhTien: 0,
             ghiChu: laGiaoLai ? 'Đơn giao lại' : (layGiaTri(r, ['Ghi chú', 'Diễn giải']) || ''),
             laDonGiaoLai: laGiaoLai,
@@ -1904,23 +1969,24 @@
         }
 
         const item = mapHoaDonChiTiet.get(maHD);
-        item.doanhSo += lineDoanhSo;
-        item.giamGiaSP += lineGiamSP;
-        item.tongLineThanhTien += lineThanhTien;
+        item.doanhSo += (sl * donGia);
+        item.giamGiaSP += (sl * donGia) - thanhTien;
+        item.thanhTienDong += thanhTien;
+        if (giamHD > 0) item.giamGiaHD = giamHD;
       });
 
-      // Bổ sung đơn giao lại
+      // Bổ sung đơn giao lại nếu có
       danhSachHoaDon.filter(h => h.chon && h.laDonGiaoLai).forEach(hd => {
         if (!mapHoaDonChiTiet.has(hd.maHD)) {
           mapHoaDonChiTiet.set(hd.maHD, {
             maHD: hd.maHD,
             maKH: hd.maKH || '',
-            tenKH: hd.tenKH || '',
+            tenKH: hd.tenKH || 'Khách Lẻ',
             nguoiBan: '(Giao lại chuyến trước)',
             doanhSo: hd.soTien || 0,
             giamGiaSP: 0,
             giamGiaHD: 0,
-            tongLineThanhTien: hd.soTien || 0,
+            thanhTienDong: hd.soTien || 0,
             thanhTien: hd.soTien || 0,
             ghiChu: 'Đơn giao lại từ chuyến trước',
             laDonGiaoLai: true,
@@ -1938,12 +2004,12 @@
       let tongDoanhSo = 0, tongGiamSP = 0, tongGiamHD = 0, tongThanhTien = 0;
       let stt = 1;
       danhSachHoaDonChiTietToanCuc = Array.from(mapHoaDonChiTiet.values());
-      // Tự động cập nhật Người Bán vào Danh mục - Nhân viên kinh doanh
+      // Tự động đồng bộ Người Bán vào Danh mục
       tuDongDongBoNhanVienKinhDoanh(danhSachHoaDonChiTietToanCuc.map(x => x.nguoiBan));
 
       danhSachHoaDonChiTietToanCuc.forEach(hd => {
         if (!hd.daLuuDotTruoc) {
-          hd.thanhTien = hd.tongLineThanhTien - hd.giamGiaHD;
+          hd.thanhTien = hd.thanhTienDong - hd.giamGiaHD;
         }
         tongDoanhSo += hd.doanhSo;
         tongGiamSP += hd.giamGiaSP;
@@ -1974,22 +2040,21 @@
         tbody.appendChild(tr);
       });
 
-      // YÊU CẦU 4: Dòng TỔNG CỘNG được đưa vào cuối tbody (KHÔNG để trong tfoot) để không bao giờ bị lặp lại nhiều lần trên từng trang khi in
+      // Dòng TỔNG CỘNG hợp nhất 5 cột đầu theo Apps Script
       const trTong = document.createElement('tr');
       trTong.className = 'row-tong-bangke';
-      trTong.style.backgroundColor = '#b8cce4';
+      trTong.style.backgroundColor = '#dcfce7';
       trTong.style.fontWeight = '800';
       trTong.innerHTML = `
-        <td colspan="5" class="text-center" style="font-weight:800; text-align:center;">TỔNG CỘNG</td>
+        <td colspan="5" class="text-right" style="font-weight:800; text-align:right; padding:8px 12px;">TỔNG CỘNG</td>
         <td class="text-right cell-num" style="font-weight:800; text-align:right; white-space:nowrap;">${formatTien(tongDoanhSo)}</td>
         <td class="text-right cell-num" style="font-weight:800; text-align:right; white-space:nowrap;">${formatTien(tongGiamSP)}</td>
         <td class="text-right cell-num" style="font-weight:800; text-align:right; white-space:nowrap;">${formatTien(tongGiamHD)}</td>
-        <td class="text-right text-bold cell-num" style="font-weight:800; text-align:right; white-space:nowrap;">${formatTien(tongThanhTien)}</td>
+        <td class="text-right text-bold cell-num" style="font-weight:800; text-align:right; white-space:nowrap; color:#137333;">${formatTien(tongThanhTien)}</td>
         <td></td>
       `;
       tbody.appendChild(trTong);
 
-      // YÊU CẦU 4: Đánh dấu số tờ khi số lượng tờ ước tính > 2
       const soToUocTinh = Math.max(1, Math.ceil(danhSachHoaDonChiTietToanCuc.length / 26));
       const footerTrang = document.getElementById('footerTrangBangKe');
       if (footerTrang) {
@@ -2006,17 +2071,16 @@
     }
 
     // ========================================================
-    // 2. TẠO PHIẾU XUẤT KHO TỔNG HỢP (MẪU 2 CHUẨN KẾ TOÁN)
-    // - KM (0đ) lên trên cùng
-    // - Hàng bán ở giữa (A->Z)
-    // - Dòng tổng kiện Chẵn/Lẻ (#e2efda)
-    // - Dòng Banner chứng từ & HĐ GTGT (#d9e1f2) ở dưới cùng
+    // 2. TẠO PHIẾU XUẤT KHO TỔNG HỢP (MẪU 2 CHUẨN APPS SCRIPT)
+    // ── Khóa gom: Mã hàng + Đơn giá (khác giá là khác dòng)
+    // ── Khối A: Hàng hóa (KM 0đ lên trên, A-Z numeric:true)
+    // ── Khối B: Chứng từ đi kèm (MA_CHUNG_TU = ["HĐ"]), không tính kiện
+    // ── Tính Chẵn / Lẻ chuẩn: taoDongXuatKho_
     // ========================================================
     function taoPhieuXuatKhoTongHop(dongKiotViet) {
       window.dongKiotVietHienTaiChoPXK = dongKiotViet;
-      const mapHangHoa = new Map();
+      const nhom = {};
 
-      // YÊU CẦU 5: Tự động ghép chi tiết hàng hóa của đợt lưu trữ cũ nếu có
       const tatCaDongKiotViet = (dotLuuTruHienCo && Array.isArray(dotLuuTruHienCo.cacDongChiTietKiotViet))
         ? [...dotLuuTruHienCo.cacDongChiTietKiotViet, ...dongKiotViet]
         : dongKiotViet;
@@ -2024,108 +2088,236 @@
       tatCaDongKiotViet.forEach(r => {
         const maHangRaw = layGiaTri(r, ['Mã hàng', 'Mã hàng hóa', 'Mã SP', 'MaHang']);
         if (!maHangRaw) return;
-        const maHang = String(maHangRaw).trim().toUpperCase();
+        const maHang = String(maHangRaw).trim();
+        if (maHang === "" || maHang.toLowerCase().includes("tổng")) return;
 
-        const tenHang = layGiaTri(r, ['Tên hàng', 'Tên hàng hóa', 'Tên SP', 'TenHang']) || '';
-        const dvt = layGiaTri(r, ['Đơn vị tính', 'ĐVT']) || 'Thùng';
-        const soLuong = parseSoLuongChuan(layGiaTri(r, ['Số lượng', 'SL', 'SoLuong']));
-        const donGia = Number(layGiaTri(r, ['Đơn giá', 'Giá bán'])) || 0;
-
+        const tenHang = String(layGiaTri(r, ['Tên hàng', 'Tên hàng hóa', 'Tên SP', 'TenHang']) || '').trim();
+        const dvt = String(layGiaTri(r, ['Đơn vị tính', 'ĐVT']) || 'Thùng').trim();
+        const sl = parseVNNumber_(layGiaTri(r, ['Số lượng', 'SL', 'SoLuong']));
+        const donGiaGoc = parseVNNumber_(layGiaTri(r, ['Đơn giá', 'Giá bán']));
         const thanhTienRaw = layGiaTri(r, ['Thành tiền', 'ThanhTien', 'Khách cần trả']);
-        const lineThanhTien = (thanhTienRaw !== null && !isNaN(Number(thanhTienRaw))) ? Number(thanhTienRaw) : (soLuong * donGia);
+        const thanhTienDong = thanhTienRaw !== null && thanhTienRaw !== undefined ? parseVNNumber_(thanhTienRaw) : (sl * donGiaGoc);
 
-        let quyCach = mapQuyCach.get(maHang);
-        if (!quyCach || isNaN(quyCach)) {
-          quyCach = parseSoLuongChuan(layGiaTri(r, ['Quy cách', 'QuyCach', 'QC'])) || 1;
-        }
+        // Đơn giá thực tế của dòng (làm tròn 2 số thập phân như Apps Script)
+        let donGia = (sl !== 0) ? (thanhTienDong / sl) : donGiaGoc;
+        donGia = Math.round(donGia * 100) / 100;
 
-        if (!mapHangHoa.has(maHang)) {
-          mapHangHoa.set(maHang, {
-            maHang: maHang,
-            tenHang: tenHang,
-            quyCach: quyCach,
+        // Khóa gom nhóm: [Mã hàng + Đơn giá] ➡ Khác giá là khác dòng
+        const key = maHang + "\u2016" + donGia;
+
+        if (!nhom[key]) {
+          let qc = mapQuyCach.get(maHang.toUpperCase());
+          if (!qc || isNaN(qc) || qc <= 0) {
+            qc = parseVNNumber_(layGiaTri(r, ['Quy cách', 'QuyCach', 'QC'])) || 1;
+          }
+          nhom[key] = {
+            ma: maHang,
+            ten: tenHang,
+            qc: qc > 0 ? qc : 1,
             dvt: dvt,
-            tongSL: 0,
             donGia: donGia,
-            thanhTien: 0,
-            laKhuyenMai: (donGia === 0 || lineThanhTien === 0 || tenHang.toLowerCase().includes('khuyến mãi') || tenHang.toLowerCase().includes('km'))
-          });
+            tongSL: 0,
+            thanhTien: 0
+          };
         }
 
-        const h = mapHangHoa.get(maHang);
-        h.tongSL += soLuong;
-        h.thanhTien += lineThanhTien;
-        if (h.donGia === 0 && donGia > 0) h.donGia = donGia;
+        nhom[key].tongSL += sl;
+        nhom[key].thanhTien += thanhTienDong;
       });
+
+      // Tách 2 Khối: Hàng hóa và Chứng từ
+      const hangHoa = [];
+      const chungTu = [];
+      for (const k in nhom) {
+        if (laChungTu_(nhom[k].ma)) chungTu.push(nhom[k]);
+        else hangHoa.push(nhom[k]);
+      }
+
+      // Sắp xếp: Khối A KM (0đ) lên trên, A->Z; Khối B A->Z
+      hangHoa.sort(soSanhKMTruoc_);
+      chungTu.sort(soSanhMaHang_);
+
+      // Tự động bổ sung Hóa Đơn GTGT vào chứng từ nếu chưa có mã HĐ riêng trong file
+      if (chungTu.length === 0) {
+        const countHD = (danhSachHoaDonChiTietToanCuc && danhSachHoaDonChiTietToanCuc.length > 0)
+          ? danhSachHoaDonChiTietToanCuc.length
+          : (danhSachHoaDon.filter(h => h.chon).length || 1);
+        chungTu.push({
+          ma: "HĐ",
+          ten: "Hóa Đơn GTGT",
+          qc: 1,
+          dvt: "Tờ",
+          donGia: 0,
+          tongSL: countHD,
+          thanhTien: 0
+        });
+      }
 
       const tbody = document.getElementById('tbodyXuatKho');
       tbody.innerHTML = '';
       document.getElementById('tfootXuatKho').innerHTML = '';
 
-      // Phân nhóm
-      const tatCaHang = Array.from(mapHangHoa.values());
-      const hangKM = [];
-      const hangBan = [];
-      const hangHD = [];
+      let stt = 0;
+      let sumChanA = 0, sumLeA = 0, sumTienA = 0;
+      const danhSachExcelA = [];
 
-      tatCaHang.forEach(h => {
-        const mh = (h.maHang || '').toUpperCase().trim();
-        const th = (h.tenHang || '').toLowerCase();
-        const laHD = mh === 'HĐ' || mh === 'HD' || mh.startsWith('HĐ') || mh.startsWith('HD') || th.includes('hóa đơn') || th.includes('hoá đơn');
-        const laKM = (h.donGia === 0 || h.thanhTien === 0 || h.laKhuyenMai);
+      // ── RENDER KHỐI A: HÀNG HÓA ──────────────────────────────────
+      hangHoa.forEach(item => {
+        const kq = taoDongXuatKho_(item, ++stt);
+        sumChanA += kq.chan;
+        sumLeA += kq.le;
+        sumTienA += item.thanhTien;
 
-        if (laHD) hangHD.push(h);
-        else if (laKM) hangKM.push(h);
-        else hangBan.push(h);
-      });
-
-      // Sắp xếp mã A->Z
-      hangKM.sort((a, b) => a.maHang.localeCompare(b.maHang));
-      hangBan.sort((a, b) => a.maHang.localeCompare(b.maHang));
-
-      const danhSachXuat = [...hangKM, ...hangBan];
-      let stt = 1;
-      let tongChan = 0, tongLe = 0, tongTien = 0;
-      const danhSachExcel = [];
-
-      danhSachXuat.forEach(h => {
-        const qc = (h.quyCach && h.quyCach > 0) ? h.quyCach : 1;
-        let chan = Math.floor(h.tongSL);
-        let le = 0;
-
-        const phanLe = h.tongSL - chan;
-        if (qc > 1 && phanLe > 0.00001) {
-          le = Math.round(phanLe * qc);
-        }
-
-        tongChan += chan;
-        tongLe += le;
-        tongTien += h.thanhTien;
-
-        danhSachExcel.push({
+        danhSachExcelA.push({
           stt: stt,
-          maHang: h.maHang,
-          tenHang: h.tenHang,
-          quyCach: qc,
-          dvt: h.dvt,
-          tongSL: h.tongSL,
-          chan: chan,
-          le: le,
-          donGia: h.donGia,
-          thanhTien: h.thanhTien,
-          laKhuyenMai: h.laKhuyenMai
+          maHang: item.ma,
+          tenHang: item.ten,
+          quyCach: item.qc,
+          dvt: item.dvt,
+          tongSL: item.tongSL,
+          chan: kq.chan,
+          le: kq.le,
+          donGia: item.donGia,
+          thanhTien: item.thanhTien,
+          laKhuyenMai: (item.donGia === 0)
         });
 
-        // Gán class row-item-hang và các data-attribute để bộ lọc & nút copy 3 cột trích xuất
         const tr = document.createElement('tr');
         tr.className = 'row-item-hang';
-        tr.setAttribute('data-mahang', h.maHang);
-        tr.setAttribute('data-tenhang', (h.tenHang || '').toLowerCase());
-        tr.setAttribute('data-tongsl', h.tongSL);
-        tr.setAttribute('data-chan', chan);
-        tr.setAttribute('data-le', le);
-        tr.setAttribute('data-km', h.laKhuyenMai ? '1' : '0');
-        tr.setAttribute('data-thanhtien', h.thanhTien || 0);
+        tr.setAttribute('data-mahang', item.ma);
+        tr.setAttribute('data-tenhang', item.ten.toLowerCase());
+        tr.setAttribute('data-tongsl', item.tongSL);
+        tr.setAttribute('data-chan', kq.chan);
+        tr.setAttribute('data-le', kq.le);
+        tr.setAttribute('data-km', item.donGia === 0 ? '1' : '0');
+        tr.setAttribute('data-thanhtien', item.thanhTien || 0);
+
+        if (item.donGia === 0) {
+          tr.style.backgroundColor = '#fff7ed';
+        }
+
+        tr.innerHTML = `
+          <td class="text-center">${stt}</td>
+          <td class="text-bold">${item.ma}</td>
+          <td>${item.ten}</td>
+          <td class="text-center" style="white-space:nowrap; cursor:pointer;" title="Bấm để sửa nhanh quy cách" onclick="suaQuyCachNhanh('${item.ma}', ${item.qc})"><span style="color:#0284c7; font-weight:700; text-decoration:underline;">${item.qc}</span> ✏️</td>
+          <td class="text-center" style="white-space:nowrap;">${item.dvt}</td>
+          <td class="text-center text-bold" style="white-space:nowrap;">${item.tongSL}</td>
+          <td class="text-center" style="white-space:nowrap;">${kq.chan}</td>
+          <td class="text-center" style="white-space:nowrap;">${kq.le}</td>
+          <td class="text-right cell-num" style="white-space:nowrap;">${formatTien(item.donGia)}</td>
+          <td class="text-right text-bold cell-num" style="white-space:nowrap;">${formatTien(item.thanhTien)}</td>
+          <td class="text-center">${item.donGia === 0 ? '<span class="tag-km">HÀNG KHUYẾN MÃI</span>' : ''}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Dòng TỔNG CỘNG HÀNG HÓA (#dcfce7)
+      const trTong = document.createElement('tr');
+      trTong.className = 'row-tong-hang';
+      trTong.style.backgroundColor = '#dcfce7';
+      trTong.style.fontWeight = 'bold';
+      trTong.innerHTML = `
+        <td colspan="5" class="text-right" style="font-weight:800; padding:8px 12px;">TỔNG CỘNG HÀNG HÓA</td>
+        <td class="text-center" style="font-weight:800;"></td>
+        <td class="text-center" style="font-weight:800; font-size:13px; color:#137333; white-space:nowrap;">${sumChanA}</td>
+        <td class="text-center" style="font-weight:800; font-size:13px; color:#137333; white-space:nowrap;">${sumLeA}</td>
+        <td></td>
+        <td class="text-right cell-num" style="font-weight:800; font-size:13px; color:#137333; white-space:nowrap;">${formatTien(sumTienA)}</td>
+        <td></td>
+      `;
+      tbody.appendChild(trTong);
+
+      // ── RENDER KHỐI B: CHỨNG TỪ ĐI KÈM ───────────────────────────
+      let sumTienB = 0;
+      const danhSachExcelB = [];
+
+      if (chungTu.length > 0) {
+        const trSpacer = document.createElement('tr');
+        trSpacer.style.height = '10px';
+        trSpacer.innerHTML = '<td colspan="11" style="border:none; background:transparent;"></td>';
+        tbody.appendChild(trSpacer);
+
+        const trBanner = document.createElement('tr');
+        trBanner.className = 'row-banner-doc';
+        trBanner.style.backgroundColor = '#e2e8f0';
+        trBanner.style.color = '#334155';
+        trBanner.style.fontWeight = 'bold';
+        trBanner.style.textAlign = 'center';
+        trBanner.innerHTML = `
+          <td colspan="11" style="padding: 6px 12px; font-size: 11.5px; letter-spacing: 0.3px;">
+            CHỨNG TỪ / GIẤY TỜ ĐI KÈM — KHÔNG TÍNH VÀO TỔNG SỐ KIỆN Ở TRÊN
+          </td>
+        `;
+        tbody.appendChild(trBanner);
+
+        chungTu.forEach(c => {
+          sumTienB += c.thanhTien;
+          danhSachExcelB.push({
+            stt: ++stt,
+            maHang: c.ma,
+            tenHang: c.ten,
+            quyCach: c.qc,
+            dvt: c.dvt,
+            tongSL: c.tongSL,
+            chan: '',
+            le: '',
+            donGia: c.donGia,
+            thanhTien: c.thanhTien,
+            ghiChu: 'CHỨNG TỪ'
+          });
+
+          const trDoc = document.createElement('tr');
+          trDoc.className = 'row-item-hang row-chung-tu';
+          trDoc.style.backgroundColor = '#f8fafc';
+          trDoc.setAttribute('data-mahang', c.ma);
+          trDoc.setAttribute('data-tenhang', c.ten.toLowerCase());
+          trDoc.setAttribute('data-tongsl', c.tongSL);
+          trDoc.setAttribute('data-chan', '');
+          trDoc.setAttribute('data-le', '');
+          trDoc.setAttribute('data-km', '0');
+          trDoc.setAttribute('data-thanhtien', c.thanhTien || 0);
+
+          trDoc.innerHTML = `
+            <td class="text-center">${stt}</td>
+            <td class="text-bold">${c.ma}</td>
+            <td>${c.ten}</td>
+            <td class="text-center">${c.qc}</td>
+            <td class="text-center">${c.dvt}</td>
+            <td class="text-center text-bold">${c.tongSL}</td>
+            <td class="text-center" style="color:var(--text-muted);">—</td>
+            <td class="text-center" style="color:var(--text-muted);">—</td>
+            <td class="text-right cell-num">${formatTien(c.donGia)}</td>
+            <td class="text-right text-bold cell-num">${formatTien(c.thanhTien)}</td>
+            <td class="text-center" style="font-style:italic; color:#475569;">CHỨNG TỪ</td>
+          `;
+          tbody.appendChild(trDoc);
+        });
+
+        const trCongDoc = document.createElement('tr');
+        trCongDoc.className = 'row-cong-doc';
+        trCongDoc.style.backgroundColor = '#e2e8f0';
+        trCongDoc.style.fontWeight = 'bold';
+        trCongDoc.innerHTML = `
+          <td colspan="5" class="text-right" style="font-weight:800; padding:6px 12px;">CỘNG CHỨNG TỪ</td>
+          <td colspan="4"></td>
+          <td class="text-right cell-num" style="font-weight:800; white-space:nowrap;">${formatTien(sumTienB)}</td>
+          <td></td>
+        `;
+        tbody.appendChild(trCongDoc);
+      }
+
+      danhSachHangHoaXuatKhoToanCuc = {
+        hangHoa: danhSachExcelA,
+        chungTu: danhSachExcelB,
+        tongChan: sumChanA,
+        tongLe: sumLeA,
+        tongTien: sumTienA,
+        tongTienChungTu: sumTienB
+      };
+
+      locDuLieuXuatKho();
+    }r.setAttribute('data-thanhtien', h.thanhTien || 0);
 
         tr.innerHTML = `
           <td class="text-center">${stt++}</td>
@@ -2516,8 +2708,15 @@
         const headers = ["STT", "Mã Hàng", "Tên Hàng Hóa", "QC", "ĐVT", "Tổng SL", "Chẵn", "Lẻ", "Đơn Giá", "Thành Tiền", "Ghi Chú"];
         wsData.push(headers.map(h => ({ v: h, s: headerStyle })));
 
+        // 1. Khối A: Hàng Hóa
         danhSachHangHoaXuatKhoToanCuc.hangHoa.forEach(h => {
-          const baseStyle = { font: { sz: 9.5, name: "Times New Roman" }, border: borderThin, alignment: { vertical: "center" } };
+          const isKM = h.donGia === 0;
+          const baseStyle = {
+            font: { sz: 9.5, name: "Times New Roman", color: isKM ? { rgb: "C2410C" } : { rgb: "000000" } },
+            fill: isKM ? { fgColor: { rgb: "FFF7ED" } } : undefined,
+            border: borderThin,
+            alignment: { vertical: "center" }
+          };
           wsData.push([
             { v: h.stt, t: "n", s: { ...baseStyle, alignment: { horizontal: "center" } } },
             { v: h.maHang, t: "s", s: { ...baseStyle, font: { bold: true } } },
@@ -2529,16 +2728,17 @@
             { v: h.le, t: "n", s: { ...baseStyle, alignment: { horizontal: "center" } } },
             { v: h.donGia, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right" } } },
             { v: h.thanhTien, t: "n", z: "#,##0", s: { ...baseStyle, font: { bold: true }, alignment: { horizontal: "right" } } },
-            { v: h.laKhuyenMai ? "HÀNG KHUYẾN MÃI" : "", t: "s", s: { ...baseStyle, font: { italic: true, color: { rgb: "C00000" } }, alignment: { horizontal: "center" } } }
+            { v: isKM ? "HÀNG KHUYẾN MÃI" : "", t: "s", s: { ...baseStyle, font: { bold: isKM }, alignment: { horizontal: "center" } } }
           ]);
         });
 
-        // Dòng Tổng kiện (#E2EFDA)
-        const totalGreen = { font: { bold: true, sz: 10, name: "Times New Roman" }, fill: { fgColor: { rgb: "E2EFDA" } }, border: borderThin };
+        // Dòng TỔNG CỘNG HÀNG HÓA (#DCFCE7)
+        const totalGreen = { font: { bold: true, sz: 10, name: "Times New Roman" }, fill: { fgColor: { rgb: "DCFCE7" } }, border: borderThin };
         const rowTongHangIdx = wsData.length;
         wsData.push([
-          { v: "TỔNG CỘNG HÀNG HÓA", s: { ...totalGreen, alignment: { horizontal: "center" } } },
-          { v: "", s: totalGreen }, { v: "", s: totalGreen }, { v: "", s: totalGreen }, { v: "", s: totalGreen }, { v: "", s: totalGreen },
+          { v: "TỔNG CỘNG HÀNG HÓA", s: { ...totalGreen, alignment: { horizontal: "right" } } },
+          { v: "", s: totalGreen }, { v: "", s: totalGreen }, { v: "", s: totalGreen }, { v: "", s: totalGreen },
+          { v: "", s: totalGreen },
           { v: danhSachHangHoaXuatKhoToanCuc.tongChan, t: "n", s: { ...totalGreen, alignment: { horizontal: "center" } } },
           { v: danhSachHangHoaXuatKhoToanCuc.tongLe, t: "n", s: { ...totalGreen, alignment: { horizontal: "center" } } },
           { v: "", s: totalGreen },
@@ -2546,50 +2746,54 @@
           { v: "", s: totalGreen }
         ]);
 
-        // Dòng Banner Chứng từ (#D9E1F2)
-        const rowBannerIdx = wsData.length;
-        const bannerStyle = { font: { bold: true, sz: 10, name: "Times New Roman" }, fill: { fgColor: { rgb: "D9E1F2" } }, border: borderThin, alignment: { horizontal: "center" } };
-        wsData.push(Array(11).fill(null).map((_, i) => ({
-          v: i === 0 ? "CHỨNG TỪ / GIẤY TỜ ĐI KÈM — KHÔNG TÍNH VÀO TỔNG SỐ KIỆN Ở TRÊN" : "",
-          s: bannerStyle
-        })));
-
-        // Hóa đơn GTGT
-        const countHD = danhSachHangHoaXuatKhoToanCuc.soLuongHD || 1;
-        const docBaseStyle = { font: { sz: 9.5, name: "Times New Roman" }, border: borderThin, alignment: { vertical: "center" } };
-        wsData.push([
-          { v: danhSachHangHoaXuatKhoToanCuc.hangHoa.length + 1, t: "n", s: { ...docBaseStyle, alignment: { horizontal: "center" } } },
-          { v: "HĐ", t: "s", s: { ...docBaseStyle, font: { bold: true } } },
-          { v: "Hóa Đơn GTGT", t: "s", s: docBaseStyle },
-          { v: 1, t: "n", s: { ...docBaseStyle, alignment: { horizontal: "center" } } },
-          { v: "Tờ", t: "s", s: { ...docBaseStyle, alignment: { horizontal: "center" } } },
-          { v: countHD, t: "n", s: { ...docBaseStyle, font: { bold: true }, alignment: { horizontal: "center" } } },
-          { v: "", s: docBaseStyle }, { v: "", s: docBaseStyle },
-          { v: 0, t: "n", z: "#,##0", s: { ...docBaseStyle, alignment: { horizontal: "right" } } },
-          { v: 0, t: "n", z: "#,##0", s: { ...docBaseStyle, alignment: { horizontal: "right" } } },
-          { v: "HÀNG KHUYẾN MÃI", t: "s", s: { ...docBaseStyle, font: { italic: true, color: { rgb: "C00000" } }, alignment: { horizontal: "center" } } }
-        ]);
-
-        // Cộng chứng từ (#D9E1F2)
-        const rowCongDocIdx = wsData.length;
-        wsData.push([
-          { v: "CỘNG CHỨNG TỪ", s: bannerStyle },
-          { v: "", s: bannerStyle }, { v: "", s: bannerStyle }, { v: "", s: bannerStyle }, { v: "", s: bannerStyle },
-          { v: "", s: bannerStyle }, { v: "", s: bannerStyle }, { v: "", s: bannerStyle }, { v: "", s: bannerStyle },
-          { v: 0, t: "n", z: "#,##0", s: { ...bannerStyle, alignment: { horizontal: "right" } } },
-          { v: "", s: bannerStyle }
-        ]);
-
-        const ws = XLSX.utils.aoa_to_sheet(wsData);
-        ws['!merges'] = [
+        const mergesList = [
           { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
           { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
           { s: { r: 3, c: 0 }, e: { r: 3, c: 10 } },
-          { s: { r: rowTongHangIdx, c: 0 }, e: { r: rowTongHangIdx, c: 5 } },
-          { s: { r: rowBannerIdx, c: 0 }, e: { r: rowBannerIdx, c: 10 } },
-          { s: { r: rowCongDocIdx, c: 0 }, e: { r: rowCongDocIdx, c: 8 } }
+          { s: { r: rowTongHangIdx, c: 0 }, e: { r: rowTongHangIdx, c: 4 } }
         ];
-        ws['!cols'] = [{ wch: 5 }, { wch: 14 }, { wch: 36 }, { wch: 8 }, { wch: 8 }, { wch: 9 }, { wch: 7 }, { wch: 7 }, { wch: 13 }, { wch: 15 }, { wch: 20 }];
+
+        // 2. Khối B: Chứng Từ Đi Kèm (nếu có)
+        if (danhSachHangHoaXuatKhoToanCuc.chungTu && danhSachHangHoaXuatKhoToanCuc.chungTu.length > 0) {
+          const rowBannerIdx = wsData.length;
+          const bannerStyle = { font: { bold: true, sz: 10, name: "Times New Roman", color: { rgb: "334155" } }, fill: { fgColor: { rgb: "E2E8F0" } }, border: borderThin, alignment: { horizontal: "center" } };
+          wsData.push(Array(11).fill(null).map((_, i) => ({
+            v: i === 0 ? "CHỨNG TỪ / GIẤY TỜ ĐI KÈM — KHÔNG TÍNH VÀO TỔNG SỐ KIỆN Ở TRÊN" : "",
+            s: bannerStyle
+          })));
+          mergesList.push({ s: { r: rowBannerIdx, c: 0 }, e: { r: rowBannerIdx, c: 10 } });
+
+          danhSachHangHoaXuatKhoToanCuc.chungTu.forEach(c => {
+            const docStyle = { font: { sz: 9.5, name: "Times New Roman" }, fill: { fgColor: { rgb: "F8FAFC" } }, border: borderThin, alignment: { vertical: "center" } };
+            wsData.push([
+              { v: c.stt, t: "n", s: { ...docStyle, alignment: { horizontal: "center" } } },
+              { v: c.maHang, t: "s", s: { ...docStyle, font: { bold: true } } },
+              { v: c.tenHang, t: "s", s: docStyle },
+              { v: c.quyCach, t: "n", s: { ...docStyle, alignment: { horizontal: "center" } } },
+              { v: c.dvt, t: "s", s: { ...docStyle, alignment: { horizontal: "center" } } },
+              { v: c.tongSL, t: "n", s: { ...docStyle, font: { bold: true }, alignment: { horizontal: "center" } } },
+              { v: "", s: docStyle },
+              { v: "", s: docStyle },
+              { v: c.donGia, t: "n", z: "#,##0", s: { ...docStyle, alignment: { horizontal: "right" } } },
+              { v: c.thanhTien, t: "n", z: "#,##0", s: { ...docStyle, alignment: { horizontal: "right" } } },
+              { v: "CHỨNG TỪ", t: "s", s: { ...docStyle, font: { italic: true }, alignment: { horizontal: "center" } } }
+            ]);
+          });
+
+          const rowCongDocIdx = wsData.length;
+          wsData.push([
+            { v: "CỘNG CHỨNG TỪ", s: bannerStyle },
+            { v: "", s: bannerStyle }, { v: "", s: bannerStyle }, { v: "", s: bannerStyle }, { v: "", s: bannerStyle },
+            { v: "", s: bannerStyle }, { v: "", s: bannerStyle }, { v: "", s: bannerStyle }, { v: "", s: bannerStyle },
+            { v: danhSachHangHoaXuatKhoToanCuc.tongTienChungTu || 0, t: "n", z: "#,##0", s: { ...bannerStyle, alignment: { horizontal: "right" } } },
+            { v: "", s: bannerStyle }
+          ]);
+          mergesList.push({ s: { r: rowCongDocIdx, c: 0 }, e: { r: rowCongDocIdx, c: 4 } });
+        }
+
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        ws['!merges'] = mergesList;
+        ws['!cols'] = [{ wch: 5 }, { wch: 14 }, { wch: 32 }, { wch: 8 }, { wch: 8 }, { wch: 11 }, { wch: 9 }, { wch: 8 }, { wch: 13 }, { wch: 15 }, { wch: 16 }];
         XLSX.utils.book_append_sheet(wb, ws, "PhieuXuatKho");
         XLSX.writeFile(wb, `Phieu_Xuat_Kho_${xe.replace(/[^a-zA-Z0-9]/g, '_')}_${ngay}.xlsx`);
       }
