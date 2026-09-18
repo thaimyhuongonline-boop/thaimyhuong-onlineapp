@@ -481,26 +481,59 @@
       return "";
     }
 
-    // Ép kiểu số chuẩn Việt Nam
+    // Ép kiểu số chuẩn Việt Nam & Excel thông minh
     function parseVNNumber(val) {
-      if (val === undefined || val === null) return 0;
+      if (val === undefined || val === null || val === "") return 0;
+      if (typeof val === 'number') {
+        return isNaN(val) ? 0 : val;
+      }
+
       let str = val.toString().trim().replace(/\s/g, '');
       if (str === "") return 0;
       str = str.replace(/[đĐ$]/g, '').replace(/VND/gi, '');
+      if (str === "") return 0;
+
       let am = false;
       if (str.charAt(0) === '-') { am = true; str = str.substring(1); }
       if (str.charAt(0) === '(' && str.charAt(str.length - 1) === ')') {
         am = true; str = str.substring(1, str.length - 1);
       }
-      if (str.indexOf(',') !== -1) {
-        const viTri = str.lastIndexOf(',');
-        const phanNguyen = str.substring(0, viTri).replace(/[.,]/g, '');
-        const phanLe = str.substring(viTri + 1).replace(/[^0-9]/g, '');
-        str = (phanNguyen === "" ? "0" : phanNguyen) + '.' + (phanLe === "" ? "0" : phanLe);
-      } else {
-        str = str.replace(/\./g, '');
+
+      if (str.indexOf(',') !== -1 && str.indexOf('.') !== -1) {
+        if (str.lastIndexOf(',') > str.lastIndexOf('.')) {
+          let viTri = str.lastIndexOf(',');
+          let phanNguyen = str.substring(0, viTri).replace(/[.,]/g, '');
+          let phanLe = str.substring(viTri + 1).replace(/[^0-9]/g, '');
+          str = (phanNguyen === "" ? "0" : phanNguyen) + '.' + (phanLe === "" ? "0" : phanLe);
+        } else {
+          let viTri = str.lastIndexOf('.');
+          let phanNguyen = str.substring(0, viTri).replace(/[.,]/g, '');
+          let phanLe = str.substring(viTri + 1).replace(/[^0-9]/g, '');
+          str = (phanNguyen === "" ? "0" : phanNguyen) + '.' + (phanLe === "" ? "0" : phanLe);
+        }
+      } else if (str.indexOf(',') !== -1) {
+        let parts = str.split(',');
+        if (parts.length === 2 && (parts[0] === '0' || parts[0] === '-0' || parts[1].length !== 3)) {
+          str = parts[0] + '.' + parts[1];
+        } else if (parts.length > 2) {
+          str = str.replace(/,/g, '');
+        } else {
+          str = parts[0] + '.' + parts[1];
+        }
+      } else if (str.indexOf('.') !== -1) {
+        let parts = str.split('.');
+        if (parts.length === 2) {
+          if (parts[0] === '0' || parts[0] === '-0' || parts[1].length !== 3) {
+            str = parts[0] + '.' + parts[1];
+          } else {
+            str = str.replace(/\./g, '');
+          }
+        } else {
+          str = str.replace(/\./g, '');
+        }
       }
-      const num = parseFloat(str);
+
+      let num = parseFloat(str);
       if (isNaN(num)) return 0;
       return am ? -num : num;
     }

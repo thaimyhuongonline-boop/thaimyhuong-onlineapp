@@ -140,7 +140,7 @@
       border-color: var(--primary);
     }
 
-    /* Định dạng Giấy Biểu Mẫu Chuẩn In */
+    /* Định dạng Giấy Biểu Mẫu Trên Màn Hình */
     .sheet-paper {
       background: #ffffff;
       border: 1px solid var(--border-color);
@@ -148,11 +148,12 @@
       border-radius: var(--radius-sm);
       font-family: "Times New Roman", Times, serif;
       color: #000000;
-      min-width: 800px;
+      box-sizing: border-box;
+      width: 100%;
     }
     .doc-header {
       text-align: center;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
     .doc-company {
       text-align: left;
@@ -170,26 +171,29 @@
       font-size: 18px;
       font-weight: bold;
       text-align: center;
-      margin: 8px 0;
+      margin: 6px 0;
       text-transform: uppercase;
     }
     .doc-meta {
       font-size: 11px;
       text-align: center;
-      margin: 3px 0;
+      margin: 2px 0;
     }
 
-    /* Bảng biểu mẫu */
+    /* Bảng biểu mẫu màn hình */
     .doc-table {
       width: 100%;
       border-collapse: collapse;
       font-size: 12px;
-      margin-top: 10px;
+      margin-top: 8px;
+      table-layout: fixed;
     }
     .doc-table th, .doc-table td {
       border: 1px solid #94a3b8;
-      padding: 6px 8px;
+      padding: 5px 6px;
       vertical-align: middle;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
     .doc-table th {
       font-weight: bold;
@@ -222,26 +226,118 @@
     .cell-num {
       text-align: right;
       font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .cell-qc {
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .cell-qc:hover {
+      background: #e0f2fe;
     }
 
-    /* Khi In A4 */
+    /* ========================================================
+     * ĐỊNH DẠNG IN A4: VỪA KHÍT 100% BỀ NGANG, KHÔNG TRÀN
+     * ======================================================== */
     @media print {
+      @page {
+        size: A4 portrait;
+        margin: 5mm 6mm 5mm 6mm;
+      }
+      html, body {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+      }
       body * {
         visibility: hidden;
       }
-      .tmh-sidebar, .tmh-topbar, .control-card, .preview-toolbar, .tmh-footer, .tmh-stepper-wrap {
+      .tmh-sidebar, .tmh-topbar, .control-card, .preview-toolbar, .tmh-footer, .tmh-stepper-wrap, #tmhPageLoading, #manHinhCho {
         display: none !important;
       }
-      .sheet-paper, .sheet-paper * {
+      .sheet-paper.in-duoc, .sheet-paper.in-duoc * {
         visibility: visible;
       }
       .sheet-paper {
-        position: absolute;
-        left: 0;
-        top: 0;
+        display: none !important;
+      }
+      .sheet-paper.in-duoc {
+        display: block !important;
+        position: static !important;
         width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
         border: none !important;
         padding: 0 !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+      }
+      .doc-table {
+        width: 100% !important;
+        max-width: 100% !important;
+        table-layout: fixed !important;
+        border-collapse: collapse !important;
+        font-size: 8pt !important;
+      }
+      .doc-table th, .doc-table td {
+        padding: 2.5px 2px !important;
+        border: 1px solid #1e293b !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+        line-height: 1.15 !important;
+      }
+      .doc-table th {
+        font-size: 8pt !important;
+        font-weight: bold !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .th-bangke {
+        background: #cfe2f3 !important;
+      }
+      .th-xuatkho {
+        background: #fef08a !important;
+      }
+      .row-tong {
+        background: #dcfce7 !important;
+      }
+      .row-km {
+        background: #fff7ed !important;
+        color: #c2410c !important;
+      }
+      .row-banner-chungtu {
+        background: #e2e8f0 !important;
+        color: #334155 !important;
+      }
+      .row-chungtu {
+        background: #f8fafc !important;
+      }
+      .cell-num {
+        white-space: nowrap !important;
+        font-size: 8pt !important;
+      }
+      .doc-company {
+        font-size: 9.5pt !important;
+      }
+      .doc-addr {
+        font-size: 7.5pt !important;
+      }
+      .doc-title {
+        font-size: 13pt !important;
+        margin: 3px 0 !important;
+      }
+      .doc-meta {
+        font-size: 8pt !important;
+        margin: 1.5px 0 !important;
+      }
+      .cell-qc span {
+        text-decoration: none !important;
+        color: #000000 !important;
+      }
+      .cell-qc em {
+        display: none !important;
       }
     }
   </style>
@@ -355,10 +451,18 @@
               <span>📦</span> Phiếu Xuất Kho (Mẫu 2)
             </button>
           </div>
-          <div style="display:flex; gap:8px;">
-            <button type="button" class="btn btn-outline btn-sm" onclick="window.print()">
-              <span>🖨️</span> In Biểu Mẫu
-            </button>
+          
+          <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+            <!-- Cụm nút In ấn vừa vặn khổ A4 -->
+            <div style="display:flex; border:1px solid var(--border-color); border-radius:var(--radius-sm); overflow:hidden;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="inBieuMau('portrait')" title="In vừa khít bề ngang khổ giấy A4 Đứng" style="border:none; border-radius:0; padding:6px 10px; font-weight:700;">
+                <span>📄</span> In A4 Đứng
+              </button>
+              <button type="button" class="btn btn-outline btn-sm" onclick="inBieuMau('landscape')" title="In rộng rãi khổ giấy A4 Ngang" style="border:none; border-left:1px solid var(--border-color); border-radius:0; padding:6px 10px; font-weight:700;">
+                <span>📑</span> In A4 Ngang
+              </button>
+            </div>
+
             <button type="button" class="btn btn-outline btn-sm" onclick="xuatExcelHienTai()">
               <span>📥</span> Xuất Excel Chuẩn
             </button>
@@ -372,7 +476,7 @@
           <div style="font-size:13px; margin-top:4px;">Vui lòng chọn xe, nhân sự, tick chọn các hóa đơn bên trái và bấm <b>"Tạo 2 Biểu Mẫu"</b>.</div>
         </div>
 
-        <!-- NỘI DUNG 1: BẢNG KÊ THU TIỀN HÀNG -->
+        <!-- NỘI DUNG 1: BẢNG KÊ THU TIỀN HÀNG (10 CỘT CHUẨN) -->
         <div class="sheet-paper" id="viewBangKe" style="display:none;">
           <div class="doc-header">
             <div class="doc-company">CÔNG TY TNHH THÁI MỸ HƯƠNG</div>
@@ -386,26 +490,38 @@
             </div>
           </div>
 
-          <table class="doc-table">
+          <table class="doc-table table-bangke">
+            <colgroup>
+              <col style="width: 4%;">
+              <col style="width: 12%;">
+              <col style="width: 11%;">
+              <col style="width: 24%;">
+              <col style="width: 11%;">
+              <col style="width: 9.5%;">
+              <col style="width: 7.5%;">
+              <col style="width: 7%;">
+              <col style="width: 10%;">
+              <col style="width: 4%;">
+            </colgroup>
             <thead>
               <tr class="th-bangke">
-                <th style="width:40px;">STT</th>
-                <th style="width:110px;">Mã Hoá Đơn</th>
-                <th style="width:110px;">Mã Khách Hàng</th>
+                <th>STT</th>
+                <th>Mã Hoá Đơn</th>
+                <th>Mã Khách Hàng</th>
                 <th>Tên Khách Hàng</th>
-                <th style="width:130px;">Người Bán</th>
-                <th style="width:105px;" class="cell-num">Doanh Số</th>
-                <th style="width:100px;" class="cell-num">Giảm Giá SP</th>
-                <th style="width:100px;" class="cell-num">Giảm Giá HĐ</th>
-                <th style="width:115px;" class="cell-num">Thành Tiền</th>
-                <th style="width:110px;">Ghi Chú</th>
+                <th>Người Bán</th>
+                <th class="cell-num">Doanh Số</th>
+                <th class="cell-num">Giảm Giá SP</th>
+                <th class="cell-num">Giảm Giá HĐ</th>
+                <th class="cell-num">Thành Tiền</th>
+                <th>Ghi Chú</th>
               </tr>
             </thead>
             <tbody id="tbodyBangKe"></tbody>
           </table>
         </div>
 
-        <!-- NỘI DUNG 2: PHIẾU XUẤT KHO TỔNG HỢP -->
+        <!-- NỘI DUNG 2: PHIẾU XUẤT KHO TỔNG HỢP (11 CỘT CHUẨN) -->
         <div class="sheet-paper" id="viewXuatKho" style="display:none;">
           <div class="doc-header">
             <div class="doc-company">CÔNG TY TNHH THÁI MỸ HƯƠNG</div>
@@ -419,20 +535,33 @@
             </div>
           </div>
 
-          <table class="doc-table">
+          <table class="doc-table table-xuatkho">
+            <colgroup>
+              <col style="width: 4%;">
+              <col style="width: 9%;">
+              <col style="width: 29%;">
+              <col style="width: 5%;">
+              <col style="width: 5.5%;">
+              <col style="width: 7.5%;">
+              <col style="width: 6.5%;">
+              <col style="width: 5.5%;">
+              <col style="width: 9%;">
+              <col style="width: 10.5%;">
+              <col style="width: 8.5%;">
+            </colgroup>
             <thead>
               <tr class="th-xuatkho">
-                <th style="width:35px;">STT</th>
-                <th style="width:90px;">Mã Hàng</th>
+                <th>STT</th>
+                <th>Mã Hàng</th>
                 <th>Tên Hàng Hóa</th>
-                <th style="width:50px;">QC</th>
-                <th style="width:55px;">ĐVT</th>
-                <th style="width:75px;" class="cell-num">Tổng SL</th>
-                <th style="width:60px;" class="cell-num">Chẵn</th>
-                <th style="width:55px;" class="cell-num">Lẻ</th>
-                <th style="width:95px;" class="cell-num">Đơn Giá</th>
-                <th style="width:110px;" class="cell-num">Thành Tiền</th>
-                <th style="width:120px;">Ghi Chú</th>
+                <th>QC</th>
+                <th>ĐVT</th>
+                <th class="cell-num">Tổng SL</th>
+                <th class="cell-num">Chẵn</th>
+                <th class="cell-num">Lẻ</th>
+                <th class="cell-num">Đơn Giá</th>
+                <th class="cell-num">Thành Tiền</th>
+                <th>Ghi Chú</th>
               </tr>
             </thead>
             <tbody id="tbodyXuatKho"></tbody>
@@ -454,6 +583,7 @@
      * 3. Hàng khuyến mãi (0đ) dồn lên TRÊN CÙNG của Khối A
      * 4. Khóa gom nhóm: Mã hàng + Đơn giá (khác giá tách dòng riêng)
      * 5. Thuật toán Chẵn / Lẻ: taoDongXuatKho_
+     * 6. Sửa nhanh Quy cách trực tiếp trên bảng và in vừa vặn khổ A4
      * ==================================================================== */
 
     var MA_CHUNG_TU = ["HĐ"];
@@ -490,29 +620,59 @@
       return false;
     }
 
+    // Ép kiểu số chuẩn Việt Nam & Excel thông minh
     function parseVNNumber_(val) {
-      if (val === undefined || val === null) return 0;
-      var str = val.toString().trim().replace(/\s/g, '');
+      if (val === undefined || val === null || val === "") return 0;
+      if (typeof val === 'number') {
+        return isNaN(val) ? 0 : val;
+      }
+
+      let str = val.toString().trim().replace(/\s/g, '');
       if (str === "") return 0;
       str = str.replace(/[đĐ$]/g, '').replace(/VND/gi, '');
       if (str === "") return 0;
 
-      var am = false;
+      let am = false;
       if (str.charAt(0) === '-') { am = true; str = str.substring(1); }
       if (str.charAt(0) === '(' && str.charAt(str.length - 1) === ')') {
         am = true; str = str.substring(1, str.length - 1);
       }
 
-      if (str.indexOf(',') !== -1) {
-        var viTri = str.lastIndexOf(',');
-        var phanNguyen = str.substring(0, viTri).replace(/[.,]/g, '');
-        var phanLe = str.substring(viTri + 1).replace(/[^0-9]/g, '');
-        str = (phanNguyen === "" ? "0" : phanNguyen) + '.' + (phanLe === "" ? "0" : phanLe);
-      } else {
-        str = str.replace(/\./g, '');
+      if (str.indexOf(',') !== -1 && str.indexOf('.') !== -1) {
+        if (str.lastIndexOf(',') > str.lastIndexOf('.')) {
+          let viTri = str.lastIndexOf(',');
+          let phanNguyen = str.substring(0, viTri).replace(/[.,]/g, '');
+          let phanLe = str.substring(viTri + 1).replace(/[^0-9]/g, '');
+          str = (phanNguyen === "" ? "0" : phanNguyen) + '.' + (phanLe === "" ? "0" : phanLe);
+        } else {
+          let viTri = str.lastIndexOf('.');
+          let phanNguyen = str.substring(0, viTri).replace(/[.,]/g, '');
+          let phanLe = str.substring(viTri + 1).replace(/[^0-9]/g, '');
+          str = (phanNguyen === "" ? "0" : phanNguyen) + '.' + (phanLe === "" ? "0" : phanLe);
+        }
+      } else if (str.indexOf(',') !== -1) {
+        let parts = str.split(',');
+        if (parts.length === 2 && (parts[0] === '0' || parts[0] === '-0' || parts[1].length !== 3)) {
+          str = parts[0] + '.' + parts[1];
+        } else if (parts.length > 2) {
+          str = str.replace(/,/g, '');
+        } else {
+          str = parts[0] + '.' + parts[1];
+        }
+      } else if (str.indexOf('.') !== -1) {
+        let parts = str.split('.');
+        if (parts.length === 2) {
+          if (parts[0] === '0' || parts[0] === '-0' || parts[1].length !== 3) {
+            str = parts[0] + '.' + parts[1];
+          } else {
+            str = str.replace(/\./g, '');
+          }
+        } else {
+          str = str.replace(/\./g, '');
+        }
       }
 
-      var num = parseFloat(str);
+      let num = parseFloat(str);
       if (isNaN(num)) return 0;
       return am ? -num : num;
     }
@@ -576,6 +736,76 @@
       return Math.round(so || 0).toLocaleString('vi-VN');
     }
 
+    function formatSoLuong(sl) {
+      if (sl === undefined || sl === null) return "0";
+      if (Number.isInteger(sl)) return sl.toString();
+      return (Math.round(sl * 1000) / 1000).toLocaleString('vi-VN');
+    }
+
+    // ========================================================
+    // SỬA NHANH QUY CÁCH TRỰC TIẾP TRÊN BẢNG
+    // ========================================================
+    function suaQuyCachNhanh(maHang, qcHienTai) {
+      const moi = prompt(`Nhập Quy cách (số đơn vị lẻ trong 1 thùng/bao) cho mã "${maHang}":`, qcHienTai || 1);
+      if (moi !== null) {
+        const qcSo = parseVNNumber_(moi);
+        if (qcSo > 0) {
+          mapQuyCach.set(maHang.toUpperCase(), qcSo);
+
+          // Cập nhật danh mục hàng hóa ở localStorage
+          let dsHang = [];
+          try {
+            dsHang = JSON.parse(localStorage.getItem('tmh_danh_muc_hang_hoa') || '[]');
+          } catch (e) {}
+
+          let tim = dsHang.find(h => String(h.ma_hang || h.ma_sp || h.ma || '').trim().toUpperCase() === maHang.toUpperCase());
+          if (tim) {
+            tim.quy_cach = qcSo;
+          } else {
+            dsHang.push({ ma_hang: maHang, ten_hang: maHang, quy_cach: qcSo });
+          }
+          localStorage.setItem('tmh_danh_muc_hang_hoa', JSON.stringify(dsHang));
+
+          // Đồng bộ Supabase nếu có kết nối
+          if (typeof sb !== 'undefined') {
+            sb.from('hang_hoa').update({ quy_cach: qcSo }).eq('ma_hang', maHang).then(() => {});
+          }
+
+          // Render lại phiếu xuất kho ngay lập tức
+          chayTaoPhieu();
+        }
+      }
+    }
+
+    // ========================================================
+    // IN ẤN CHUẨN A4 ĐỨNG & A4 NGANG
+    // ========================================================
+    function inBieuMau(huongIn) {
+      const view = (tabHienTai === 'bangke') ? document.getElementById('viewBangKe') : document.getElementById('viewXuatKho');
+      if (!view || view.style.display === 'none') {
+        alert("Vui lòng bấm 'Tạo 2 Biểu Mẫu' trước khi in!");
+        return;
+      }
+
+      document.querySelectorAll('.sheet-paper').forEach(el => el.classList.remove('in-duoc'));
+      view.classList.add('in-duoc');
+
+      let styleTag = document.getElementById('dynamicPrintStyle');
+      if (!styleTag) {
+        styleTag = document.createElement('style');
+        styleTag.id = 'dynamicPrintStyle';
+        document.head.appendChild(styleTag);
+      }
+
+      if (huongIn === 'landscape') {
+        styleTag.innerHTML = `@page { size: A4 landscape; margin: 5mm 6mm; }`;
+      } else {
+        styleTag.innerHTML = `@page { size: A4 portrait; margin: 5mm 6mm; }`;
+      }
+
+      window.print();
+    }
+
     // ========================================================
     // KHỞI TẠO TRANG BƯỚC 2
     // ========================================================
@@ -591,7 +821,7 @@
       document.getElementById('ngayGiaoHang').value = new Date().toISOString().slice(0, 10);
 
       napDropdownNhanSu();
-      napQuyCachHangHoa();
+      await napQuyCachHangHoa();
       napDuLieuTuBuoc1();
     }
 
@@ -626,15 +856,35 @@
       listThuTien.forEach(th => selThuTien.add(new Option(th, th)));
     }
 
-    // Nạp quy cách hàng hóa từ danh mục
-    function napQuyCachHangHoa() {
+    // Nạp quy cách hàng hóa từ danh mục (hỗ trợ cả ma_hang và Supabase)
+    async function napQuyCachHangHoa() {
       mapQuyCach.clear();
-      const dsHang = JSON.parse(localStorage.getItem('tmh_danh_muc_hang_hoa') || '[]');
+      let dsHang = [];
+      try {
+        dsHang = JSON.parse(localStorage.getItem('tmh_danh_muc_hang_hoa') || '[]');
+      } catch (e) {}
+
       dsHang.forEach(h => {
-        const ma = String(h.ma_sp || h.ma || '').trim().toUpperCase();
+        const ma = String(h.ma_hang || h.ma_sp || h.ma || '').trim().toUpperCase();
         const qc = parseVNNumber_(h.quy_cach || h.qc) || 1;
         if (ma) mapQuyCach.set(ma, qc);
       });
+
+      // Thử nạp thêm từ Supabase nếu có
+      if (typeof sb !== 'undefined') {
+        try {
+          const { data } = await sb.from('hang_hoa').select('ma_hang, quy_cach');
+          if (data && data.length > 0) {
+            data.forEach(h => {
+              const ma = String(h.ma_hang || '').trim().toUpperCase();
+              const qc = parseVNNumber_(h.quy_cach) || 1;
+              if (ma && (!mapQuyCach.has(ma) || mapQuyCach.get(ma) === 1)) {
+                mapQuyCach.set(ma, qc);
+              }
+            });
+          }
+        } catch (e) {}
+      }
     }
 
     // Nạp dữ liệu KiotViet từ Bước 1
@@ -746,7 +996,6 @@
       const nvGiao = document.getElementById('nvGiaoHang').value || '...............';
       const nvThu = document.getElementById('nvThuTien').value || '...............';
 
-      // Cập nhật tiêu đề bảng
       document.getElementById('lblXeBangKe').textContent = xe;
       document.getElementById('lblTaiXeBangKe').textContent = taiXe;
       document.getElementById('lblNgayBangKe').textContent = ngayGiao;
@@ -762,7 +1011,6 @@
       document.getElementById('tieuDeBangKe').textContent = "BẢNG KÊ THU TIỀN HÀNG VÀ GIAO HÀNG" + (layTatCa ? " (TẤT CẢ HÓA ĐƠN)" : "");
       document.getElementById('tieuDeXuatKho').textContent = "PHIẾU XUẤT KHO TỔNG HỢP" + (layTatCa ? " (TẤT CẢ HÓA ĐƠN)" : "");
 
-      // Lọc các dòng theo hóa đơn được chọn
       const cacDongTheoXe = duLieuKiotViet.filter(r => {
         const maHD = String(r['Mã hóa đơn'] || '').trim().toUpperCase();
         return layTatCa || setMaHDDuocChon.has(maHD);
@@ -796,10 +1044,18 @@
         const maHang = String(row['Mã hàng'] || '').trim();
         if (maHang === "" || maHang.toLowerCase().includes("tổng")) return;
 
-        const sl = parseVNNumber_(row['Số lượng']);
+        let sl = parseVNNumber_(row['Số lượng']);
         const donGia = parseVNNumber_(row['Đơn giá']);
         const thanhTien = parseVNNumber_(row['Thành tiền']) || (sl * donGia);
         const giamHD = parseVNNumber_(row['Giảm giá hóa đơn']);
+
+        // Tự động phát hiện và khắc phục nếu số lượng bị nhân nhầm 1000 từ lần nạp trước
+        if (donGia >= 1000 && sl >= 100 && thanhTien > 0) {
+          const donGiaTam = thanhTien / sl;
+          if (Math.abs(donGiaTam - donGia / 1000) < 1) {
+            sl = Math.round((sl / 1000) * 10000) / 10000;
+          }
+        }
 
         if (!groupedData[maHD]) {
           groupedData[maHD] = {
@@ -901,9 +1157,17 @@
 
         const tenHang = String(row['Tên hàng'] || '').trim();
         const dvt = String(row['ĐVT'] || 'Thùng').trim();
-        const sl = parseVNNumber_(row['Số lượng']);
+        let sl = parseVNNumber_(row['Số lượng']);
         const donGiaGoc = parseVNNumber_(row['Đơn giá']);
         const thanhTien = parseVNNumber_(row['Thành tiền']) || (sl * donGiaGoc);
+
+        // Tự động phát hiện và khắc phục nếu số lượng bị nhân nhầm 1000 từ lần nạp trước
+        if (donGiaGoc >= 1000 && sl >= 100 && thanhTien > 0) {
+          const donGiaTam = thanhTien / sl;
+          if (Math.abs(donGiaTam - donGiaGoc / 1000) < 1) {
+            sl = Math.round((sl / 1000) * 10000) / 10000;
+          }
+        }
 
         // Đơn giá thực tế dòng (làm tròn 2 chữ số thập phân)
         let donGia = (sl !== 0) ? (thanhTien / sl) : donGiaGoc;
@@ -989,9 +1253,11 @@
           <td style="text-align:center;">${stt}</td>
           <td style="font-weight:700;">${item.ma}</td>
           <td>${item.ten}</td>
-          <td style="text-align:center;">${item.qc}</td>
+          <td class="cell-qc" onclick="suaQuyCachNhanh('${item.ma}', ${item.qc})" title="Bấm để sửa nhanh quy cách">
+            <span style="color:#0284c7; text-decoration:underline; font-weight:bold;">${item.qc}</span> <em>✏️</em>
+          </td>
           <td style="text-align:center;">${item.dvt}</td>
-          <td class="cell-num" style="font-weight:700;">${item.tongSL}</td>
+          <td class="cell-num" style="font-weight:700;">${formatSoLuong(item.tongSL)}</td>
           <td class="cell-num">${kq.chan}</td>
           <td class="cell-num">${kq.le}</td>
           <td class="cell-num">${formatTien(item.donGia)}</td>
@@ -1047,7 +1313,7 @@
             <td>${c.ten}</td>
             <td style="text-align:center;">${c.qc}</td>
             <td style="text-align:center;">${c.dvt}</td>
-            <td class="cell-num" style="font-weight:700;">${c.tongSL}</td>
+            <td class="cell-num" style="font-weight:700;">${formatSoLuong(c.tongSL)}</td>
             <td style="text-align:center; color:var(--text-muted);">—</td>
             <td style="text-align:center; color:var(--text-muted);">—</td>
             <td class="cell-num">${formatTien(c.donGia)}</td>
@@ -1148,7 +1414,6 @@
           ]);
         });
 
-        // Dòng tổng
         const totalStyle = { font: { bold: true, sz: 10, name: "Times New Roman" }, fill: { fgColor: { rgb: "DCFCE7" } }, border: borderThin };
         const rowTongIdx = wsData.length;
         wsData.push([
