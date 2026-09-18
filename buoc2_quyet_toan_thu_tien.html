@@ -303,6 +303,9 @@
           <button type="button" class="btn btn-outline" style="align-self:flex-end; height:34px; padding:0 10px;" onclick="taiLaiDanhSachDot()" title="Tải lại danh sách từ bộ nhớ & Supabase">
             <span>🔄</span> Làm mới
           </button>
+          <button type="button" class="btn btn-outline" style="align-self:flex-end; height:34px; padding:0 10px; color:#dc2626; border-color:#fca5a5;" onclick="xoaDuLieuChuyenXe()" title="Xóa dữ liệu chuyến xe đang chọn khỏi hệ thống">
+            <span>🗑️</span> Xóa dữ liệu
+          </button>
         </div>
 
         <div class="hero-info-tags" id="chuyenXeInfoTags">
@@ -583,8 +586,20 @@
       }
 
       if (danhSachTatCaDot.length === 0) {
-        sel.innerHTML = '<option value="">⚠️ Chưa có chuyến xe nào được tạo từ Bước 1</option>';
-        hienThiToast("⚠️ Chưa có chuyến xe nào. Hãy tạo chuyến xe ở Bước 1 trước!");
+        sel.innerHTML = '<option value="">⚠️ Chưa có chuyến xe nào</option>';
+        document.getElementById('tagXe').textContent = `🚚 Xe: --`;
+        document.getElementById('tagTaiXe').textContent = `👤 Tài xế: --`;
+        document.getElementById('tagNgay').textContent = `📅 Ngày: --`;
+        const tagStatus = document.getElementById('tagTrangThai');
+        if (tagStatus) {
+          tagStatus.className = "badge-status badge-pending";
+          tagStatus.innerHTML = "⏳ Chưa có chuyến";
+        }
+        dotHienTai = null;
+        danhSachHoaDonQuyetToan = [];
+        veBangQuyetToan();
+        tinhToanTongThe();
+        hienThiToast("ℹ️ Chưa có chuyến xe nào trong hệ thống.");
         return;
       }
 
@@ -630,6 +645,62 @@
 
       // Chuẩn bị danh sách hóa đơn quyết toán
       napDuLieuHoaDonCuaDot(dotHienTai);
+    }
+
+    // ========================================================
+    // XÓA DỮ LIỆU CHUYẾN XE HIỆN TẠI
+    // ========================================================
+    async function xoaDuLieuChuyenXe() {
+      if (!dotHienTai) {
+        alert("⚠️ Vui lòng chọn một chuyến xe cần xóa dữ liệu!");
+        return;
+      }
+
+      const tenChuyen = `${dotHienTai.xe} (${dotHienTai.ngayGiao || 'Hôm nay'})`;
+      const xacNhan = confirm(
+        `🗑️ BẠN CÓ CHẮC CHẮN MUỐN XÓA DỮ LIỆU CHUYẾN XE NÀY?\n\n` +
+        `• Chuyến xe: ${tenChuyen}\n` +
+        `• Tài xế: ${dotHienTai.taiXe || 'Chưa rõ'}\n` +
+        `• Số hóa đơn: ${danhSachHoaDonQuyetToan.length} HĐ\n\n` +
+        `⚠️ Dữ liệu của chuyến xe này sẽ bị xóa khỏi danh sách quyết toán.\n` +
+        `Bấm [OK] để xác nhận XÓA. Bấm [Hủy / Cancel] để giữ lại.`
+      );
+
+      if (!xacNhan) return;
+
+      const maDotXoa = dotHienTai.maDot;
+
+      // 1. Xóa khỏi danh sách tất cả đợt trong localStorage
+      danhSachTatCaDot = danhSachTatCaDot.filter(d => d.maDot !== maDotXoa);
+      localStorage.setItem("tmh_lich_su_dot", JSON.stringify(danhSachTatCaDot));
+
+      // 2. Xóa khỏi đợt hiện tại trong localStorage nếu trùng
+      try {
+        const dotDangLuu = JSON.parse(localStorage.getItem("tmh_dot_quyet_toan_hien_tai") || "null");
+        if (dotDangLuu && dotDangLuu.maDot === maDotXoa) {
+          localStorage.removeItem("tmh_dot_quyet_toan_hien_tai");
+        }
+        const dotBuoc1 = JSON.parse(localStorage.getItem("tmh_dot_hien_tai") || "null");
+        if (dotBuoc1 && dotBuoc1.maDot === maDotXoa) {
+          localStorage.removeItem("tmh_dot_hien_tai");
+        }
+      } catch (e) {}
+
+      // 3. Xóa các bản ghi liên quan trên Supabase luu_tru nếu có
+      if (typeof sb !== 'undefined') {
+        try {
+          await sb.from('luu_tru').delete().eq('ma_dot', maDotXoa);
+        } catch (e) {
+          console.warn("Lỗi xóa Supabase:", e);
+        }
+      }
+
+      hienThiToast(`🗑️ Đã xóa dữ liệu chuyến xe "${tenChuyen}" thành công!`);
+
+      // 4. Reset đợt hiện tại và tải lại danh sách
+      dotHienTai = null;
+      danhSachHoaDonQuyetToan = [];
+      taiLaiDanhSachDot();
     }
 
     function napDuLieuHoaDonCuaDot(dot) {
