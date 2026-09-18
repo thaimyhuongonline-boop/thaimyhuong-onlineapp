@@ -573,18 +573,41 @@
         const tenHang = String(layGiaTri(r, ['Tên hàng', 'Tên SP', 'Tên hàng hóa', 'TenHang']) || '').trim();
         const dvt = String(layGiaTri(r, ['ĐVT', 'Đơn vị tính']) || 'Thùng').trim();
         const sl = parseVNNumber(layGiaTri(r, ['Số lượng', 'SL', 'SoLuong']));
-        const donGiaGoc = parseVNNumber(layGiaTri(r, ['Đơn giá', 'Giá bán', 'DonGia']));
+        
+        // Nhận diện Đơn giá niêm yết vs Giá bán thực tế (KiotViet)
+        const giaBanVal = layGiaTri(r, ['Giá bán', 'GiaBan', 'Đơn giá bán', 'Giá bán sau giảm']);
+        const donGiaVal = layGiaTri(r, ['Đơn giá', 'DonGia', 'Giá niêm yết']);
         const thanhTienRaw = layGiaTri(r, ['Thành tiền', 'ThanhTien', 'Khách cần trả']);
-        const thanhTien = thanhTienRaw !== "" ? parseVNNumber(thanhTienRaw) : (sl * donGiaGoc);
+
+        const coGiaBan = (giaBanVal !== undefined && giaBanVal !== null && String(giaBanVal).trim() !== "");
+        const numGiaBan = parseVNNumber(giaBanVal);
+        const numDonGia = parseVNNumber(donGiaVal);
+        let thanhTien = thanhTienRaw !== "" ? parseVNNumber(thanhTienRaw) : 0;
+
+        let donGiaThucTe = 0;
+        if (coGiaBan) {
+          // Ưu tiên cao nhất: Giá bán thực tế chốt trên đơn hàng KiotViet (hoặc người dùng sửa trên Excel để test)
+          donGiaThucTe = numGiaBan;
+          if (sl !== 0) {
+            const thanhTienTinh = Math.round(sl * donGiaThucTe);
+            // Đồng bộ Thành tiền nếu file Excel chưa tính lại hoặc trống
+            if (thanhTien === 0 || Math.abs(thanhTien - thanhTienTinh) > 1) {
+              thanhTien = thanhTienTinh;
+            }
+          }
+        } else if (sl !== 0 && thanhTien > 0) {
+          // Trường hợp không có cột Giá bán: tính đơn giá thực tế từ Thành tiền / Số lượng
+          donGiaThucTe = Math.round((thanhTien / sl) * 100) / 100;
+        } else {
+          donGiaThucTe = numDonGia;
+          if (thanhTien === 0) thanhTien = Math.round(sl * donGiaThucTe);
+        }
 
         const maKH = String(layGiaTri(r, ['Mã khách hàng', 'Mã KH', 'MaKH']) || '').trim().toUpperCase();
         const tenKH = String(layGiaTri(r, ['Tên khách hàng', 'Tên KH', 'TenKH']) || 'Khách Lẻ').trim();
         const nguoiBan = String(layGiaTri(r, ['Người bán', 'Nhân viên bán hàng', 'Nhân viên']) || '').trim();
         const ghiChu = String(layGiaTri(r, ['Ghi chú', 'Diễn giải']) || '').trim();
         const giamHD = parseVNNumber(layGiaTri(r, ['Giảm giá HĐ', 'Giảm giá hóa đơn', 'Chiết khấu HĐ']));
-
-        // Đơn giá thực tế từng đơn vị
-        const donGiaThucTe = sl !== 0 ? Math.round((thanhTien / sl) * 100) / 100 : donGiaGoc;
 
         const dongChuan = {
           'Mã hóa đơn': maHD,
@@ -593,6 +616,7 @@
           'ĐVT': dvt,
           'Số lượng': sl,
           'Đơn giá': donGiaThucTe,
+          'Giá bán': donGiaThucTe,
           'Thành tiền': thanhTien,
           'Mã khách hàng': maKH,
           'Tên khách hàng': tenKH,

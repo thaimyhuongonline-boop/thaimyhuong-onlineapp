@@ -427,6 +427,10 @@
         <p class="tmh-page-header-sub">Tạo Phiếu Xuất Kho và Bảng Kê Thu Tiền Hàng chuẩn thuật toán Apps Script v2. Khối A Hàng Hóa (KM lên trên, A→Z), Khối B Chứng Từ đi kèm tách riêng không cộng kiện.</p>
       </div>
       <div style="display:flex; gap:8px;">
+        <label class="btn btn-outline" style="cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:6px;" title="Nạp nhanh file Excel KiotViet trực tiếp">
+          <span>📂</span> Nạp lại file Excel
+          <input type="file" id="fileExcelNhanhBuoc2" accept=".xlsx,.xls" style="display:none;" onchange="napNhanhFileExcelBuoc2(this)">
+        </label>
         <a href="buoc1_upload.html" class="btn btn-outline" style="text-decoration:none;">
           <span>←</span> Quay lại Bước 1
         </a>
@@ -1618,8 +1622,11 @@
         if (maHang === "" || maHang.toLowerCase().includes("tổng")) return;
 
         let sl = parseVNNumber_(row['Số lượng']);
-        const donGia = parseVNNumber_(row['Đơn giá']);
-        const thanhTien = parseVNNumber_(row['Thành tiền']) || (sl * donGia);
+        const donGia = parseVNNumber_(row['Giá bán'] || row['Đơn giá']);
+        let thanhTien = parseVNNumber_(row['Thành tiền']);
+        if (thanhTien === 0 || (donGia > 0 && sl !== 0 && Math.abs(thanhTien - Math.round(sl * donGia)) > 1)) {
+          thanhTien = Math.round(sl * donGia);
+        }
         const giamHD = parseVNNumber_(row['Giảm giá hóa đơn']);
 
         // Tự động phát hiện và khắc phục nếu số lượng bị nhân nhầm 1000 từ lần nạp trước
@@ -1731,22 +1738,39 @@
         const tenHang = String(row['Tên hàng'] || '').trim();
         const dvt = String(row['ĐVT'] || 'Thùng').trim();
         let sl = parseVNNumber_(row['Số lượng']);
-        const donGiaGoc = parseVNNumber_(row['Đơn giá']);
-        const thanhTien = parseVNNumber_(row['Thành tiền']) || (sl * donGiaGoc);
+
+        // Nhận diện đơn giá: Ưu tiên Giá bán thực tế chốt trên đơn KiotViet hoặc Đơn giá
+        const giaBanVal = (row['Giá bán'] !== undefined && row['Giá bán'] !== null && String(row['Giá bán']).trim() !== "")
+          ? parseVNNumber_(row['Giá bán'])
+          : null;
+        const donGiaVal = (row['Đơn giá'] !== undefined && row['Đơn giá'] !== null && String(row['Đơn giá']).trim() !== "")
+          ? parseVNNumber_(row['Đơn giá'])
+          : null;
+        let thanhTien = parseVNNumber_(row['Thành tiền']);
+
+        let donGia = 0;
+        if (giaBanVal !== null) {
+          donGia = giaBanVal;
+        } else if (donGiaVal !== null) {
+          donGia = donGiaVal;
+        } else if (sl !== 0 && thanhTien > 0) {
+          donGia = Math.round((thanhTien / sl) * 100) / 100;
+        }
+        donGia = Math.round(donGia * 100) / 100;
 
         // Tự động phát hiện và khắc phục nếu số lượng bị nhân nhầm 1000 từ lần nạp trước
-        if (donGiaGoc >= 1000 && sl >= 100 && thanhTien > 0) {
+        if (donGia >= 1000 && sl >= 100 && thanhTien > 0) {
           const donGiaTam = thanhTien / sl;
-          if (Math.abs(donGiaTam - donGiaGoc / 1000) < 1) {
+          if (Math.abs(donGiaTam - donGia / 1000) < 1) {
             sl = Math.round((sl / 1000) * 10000) / 10000;
           }
         }
 
-        // Đơn giá thực tế dòng (làm tròn 2 chữ số thập phân)
-        let donGia = (sl !== 0) ? (thanhTien / sl) : donGiaGoc;
-        donGia = Math.round(donGia * 100) / 100;
+        if (thanhTien === 0 || (donGia > 0 && sl !== 0 && Math.abs(thanhTien - Math.round(sl * donGia)) > 1)) {
+          thanhTien = Math.round(sl * donGia);
+        }
 
-        // Khóa gom nhóm: [Mã hàng + Đơn giá] ➡ Khác giá tách dòng
+        // Khóa gom nhóm: [Mã hàng + Đơn giá] ➡ Khác giá tách dòng 100%
         const key = maHang + "\u2016" + donGia;
 
         if (!nhom[key]) {
@@ -2211,6 +2235,122 @@
             `📌 Đang chuyển tiếp sang Bước 3 (Lưu trữ & Đối soát)...`);
 
       window.location.href = "buoc3_luu_tru.html";
+    }
+
+    // ========================================================
+    // HELPER ĐỌC CỘT & NẠP LẠI FILE EXCEL NHANH TẠI BƯỚC 2
+    // ========================================================
+    function layGiaTri_(row, keys) {
+      for (const k of keys) {
+        if (row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== "") {
+          return row[k];
+        }
+        const lowerK = k.toLowerCase().replace(/\s/g, '');
+        for (const rowKey in row) {
+          if (rowKey.toLowerCase().replace(/\s/g, '') === lowerK) {
+            if (row[rowKey] !== undefined && row[rowKey] !== null && String(row[rowKey]).trim() !== "") {
+              return row[rowKey];
+            }
+          }
+        }
+      }
+      return "";
+    }
+
+    function napNhanhFileExcelBuoc2(input) {
+      const file = input.files && input.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheet = workbook.SheetNames[0];
+          const rawRows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], { defval: "" });
+
+          if (!rawRows || rawRows.length === 0) {
+            alert("File không có dữ liệu!");
+            return;
+          }
+
+          const dongHopLe = [];
+          rawRows.forEach(r => {
+            const maHD = String(layGiaTri_(r, ['Mã hóa đơn', 'Mã HĐ', 'Mã chứng từ', 'Số hóa đơn', 'Ma hoa don']) || '').trim().toUpperCase();
+            if (!maHD || maHD.includes('TỔNG')) return;
+
+            const maHang = String(layGiaTri_(r, ['Mã hàng', 'Mã SP', 'Mã hàng hóa', 'MaHang']) || '').trim().toUpperCase();
+            if (!maHang || maHang.includes('TỔNG')) return;
+
+            const tenHang = String(layGiaTri_(r, ['Tên hàng', 'Tên SP', 'Tên hàng hóa', 'TenHang']) || '').trim();
+            const dvt = String(layGiaTri_(r, ['ĐVT', 'Đơn vị tính']) || 'Thùng').trim();
+            const sl = parseVNNumber_(layGiaTri_(r, ['Số lượng', 'SL', 'SoLuong']));
+
+            const giaBanVal = layGiaTri_(r, ['Giá bán', 'GiaBan', 'Đơn giá bán', 'Giá bán sau giảm']);
+            const donGiaVal = layGiaTri_(r, ['Đơn giá', 'DonGia', 'Giá niêm yết']);
+            const thanhTienRaw = layGiaTri_(r, ['Thành tiền', 'ThanhTien', 'Khách cần trả']);
+
+            const coGiaBan = (giaBanVal !== undefined && giaBanVal !== null && String(giaBanVal).trim() !== "");
+            const numGiaBan = parseVNNumber_(giaBanVal);
+            const numDonGia = parseVNNumber_(donGiaVal);
+            let thanhTien = thanhTienRaw !== "" ? parseVNNumber_(thanhTienRaw) : 0;
+
+            let donGiaThucTe = 0;
+            if (coGiaBan) {
+              donGiaThucTe = numGiaBan;
+              if (sl !== 0) {
+                const thanhTienTinh = Math.round(sl * donGiaThucTe);
+                if (thanhTien === 0 || Math.abs(thanhTien - thanhTienTinh) > 1) {
+                  thanhTien = thanhTienTinh;
+                }
+              }
+            } else if (sl !== 0 && thanhTien > 0) {
+              donGiaThucTe = Math.round((thanhTien / sl) * 100) / 100;
+            } else {
+              donGiaThucTe = numDonGia;
+              if (thanhTien === 0) thanhTien = Math.round(sl * donGiaThucTe);
+            }
+
+            const maKH = String(layGiaTri_(r, ['Mã khách hàng', 'Mã KH', 'MaKH']) || '').trim().toUpperCase();
+            const tenKH = String(layGiaTri_(r, ['Tên khách hàng', 'Tên KH', 'TenKH']) || 'Khách Lẻ').trim();
+            const nguoiBan = String(layGiaTri_(r, ['Người bán', 'Nhân viên bán hàng', 'Nhân viên']) || '').trim();
+            const ghiChu = String(layGiaTri_(r, ['Ghi chú', 'Diễn giải']) || '').trim();
+            const giamHD = parseVNNumber_(layGiaTri_(r, ['Giảm giá HĐ', 'Giảm giá hóa đơn', 'Chiết khấu HĐ']));
+
+            dongHopLe.push({
+              'Mã hóa đơn': maHD,
+              'Mã hàng': maHang,
+              'Tên hàng': tenHang,
+              'ĐVT': dvt,
+              'Số lượng': sl,
+              'Đơn giá': donGiaThucTe,
+              'Giá bán': donGiaThucTe,
+              'Thành tiền': thanhTien,
+              'Mã khách hàng': maKH,
+              'Tên khách hàng': tenKH,
+              'Người bán': nguoiBan,
+              'Giảm giá hóa đơn': giamHD,
+              'Ghi chú': ghiChu
+            });
+          });
+
+          if (dongHopLe.length === 0) {
+            alert("⚠️ Không tìm thấy dòng dữ liệu hàng hóa hợp lệ nào!");
+            return;
+          }
+
+          localStorage.setItem("tmh_kiotviet_data", JSON.stringify(dongHopLe));
+          duLieuKiotViet = dongHopLe;
+          napDuLieuTuBuoc1();
+          chayTaoPhieu();
+          hienThiToast(`✅ Đã nạp thành công ${dongHopLe.length} dòng dữ liệu từ file Excel!`);
+        } catch (err) {
+          alert("Lỗi đọc file: " + err.message);
+        } finally {
+          input.value = '';
+        }
+      };
+      reader.readAsArrayBuffer(file);
     }
 
     // Khởi chạy khi tải trang
