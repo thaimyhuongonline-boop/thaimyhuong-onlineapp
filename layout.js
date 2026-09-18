@@ -3,21 +3,20 @@
  * Dành cho tất cả các trang nội bộ của app THÁI MỸ HƯƠNG
  * ==================================================================== */
 
-// Danh sách chi tiết 7 bước quy trình chuyển dữ liệu từ KiotViet sang MISA
+// Danh sách chi tiết các bước quy trình tinh gọn chuyển dữ liệu từ KiotViet sang MISA
 const DANH_SACH_7_BUOC = [
-  { id: "buoc1", href: "buoc1_upload.html", ic: "📥", label: "1. Tải KiotViet", desc: "Nạp file Excel bán hàng & đồng bộ DM" },
-  { id: "buoc2", href: "buoc2_phieu_xuat_kho.html", ic: "📊", label: "2. Tạo PXK & DSTT", desc: "Tạo phiếu xuất kho & danh sách thu tiền" },
-  { id: "buoc3", href: "buoc3_luu_tru.html", ic: "🗄️", label: "3. Lưu trữ", desc: "Quản lý 18 cột đối soát & chi tiết HĐ" },
-  { id: "buoc4", href: "buoc4_kiem_don.html", ic: "📋", label: "4. Kiểm đơn", desc: "Đối soát tiền mặt, CK & tách đơn giao lại" },
-  { id: "buoc5", href: "buoc5_bao_cao.html", ic: "💾", label: "5. Báo cáo đối soát", desc: "Tổng hợp MISA & gỡ đơn giao lại" },
-  { id: "buoc6", href: "buoc6_nop_tien.html", ic: "📗", label: "6. Bảng kê nộp tiền", desc: "Đếm mệnh giá tiền mặt & sổ nộp xe" },
-  { id: "buoc7", href: "buoc7_xuat_misa.html", ic: "📤", label: "7. Xuất file MISA", desc: "Xuất Excel 69 cột chuẩn kế toán MISA" }
+  { id: "buoc1", href: "buoc2_phieu_xuat_kho.html", ic: "📊", label: "1. Điều Động Xe & PXK", desc: "Nạp Excel KiotViet, tự động cập nhật DM & tạo PXK, DSTT" },
+  { id: "buoc2", href: "buoc3_luu_tru.html", ic: "🗄️", label: "2. Kho Lưu Trữ & 18 Cột", desc: "Kho lưu trữ chuyến xe & bảng 18 cột đối soát" },
+  { id: "buoc3", href: "buoc4_kiem_don.html", ic: "📋", label: "3. Kiểm Đơn Giao Về", desc: "Đối soát tiền mặt, CK & tách đơn giao lại" },
+  { id: "buoc4", href: "buoc5_bao_cao.html", ic: "💾", label: "4. Báo Cáo Đối Soát", desc: "Tổng hợp MISA & gỡ đơn giao lại" },
+  { id: "buoc5", href: "buoc6_nop_tien.html", ic: "📗", label: "5. Bảng Kê Nộp Tiền", desc: "Đếm mệnh giá tiền mặt & sổ nộp xe" },
+  { id: "buoc6", href: "buoc7_xuat_misa.html", ic: "📤", label: "6. Xuất File MISA", desc: "Xuất Excel 69 cột chuẩn kế toán MISA" }
 ];
 
 // Danh sách Menu chính trên Sidebar
 const MENU_CHINH = [
-  { id: "tongquan", href: "trang_chu.html", ic: "🧭", label: "Tổng quan Quy trình", desc: "Trung tâm điều phối 7 bước KiotViet ➡ MISA", roles: ["admin", "quanly", "nhanvien"] },
-  { id: "quytrinh", href: "buoc1_upload.html", ic: "🔄", label: "Quy trình Bán hàng ➡ MISA", isProcess: true, desc: "Quy trình 7 bước từ KiotViet sang MISA", roles: ["admin", "quanly", "nhanvien"] },
+  { id: "tongquan", href: "trang_chu.html", ic: "🧭", label: "Tổng quan Quy trình", desc: "Trung tâm điều phối quy trình KiotViet ➡ MISA", roles: ["admin", "quanly", "nhanvien"] },
+  { id: "quytrinh", href: "buoc2_phieu_xuat_kho.html", ic: "🔄", label: "Quy trình Bán hàng ➡ MISA", isProcess: true, desc: "Quy trình tinh gọn từ KiotViet sang MISA", roles: ["admin", "quanly", "nhanvien"] },
   { id: "danhmuc", href: "danh_muc.html", ic: "📚", label: "Danh Mục", desc: "Hàng hoá, Khách hàng, Xe, Ngân hàng, Nhân sự...", roles: ["admin", "quanly", "nhanvien"] },
   { id: "taikhoan", href: "quan_ly_taikhoan.html", ic: "🛡️", label: "Tài khoản & Phân quyền", desc: "Quản lý nhân viên & ma trận phân quyền", roles: ["admin"] }
 ];
@@ -64,7 +63,7 @@ async function khoiTaoLayout(options = {}) {
   const ngayHienTaiStr = `${days[now.getDay()]}, ${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
 
   // 4. Xác định trang quy trình và menu active
-  const currentPath = window.location.pathname.split("/").pop() || "buoc1_upload.html";
+  const currentPath = window.location.pathname.split("/").pop() || "buoc2_phieu_xuat_kho.html";
   const isProcessPage = DANH_SACH_7_BUOC.some(b => b.href === currentPath) || options.activeMenuId === "quytrinh" || (options.activeMenuId && options.activeMenuId.startsWith("buoc"));
 
   // 5. Render Sidebar (Gom 7 bước thành 1 tab)

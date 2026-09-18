@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Trung Tâm Quy Trình 7 Bước — CÔNG TY TNHH THÁI MỸ HƯƠNG</title>
+  <title>Trung Tâm Quy Trình Bán Hàng ➡ MISA — CÔNG TY TNHH THÁI MỸ HƯƠNG</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <link rel="stylesheet" href="layout.css">
@@ -212,7 +212,7 @@
       </div>
     </div>
 
-    <!-- Danh sách 7 Bước chuẩn quy trình -->
+    <!-- Danh sách các Bước chuẩn quy trình tinh gọn -->
     <div class="pipeline-steps-list">
 
       <!-- BƯỚC 1 -->
@@ -220,16 +220,16 @@
         <div class="step-badge-num active-step">1</div>
         <div class="step-content">
           <div class="step-header-row">
-            <span class="step-title">Bước 1: Tải & Phân Tích Dữ Liệu KiotViet</span>
-            <span class="step-tag green">Đầu vào</span>
+            <span class="step-title">Bước 1: Nạp Excel KiotViet, Điều Động Xe & Tạo PXK</span>
+            <span class="step-tag green">Đầu vào & Chia xe</span>
           </div>
           <div class="step-desc">
-            Nạp file Excel xuất từ KiotViet. Tự động nhận diện khách hàng mới, mã hàng mới, phân tích quy cách và số lượng lẻ (thùng/lon) để chuẩn bị chia xe.
+            Kéo thả file Excel bán hàng KiotViet trực tiếp. Hệ thống tự động cập nhật danh mục khách hàng, hàng hóa mới và quét nhận diện đơn giao lại. Người điều vận chọn xe, tài xế và xuất in Phiếu Xuất Kho, Bảng Kê Thu Tiền chuẩn xác.
           </div>
         </div>
         <div class="step-action">
-          <a href="buoc1_upload.html" class="btn btn-primary btn-sm">
-            <span>Mở nạp file</span>
+          <a href="buoc2_phieu_xuat_kho.html" class="btn btn-primary btn-sm">
+            <span>Bắt đầu điều xe</span>
             <span>➡</span>
           </a>
         </div>
@@ -240,31 +240,11 @@
         <div class="step-badge-num">2</div>
         <div class="step-content">
           <div class="step-header-row">
-            <span class="step-title">Bước 2: Tạo Phiếu Xuất Kho & Danh Sách Thu Tiền</span>
-            <span class="step-tag">Chia xe & In ấn</span>
-          </div>
-          <div class="step-desc">
-            Bóc tách đơn hàng theo 20 chuyến xe giao trong ngày. Tự động tính chẵn/lẻ, sắp xếp khuyến mãi lên trên, xuất Excel và in phiếu xuất kho cho kho bãi & tài xế.
-          </div>
-        </div>
-        <div class="step-action">
-          <a href="buoc2_phieu_xuat_kho.html" class="btn btn-outline btn-sm">
-            <span>Tạo PXK & DSTT</span>
-            <span>➡</span>
-          </a>
-        </div>
-      </div>
-
-      <!-- BƯỚC 3 -->
-      <div class="pipeline-step-card">
-        <div class="step-badge-num">3</div>
-        <div class="step-content">
-          <div class="step-header-row">
-            <span class="step-title">Bước 3: Lưu Trữ Đối Soát & Chi Tiết Hóa Đơn</span>
+            <span class="step-title">Bước 2: Kho Lưu Trữ Đối Soát & Chi Tiết Hóa Đơn (18 Cột)</span>
             <span class="step-tag">Kho dữ liệu</span>
           </div>
           <div class="step-desc">
-            Ghi nhận 19 cột đối soát vào hệ thống cơ sở dữ liệu Supabase, khóa mã hóa đơn chống trùng lặp, lưu trữ vĩnh viễn chi tiết từng dòng hàng phục vụ MISA.
+            Lưu trữ lịch sử các đợt điều động xe, bảng 18 cột đối soát chi tiết, tự động nhận diện và đồng bộ đơn giao lại, tìm kiếm tức thời và xuất Excel đối soát chuyên nghiệp.
           </div>
         </div>
         <div class="step-action">
@@ -275,12 +255,12 @@
         </div>
       </div>
 
-      <!-- BƯỚC 4 -->
+      <!-- BƯỚC 3 -->
       <div class="pipeline-step-card">
-        <div class="step-badge-num">4</div>
+        <div class="step-badge-num">3</div>
         <div class="step-content">
           <div class="step-header-row">
-            <span class="step-title">Bước 4: Kiểm Đơn Giao Về & Thu Tiền</span>
+            <span class="step-title">Bước 3: Kiểm Đơn Giao Về & Thu Tiền</span>
             <span class="step-tag amber">Đối soát xe</span>
           </div>
           <div class="step-desc">
@@ -295,12 +275,12 @@
         </div>
       </div>
 
-      <!-- BƯỚC 5 -->
+      <!-- BƯỚC 4 -->
       <div class="pipeline-step-card">
-        <div class="step-badge-num">5</div>
+        <div class="step-badge-num">4</div>
         <div class="step-content">
           <div class="step-header-row">
-            <span class="step-title">Bước 5: Báo Cáo Đối Soát & Gỡ Đơn Giao Lại</span>
+            <span class="step-title">Bước 4: Báo Cáo Đối Soát & Gỡ Đơn Giao Lại</span>
             <span class="step-tag">Chốt doanh số</span>
           </div>
           <div class="step-desc">
@@ -315,12 +295,12 @@
         </div>
       </div>
 
-      <!-- BƯỚC 6 -->
+      <!-- BƯỚC 5 -->
       <div class="pipeline-step-card">
-        <div class="step-badge-num">6</div>
+        <div class="step-badge-num">5</div>
         <div class="step-content">
           <div class="step-header-row">
-            <span class="step-title">Bước 6: Bảng Kê Nộp Tiền & Đếm Mệnh Giá</span>
+            <span class="step-title">Bước 5: Bảng Kê Nộp Tiền & Đếm Mệnh Giá</span>
             <span class="step-tag">Thu quỹ</span>
           </div>
           <div class="step-desc">
@@ -335,12 +315,12 @@
         </div>
       </div>
 
-      <!-- BƯỚC 7 -->
+      <!-- BƯỚC 6 -->
       <div class="pipeline-step-card">
-        <div class="step-badge-num">7</div>
+        <div class="step-badge-num">6</div>
         <div class="step-content">
           <div class="step-header-row">
-            <span class="step-title">Bước 7: Xuất File Bán Hàng MISA Chuẩn 69 Cột</span>
+            <span class="step-title">Bước 6: Xuất File Bán Hàng MISA Chuẩn 69 Cột</span>
             <span class="step-tag green">Đầu ra Kế toán</span>
           </div>
           <div class="step-desc">
