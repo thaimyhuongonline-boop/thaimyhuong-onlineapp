@@ -553,6 +553,9 @@
           if (col.type === "number" && typeof val === "number") {
             if (col.id.includes("gia")) {
               displayVal = `<b style="color: var(--primary);">${val.toLocaleString("vi-VN")} đ</b>`;
+              if (tabHienTai === "hang_hoa" && Array.isArray(row.lich_su_gia) && row.lich_su_gia.length > 0) {
+                displayVal += ` <span class="badge-tag" style="background:#e6f4ea; color:#137333; font-size:10px; cursor:pointer;" onclick="moModalSua('${encodeURIComponent(valKhoa)}')" title="Xem chi tiết ${row.lich_su_gia.length} lần đổi giá">📈 ${row.lich_su_gia.length} mốc giá</span>`;
+              }
             } else {
               displayVal = `<b>${val}</b>`;
             }
@@ -633,39 +636,41 @@
       document.getElementById("modalThemSua").classList.remove("show");
     }
 
-    // Render form fields trong modal
+    // Render form fields trong modal phong cách Google System
     function renderCacFieldModal(data = null) {
       const cfg = CAU_HINH_DANH_MUC[tabHienTai];
       const container = document.getElementById("modalBodyFields");
       const isEdit = data !== null;
 
-      let html = "";
+      let fieldsHtml = "";
       cfg.cot.forEach(col => {
         const val = data ? (data[col.id] !== undefined ? data[col.id] : "") : (col.macDinh !== undefined ? col.macDinh : "");
         const isKhoaChinh = col.id === cfg.khoaChinh;
-        const readOnly = isEdit && isKhoaChinh ? "readonly style='background:#f1f5f9; cursor:not-allowed;'" : "";
+        const readOnly = isEdit && isKhoaChinh ? "readonly" : "";
         const batBuocText = col.batBuoc ? " <span style='color:red;'>*</span>" : "";
+        const isFullWidth = ['ten_hang', 'ten_kh', 'dia_chi', 'ghi_chu', 'ghi_chu_don'].includes(col.id) || col.type === 'textarea';
+        const colClass = isFullWidth ? 'form-group col-span-2' : 'form-group';
 
         if (col.type === "select" && col.options) {
-          html += `
-            <div class="form-group">
-              <label style="font-weight: 700; font-size: 13px;">${col.ten}:${batBuocText}</label>
+          fieldsHtml += `
+            <div class="${colClass}">
+              <label class="form-label">${col.ten}:${batBuocText}</label>
               <select id="inp_${col.id}" class="form-control" ${col.batBuoc ? "required" : ""}>
                 ${col.options.map(opt => `<option value="${opt}" ${String(val) === String(opt) ? "selected" : ""}>${opt}</option>`).join("")}
               </select>
             </div>
           `;
         } else if (col.type === "boolean") {
-          html += `
-            <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px;">
-              <input type="checkbox" id="inp_${col.id}" ${val ? "checked" : ""} style="width: 18px; height: 18px; cursor: pointer;">
-              <label for="inp_${col.id}" style="font-weight: 700; font-size: 13px; cursor: pointer;">${col.ten}</label>
+          fieldsHtml += `
+            <div class="${colClass}" style="flex-direction: row; align-items: center; gap: 8px; padding-top: 18px;">
+              <input type="checkbox" id="inp_${col.id}" ${val ? "checked" : ""} style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);">
+              <label for="inp_${col.id}" class="form-label" style="cursor: pointer; margin-bottom: 0;">${col.ten}</label>
             </div>
           `;
         } else {
-          html += `
-            <div class="form-group">
-              <label style="font-weight: 700; font-size: 13px;">${col.ten}:${batBuocText}</label>
+          fieldsHtml += `
+            <div class="${colClass}">
+              <label class="form-label">${col.ten}:${batBuocText}</label>
               <input type="${col.type === 'number' ? 'number' : 'text'}" 
                      id="inp_${col.id}" 
                      class="form-control" 
@@ -676,6 +681,59 @@
           `;
         }
       });
+
+      let html = `<div class="modal-form-grid">${fieldsHtml}</div>`;
+
+      // Bổ sung lịch sử biến động giá nếu là tab Hàng hoá và đang chỉnh sửa
+      if (tabHienTai === "hang_hoa" && isEdit && data) {
+        const lichSu = Array.isArray(data.lich_su_gia) ? data.lich_su_gia : [];
+        let lichSuHtml = "";
+        if (lichSu.length > 0) {
+          lichSuHtml = `
+            <div style="margin-top: 16px; border-top: 1px solid var(--border-color); padding-top: 14px;">
+              <div style="font-weight: 700; font-size: 13px; color: var(--text-main); margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+                <span>📈 Lịch sử biến động giá bán (${lichSu.length} mốc giá)</span>
+                <span style="font-size: 11px; color: var(--text-muted); font-weight: normal;">Lịch sử giá qua các hóa đơn KiotViet</span>
+              </div>
+              <div class="tmh-table-wrap" style="max-height: 180px; overflow-y: auto;">
+                <table class="tmh-table" style="font-size: 12px; margin: 0;">
+                  <thead>
+                    <tr>
+                      <th style="padding: 6px 10px;">Thời gian</th>
+                      <th class="text-right" style="padding: 6px 10px;">Giá bán</th>
+                      <th class="text-right" style="padding: 6px 10px;">Chênh lệch</th>
+                      <th style="padding: 6px 10px;">Mã HĐ / Ghi chú</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${lichSu.map(item => {
+                      const chenhLech = item.chenh_lech || (item.gia_cu ? (item.gia_moi || item.gia) - item.gia_cu : 0);
+                      const isTang = chenhLech > 0;
+                      const dau = isTang ? '+' : '';
+                      const mauChenh = chenhLech === 0 ? 'var(--text-muted)' : (isTang ? '#137333' : '#d93025');
+                      return `
+                        <tr>
+                          <td style="padding: 6px 10px;">${item.ngay || ''}</td>
+                          <td class="text-right font-bold" style="padding: 6px 10px; color: var(--primary);">${(item.gia_moi || item.gia || 0).toLocaleString('vi-VN')} đ</td>
+                          <td class="text-right font-bold" style="padding: 6px 10px; color: ${mauChenh};">${chenhLech !== 0 ? dau + chenhLech.toLocaleString('vi-VN') + ' đ' : '—'}</td>
+                          <td style="padding: 6px 10px; color: var(--text-muted); font-size: 11px;">${item.ma_hd ? 'HĐ ' + item.ma_hd : (item.ghi_chu || '—')}</td>
+                        </tr>
+                      `;
+                    }).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `;
+        } else {
+          lichSuHtml = `
+            <div style="margin-top: 14px; border-top: 1px solid var(--border-color); padding-top: 10px; font-size: 12px; color: var(--text-muted);">
+              <span>📈 Lịch sử biến động giá: Chưa có thay đổi giá nào được ghi nhận.</span>
+            </div>
+          `;
+        }
+        html += lichSuHtml;
+      }
 
       container.innerHTML = html;
     }
@@ -701,6 +759,25 @@
           banGhiMoi[col.id] = el.value.trim();
         }
       });
+
+      // Theo dõi biến động giá khi sửa thủ công trong danh mục
+      if (tabHienTai === "hang_hoa" && isEdit) {
+        const dongCu = duLieuBangHienTai.find(r => String(r[cfg.khoaChinh]) === String(editKey));
+        if (dongCu) {
+          if (!Array.isArray(dongCu.lich_su_gia)) dongCu.lich_su_gia = [];
+          if (banGhiMoi.gia_ban !== null && dongCu.gia_ban !== null && Math.round(banGhiMoi.gia_ban) !== Math.round(dongCu.gia_ban)) {
+            const chenhLech = Number(banGhiMoi.gia_ban) - (Number(dongCu.gia_ban) || 0);
+            dongCu.lich_su_gia.unshift({
+              ngay: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('vi-VN'),
+              gia_cu: Number(dongCu.gia_ban) || 0,
+              gia_moi: Number(banGhiMoi.gia_ban),
+              chenh_lech: chenhLech,
+              ghi_chu: 'Cập nhật thủ công trong danh mục'
+            });
+          }
+          banGhiMoi.lich_su_gia = dongCu.lich_su_gia;
+        }
+      }
 
       // Kiểm tra khóa chính
       if (!banGhiMoi[cfg.khoaChinh]) {
