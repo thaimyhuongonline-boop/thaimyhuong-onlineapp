@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bước 3: Lưu Trữ & Chi Tiết Hóa Đơn — THÁI MỸ HƯƠNG</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <script src="config.js"></script>
+  <link rel="stylesheet" href="layout.css">
+  <style>
+    /* Thanh Công Cụ & Thẻ Thông Tin Chuyến Xe */
+    .hero-meta-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      box-shadow: var(--shadow-sm);
+    }
+    .hero-info-tags {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 13px;
+    }
+    .tag-highlight {
+      background: var(--primary-light);
+      color: var(--primary);
+      font-weight: 800;
+      padding: 3px 10px;
+      border-radius: var(--radius-full);
+      border: 1px solid #bbf7d0;
+    }
+
+    /* Modal Chỉnh Sửa Đợt */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(3px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-card {
+      background: #ffffff;
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 500px;
+      padding: 24px;
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 10px;
+    }
+    .modal-header h3 {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--text-main);
+      margin: 0;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .form-group label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+    .form-control {
+      padding: 8px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-family: inherit;
+    }
+
+    /* Màu sắc cột đối soát */
+    .col-cash {
+      color: #16a34a;
+      font-weight: 700;
+    }
+    .col-transfer {
+      color: #2563eb;
+      font-weight: 700;
+    }
+    .col-return {
+      color: #d97706;
+      font-weight: 700;
+    }
+    .col-debt {
+      color: #dc2626;
+      font-weight: 700;
+    }
+
+    .badge-status {
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-weight: 700;
+      font-size: 11px;
+      display: inline-block;
+    }
+    .badge-done {
+      background: #dcfce7;
+      color: #15803d;
+    }
+    .badge-pending {
+      background: #fef3c7;
+      color: #b45309;
+    }
+  </style>
+</head>
+<body>
+
+  <main id="mainContent" style="display:none;">
+    
+    <!-- Page Header -->
+    <div class="tmh-page-header">
+      <div>
+        <h1 class="tmh-page-header-title"><span>🗄️</span> Bước 3: Lưu Trữ & Chi Tiết Hóa Đơn</h1>
+        <p class="tmh-page-header-sub">Kho lưu trữ hồ sơ các chuyến xe đã điều động từ Bước 2, danh sách 18 cột đối soát chi tiết và archive hàng hóa phục vụ xuất MISA.</p>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-outline" id="btnDongBoCloud" onclick="dongBoThuCongTuCloud()" style="background:#ecfdf5; color:#047857; border-color:#a7f3d0; font-weight:700;">
+          <span>🔄</span> Đồng bộ Cloud
+        </button>
+        <button type="button" class="btn btn-outline" onclick="saoLuuLichSu()">
+          <span>💾</span> Sao lưu JSON
+        </button>
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('fileRestore').click()">
+          <span>📥</span> Phục hồi JSON
+        </button>
+        <input type="file" id="fileRestore" accept=".json" style="display:none;" onchange="khoiPhucLichSu(event)">
+      </div>
+    </div>
+
+    <!-- KHỐI 1: KHO LƯU TRỮ CÁC ĐỢT ĐIỀU ĐỘNG XE (ĐẶT Ở TRÊN) -->
+    <div class="tmh-card">
+      <div class="tmh-card-header">
+        <div class="tmh-card-title"><span>📚</span> Kho lưu trữ các đợt điều động xe đã tạo</div>
+        <span style="font-size: 12px; color: var(--text-muted);">Bấm "18 cột" để xem chi tiết hoặc "2 Phiếu" để in lại tại Bước 2</span>
+      </div>
+
+      <div class="tmh-table-wrap">
+        <table class="tmh-table">
+          <thead>
+            <tr>
+              <th style="width:36px;" class="text-center">STT</th>
+              <th>Mã Đợt Điều Động</th>
+              <th>Ngày Giao</th>
+              <th>Xe</th>
+              <th>Tài Xế</th>
+              <th>Thu Tiền</th>
+              <th class="text-center">Số Đơn</th>
+              <th class="text-right">Tổng Tiền</th>
+              <th class="text-center">Thời Gian Tạo</th>
+              <th class="text-center">Trạng Thái</th>
+              <th class="text-center" style="min-width: 290px;">Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyLichSu"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- KHỐI 2: THÔNG TIN ĐỢT ĐANG XEM & THANH ĐIỀU HƯỚNG CÔNG CỤ -->
+    <div class="hero-meta-bar" id="heroMetaBar">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; width: 100%;">
+        <div class="hero-info-tags">
+          <span>Đang xem: <b class="tag-highlight" id="lblMaDot">CHƯA CHỌN ĐỢT</b></span>
+          <span>Xe: <b id="lblXe" style="color:var(--primary); font-weight:800;">...</b></span>
+          <span>Tài xế: <b id="lblTaiXe">...</b></span>
+          <span>Thu tiền: <b id="lblThuTien">...</b></span>
+          <span>Ngày giao: <b id="lblNgayGiao">...</b></span>
+          <span>Số HĐ: <b id="lblSoHD" style="color:var(--primary); font-weight:800;">0</b></span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <input type="text" id="timKiemTongLuuTru" class="form-control" placeholder="🔍 Tìm hóa đơn trên tổng lưu trữ..." oninput="locDuLieuTongLuuTru(this.value)" style="width: 280px; padding: 7px 12px; font-size: 13px; border-radius: 6px; border: 1.5px solid #cbd5e1;">
+        </div>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; align-items: center; flex-wrap: wrap; width: 100%;">
+        <button type="button" class="btn btn-amber btn-sm" onclick="xemLaiPhieuThuVaXuatKho()" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;">
+          <span>📄</span> Xem lại Phiếu Thu & Xuất Kho
+        </button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="xuatExcel18Cot()">
+          <span>📊</span> Xuất Excel 18 cột
+        </button>
+        <button type="button" class="btn btn-primary btn-sm" onclick="chuyenSangBuoc4()">
+          <span>Tiếp tục: Bước 4 - Kiểm đơn giao về</span>
+          <span>➔</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- KHỐI 3: BẢNG 18 CỘT ĐỐI SOÁT CHI TIẾT CHUYẾN XE (ĐẶT Ở DƯỚI) -->
+    <div class="tmh-card">
+      <div class="tmh-card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+          <div class="tmh-card-title" id="lblTieuDeBang18Cot"><span>📋</span> Danh sách 18 cột đối soát chi tiết của chuyến xe</div>
+          <button type="button" id="btnXoaDongChon" class="btn btn-sm" onclick="xoaCacDongDaChon()" style="display:none; background:#dc2626; color:#ffffff; font-weight:700; border:none; padding:6px 14px; border-radius:6px; box-shadow:0 2px 4px rgba(220,38,38,0.25); cursor:pointer; align-items:center; gap:6px;">
+            <span>🗑️</span> Xóa dòng đã chọn (<span id="soDongChon">0</span>)
+          </button>
+        </div>
+        <div id="boxThongBaoTimKiem" style="font-size: 12.5px; color: var(--text-muted);"></div>
+      </div>
+
+      <div class="tmh-table-wrap" style="max-height: 560px;">
+        <table class="tmh-table">
+          <thead>
+            <tr>
+              <th style="width:36px;" class="text-center">
+                <input type="checkbox" id="chkChonTatCa18Cot" onchange="toggleChonTatCa18Cot(this.checked)" title="Chọn tất cả" style="cursor:pointer; width:15px; height:15px;">
+              </th>
+              <th style="width:36px;" class="text-center">STT</th>
+              <th>Ngày</th>
+              <th>Xe</th>
+              <th>Tài Xế</th>
+              <th>Giao Hàng</th>
+              <th>Thu Tiền</th>
+              <th>Mã Hóa Đơn</th>
+              <th>Tên Khách Hàng</th>
+              <th>Người Bán</th>
+              <th>Mã KH</th>
+              <th class="text-right">Doanh Số</th>
+              <th class="text-right">Giảm SP</th>
+              <th class="text-right">Giảm HĐ</th>
+              <th class="text-right">Thành Tiền</th>
+              <th class="text-right">Tiền Mặt</th>
+              <th class="text-right">Chuyển Khoản</th>
+              <th class="text-right">Trả Về</th>
+              <th class="text-right">Nợ Phát Sinh</th>
+            </tr>
+          </thead>
+          <tbody id="tbody18Cot"></tbody>
+          <tfoot id="tfoot18Cot"></tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- MODAL CHỈNH SỬA THÔNG TIN ĐỢT ĐIỀU ĐỘNG -->
+    <div class="modal-overlay" id="modalSuaDot">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3><span>✏️</span> Chỉnh sửa thông tin đợt điều động</h3>
+          <button type="button" class="btn btn-outline btn-sm" onclick="dongModalSua()">✕</button>
+        </div>
+        <input type="hidden" id="editDotIndex">
+        <div class="form-group">
+          <label>Mã đợt:</label>
+          <input type="text" id="editMaDot" class="form-control" readonly style="background:#f1f5f9; color:#64748b; font-weight:700;">
+        </div>
+        <div class="form-group">
+          <label>Xe vận chuyển:</label>
+          <select id="editXe" class="form-control"></select>
+        </div>
+        <div class="form-group">
+          <label>Tài xế:</label>
+          <select id="editTaiXe" class="form-control"></select>
+        </div>
+        <div class="form-group">
+          <label>Nhân viên giao hàng:</label>
+          <select id="editGiaoHang" class="form-control"></select>
+        </div>
+        <div class="form-group">
+          <label>Nhân viên thu tiền:</label>
+          <select id="editThuTien" class="form-control"></select>
+        </div>
+        <div class="form-group">
+          <label>Ngày giao:</label>
+          <input type="date" id="editNgayGiao" class="form-control">
+        </div>
+
+        <div style="display:flex; justify-content: flex-end; gap: 8px; margin-top: 10px;">
+          <button type="button" class="btn btn-outline" onclick="dongModalSua()">Hủy</button>
+          <button type="button" class="btn btn-primary" style="background:#15803d; border-color:#15803d; font-weight:700;" onclick="luuSuaDot()">Lưu thay đổi</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="layout.js"></script>
+  <script>
+    let dotHienTai = null;
+    let lichSuDot = [];
+    let danhSach18CotHienThi = [];
+    let danhSachXeDanhMuc = [];
+    let danhSachNhanVienDanhMuc = [];
+
+    function formatTien(so) {
+      if (so === null || so === undefined || isNaN(so)) return '0';
+      return Math.round(Number(so)).toLocaleString('vi-VN');
+    }
+
+    function parseVNNumber(val) {
+      if (val === undefined || val === null || val === "") return 0;
+      if (typeof val === 'number') return isNaN(val) ? 0 : val;
+      let str = val.toString().trim().replace(/\s/g, '').replace(/[đĐ$]/g, '').replace(/VND/gi, '');
+      let am = false;
+      if (str.charAt(0) === '-') { am = true; str = str.substring(1); }
+      if (str.indexOf(',') !== -1 && str.indexOf('.') !== -1) {
+        if (str.lastIndexOf(',') > str.lastIndexOf('.')) {
+          let viTri = str.lastIndexOf(',');
+          let phanNguyen = str.substring(0, viTri).replace(/[.,]/g, '');
+          let phanLe = str.substring(viTri + 1).replace(/[^0-9]/g, '');
+          str = (phanNguyen === "" ? "0" : phanNguyen) + '.' + (phanLe === "" ? "0" : phanLe);
+        } else {
+          let viTri = str.lastIndexOf('.');
+          let phanNguyen = str.substring(0, viTri).replace(/[.,]/g, '');
+          let phanLe = str.substring(viTri + 1).replace(/[^0-9]/g, '');
+          str = (phanNguyen === "" ? "0" : phanNguyen) + '.' + (phanLe === "" ? "0" : phanLe);
+        }
+      } else if (str.indexOf(',') !== -1) {
+        str = str.replace(',', '.');
+      }
+      let num = parseFloat(str);
+      return isNaN(num) ? 0 : (am ? -num : num);
+    }
+
+    function dinhDangNgayIso(val) {
+      if (!val) return '';
+      val = String(val).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+      const m = val.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+      if (m) {
+        return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+      }
+      return '';
+    }
+
+    function dinhDangNgayHienThi(val) {
+      if (!val) return '';
+      val = String(val).trim();
+      if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(val)) return val;
+      const m = val.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+      if (m) {
+        return `${m[3].padStart(2, '0')}/${m[2].padStart(2, '0')}/${m[1]}`;
+      }
+      return val;
+    }
+
+    // ========================================================
+    // TẢI DANH MỤC CHO MODAL SỬA ĐỢT
+    // ========================================================
+    async function taiDanhMucChoModalSua() {
+      // 1. Danh mục xe
+      let dsXe = JSON.parse(localStorage.getItem('tmh_danh_muc_xe') || '[]');
+      if (dsXe.length === 0) {
+        dsXe = ["DAT", "LONG", "PHÚC", "SINH", "HẢI", "TUẤN", "XE01", "XE02", "XE03", "XE04", "XE05"];
+      }
+      danhSachXeDanhMuc = dsXe;
+
+      // 2. Danh mục nhân sự
+      const dsNV = JSON.parse(localStorage.getItem('tmh_danh_muc_nv_giao_hang_tai_xe') || '[]');
+      const setNhanSu = new Set(["SINH", "LONG", "PHÚC", "CƯỜNG", "HẢI", "TUẤN", "ĐẠT", "BẢO", "ĐỨC", "VIỆT", "MINH", "HƯƠNG", "THU", "NHUNG", "THẢO"]);
+      dsNV.forEach(n => {
+        const ten = n.ten_nv || n.ten || '';
+        if (ten) setNhanSu.add(ten);
+      });
+      danhSachNhanVienDanhMuc = Array.from(setNhanSu).sort((a, b) => a.localeCompare(b, 'vi'));
+    }
+
+    // ========================================================
+    // KHỞI TẠO TRANG BƯỚC 3
+    // ========================================================
+    async function khoiTaoTrang() {
+      const layoutData = await khoiTaoLayout({
+        pageTitle: "Bước 3: Lưu Trữ & Chi Tiết Hóa Đơn",
+        breadcrumb: "Quy trình Bán hàng ➡ MISA",
+        activeMenuId: "buoc3"
+      });
+      if (!layoutData) return;
+
+      await taiDanhMucChoModalSua();
+
+      // Nạp từ LocalStorage trước
+      try {
+        lichSuDot = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
+        dotHienTai = JSON.parse(localStorage.getItem("tmh_dot_hien_tai") || "null");
+      } catch (e) {
+        lichSuDot = [];
+        dotHienTai = null;
+      }
+
+      // Đồng bộ thêm từ Supabase nếu có
+      await dongBoLuuTruTuSupabase();
+
+      hienThiDuLieu();
+
+      // Đồng bộ realtime nếu có supabase
+      if (typeof sb !== 'undefined' && sb.channel) {
+        try {
+          sb.channel('rt_luu_tru_b3')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'luu_tru' }, async () => {
+              await dongBoLuuTruTuSupabase();
+              hienThiDuLieu();
+            })
+            .subscribe();
+        } catch (e) {}
+      }
+    }
+
+    // ========================================================
+    // ĐỒNG BỘ CLOUD VỚI SUPABASE
+    // ========================================================
+    async function dongBoThuCongTuCloud() {
+      const btn = document.getElementById('btnDongBoCloud');
+      const oldHtml = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span>⏳</span> Đang đồng bộ...`;
+      }
+      await dongBoLuuTruTuSupabase();
+      hienThiDuLieu();
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<span>✅</span> Đã xong`;
+        setTimeout(() => { btn.innerHTML = oldHtml; }, 1500);
+      }
+    }
+
+    async function dongBoLuuTruTuSupabase() {
+      if (typeof sb === 'undefined') return;
+      try {
+        const { data, error } = await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(2000);
+        if (!error && data && data.length > 0) {
+          const mapDots = new Map();
+          data.forEach(r => {
+            const mDot = r.ma_dot || `DOT_${r.xe || 'XE'}_${r.ngay_giao || 'NGAY'}`;
+            if (!mapDots.has(mDot)) {
+              mapDots.set(mDot, {
+                maDot: mDot,
+                ngayGiao: r.ngay_giao,
+                xe: r.xe,
+                taiXe: r.tai_xe,
+                nvGiao: r.giao_hang,
+                nvThu: r.thu_tien,
+                soLuongHD: 0,
+                tongTien: 0,
+                danhSachHD: [],
+                danhSachChiTiet: [],
+                thoiGianTao: r.tao_luc,
+                daKiemDon: r.da_kiem_don
+              });
+            }
+            const d = mapDots.get(mDot);
+            d.soLuongHD++;
+            d.tongTien += Number(r.thanh_tien) || 0;
+            d.danhSachHD.push(r.ma_hd);
+            d.danhSachChiTiet.push({
+              stt: r.stt || d.soLuongHD,
+              ngay: r.ngay_giao,
+              xe: r.xe,
+              taiXe: r.tai_xe,
+              giaoHang: r.giao_hang,
+              thuTien: r.thu_tien,
+              maHD: r.ma_hd,
+              tenKH: r.ten_kh,
+              nguoiBan: r.nguoi_ban,
+              maKH: r.ma_kh,
+              doanhSo: r.doanh_so,
+              giamGiaSP: r.giam_gia_sp,
+              giamGiaHD: r.giam_gia_hd,
+              thanhTien: r.thanh_tien,
+              tienMat: r.tien_mat || 0,
+              chuyenKhoan: r.chuyen_khoan || 0,
+              traVe: r.tra_ve || 0,
+              noPhatSinh: r.no_phat_sinh || 0
+            });
+          });
+
+          const remoteDots = Array.from(mapDots.values());
+          if (remoteDots.length > 0) {
+            let localLichSu = [];
+            try { localLichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]"); } catch(e){}
+            remoteDots.forEach(rd => {
+              const timLocal = localLichSu.find(ld => ld.maDot === rd.maDot);
+              if (timLocal && Array.isArray(timLocal.cacDongChiTietKiotViet)) {
+                rd.cacDongChiTietKiotViet = timLocal.cacDongChiTietKiotViet;
+              }
+            });
+
+            lichSuDot = remoteDots;
+            localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSuDot));
+
+            if (!dotHienTai || !lichSuDot.some(d => d.maDot === dotHienTai.maDot)) {
+              dotHienTai = lichSuDot[0];
+              localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dotHienTai));
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Lỗi đồng bộ Supabase:", e);
+      }
+    }
+
+    // ========================================================
+    // HIỂN THỊ DỮ LIỆU BƯỚC 3
+    // ========================================================
+    function hienThiDuLieu() {
+      if (dotHienTai) {
+        document.getElementById('lblMaDot').textContent = dotHienTai.maDot || '—';
+        document.getElementById('lblXe').textContent = dotHienTai.xe || '—';
+        document.getElementById('lblTaiXe').textContent = dotHienTai.taiXe || '—';
+        document.getElementById('lblThuTien').textContent = dotHienTai.nvThu || '—';
+        document.getElementById('lblNgayGiao').textContent = dotHienTai.ngayGiao || '—';
+        document.getElementById('lblSoHD').textContent = dotHienTai.soLuongHD || (dotHienTai.danhSachChiTiet ? dotHienTai.danhSachChiTiet.length : 0);
+
+        danhSach18CotHienThi = dotHienTai.danhSachChiTiet || [];
+        veBang18Cot(danhSach18CotHienThi);
+      } else {
+        document.getElementById('lblMaDot').textContent = '(Chưa chọn đợt)';
+        document.getElementById('lblXe').textContent = '—';
+        document.getElementById('lblTaiXe').textContent = '—';
+        document.getElementById('lblThuTien').textContent = '—';
+        document.getElementById('lblNgayGiao').textContent = '—';
+        document.getElementById('lblSoHD').textContent = '0';
+        veBang18Cot([]);
+      }
+
+      hienThiLichSu();
+    }
+
+    // ========================================================
+    // RENDER BẢNG LỊCH SỬ CÁC ĐỢT
+    // ========================================================
+    function hienThiLichSu(tapHopMaDotKhop = null) {
+      const tbody = document.getElementById('tbodyLichSu');
+      tbody.innerHTML = '';
+
+      if (!lichSuDot || lichSuDot.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="11" class="text-center" style="padding:24px; color:var(--text-muted);">Kho lưu trữ chưa có đợt điều động nào. Hãy hoàn tất Bước 2 và bấm "Lưu Đợt Này Sang Bước 3".</td></tr>';
+        return;
+      }
+
+      const danhSachHienThi = tapHopMaDotKhop
+        ? lichSuDot.filter(d => tapHopMaDotKhop.has(d.maDot))
+        : lichSuDot;
+
+      if (danhSachHienThi.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="11" class="text-center" style="padding:20px; color:var(--text-muted);">Không tìm thấy đợt điều động nào khớp với từ khóa tìm kiếm.</td></tr>';
+        return;
+      }
+
+      danhSachHienThi.forEach((d) => {
+        const idx = lichSuDot.findIndex(item => item.maDot === d.maDot);
+        const tr = document.createElement('tr');
+        const tg = d.taoLuc || d.thoiGianTao ? new Date(d.taoLuc || d.thoiGianTao).toLocaleDateString('vi-VN') : '—';
+        const laDotDangXem = dotHienTai && dotHienTai.maDot === d.maDot;
+        const daKiem = d.daKiemDon === true || !!localStorage.getItem("tmh_kiemdon_" + d.maDot);
+
+        if (laDotDangXem) tr.style.background = "#ecfdf5";
+
+        const tongTien = Number(d.tongTien) || (d.danhSachChiTiet || []).reduce((s, r) => s + (Number(r.thanhTien) || 0), 0);
+
+        tr.innerHTML = `
+          <td class="text-center">${idx + 1}</td>
+          <td style="font-weight:700;">
+            ${d.maDot}
+            ${laDotDangXem ? '<span style="color:#16a34a; font-size:11px; margin-left:4px;">(Đang xem)</span>' : ''}
+          </td>
+          <td>${d.ngayGiao || '—'}</td>
+          <td style="font-weight:800; color:var(--primary);">${d.xe || '—'}</td>
+          <td>${d.taiXe || '—'}</td>
+          <td>${d.nvThu || '—'}</td>
+          <td class="text-center" style="font-weight:700;">${d.soLuongHD || (d.danhSachHD ? d.danhSachHD.length : 0)}</td>
+          <td class="text-right" style="font-weight:700; color:#15803d;">${formatTien(tongTien)} đ</td>
+          <td class="text-center" style="font-size:11.5px; color:var(--text-muted);">${tg}</td>
+          <td class="text-center">
+            ${daKiem ? '<span class="badge-status badge-done">✓ Đã kiểm B4</span>' : '<span class="badge-status badge-pending">⏳ Chưa kiểm B4</span>'}
+          </td>
+          <td class="text-center" style="white-space:nowrap;">
+            <div style="display: inline-flex; gap: 4px; align-items: center;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="xemDot(${idx})" title="Xem chi tiết 18 cột của đợt này">👁️ 18 cột</button>
+              <button type="button" class="btn btn-outline btn-sm" style="color:#d97706; font-weight:700; border-color:#fde68a; background:#fffbeb;" onclick="xemPhieuThuVaXuatKho(${idx})" title="Xem lại Phiếu Thu & Xuất Kho tại Bước 2">📄 2 Phiếu</button>
+              <button type="button" class="btn btn-outline btn-sm" onclick="moModalSuaDot(${idx})" title="Chỉnh sửa thông tin đợt">✏️ Sửa</button>
+              <button type="button" class="btn btn-primary btn-sm" onclick="kiemDonDot(${idx})" title="Chuyển sang Bước 4 Kiểm đơn">📋 B4</button>
+              <button type="button" class="btn btn-outline btn-sm" style="color:#dc2626; border-color:#fca5a5; background:#fff1f2; font-weight:700;" onclick="xoaDot(${idx})" title="Xóa đợt này">🗑️ Xóa</button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ========================================================
+    // RENDER BẢNG 18 CỘT ĐỐI SOÁT
+    // ========================================================
+    function veBang18Cot(list) {
+      const tbody = document.getElementById('tbody18Cot');
+      tbody.innerHTML = '';
+      document.getElementById('tfoot18Cot').innerHTML = '';
+
+      const chkAll = document.getElementById('chkChonTatCa18Cot');
+      if (chkAll) chkAll.checked = false;
+      const btnXoa = document.getElementById('btnXoaDongChon');
+      if (btnXoa) btnXoa.style.display = 'none';
+      const lblSo = document.getElementById('soDongChon');
+      if (lblSo) lblSo.textContent = '0';
+
+      if (!list || list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="19" class="text-center" style="padding: 28px; color: var(--text-muted);">Không có dữ liệu hiển thị. Hãy chọn một đợt điều động ở bảng trên hoặc hoàn tất Bước 2 để nạp đợt mới.</td></tr>';
+        return;
+      }
+
+      let sumDoanhSo = 0, sumGiamSP = 0, sumGiamHD = 0, sumThanhTien = 0;
+      let sumTienMat = 0, sumChuyenKhoan = 0, sumTraVe = 0, sumNoPhatSinh = 0;
+
+      list.forEach((r, idx) => {
+        const dSo = Number(r.doanhSo) || 0;
+        const gSP = Number(r.giamGiaSP || r.giamSP) || 0;
+        const gHD = Number(r.giamGiaHD || r.giamHD) || 0;
+        const tTien = Number(r.thanhTien) || 0;
+        const tMat = Number(r.tienMat) || 0;
+        const cKhoan = Number(r.chuyenKhoan) || 0;
+        const tVe = Number(r.traVe) || 0;
+        const nPhatSinh = Number(r.noPhatSinh) || 0;
+
+        sumDoanhSo += dSo;
+        sumGiamSP += gSP;
+        sumGiamHD += gHD;
+        sumThanhTien += tTien;
+        sumTienMat += tMat;
+        sumChuyenKhoan += cKhoan;
+        sumTraVe += tVe;
+        sumNoPhatSinh += nPhatSinh;
+
+        const ngayHienThi = r.ngay || (dotHienTai ? dotHienTai.ngayGiao : '');
+        const xeHienThi = r.xe || (dotHienTai ? dotHienTai.xe : '');
+        const taiXeHienThi = r.taiXe || (dotHienTai ? dotHienTai.taiXe : '');
+        const giaoHangHienThi = r.giaoHang || (dotHienTai ? dotHienTai.nvGiao : '');
+        const thuTienHienThi = r.thuTien || (dotHienTai ? dotHienTai.nvThu : '');
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="text-center" style="width:36px;">
+            <input type="checkbox" class="chk-dong-18cot" value="${r.maHD || ''}" onchange="capNhatTrangThaiNutXoa()" style="cursor:pointer; width:15px; height:15px;">
+          </td>
+          <td class="text-center">${idx + 1}</td>
+          <td>${ngayHienThi}</td>
+          <td style="font-weight:700; color:var(--primary);">${xeHienThi}</td>
+          <td>${taiXeHienThi}</td>
+          <td>${giaoHangHienThi}</td>
+          <td>${thuTienHienThi}</td>
+          <td style="font-weight:700;">
+            ${r.maHD || ''}
+            ${r.laGiaoLai ? '<span style="background:#fee2e2; color:#b91c1c; font-size:10px; font-weight:800; padding:1px 5px; border-radius:4px; margin-left:4px;">🔄 Giao lại</span>' : ''}
+          </td>
+          <td>${r.tenKH || ''}</td>
+          <td>${r.nguoiBan || ''}</td>
+          <td>${r.maKH || ''}</td>
+          <td class="text-right">${formatTien(dSo)}</td>
+          <td class="text-right">${formatTien(gSP)}</td>
+          <td class="text-right">${formatTien(gHD)}</td>
+          <td class="text-right" style="font-weight:700;">${formatTien(tTien)}</td>
+          <td class="text-right col-cash">${formatTien(tMat)}</td>
+          <td class="text-right col-transfer">${formatTien(cKhoan)}</td>
+          <td class="text-right col-return">${formatTien(tVe)}</td>
+          <td class="text-right col-debt">${formatTien(nPhatSinh)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('tfoot18Cot').innerHTML = `
+        <tr style="background:#f1f5f9; font-weight:800;">
+          <td colspan="11" class="text-center">TỔNG CỘNG (${list.length} HÓA ĐƠN)</td>
+          <td class="text-right">${formatTien(sumDoanhSo)}</td>
+          <td class="text-right">${formatTien(sumGiamSP)}</td>
+          <td class="text-right">${formatTien(sumGiamHD)}</td>
+          <td class="text-right" style="color:#15803d;">${formatTien(sumThanhTien)}</td>
+          <td class="text-right col-cash">${formatTien(sumTienMat)}</td>
+          <td class="text-right col-transfer">${formatTien(sumChuyenKhoan)}</td>
+          <td class="text-right col-return">${formatTien(sumTraVe)}</td>
+          <td class="text-right col-debt">${formatTien(sumNoPhatSinh)}</td>
+        </tr>
+      `;
+    }
+
+    function toggleChonTatCa18Cot(chon) {
+      const checkboxes = document.querySelectorAll('.chk-dong-18cot');
+      checkboxes.forEach(chk => { chk.checked = chon; });
+      capNhatTrangThaiNutXoa();
+    }
+
+    function capNhatTrangThaiNutXoa() {
+      const checkboxes = document.querySelectorAll('.chk-dong-18cot:checked');
+      const btnXoa = document.getElementById('btnXoaDongChon');
+      const lblSo = document.getElementById('soDongChon');
+      const count = checkboxes.length;
+      if (lblSo) lblSo.textContent = count;
+      if (btnXoa) btnXoa.style.display = count > 0 ? 'inline-flex' : 'none';
+
+      const chkAll = document.getElementById('chkChonTatCa18Cot');
+      const allBoxes = document.querySelectorAll('.chk-dong-18cot');
+      if (chkAll && allBoxes.length > 0) {
+        chkAll.checked = (count === allBoxes.length);
+      }
+    }
+
+    // ========================================================
+    // XÓA CÁC DÒNG ĐÃ CHỌN KHỎI ĐỢT (ĐỒNG BỘ SANG BƯỚC 2)
+    // ========================================================
+    async function xoaCacDongDaChon() {
+      const checkboxes = Array.from(document.querySelectorAll('.chk-dong-18cot:checked'));
+      if (checkboxes.length === 0) {
+        alert("Vui lòng tick chọn ít nhất 1 dòng hóa đơn cần xóa!");
+        return;
+      }
+
+      const cacMaHD = checkboxes.map(cb => cb.value.trim()).filter(Boolean);
+      if (cacMaHD.length === 0) return;
+
+      const tenDot = dotHienTai ? dotHienTai.maDot : 'đợt hiện tại';
+      if (!confirm(`Bạn có chắc chắn muốn xóa ${cacMaHD.length} hóa đơn đã chọn khỏi "${tenDot}"?\n\nSau khi xóa, các hóa đơn này sẽ được giải phóng để có thể điều động sang đợt khác.`)) {
+        return;
+      }
+
+      const tapHopXoa = new Set(cacMaHD);
+
+      if (dotHienTai) {
+        if (Array.isArray(dotHienTai.danhSachChiTiet)) {
+          dotHienTai.danhSachChiTiet = dotHienTai.danhSachChiTiet.filter(r => !tapHopXoa.has(String(r.maHD).trim()));
+        }
+        if (Array.isArray(dotHienTai.danhSachHD)) {
+          dotHienTai.danhSachHD = dotHienTai.danhSachHD.filter(m => !tapHopXoa.has(String(m).trim()));
+        }
+        if (Array.isArray(dotHienTai.cacDongChiTietKiotViet)) {
+          dotHienTai.cacDongChiTietKiotViet = dotHienTai.cacDongChiTietKiotViet.filter(item => {
+            const m = item['Mã hóa đơn'] || item.maHD;
+            return !tapHopXoa.has(String(m).trim());
+          });
+        }
+        dotHienTai.soLuongHD = dotHienTai.danhSachChiTiet ? dotHienTai.danhSachChiTiet.length : 0;
+        dotHienTai.tongTien = (dotHienTai.danhSachChiTiet || []).reduce((sum, r) => sum + (Number(r.thanhTien) || 0), 0);
+        localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dotHienTai));
+      }
+
+      lichSuDot.forEach(d => {
+        if (d.maDot === (dotHienTai ? dotHienTai.maDot : '')) {
+          d.danhSachChiTiet = dotHienTai.danhSachChiTiet;
+          d.danhSachHD = dotHienTai.danhSachHD;
+          d.cacDongChiTietKiotViet = dotHienTai.cacDongChiTietKiotViet;
+          d.soLuongHD = dotHienTai.soLuongHD;
+          d.tongTien = dotHienTai.tongTien;
+        }
+      });
+      localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSuDot));
+
+      if (typeof sb !== 'undefined') {
+        try {
+          const arrXoa = Array.from(tapHopXoa);
+          await sb.from('luu_tru').delete().in('ma_hd', arrXoa);
+          await sb.from('chi_tiet_hoa_don').delete().in('ma_hd', arrXoa);
+        } catch (err) {
+          console.warn("Lỗi khi xóa trên Supabase:", err);
+        }
+      }
+
+      hienThiDuLieu();
+      alert(`✅ Đã xóa thành công ${cacMaHD.length} hóa đơn khỏi đợt!`);
+    }
+
+    // ========================================================
+    // TÌM KIẾM TRÊN TỔNG LƯU TRỮ
+    // ========================================================
+    function locDuLieuTongLuuTru(q) {
+      q = (q || '').trim().toLowerCase();
+      const lblTieuDe = document.getElementById('lblTieuDeBang18Cot');
+      const boxThongBao = document.getElementById('boxThongBaoTimKiem');
+
+      if (!q) {
+        if (lblTieuDe) lblTieuDe.innerHTML = '<span>📋</span> Danh sách 18 cột đối soát chi tiết của chuyến xe';
+        if (boxThongBao) boxThongBao.textContent = '';
+        danhSach18CotHienThi = (dotHienTai && dotHienTai.danhSachChiTiet) ? dotHienTai.danhSachChiTiet : [];
+        veBang18Cot(danhSach18CotHienThi);
+        hienThiLichSu();
+        return;
+      }
+
+      let ketQua18Cot = [];
+      const tapHopMaDotKhop = new Set();
+
+      lichSuDot.forEach(d => {
+        let dotKhop = false;
+        const maDotStr = (d.maDot || '').toLowerCase();
+        const xeStr = (d.xe || '').toLowerCase();
+        const taiXeStr = (d.taiXe || '').toLowerCase();
+        const ngayStr = (d.ngayGiao || '').toLowerCase();
+
+        if (maDotStr.includes(q) || xeStr.includes(q) || taiXeStr.includes(q) || ngayStr.includes(q)) {
+          dotKhop = true;
+        }
+
+        if (Array.isArray(d.danhSachChiTiet)) {
+          d.danhSachChiTiet.forEach(r => {
+            const maHD = (r.maHD || '').toLowerCase();
+            const tenKH = (r.tenKH || '').toLowerCase();
+            const maKH = (r.maKH || '').toLowerCase();
+            const nguoiBan = (r.nguoiBan || '').toLowerCase();
+            const xe = (r.xe || d.xe || '').toLowerCase();
+            const ngay = (r.ngay || d.ngayGiao || '').toLowerCase();
+
+            if (maHD.includes(q) || tenKH.includes(q) || maKH.includes(q) || nguoiBan.includes(q) || xe.includes(q) || ngay.includes(q) || maDotStr.includes(q)) {
+              ketQua18Cot.push({
+                ...r,
+                xe: r.xe || d.xe,
+                ngay: r.ngay || d.ngayGiao,
+                taiXe: r.taiXe || d.taiXe,
+                giaoHang: r.giaoHang || d.nvGiao,
+                thuTien: r.thuTien || d.nvThu
+              });
+              dotKhop = true;
+            }
+          });
+        }
+
+        if (dotKhop && d.maDot) tapHopMaDotKhop.add(d.maDot);
+      });
+
+      danhSach18CotHienThi = ketQua18Cot;
+      if (lblTieuDe) lblTieuDe.innerHTML = `<span>🔍</span> Kết quả tìm kiếm trên tổng lưu trữ: <b>${ketQua18Cot.length}</b> hóa đơn`;
+      if (boxThongBao) boxThongBao.innerHTML = `Khớp trên <b>${tapHopMaDotKhop.size}</b> đợt điều động`;
+
+      veBang18Cot(ketQua18Cot);
+      hienThiLichSu(tapHopMaDotKhop);
+    }
+
+    // ========================================================
+    // CÁC THAO TÁC TRÊN TỪNG ĐỢT
+    // ========================================================
+    function xemDot(idx) {
+      const d = lichSuDot[idx];
+      if (!d) return;
+      dotHienTai = d;
+      localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(d));
+      hienThiDuLieu();
+      const el = document.getElementById('heroMetaBar');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function xemLaiPhieuThuVaXuatKho() {
+      if (dotHienTai && dotHienTai.maDot) {
+        window.location.href = `buoc2_phieu_xuat_kho.html?maDot=${encodeURIComponent(dotHienTai.maDot)}`;
+      } else {
+        window.location.href = 'buoc2_phieu_xuat_kho.html';
+      }
+    }
+
+    function xemPhieuThuVaXuatKho(idx) {
+      const d = lichSuDot[idx];
+      if (!d || !d.maDot) return;
+      window.location.href = `buoc2_phieu_xuat_kho.html?maDot=${encodeURIComponent(d.maDot)}`;
+    }
+
+    function kiemDonDot(idx) {
+      const d = lichSuDot[idx];
+      if (!d) return;
+      localStorage.setItem("tmh_dot_kiem_don", JSON.stringify(d));
+      localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(d));
+      window.location.href = "buoc4_kiem_don.html";
+    }
+
+    function chuyenSangBuoc4() {
+      if (!dotHienTai) {
+        alert("Vui lòng chọn 1 đợt điều động từ danh sách để kiểm đơn!");
+        return;
+      }
+      localStorage.setItem("tmh_dot_kiem_don", JSON.stringify(dotHienTai));
+      window.location.href = "buoc4_kiem_don.html";
+    }
+
+    async function xoaDot(idx) {
+      const d = lichSuDot[idx];
+      if (!d) return;
+
+      if (!confirm(`Bạn có chắc chắn muốn xóa toàn bộ đợt "${d.maDot}" (${d.soLuongHD || 0} hóa đơn)?`)) {
+        return;
+      }
+
+      const maDotXoa = d.maDot;
+      lichSuDot.splice(idx, 1);
+      localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSuDot));
+
+      if (dotHienTai && dotHienTai.maDot === maDotXoa) {
+        dotHienTai = lichSuDot.length > 0 ? lichSuDot[0] : null;
+        if (dotHienTai) localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dotHienTai));
+        else localStorage.removeItem("tmh_dot_hien_tai");
+      }
+
+      if (typeof sb !== 'undefined') {
+        try {
+          await sb.from('luu_tru').delete().eq('ma_dot', maDotXoa);
+          await sb.from('chi_tiet_hoa_don').delete().eq('ma_dot', maDotXoa);
+        } catch (e) {
+          console.warn("Lỗi khi xóa trên Supabase:", e);
+        }
+      }
+
+      hienThiDuLieu();
+      alert(`🗑️ Đã xóa đợt điều động "${maDotXoa}" thành công!`);
+    }
+
+    // ========================================================
+    // MODAL CHỈNH SỬA THÔNG TIN ĐỢT
+    // ========================================================
+    function moModalSuaDot(idx) {
+      const d = lichSuDot[idx];
+      if (!d) return;
+      document.getElementById('editDotIndex').value = idx;
+      document.getElementById('editMaDot').value = d.maDot || '';
+
+      const selXe = document.getElementById('editXe');
+      selXe.innerHTML = '';
+      danhSachXeDanhMuc.forEach(x => {
+        selXe.add(new Option(x, x));
+      });
+      if (d.xe) selXe.value = d.xe;
+
+      ['editTaiXe', 'editGiaoHang', 'editThuTien'].forEach(elemId => {
+        const sel = document.getElementById(elemId);
+        sel.innerHTML = '';
+        if (elemId === 'editGiaoHang') sel.add(new Option('-- Chọn nhân viên giao hàng --', ''));
+        danhSachNhanVienDanhMuc.forEach(nv => {
+          sel.add(new Option(nv, nv));
+        });
+      });
+
+      if (d.taiXe) document.getElementById('editTaiXe').value = d.taiXe;
+      if (d.nvGiao) document.getElementById('editGiaoHang').value = d.nvGiao;
+      if (d.nvThu) document.getElementById('editThuTien').value = d.nvThu;
+
+      const isoDate = dinhDangNgayIso(d.ngayGiao);
+      document.getElementById('editNgayGiao').value = isoDate || new Date().toISOString().slice(0, 10);
+
+      document.getElementById('modalSuaDot').style.display = 'flex';
+    }
+
+    function dongModalSua() {
+      document.getElementById('modalSuaDot').style.display = 'none';
+    }
+
+    async function luuSuaDot() {
+      const idx = parseInt(document.getElementById('editDotIndex').value);
+      const d = lichSuDot[idx];
+      if (!d) return;
+
+      const xeMoi = document.getElementById('editXe').value;
+      const taiXeMoi = document.getElementById('editTaiXe').value;
+      const giaoHangMoi = document.getElementById('editGiaoHang').value;
+      const thuTienMoi = document.getElementById('editThuTien').value;
+      const ngayRawMoi = document.getElementById('editNgayGiao').value;
+      const ngayHienThiMoi = dinhDangNgayHienThi(ngayRawMoi);
+
+      d.xe = xeMoi;
+      d.taiXe = taiXeMoi;
+      d.nvGiao = giaoHangMoi;
+      d.nvThu = thuTienMoi;
+      d.ngayGiao = ngayHienThiMoi;
+      d.ngayRaw = ngayRawMoi;
+
+      if (Array.isArray(d.danhSachChiTiet)) {
+        d.danhSachChiTiet.forEach(r => {
+          r.xe = xeMoi;
+          r.taiXe = taiXeMoi;
+          r.giaoHang = giaoHangMoi;
+          r.thuTien = thuTienMoi;
+          r.ngay = ngayHienThiMoi;
+        });
+      }
+
+      localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSuDot));
+      if (dotHienTai && dotHienTai.maDot === d.maDot) {
+        dotHienTai = d;
+        localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(d));
+      }
+
+      // Cập nhật lên Supabase nếu có
+      if (typeof sb !== 'undefined') {
+        try {
+          await sb.from('luu_tru').update({
+            xe: xeMoi,
+            tai_xe: taiXeMoi,
+            giao_hang: giaoHangMoi,
+            thu_tien: thuTienMoi,
+            ngay_giao: ngayHienThiMoi
+          }).eq('ma_dot', d.maDot);
+        } catch (err) {
+          console.warn("Lỗi cập nhật Supabase:", err);
+        }
+      }
+
+      dongModalSua();
+      hienThiDuLieu();
+      alert(`✅ Đã cập nhật thành công thông tin đợt "${d.maDot}"!`);
+    }
+
+    // ========================================================
+    // XUẤT EXCEL 18 CỘT CHUẨN ĐẸP (XLSX-JS-STYLE)
+    // ========================================================
+    function xuatExcel18Cot() {
+      if (!danhSach18CotHienThi || danhSach18CotHienThi.length === 0) {
+        alert("Không có dữ liệu để xuất Excel!");
+        return;
+      }
+
+      if (typeof XLSX === 'undefined') {
+        alert("Thư viện Excel đang tải, vui lòng thử lại sau giây lát!");
+        return;
+      }
+
+      const dotTen = dotHienTai ? dotHienTai.maDot : "LuuTru";
+      const xe = dotHienTai ? dotHienTai.xe : "";
+      const ngay = dotHienTai ? dotHienTai.ngayGiao : "";
+
+      const wb = XLSX.utils.book_new();
+      const borderThin = {
+        top: { style: "thin", color: { rgb: "94A3B8" } },
+        bottom: { style: "thin", color: { rgb: "94A3B8" } },
+        left: { style: "thin", color: { rgb: "94A3B8" } },
+        right: { style: "thin", color: { rgb: "94A3B8" } }
+      };
+
+      const wsData = [
+        [{ v: "CÔNG TY TNHH THÁI MỸ HƯƠNG", s: { font: { bold: true, sz: 12, name: "Times New Roman" } } }],
+        [{ v: "Đc: 291 Văn Tiến Dũng, Phường Hoà Xuân, TP Đà Nẵng — ĐT: 0903.550.648", s: { font: { italic: true, sz: 9.5, name: "Times New Roman" } } }],
+        [],
+        [{ v: "BẢNG ĐỐI SOÁT CHI TIẾT 18 CỘT — CHUYẾN XE GIAO HÀNG", s: { font: { bold: true, sz: 15, name: "Times New Roman" }, alignment: { horizontal: "center" } } }],
+        [{ v: `Mã đợt: ${dotTen} | Xe: ${xe} | Ngày giao: ${ngay}`, s: { font: { italic: true, sz: 10, name: "Times New Roman" }, alignment: { horizontal: "center" } } }],
+        []
+      ];
+
+      const headerStyle = {
+        font: { bold: true, sz: 10, name: "Times New Roman" },
+        fill: { fgColor: { rgb: "CFE2F3" } },
+        alignment: { horizontal: "center", vertical: "center", wrapText: true },
+        border: borderThin
+      };
+
+      const headers = [
+        "STT", "Ngày", "Xe", "Tài Xế", "Giao Hàng", "Thu Tiền", "Mã Hóa Đơn", "Tên Khách Hàng",
+        "Người Bán", "Mã KH", "Doanh Số", "Giảm Giá SP", "Giảm Giá HĐ", "Thành Tiền",
+        "Tiền Mặt", "Chuyển Khoản", "Trả Về", "Nợ Phát Sinh"
+      ];
+      wsData.push(headers.map(h => ({ v: h, s: headerStyle })));
+
+      let sDoanhSo = 0, sGiamSP = 0, sGiamHD = 0, sThanhTien = 0;
+      let sTienMat = 0, sChuyenKhoan = 0, sTraVe = 0, sNoPhatSinh = 0;
+
+      danhSach18CotHienThi.forEach((r, idx) => {
+        const baseStyle = { font: { sz: 9.5, name: "Times New Roman" }, border: borderThin, alignment: { vertical: "center" } };
+        const dSo = Number(r.doanhSo) || 0;
+        const gSP = Number(r.giamGiaSP || r.giamSP) || 0;
+        const gHD = Number(r.giamGiaHD || r.giamHD) || 0;
+        const tTien = Number(r.thanhTien) || 0;
+        const tMat = Number(r.tienMat) || 0;
+        const cKhoan = Number(r.chuyenKhoan) || 0;
+        const tVe = Number(r.traVe) || 0;
+        const nPhatSinh = Number(r.noPhatSinh) || 0;
+
+        sDoanhSo += dSo; sGiamSP += gSP; sGiamHD += gHD; sThanhTien += tTien;
+        sTienMat += tMat; sChuyenKhoan += cKhoan; sTraVe += tVe; sNoPhatSinh += nPhatSinh;
+
+        wsData.push([
+          { v: idx + 1, t: "n", s: { ...baseStyle, alignment: { horizontal: "center" } } },
+          { v: r.ngay || ngay, t: "s", s: baseStyle },
+          { v: r.xe || xe, t: "s", s: { ...baseStyle, font: { bold: true } } },
+          { v: r.taiXe || "", t: "s", s: baseStyle },
+          { v: r.giaoHang || "", t: "s", s: baseStyle },
+          { v: r.thuTien || "", t: "s", s: baseStyle },
+          { v: r.maHD || "", t: "s", s: { ...baseStyle, font: { bold: true } } },
+          { v: r.tenKH || "", t: "s", s: baseStyle },
+          { v: r.nguoiBan || "", t: "s", s: baseStyle },
+          { v: r.maKH || "", t: "s", s: baseStyle },
+          { v: dSo, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right" } } },
+          { v: gSP, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right" } } },
+          { v: gHD, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right" } } },
+          { v: tTien, t: "n", z: "#,##0", s: { ...baseStyle, font: { bold: true }, alignment: { horizontal: "right" } } },
+          { v: tMat, t: "n", z: "#,##0", s: { ...baseStyle, font: { bold: true, color: { rgb: "15803D" } }, alignment: { horizontal: "right" } } },
+          { v: cKhoan, t: "n", z: "#,##0", s: { ...baseStyle, font: { bold: true, color: { rgb: "1D4ED8" } }, alignment: { horizontal: "right" } } },
+          { v: tVe, t: "n", z: "#,##0", s: { ...baseStyle, font: { bold: true, color: { rgb: "D97706" } }, alignment: { horizontal: "right" } } },
+          { v: nPhatSinh, t: "n", z: "#,##0", s: { ...baseStyle, font: { bold: true, color: { rgb: "DC2626" } }, alignment: { horizontal: "right" } } }
+        ]);
+      });
+
+      const totalStyle = { font: { bold: true, sz: 10, name: "Times New Roman" }, fill: { fgColor: { rgb: "DCFCE7" } }, border: borderThin };
+      const rowTongIdx = wsData.length;
+      wsData.push([
+        { v: "TỔNG CỘNG", s: { ...totalStyle, alignment: { horizontal: "right" } } },
+        { v: "", s: totalStyle }, { v: "", s: totalStyle }, { v: "", s: totalStyle }, { v: "", s: totalStyle },
+        { v: "", s: totalStyle }, { v: "", s: totalStyle }, { v: "", s: totalStyle }, { v: "", s: totalStyle }, { v: "", s: totalStyle },
+        { v: sDoanhSo, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right" } } },
+        { v: sGiamSP, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right" } } },
+        { v: sGiamHD, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right" } } },
+        { v: sThanhTien, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right" } } },
+        { v: sTienMat, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right" } } },
+        { v: sChuyenKhoan, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right" } } },
+        { v: sTraVe, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right" } } },
+        { v: sNoPhatSinh, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right" } } }
+      ]);
+
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      ws['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
+        { s: { r: 3, c: 0 }, e: { r: 3, c: 17 } },
+        { s: { r: 4, c: 0 }, e: { r: 4, c: 17 } },
+        { s: { r: rowTongIdx, c: 0 }, e: { r: rowTongIdx, c: 9 } }
+      ];
+      ws['!cols'] = [
+        { wch: 5 }, { wch: 11 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
+        { wch: 14 }, { wch: 28 }, { wch: 16 }, { wch: 12 }, { wch: 13 }, { wch: 12 },
+        { wch: 12 }, { wch: 14 }, { wch: 13 }, { wch: 13 }, { wch: 12 }, { wch: 13 }
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, "Bang18Cot");
+      XLSX.writeFile(wb, `Bang_18_Cot_${dotTen.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`);
+    }
+
+    // ========================================================
+    // SAO LƯU & PHỤC HỒI FILE JSON
+    // ========================================================
+    function saoLuuLichSu() {
+      if (!lichSuDot || lichSuDot.length === 0) {
+        alert("Kho lưu trữ hiện tại đang trống!");
+        return;
+      }
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(lichSuDot, null, 2));
+      const a = document.createElement('a');
+      a.href = dataStr;
+      a.download = `Backup_Luu_Tru_TMH_${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+    }
+
+    function khoiPhucLichSu(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (!Array.isArray(parsed)) throw new Error("Dữ liệu không đúng định dạng mảng JSON!");
+          lichSuDot = parsed;
+          localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSuDot));
+          if (lichSuDot.length > 0) {
+            dotHienTai = lichSuDot[0];
+            localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dotHienTai));
+          }
+          hienThiDuLieu();
+          alert(`✅ Phục hồi thành công ${lichSuDot.length} đợt điều động!`);
+        } catch (err) {
+          alert("Lỗi đọc file phục hồi: " + err.message);
+        } finally {
+          event.target.value = '';
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    window.addEventListener('DOMContentLoaded', khoiTaoTrang);
+  </script>
+</body>
+</html>
