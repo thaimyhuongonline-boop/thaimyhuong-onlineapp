@@ -1,0 +1,1346 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bước 2: Tạo PXK & DSTT — THÁI MỸ HƯƠNG</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <script src="config.js"></script>
+  <link rel="stylesheet" href="layout.css">
+  <style>
+    /* Bố cục 2 cột Google System */
+    .b2-grid {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+    @media (max-width: 1080px) {
+      .b2-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Khối điều khiển bên trái */
+    .control-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      box-shadow: var(--shadow-sm);
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .form-group label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .form-control {
+      padding: 7px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-family: inherit;
+      background: #ffffff;
+      outline: none;
+      transition: var(--transition);
+    }
+    .form-control:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(35, 100, 70, 0.12);
+    }
+
+    /* Hộp chọn Hóa đơn */
+    .invoice-box {
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      max-height: 240px;
+      overflow-y: auto;
+      background: #f8fafc;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .invoice-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .invoice-item:hover {
+      background: #f1f5f9;
+    }
+    .invoice-item input[type="checkbox"] {
+      cursor: pointer;
+    }
+    .invoice-info {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Khung Xem Trước Biểu Mẫu Bên Phải */
+    .preview-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-x: auto;
+    }
+    .preview-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .tab-group {
+      display: flex;
+      gap: 6px;
+    }
+    .tab-btn {
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 12.5px;
+      font-weight: 700;
+      border: 1px solid var(--border-color);
+      background: #ffffff;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: var(--transition);
+    }
+    .tab-btn:hover {
+      background: #f8fafc;
+      color: var(--text-main);
+    }
+    .tab-btn.active {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+
+    /* Định dạng Giấy Biểu Mẫu Chuẩn In */
+    .sheet-paper {
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      padding: 24px;
+      border-radius: var(--radius-sm);
+      font-family: "Times New Roman", Times, serif;
+      color: #000000;
+      min-width: 800px;
+    }
+    .doc-header {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .doc-company {
+      text-align: left;
+      font-size: 13px;
+      font-weight: bold;
+    }
+    .doc-addr {
+      text-align: left;
+      font-size: 10px;
+      font-style: italic;
+      color: #333333;
+      margin-bottom: 8px;
+    }
+    .doc-title {
+      font-size: 18px;
+      font-weight: bold;
+      text-align: center;
+      margin: 8px 0;
+      text-transform: uppercase;
+    }
+    .doc-meta {
+      font-size: 11px;
+      text-align: center;
+      margin: 3px 0;
+    }
+
+    /* Bảng biểu mẫu */
+    .doc-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-top: 10px;
+    }
+    .doc-table th, .doc-table td {
+      border: 1px solid #94a3b8;
+      padding: 6px 8px;
+      vertical-align: middle;
+    }
+    .doc-table th {
+      font-weight: bold;
+      text-align: center;
+    }
+    .th-bangke {
+      background: #cfe2f3;
+    }
+    .th-xuatkho {
+      background: #fef08a;
+    }
+    .row-tong {
+      background: #dcfce7;
+      font-weight: bold;
+    }
+    .row-km {
+      background: #fff7ed;
+      color: #c2410c;
+    }
+    .row-banner-chungtu {
+      background: #e2e8f0;
+      color: #334155;
+      font-weight: bold;
+      text-align: center;
+      font-size: 11px;
+    }
+    .row-chungtu {
+      background: #f8fafc;
+    }
+    .cell-num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Khi In A4 */
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      .tmh-sidebar, .tmh-topbar, .control-card, .preview-toolbar, .tmh-footer, .tmh-stepper-wrap {
+        display: none !important;
+      }
+      .sheet-paper, .sheet-paper * {
+        visibility: visible;
+      }
+      .sheet-paper {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100% !important;
+        border: none !important;
+        padding: 0 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <main id="mainContent" style="display:none;">
+    <!-- Page Header -->
+    <div class="tmh-page-header">
+      <div>
+        <h1 class="tmh-page-header-title"><span>📊</span> Bước 2: Tạo PXK & DSTT</h1>
+        <p class="tmh-page-header-sub">Tạo Phiếu Xuất Kho và Bảng Kê Thu Tiền Hàng chuẩn thuật toán Apps Script v2. Khối A Hàng Hóa (KM lên trên, A→Z), Khối B Chứng Từ đi kèm tách riêng không cộng kiện.</p>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <a href="buoc1_upload.html" class="btn btn-outline" style="text-decoration:none;">
+          <span>←</span> Quay lại Bước 1
+        </a>
+      </div>
+    </div>
+
+    <!-- Bố cục 2 cột -->
+    <div class="b2-grid">
+      
+      <!-- CỘT TRÁI: THIẾT LẬP CHUYẾN XE & CHỌN HÓA ĐƠN -->
+      <div class="control-card">
+        <h3 style="font-size:14px; font-weight:800; color:var(--text-main); margin:0; border-bottom:1px solid var(--border-color); padding-bottom:8px; display:flex; align-items:center; gap:6px;">
+          <span>🚚</span> Thiết lập điều động xe
+        </h3>
+
+        <div class="form-group">
+          <label>Xe vận chuyển:</label>
+          <select id="xeVanChuyen" class="form-control">
+            <option value="XE01 (HĐ1 SÁNG)">XE01 (HĐ1 SÁNG)</option>
+            <option value="XE02 (HĐ2 SÁNG)">XE02 (HĐ2 SÁNG)</option>
+            <option value="XE03 (HĐ3 SÁNG)">XE03 (HĐ3 SÁNG)</option>
+            <option value="XE04 (HĐ1 CHIỀU)">XE04 (HĐ1 CHIỀU)</option>
+            <option value="XE05 (HĐ2 CHIỀU)">XE05 (HĐ2 CHIỀU)</option>
+            <option value="XE06 (HĐ3 CHIỀU)">XE06 (HĐ3 CHIỀU)</option>
+            <option value="XE07 (THUÊ SÁNG)">XE07 (THUÊ SÁNG)</option>
+            <option value="XE08 (THUÊ CHIỀU)">XE08 (THUÊ CHIỀU)</option>
+            <option value="XE09 (ĐEN SÁNG)">XE09 (ĐEN SÁNG)</option>
+            <option value="XE10 (ĐEN CHIỀU)">XE10 (ĐEN CHIỀU)</option>
+            <option value="XE11 (ĐỎ SÁNG)">XE11 (ĐỎ SÁNG)</option>
+            <option value="XE12 (ĐỎ CHIỀU)">XE12 (ĐỎ CHIỀU)</option>
+            <option value="XE13 (XANH SÁNG)">XE13 (XANH SÁNG)</option>
+            <option value="XE14 (XANH CHIỀU)">XE14 (XANH CHIỀU)</option>
+            <option value="XE15 (NGUYEN NISSIN)">XE15 (NGUYEN NISSIN)</option>
+            <option value="XE16 (NGHĨA NS)">XE16 (NGHĨA NS)</option>
+            <option value="XE17 (VY EM NS)">XE17 (VY EM NS)</option>
+            <option value="XE18 (VŨ)">XE18 (VŨ)</option>
+            <option value="XE19 (NGUYỆT)">XE19 (NGUYỆT)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Tài xế lái xe:</label>
+          <select id="taiXe" class="form-control"></select>
+        </div>
+
+        <div class="form-group">
+          <label>Ngày giao hàng:</label>
+          <input type="date" id="ngayGiaoHang" class="form-control">
+        </div>
+
+        <div class="form-group">
+          <label>Nhân viên giao hàng:</label>
+          <select id="nvGiaoHang" class="form-control"></select>
+        </div>
+
+        <div class="form-group">
+          <label>Nhân viên thu tiền:</label>
+          <select id="nvThuTien" class="form-control"></select>
+        </div>
+
+        <!-- Danh sách hóa đơn nạp từ Bước 1 -->
+        <div class="form-group">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label>Hóa đơn theo xe (<span id="badgeSoHDChon" style="color:var(--primary); font-weight:800;">0/0</span>):</label>
+            <div style="display:flex; gap:6px;">
+              <a href="javascript:void(0)" onclick="chonTatCaHD(true)" style="font-size:11px; font-weight:700; color:var(--primary); text-decoration:none;">Chọn hết</a>
+              <span style="color:var(--text-muted); font-size:11px;">|</span>
+              <a href="javascript:void(0)" onclick="chonTatCaHD(false)" style="font-size:11px; font-weight:700; color:#b91c1c; text-decoration:none;">Bỏ chọn</a>
+            </div>
+          </div>
+          <input type="text" id="timKiemHD" class="form-control" placeholder="🔍 Tìm mã HĐ hoặc khách hàng..." oninput="locDanhSachHD()">
+          <div class="invoice-box" id="danhSachHDContainer">
+            <div style="padding:16px; text-align:center; color:var(--text-muted); font-size:12px;">
+              Đang tải danh sách hóa đơn từ Bước 1...
+            </div>
+          </div>
+        </div>
+
+        <button type="button" class="btn btn-primary" id="btnTaoPhieu" onclick="chayTaoPhieu()" style="width:100%; justify-content:center; padding:10px; font-weight:700;">
+          <span>⚡</span> Tạo 2 Biểu Mẫu (Xem trước)
+        </button>
+
+        <button type="button" class="btn btn-blue" id="btnLuuBuoc3" onclick="luuSangBuoc3()" style="width:100%; justify-content:center; padding:10px; font-weight:700; display:none;">
+          <span>💾</span> Lưu Đợt Này Sang Bước 3 ➡
+        </button>
+      </div>
+
+      <!-- CỘT PHẢI: XEM TRƯỚC 2 BIỂU MẪU & XUẤT FILE -->
+      <div class="preview-card">
+        
+        <div class="preview-toolbar">
+          <div class="tab-group">
+            <button type="button" class="tab-btn active" id="tabBtnBangKe" onclick="chuyenTab('bangke')">
+              <span>📋</span> Bảng Kê Thu Tiền (Mẫu 1)
+            </button>
+            <button type="button" class="tab-btn" id="tabBtnXuatKho" onclick="chuyenTab('xuatkho')">
+              <span>📦</span> Phiếu Xuất Kho (Mẫu 2)
+            </button>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="window.print()">
+              <span>🖨️</span> In Biểu Mẫu
+            </button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="xuatExcelHienTai()">
+              <span>📥</span> Xuất Excel Chuẩn
+            </button>
+          </div>
+        </div>
+
+        <!-- MÀN HÌNH CHỜ TRƯỚC KHI BẤM TẠO PHIẾU -->
+        <div id="manHinhCho" style="padding:60px 20px; text-align:center; color:var(--text-muted); background:#f8fafc; border-radius:var(--radius-sm); border:1px dashed var(--border-color);">
+          <div style="font-size:36px; margin-bottom:10px;">📋</div>
+          <div style="font-weight:700; font-size:15px; color:var(--text-main);">Chưa có biểu mẫu xem trước</div>
+          <div style="font-size:13px; margin-top:4px;">Vui lòng chọn xe, nhân sự, tick chọn các hóa đơn bên trái và bấm <b>"Tạo 2 Biểu Mẫu"</b>.</div>
+        </div>
+
+        <!-- NỘI DUNG 1: BẢNG KÊ THU TIỀN HÀNG -->
+        <div class="sheet-paper" id="viewBangKe" style="display:none;">
+          <div class="doc-header">
+            <div class="doc-company">CÔNG TY TNHH THÁI MỸ HƯƠNG</div>
+            <div class="doc-addr">Đc: 291 Văn Tiến Dũng, Phường Hoà Xuân, TP Đà Nẵng — ĐT: 0903.550.648</div>
+            <div class="doc-title" id="tieuDeBangKe">BẢNG KÊ THU TIỀN HÀNG VÀ GIAO HÀNG</div>
+            <div class="doc-meta">
+              Xe giao: <b id="lblXeBangKe">...............</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Tài xế: <b id="lblTaiXeBangKe">...............</b>
+            </div>
+            <div class="doc-meta">
+              Ngày giao: <b id="lblNgayBangKe">...............</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Giao hàng: <b id="lblGiaoHangBangKe">...............</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Thu tiền: <b id="lblThuTienBangKe">...............</b>
+            </div>
+          </div>
+
+          <table class="doc-table">
+            <thead>
+              <tr class="th-bangke">
+                <th style="width:40px;">STT</th>
+                <th style="width:110px;">Mã Hoá Đơn</th>
+                <th style="width:110px;">Mã Khách Hàng</th>
+                <th>Tên Khách Hàng</th>
+                <th style="width:130px;">Người Bán</th>
+                <th style="width:105px;" class="cell-num">Doanh Số</th>
+                <th style="width:100px;" class="cell-num">Giảm Giá SP</th>
+                <th style="width:100px;" class="cell-num">Giảm Giá HĐ</th>
+                <th style="width:115px;" class="cell-num">Thành Tiền</th>
+                <th style="width:110px;">Ghi Chú</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyBangKe"></tbody>
+          </table>
+        </div>
+
+        <!-- NỘI DUNG 2: PHIẾU XUẤT KHO TỔNG HỢP -->
+        <div class="sheet-paper" id="viewXuatKho" style="display:none;">
+          <div class="doc-header">
+            <div class="doc-company">CÔNG TY TNHH THÁI MỸ HƯƠNG</div>
+            <div class="doc-addr">Đc: 291 Văn Tiến Dũng, Phường Hoà Xuân, TP Đà Nẵng — ĐT: 0903.550.648</div>
+            <div class="doc-title" id="tieuDeXuatKho">PHIẾU XUẤT KHO TỔNG HỢP</div>
+            <div class="doc-meta">
+              Xe giao: <b id="lblXeXuatKho">...............</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Tài xế: <b id="lblTaiXeXuatKho">...............</b>
+            </div>
+            <div class="doc-meta">
+              Ngày giao: <b id="lblNgayXuatKho">...............</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Giao hàng: <b id="lblGiaoHangXuatKho">...............</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Thu tiền: <b id="lblThuTienXuatKho">...............</b>
+            </div>
+          </div>
+
+          <table class="doc-table">
+            <thead>
+              <tr class="th-xuatkho">
+                <th style="width:35px;">STT</th>
+                <th style="width:90px;">Mã Hàng</th>
+                <th>Tên Hàng Hóa</th>
+                <th style="width:50px;">QC</th>
+                <th style="width:55px;">ĐVT</th>
+                <th style="width:75px;" class="cell-num">Tổng SL</th>
+                <th style="width:60px;" class="cell-num">Chẵn</th>
+                <th style="width:55px;" class="cell-num">Lẻ</th>
+                <th style="width:95px;" class="cell-num">Đơn Giá</th>
+                <th style="width:110px;" class="cell-num">Thành Tiền</th>
+                <th style="width:120px;">Ghi Chú</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyXuatKho"></tbody>
+          </table>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <script src="layout.js"></script>
+  <script>
+    /* ====================================================================
+     * THÁI MỸ HƯƠNG — BƯỚC 2 (BẢN CHUẨN GOOGLE APPS SCRIPT v2)
+     * ====================================================================
+     * 1. MA_CHUNG_TU = ["HĐ"]: tách chứng từ xuống Khối B, không tính vào kiện
+     * 2. Sắp xếp mã hàng A → Z có xử lý số (P350 trước P500)
+     * 3. Hàng khuyến mãi (0đ) dồn lên TRÊN CÙNG của Khối A
+     * 4. Khóa gom nhóm: Mã hàng + Đơn giá (khác giá tách dòng riêng)
+     * 5. Thuật toán Chẵn / Lẻ: taoDongXuatKho_
+     * ==================================================================== */
+
+    var MA_CHUNG_TU = ["HĐ"];
+
+    let duLieuKiotViet = [];
+    let danhSachHoaDon = [];
+    let mapQuyCach = new Map();
+    let tabHienTai = 'bangke';
+
+    let duLieuXuatExcel = {
+      bangKe: [],
+      hangHoa: [],
+      chungTu: [],
+      tongDoanhSo: 0,
+      tongGiamSP: 0,
+      tongGiamHD: 0,
+      tongThanhTien: 0,
+      sumChanA: 0,
+      sumLeA: 0,
+      sumTienA: 0,
+      sumTienB: 0
+    };
+
+    // ========================================================
+    // CÁC HÀM PHỤ TRỢ THUẬT TOÁN APPS SCRIPT GỐC
+    // ========================================================
+
+    function laChungTu_(maHang) {
+      var m = String(maHang == null ? "" : maHang).trim().toUpperCase();
+      if (m === "") return false;
+      for (var i = 0; i < MA_CHUNG_TU.length; i++) {
+        if (m === String(MA_CHUNG_TU[i]).trim().toUpperCase()) return true;
+      }
+      return false;
+    }
+
+    function parseVNNumber_(val) {
+      if (val === undefined || val === null) return 0;
+      var str = val.toString().trim().replace(/\s/g, '');
+      if (str === "") return 0;
+      str = str.replace(/[đĐ$]/g, '').replace(/VND/gi, '');
+      if (str === "") return 0;
+
+      var am = false;
+      if (str.charAt(0) === '-') { am = true; str = str.substring(1); }
+      if (str.charAt(0) === '(' && str.charAt(str.length - 1) === ')') {
+        am = true; str = str.substring(1, str.length - 1);
+      }
+
+      if (str.indexOf(',') !== -1) {
+        var viTri = str.lastIndexOf(',');
+        var phanNguyen = str.substring(0, viTri).replace(/[.,]/g, '');
+        var phanLe = str.substring(viTri + 1).replace(/[^0-9]/g, '');
+        str = (phanNguyen === "" ? "0" : phanNguyen) + '.' + (phanLe === "" ? "0" : phanLe);
+      } else {
+        str = str.replace(/\./g, '');
+      }
+
+      var num = parseFloat(str);
+      if (isNaN(num)) return 0;
+      return am ? -num : num;
+    }
+
+    function soSanhMaHang_(a, b) {
+      var ma = String(a.ma), mb = String(b.ma);
+      var c;
+      try {
+        c = ma.localeCompare(mb, 'vi', { numeric: true });
+      } catch (e) {
+        c = (ma < mb) ? -1 : (ma > mb ? 1 : 0);
+      }
+      if (c !== 0) return c;
+      return b.donGia - a.donGia;
+    }
+
+    function soSanhKMTruoc_(a, b) {
+      var kmA = (a.donGia === 0) ? 0 : 1;
+      var kmB = (b.donGia === 0) ? 0 : 1;
+      if (kmA !== kmB) return kmA - kmB;
+
+      var ma = String(a.ma), mb = String(b.ma);
+      try {
+        return ma.localeCompare(mb, 'vi', { numeric: true });
+      } catch (e) {
+        return (ma < mb) ? -1 : (ma > mb ? 1 : 0);
+      }
+    }
+
+    function taoDongXuatKho_(item, stt) {
+      var qc = item.qc > 0 ? item.qc : 1;
+      var tongSL = item.tongSL;
+      var dau = tongSL < 0 ? -1 : 1;
+      var absSL = Math.abs(tongSL);
+
+      var soNguyen = Math.floor(absSL);
+      var phanLe = absSL - soNguyen;
+
+      var chan = soNguyen * dau;
+      var le = Math.round(phanLe * qc) * dau;
+      var ghiChu = (item.donGia === 0) ? "HÀNG KHUYẾN MÃI" : "";
+
+      return {
+        row: [stt, item.ma, item.ten, qc, item.dvt, item.tongSL, chan, le, item.donGia, item.thanhTien, ghiChu],
+        chan: chan,
+        le: le
+      };
+    }
+
+    function chuanHoaNgayVN_(val) {
+      if (!val) return "";
+      var s = val.toString().trim();
+      var m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (m) return ("0" + m[3]).slice(-2) + "/" + ("0" + m[2]).slice(-2) + "/" + m[1];
+      m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+      if (m) return ("0" + m[1]).slice(-2) + "/" + ("0" + m[2]).slice(-2) + "/" + m[3];
+      return s;
+    }
+
+    function formatTien(so) {
+      return Math.round(so || 0).toLocaleString('vi-VN');
+    }
+
+    // ========================================================
+    // KHỞI TẠO TRANG BƯỚC 2
+    // ========================================================
+
+    async function khoiTaoTrang() {
+      const layoutData = await khoiTaoLayout({
+        pageTitle: "Bước 2: Tạo PXK & DSTT",
+        breadcrumb: "Quy trình Bán hàng ➡ MISA",
+        activeMenuId: "buoc2"
+      });
+      if (!layoutData) return;
+
+      document.getElementById('ngayGiaoHang').value = new Date().toISOString().slice(0, 10);
+
+      napDropdownNhanSu();
+      napQuyCachHangHoa();
+      napDuLieuTuBuoc1();
+    }
+
+    // Nạp danh sách Nhân sự
+    function napDropdownNhanSu() {
+      const dsNV = JSON.parse(localStorage.getItem('tmh_danh_muc_nv_giao_hang_tai_xe') || '[]');
+      const selTaiXe = document.getElementById('taiXe');
+      const selGiaoHang = document.getElementById('nvGiaoHang');
+      const selThuTien = document.getElementById('nvThuTien');
+
+      selTaiXe.innerHTML = '';
+      selGiaoHang.innerHTML = '';
+      selThuTien.innerHTML = '';
+
+      let listTaiXe = [], listGiaoHang = [], listThuTien = [];
+
+      dsNV.forEach(n => {
+        const ten = n.ten_nv || n.ten || '';
+        const viTri = (n.vi_tri || n.chuc_vu || '').toLowerCase();
+        if (viTri.includes('tài xế')) listTaiXe.push(ten);
+        if (viTri.includes('giao hàng') || viTri.includes('lơ xe')) listGiaoHang.push(ten);
+        if (viTri.includes('thu tiền') || viTri.includes('kế toán')) listThuTien.push(ten);
+      });
+
+      // Mặc định dự phòng nếu danh mục trống
+      if (listTaiXe.length === 0) listTaiXe = ["SINH", "LONG", "PHÚC", "CƯỜNG", "HẢI", "TUẤN"];
+      if (listGiaoHang.length === 0) listGiaoHang = ["ĐẠT", "BẢO", "ĐỨC", "VIỆT", "MINH"];
+      if (listThuTien.length === 0) listThuTien = ["ĐẠT", "HƯƠNG", "THU", "NHUNG", "THẢO"];
+
+      listTaiXe.forEach(t => selTaiXe.add(new Option(t, t)));
+      listGiaoHang.forEach(g => selGiaoHang.add(new Option(g, g)));
+      listThuTien.forEach(th => selThuTien.add(new Option(th, th)));
+    }
+
+    // Nạp quy cách hàng hóa từ danh mục
+    function napQuyCachHangHoa() {
+      mapQuyCach.clear();
+      const dsHang = JSON.parse(localStorage.getItem('tmh_danh_muc_hang_hoa') || '[]');
+      dsHang.forEach(h => {
+        const ma = String(h.ma_sp || h.ma || '').trim().toUpperCase();
+        const qc = parseVNNumber_(h.quy_cach || h.qc) || 1;
+        if (ma) mapQuyCach.set(ma, qc);
+      });
+    }
+
+    // Nạp dữ liệu KiotViet từ Bước 1
+    function napDuLieuTuBuoc1() {
+      const raw = localStorage.getItem("tmh_kiotviet_data");
+      if (!raw) {
+        document.getElementById('danhSachHDContainer').innerHTML = `
+          <div style="padding:16px; text-align:center; color:var(--text-muted); font-size:12px;">
+            ⚠️ Chưa có dữ liệu KiotViet được đẩy sang từ Bước 1.<br>
+            <a href="buoc1_upload.html" style="color:var(--primary); font-weight:700; text-decoration:none;">Về Bước 1 để nạp file ➡</a>
+          </div>
+        `;
+        return;
+      }
+
+      try {
+        duLieuKiotViet = JSON.parse(raw);
+      } catch (e) {
+        duLieuKiotViet = [];
+      }
+
+      // Gom nhóm danh sách hóa đơn duy nhất
+      const mapHD = new Map();
+      duLieuKiotViet.forEach(r => {
+        const maHD = String(r['Mã hóa đơn'] || '').trim().toUpperCase();
+        if (!maHD || maHD.includes('TỔNG')) return;
+
+        const tenKH = String(r['Tên khách hàng'] || 'Khách Lẻ').trim();
+        const thanhTien = parseVNNumber_(r['Thành tiền']);
+
+        if (!mapHD.has(maHD)) {
+          mapHD.set(maHD, {
+            maHD: maHD,
+            tenKH: tenKH,
+            tongTien: 0,
+            chon: true
+          });
+        }
+        mapHD.get(maHD).tongTien += thanhTien;
+      });
+
+      danhSachHoaDon = Array.from(mapHD.values());
+      veDanhSachCheckboxHD();
+    }
+
+    // Render danh sách checkbox hóa đơn
+    function veDanhSachCheckboxHD() {
+      const container = document.getElementById('danhSachHDContainer');
+      const badge = document.getElementById('badgeSoHDChon');
+      const tuKhoa = (document.getElementById('timKiemHD')?.value || '').trim().toLowerCase();
+
+      container.innerHTML = '';
+      let demChon = 0;
+
+      const dsLoc = danhSachHoaDon.filter(h => {
+        if (!tuKhoa) return true;
+        return h.maHD.toLowerCase().includes(tuKhoa) || h.tenKH.toLowerCase().includes(tuKhoa);
+      });
+
+      danhSachHoaDon.forEach(h => { if (h.chon) demChon++; });
+      if (badge) badge.textContent = `${demChon}/${danhSachHoaDon.length}`;
+
+      if (dsLoc.length === 0) {
+        container.innerHTML = `<div style="padding:12px; text-align:center; color:var(--text-muted); font-size:12px;">Không tìm thấy hóa đơn phù hợp.</div>`;
+        return;
+      }
+
+      dsLoc.forEach(h => {
+        const div = document.createElement('div');
+        div.className = 'invoice-item';
+        div.innerHTML = `
+          <input type="checkbox" id="chk_${h.maHD}" ${h.chon ? 'checked' : ''} onchange="toggleChonMotHD('${h.maHD}', this.checked)">
+          <label for="chk_${h.maHD}" class="invoice-info" style="cursor:pointer; margin:0;">
+            <b>${h.maHD}</b> — ${h.tenKH} <span style="color:#15803d; font-weight:700;">(${formatTien(h.tongTien)} đ)</span>
+          </label>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function toggleChonMotHD(maHD, checked) {
+      const h = danhSachHoaDon.find(x => x.maHD === maHD);
+      if (h) h.chon = checked;
+      const demChon = danhSachHoaDon.filter(x => x.chon).length;
+      document.getElementById('badgeSoHDChon').textContent = `${demChon}/${danhSachHoaDon.length}`;
+    }
+
+    function chonTatCaHD(checked) {
+      danhSachHoaDon.forEach(h => h.chon = checked);
+      veDanhSachCheckboxHD();
+    }
+
+    function locDanhSachHD() {
+      veDanhSachCheckboxHD();
+    }
+
+    // ========================================================
+    // CHẠY TẠO 2 BIỂU MẪU (BẢNG KÊ THU TIỀN & PHIẾU XUẤT KHO)
+    // ========================================================
+
+    function chayTaoPhieu() {
+      const setMaHDDuocChon = new Set(danhSachHoaDon.filter(h => h.chon).map(h => h.maHD));
+      const layTatCa = (setMaHDDuocChon.size === 0);
+
+      const xe = document.getElementById('xeVanChuyen').value;
+      const taiXe = document.getElementById('taiXe').value || '...............';
+      const ngayRaw = document.getElementById('ngayGiaoHang').value;
+      const ngayGiao = chuanHoaNgayVN_(ngayRaw);
+      const nvGiao = document.getElementById('nvGiaoHang').value || '...............';
+      const nvThu = document.getElementById('nvThuTien').value || '...............';
+
+      // Cập nhật tiêu đề bảng
+      document.getElementById('lblXeBangKe').textContent = xe;
+      document.getElementById('lblTaiXeBangKe').textContent = taiXe;
+      document.getElementById('lblNgayBangKe').textContent = ngayGiao;
+      document.getElementById('lblGiaoHangBangKe').textContent = nvGiao;
+      document.getElementById('lblThuTienBangKe').textContent = nvThu;
+
+      document.getElementById('lblXeXuatKho').textContent = xe;
+      document.getElementById('lblTaiXeXuatKho').textContent = taiXe;
+      document.getElementById('lblNgayXuatKho').textContent = ngayGiao;
+      document.getElementById('lblGiaoHangXuatKho').textContent = nvGiao;
+      document.getElementById('lblThuTienXuatKho').textContent = nvThu;
+
+      document.getElementById('tieuDeBangKe').textContent = "BẢNG KÊ THU TIỀN HÀNG VÀ GIAO HÀNG" + (layTatCa ? " (TẤT CẢ HÓA ĐƠN)" : "");
+      document.getElementById('tieuDeXuatKho').textContent = "PHIẾU XUẤT KHO TỔNG HỢP" + (layTatCa ? " (TẤT CẢ HÓA ĐƠN)" : "");
+
+      // Lọc các dòng theo hóa đơn được chọn
+      const cacDongTheoXe = duLieuKiotViet.filter(r => {
+        const maHD = String(r['Mã hóa đơn'] || '').trim().toUpperCase();
+        return layTatCa || setMaHDDuocChon.has(maHD);
+      });
+
+      if (cacDongTheoXe.length === 0) {
+        alert("⚠️ Không có dòng hàng hóa nào phù hợp!");
+        return;
+      }
+
+      taoBangKeThuTien(cacDongTheoXe);
+      taoPhieuXuatKhoTongHop(cacDongTheoXe);
+
+      document.getElementById('manHinhCho').style.display = 'none';
+      document.getElementById('btnLuuBuoc3').style.display = 'flex';
+      chuyenTab(tabHienTai);
+    }
+
+    // ========================================================
+    // BƯỚC 2A: TẠO BẢNG KÊ THU TIỀN HÀNG (10 CỘT APPS SCRIPT)
+    // ========================================================
+
+    function taoBangKeThuTien(dongKiotViet) {
+      const groupedData = {};
+      const thuTuHD = [];
+
+      dongKiotViet.forEach(row => {
+        const maHD = String(row['Mã hóa đơn'] || '').trim().toUpperCase();
+        if (!maHD) return;
+
+        const maHang = String(row['Mã hàng'] || '').trim();
+        if (maHang === "" || maHang.toLowerCase().includes("tổng")) return;
+
+        const sl = parseVNNumber_(row['Số lượng']);
+        const donGia = parseVNNumber_(row['Đơn giá']);
+        const thanhTien = parseVNNumber_(row['Thành tiền']) || (sl * donGia);
+        const giamHD = parseVNNumber_(row['Giảm giá hóa đơn']);
+
+        if (!groupedData[maHD]) {
+          groupedData[maHD] = {
+            maHD: maHD,
+            maKH: String(row['Mã khách hàng'] || '').trim(),
+            tenKH: String(row['Tên khách hàng'] || 'Khách Lẻ').trim(),
+            nguoiBan: String(row['Người bán'] || '').trim(),
+            doanhSo: 0,
+            giamSP: 0,
+            giamHD: giamHD,
+            thanhTienDong: 0
+          };
+          thuTuHD.push(maHD);
+        }
+
+        groupedData[maHD].doanhSo += sl * donGia;
+        groupedData[maHD].giamSP += (sl * donGia) - thanhTien;
+        groupedData[maHD].thanhTienDong += thanhTien;
+        if (giamHD > 0) groupedData[maHD].giamHD = giamHD;
+      });
+
+      const tbody = document.getElementById('tbodyBangKe');
+      tbody.innerHTML = '';
+
+      let tDoanhSo = 0, tGiamSP = 0, tGiamHD = 0, tThanhTien = 0;
+      const rowsExcel = [];
+
+      thuTuHD.forEach((maHD, idx) => {
+        const g = groupedData[maHD];
+        const thanhTienFinal = g.thanhTienDong - g.giamHD;
+
+        tDoanhSo += g.doanhSo;
+        tGiamSP += g.giamSP;
+        tGiamHD += g.giamHD;
+        tThanhTien += thanhTienFinal;
+
+        rowsExcel.push({
+          stt: idx + 1,
+          maHD: g.maHD,
+          maKH: g.maKH,
+          tenKH: g.tenKH,
+          nguoiBan: g.nguoiBan,
+          doanhSo: g.doanhSo,
+          giamSP: g.giamSP,
+          giamHD: g.giamHD,
+          thanhTien: thanhTienFinal,
+          ghiChu: ""
+        });
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="text-align:center;">${idx + 1}</td>
+          <td style="font-weight:700;">${g.maHD}</td>
+          <td>${g.maKH}</td>
+          <td>${g.tenKH}</td>
+          <td>${g.nguoiBan}</td>
+          <td class="cell-num">${formatTien(g.doanhSo)}</td>
+          <td class="cell-num">${formatTien(g.giamSP)}</td>
+          <td class="cell-num">${formatTien(g.giamHD)}</td>
+          <td class="cell-num" style="font-weight:700;">${formatTien(thanhTienFinal)}</td>
+          <td></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // DÒNG TỔNG CỘNG HỢP NHẤT 5 CỘT ĐẦU THEO APPS SCRIPT
+      const trTong = document.createElement('tr');
+      trTong.className = 'row-tong';
+      trTong.innerHTML = `
+        <td colspan="5" style="text-align:right; font-weight:bold; padding-right:12px;">TỔNG CỘNG</td>
+        <td class="cell-num" style="font-weight:bold;">${formatTien(tDoanhSo)}</td>
+        <td class="cell-num" style="font-weight:bold;">${formatTien(tGiamSP)}</td>
+        <td class="cell-num" style="font-weight:bold;">${formatTien(tGiamHD)}</td>
+        <td class="cell-num" style="font-weight:bold; color:#137333;">${formatTien(tThanhTien)}</td>
+        <td></td>
+      `;
+      tbody.appendChild(trTong);
+
+      duLieuXuatExcel.bangKe = rowsExcel;
+      duLieuXuatExcel.tongDoanhSo = tDoanhSo;
+      duLieuXuatExcel.tongGiamSP = tGiamSP;
+      duLieuXuatExcel.tongGiamHD = tGiamHD;
+      duLieuXuatExcel.tongThanhTien = tThanhTien;
+    }
+
+    // ========================================================
+    // BƯỚC 2B: TẠO PHIẾU XUẤT KHO TỔNG HỢP (KHỐI A & B)
+    // ========================================================
+
+    function taoPhieuXuatKhoTongHop(dongKiotViet) {
+      const nhom = {};
+
+      dongKiotViet.forEach(row => {
+        const maHD = String(row['Mã hóa đơn'] || '').trim().toUpperCase();
+        if (!maHD) return;
+
+        const maHang = String(row['Mã hàng'] || '').trim();
+        if (maHang === "" || maHang.toLowerCase().includes("tổng")) return;
+
+        const tenHang = String(row['Tên hàng'] || '').trim();
+        const dvt = String(row['ĐVT'] || 'Thùng').trim();
+        const sl = parseVNNumber_(row['Số lượng']);
+        const donGiaGoc = parseVNNumber_(row['Đơn giá']);
+        const thanhTien = parseVNNumber_(row['Thành tiền']) || (sl * donGiaGoc);
+
+        // Đơn giá thực tế dòng (làm tròn 2 chữ số thập phân)
+        let donGia = (sl !== 0) ? (thanhTien / sl) : donGiaGoc;
+        donGia = Math.round(donGia * 100) / 100;
+
+        // Khóa gom nhóm: [Mã hàng + Đơn giá] ➡ Khác giá tách dòng
+        const key = maHang + "\u2016" + donGia;
+
+        if (!nhom[key]) {
+          const qc = mapQuyCach.get(maHang.toUpperCase()) || 1;
+          nhom[key] = {
+            ma: maHang,
+            ten: tenHang,
+            qc: qc > 0 ? qc : 1,
+            dvt: dvt,
+            donGia: donGia,
+            tongSL: 0,
+            thanhTien: 0
+          };
+        }
+
+        nhom[key].tongSL += sl;
+        nhom[key].thanhTien += thanhTien;
+      });
+
+      // Tách 2 Khối: Hàng Hóa và Chứng Từ Đi Kèm
+      const hangHoa = [];
+      const chungTu = [];
+      for (const k in nhom) {
+        if (laChungTu_(nhom[k].ma)) chungTu.push(nhom[k]);
+        else hangHoa.push(nhom[k]);
+      }
+
+      // Sắp xếp: Khối A KM lên trên, A→Z numeric:true; Khối B A→Z
+      hangHoa.sort(soSanhKMTruoc_);
+      chungTu.sort(soSanhMaHang_);
+
+      // Tự động bổ sung Hóa Đơn GTGT vào Khối B nếu chưa có
+      if (chungTu.length === 0) {
+        const countHD = danhSachHoaDon.filter(h => h.chon).length || 1;
+        chungTu.push({
+          ma: "HĐ",
+          ten: "Hóa Đơn GTGT",
+          qc: 1,
+          dvt: "Tờ",
+          donGia: 0,
+          tongSL: countHD,
+          thanhTien: 0
+        });
+      }
+
+      const tbody = document.getElementById('tbodyXuatKho');
+      tbody.innerHTML = '';
+
+      let stt = 0;
+      let sumChanA = 0, sumLeA = 0, sumTienA = 0;
+      const rowsExcelA = [];
+
+      // ── RENDER KHỐI A: HÀNG HÓA ──────────────────────────────────
+      hangHoa.forEach(item => {
+        const kq = taoDongXuatKho_(item, ++stt);
+        sumChanA += kq.chan;
+        sumLeA += kq.le;
+        sumTienA += item.thanhTien;
+
+        rowsExcelA.push({
+          stt: stt,
+          ma: item.ma,
+          ten: item.ten,
+          qc: item.qc,
+          dvt: item.dvt,
+          tongSL: item.tongSL,
+          chan: kq.chan,
+          le: kq.le,
+          donGia: item.donGia,
+          thanhTien: item.thanhTien,
+          laKM: item.donGia === 0
+        });
+
+        const tr = document.createElement('tr');
+        if (item.donGia === 0) tr.className = 'row-km';
+        tr.innerHTML = `
+          <td style="text-align:center;">${stt}</td>
+          <td style="font-weight:700;">${item.ma}</td>
+          <td>${item.ten}</td>
+          <td style="text-align:center;">${item.qc}</td>
+          <td style="text-align:center;">${item.dvt}</td>
+          <td class="cell-num" style="font-weight:700;">${item.tongSL}</td>
+          <td class="cell-num">${kq.chan}</td>
+          <td class="cell-num">${kq.le}</td>
+          <td class="cell-num">${formatTien(item.donGia)}</td>
+          <td class="cell-num" style="font-weight:700;">${formatTien(item.thanhTien)}</td>
+          <td style="text-align:center;">${item.donGia === 0 ? '<b>HÀNG KHUYẾN MÃI</b>' : ''}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // DÒNG TỔNG CỘNG HÀNG HÓA
+      const trTongA = document.createElement('tr');
+      trTongA.className = 'row-tong';
+      trTongA.innerHTML = `
+        <td colspan="5" style="text-align:right; font-weight:bold; padding-right:12px;">TỔNG CỘNG HÀNG HÓA</td>
+        <td></td>
+        <td class="cell-num" style="font-weight:bold;">${sumChanA}</td>
+        <td class="cell-num" style="font-weight:bold;">${sumLeA}</td>
+        <td></td>
+        <td class="cell-num" style="font-weight:bold;">${formatTien(sumTienA)}</td>
+        <td></td>
+      `;
+      tbody.appendChild(trTongA);
+
+      // ── RENDER KHỐI B: CHỨNG TỪ ĐI KÈM ───────────────────────────
+      let sumTienB = 0;
+      const rowsExcelB = [];
+
+      if (chungTu.length > 0) {
+        // Dòng Banner phân cách
+        const trBanner = document.createElement('tr');
+        trBanner.className = 'row-banner-chungtu';
+        trBanner.innerHTML = `<td colspan="11">CHỨNG TỪ / GIẤY TỜ ĐI KÈM — KHÔNG TÍNH VÀO TỔNG SỐ KIỆN Ở TRÊN</td>`;
+        tbody.appendChild(trBanner);
+
+        chungTu.forEach(c => {
+          sumTienB += c.thanhTien;
+          rowsExcelB.push({
+            stt: ++stt,
+            ma: c.ma,
+            ten: c.ten,
+            qc: c.qc,
+            dvt: c.dvt,
+            tongSL: c.tongSL,
+            donGia: c.donGia,
+            thanhTien: c.thanhTien
+          });
+
+          const trDoc = document.createElement('tr');
+          trDoc.className = 'row-chungtu';
+          trDoc.innerHTML = `
+            <td style="text-align:center;">${stt}</td>
+            <td style="font-weight:700;">${c.ma}</td>
+            <td>${c.ten}</td>
+            <td style="text-align:center;">${c.qc}</td>
+            <td style="text-align:center;">${c.dvt}</td>
+            <td class="cell-num" style="font-weight:700;">${c.tongSL}</td>
+            <td style="text-align:center; color:var(--text-muted);">—</td>
+            <td style="text-align:center; color:var(--text-muted);">—</td>
+            <td class="cell-num">${formatTien(c.donGia)}</td>
+            <td class="cell-num" style="font-weight:700;">${formatTien(c.thanhTien)}</td>
+            <td style="text-align:center; font-style:italic; color:#475569;">CHỨNG TỪ</td>
+          `;
+          tbody.appendChild(trDoc);
+        });
+
+        // DÒNG CỘNG CHỨNG TỪ
+        const trTongB = document.createElement('tr');
+        trTongB.style.backgroundColor = '#e2e8f0';
+        trTongB.style.fontWeight = 'bold';
+        trTongB.innerHTML = `
+          <td colspan="5" style="text-align:right; font-weight:bold; padding-right:12px;">CỘNG CHỨNG TỪ</td>
+          <td colspan="4"></td>
+          <td class="cell-num" style="font-weight:bold;">${formatTien(sumTienB)}</td>
+          <td></td>
+        `;
+        tbody.appendChild(trTongB);
+      }
+
+      duLieuXuatExcel.hangHoa = rowsExcelA;
+      duLieuXuatExcel.chungTu = rowsExcelB;
+      duLieuXuatExcel.sumChanA = sumChanA;
+      duLieuXuatExcel.sumLeA = sumLeA;
+      duLieuXuatExcel.sumTienA = sumTienA;
+      duLieuXuatExcel.sumTienB = sumTienB;
+    }
+
+    // Chuyển Tab Xem Trước
+    function chuyenTab(tab) {
+      tabHienTai = tab;
+      document.getElementById('tabBtnBangKe').classList.toggle('active', tab === 'bangke');
+      document.getElementById('tabBtnXuatKho').classList.toggle('active', tab === 'xuatkho');
+      document.getElementById('viewBangKe').style.display = (tab === 'bangke') ? 'block' : 'none';
+      document.getElementById('viewXuatKho').style.display = (tab === 'xuatkho') ? 'block' : 'none';
+    }
+
+    // ========================================================
+    // XUẤT FILE EXCEL MÀU SẮC CHUẨN APPS SCRIPT
+    // ========================================================
+
+    function xuatExcelHienTai() {
+      if (typeof XLSX === 'undefined') {
+        alert("Thư viện xuất Excel đang tải...");
+        return;
+      }
+
+      const xe = document.getElementById('xeVanChuyen').value || 'XE';
+      const ngay = document.getElementById('ngayGiaoHang').value || 'NGAY';
+      const ngayVN = document.getElementById('lblNgayBangKe').textContent || ngay;
+      const taiXe = document.getElementById('taiXe').value || '';
+      const nvGiao = document.getElementById('nvGiaoHang').value || '';
+      const nvThu = document.getElementById('nvThuTien').value || '';
+
+      const wb = XLSX.utils.book_new();
+      const borderThin = {
+        top: { style: "thin", color: { rgb: "94A3B8" } },
+        bottom: { style: "thin", color: { rgb: "94A3B8" } },
+        left: { style: "thin", color: { rgb: "94A3B8" } },
+        right: { style: "thin", color: { rgb: "94A3B8" } }
+      };
+
+      if (tabHienTai === 'bangke') {
+        const wsData = [
+          [{ v: "CÔNG TY TNHH THÁI MỸ HƯƠNG", s: { font: { bold: true, sz: 12, name: "Times New Roman" } } }],
+          [{ v: "Đc: 291 Văn Tiến Dũng, Phường Hoà Xuân, TP Đà Nẵng — ĐT: 0903.550.648", s: { font: { italic: true, sz: 9.5, name: "Times New Roman" } } }],
+          [],
+          [{ v: "BẢNG KÊ THU TIỀN HÀNG VÀ GIAO HÀNG", s: { font: { bold: true, sz: 15, name: "Times New Roman" }, alignment: { horizontal: "center" } } }],
+          [{ v: `Xe giao: ${xe}`, s: { font: { bold: true, sz: 10 } } }, null, null, null, null, null, null, { v: `Tài xế: ${taiXe}`, s: { font: { bold: true, sz: 10 } } }],
+          [{ v: `Ngày giao: ${ngayVN}`, s: { font: { bold: true, sz: 10 } } }, null, null, { v: `Giao hàng: ${nvGiao}`, s: { font: { bold: true, sz: 10 } } }, null, null, null, { v: `Thu tiền: ${nvThu}`, s: { font: { bold: true, sz: 10 } } }],
+          []
+        ];
+
+        const headerStyle = {
+          font: { bold: true, sz: 10, name: "Times New Roman" },
+          fill: { fgColor: { rgb: "CFE2F3" } },
+          alignment: { horizontal: "center", vertical: "center" },
+          border: borderThin
+        };
+        const headers = ["STT", "Mã Hoá Đơn", "Mã Khách Hàng", "Tên Khách Hàng", "Người Bán", "Doanh Số", "Giảm Giá SP", "Giảm Giá HĐ", "Thành Tiền", "Ghi Chú"];
+        wsData.push(headers.map(h => ({ v: h, s: headerStyle })));
+
+        duLieuXuatExcel.bangKe.forEach(r => {
+          const baseStyle = { font: { sz: 9.5, name: "Times New Roman" }, border: borderThin, alignment: { vertical: "center" } };
+          wsData.push([
+            { v: r.stt, t: "n", s: { ...baseStyle, alignment: { horizontal: "center" } } },
+            { v: r.maHD, t: "s", s: { ...baseStyle, font: { bold: true } } },
+            { v: r.maKH, t: "s", s: baseStyle },
+            { v: r.tenKH, t: "s", s: baseStyle },
+            { v: r.nguoiBan, t: "s", s: baseStyle },
+            { v: r.doanhSo, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right" } } },
+            { v: r.giamSP, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right" } } },
+            { v: r.giamHD, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right" } } },
+            { v: r.thanhTien, t: "n", z: "#,##0", s: { ...baseStyle, font: { bold: true }, alignment: { horizontal: "right" } } },
+            { v: "", t: "s", s: baseStyle }
+          ]);
+        });
+
+        // Dòng tổng
+        const totalStyle = { font: { bold: true, sz: 10, name: "Times New Roman" }, fill: { fgColor: { rgb: "DCFCE7" } }, border: borderThin };
+        const rowTongIdx = wsData.length;
+        wsData.push([
+          { v: "TỔNG CỘNG", s: { ...totalStyle, alignment: { horizontal: "right" } } },
+          { v: "", s: totalStyle }, { v: "", s: totalStyle }, { v: "", s: totalStyle }, { v: "", s: totalStyle },
+          { v: duLieuXuatExcel.tongDoanhSo, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right" } } },
+          { v: duLieuXuatExcel.tongGiamSP, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right" } } },
+          { v: duLieuXuatExcel.tongGiamHD, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right" } } },
+          { v: duLieuXuatExcel.tongThanhTien, t: "n", z: "#,##0", s: { ...totalStyle, alignment: { horizontal: "right" } } },
+          { v: "", s: totalStyle }
+        ]);
+
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        ws['!merges'] = [
+          { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
+          { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
+          { s: { r: 3, c: 0 }, e: { r: 3, c: 9 } },
+          { s: { r: rowTongIdx, c: 0 }, e: { r: rowTongIdx, c: 4 } }
+        ];
+        ws['!cols'] = [{ wch: 5 }, { wch: 14 }, { wch: 14 }, { wch: 32 }, { wch: 20 }, { wch: 13 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }];
+        XLSX.utils.book_append_sheet(wb, ws, "BangKeThuTien");
+        XLSX.writeFile(wb, `Bang_Ke_Thu_Tien_${xe.replace(/[^a-zA-Z0-9]/g, '_')}_${ngay}.xlsx`);
+
+      } else {
+        // Phiếu Xuất Kho Tổng Hợp (Khối A & B)
+        const wsData = [
+          [{ v: "CÔNG TY TNHH THÁI MỸ HƯƠNG", s: { font: { bold: true, sz: 12, name: "Times New Roman" } } }],
+          [{ v: "Đc: 291 Văn Tiến Dũng, Phường Hoà Xuân, TP Đà Nẵng — ĐT: 0903.550.648", s: { font: { italic: true, sz: 9.5, name: "Times New Roman" } } }],
+          [],
+          [{ v: "PHIẾU XUẤT KHO TỔNG HỢP", s: { font: { bold: true, sz: 15, name: "Times New Roman" }, alignment: { horizontal: "center" } } }],
+          [{ v: `Xe giao: ${xe}`, s: { font: { bold: true, sz: 10 } } }, null, null, null, null, null, null, { v: `Tài xế: ${taiXe}`, s: { font: { bold: true, sz: 10 } } }],
+          [{ v: `Ngày giao: ${ngayVN}`, s: { font: { bold: true, sz: 10 } } }, null, null, { v: `Giao hàng: ${nvGiao}`, s: { font: { bold: true, sz: 10 } } }, null, null, null, { v: `Thu tiền: ${nvThu}`, s: { font: { bold: true, sz: 10 } } }],
+          []
+        ];
+
+        const headerStyle = {
+          font: { bold: true, sz: 10, name: "Times New Roman" },
+          fill: { fgColor: { rgb: "FEF08A" } },
+          alignment: { horizontal: "center", vertical: "center" },
+          border: borderThin
+        };
+        const headers = ["STT", "Mã Hàng", "Tên Hàng Hóa", "QC", "ĐVT", "Tổng SL", "Chẵn", "Lẻ", "Đơn Giá", "Thành Tiền", "Ghi Chú"];
+        wsData.push(headers.map(h => ({ v: h, s: headerStyle })));
+
+        // Khối A: Hàng hóa
+        duLieuXuatExcel.hangHoa.forEach(h => {
+          const isKM = h.laKM;
+          const baseStyle = {
+            font: { sz: 9.5, name: "Times New Roman", color: isKM ? { rgb: "C2410C" } : { rgb: "000000" } },
+            fill: isKM ? { fgColor: { rgb: "FFF7ED" } } : undefined,
+            border: borderThin,
+            alignment: { vertical: "center" }
+          };
+          wsData.push([
+            { v: h.stt, t: "n", s: { ...baseStyle, alignment: { horizontal: "center" } } },
+            { v: h.ma, t: "s", s: { ...baseStyle, font: { bold: true } } },
+            { v: h.ten, t: "s", s: baseStyle },
+            { v: h.qc, t: "n", s: { ...baseStyle, alignment: { horizontal: "center" } } },
+            { v: h.dvt, t: "s", s: { ...baseStyle, alignment: { horizontal: "center" } } },
+            { v: h.tongSL, t: "n", z: "#,##0.##", s: { ...baseStyle, font: { bold: true }, alignment: { horizontal: "right" } } },
+            { v: h.chan, t: "n", s: { ...baseStyle, alignment: { horizontal: "right" } } },
+            { v: h.le, t: "n", s: { ...baseStyle, alignment: { horizontal: "right" } } },
+            { v: h.donGia, t: "n", z: "#,##0", s: { ...baseStyle, alignment: { horizontal: "right" } } },
+            { v: h.thanhTien, t: "n", z: "#,##0", s: { ...baseStyle, font: { bold: true }, alignment: { horizontal: "right" } } },
+            { v: isKM ? "HÀNG KHUYẾN MÃI" : "", t: "s", s: { ...baseStyle, font: { bold: isKM }, alignment: { horizontal: "center" } } }
+          ]);
+        });
+
+        // Dòng tổng Hàng Hóa (#DCFCE7)
+        const totalGreen = { font: { bold: true, sz: 10, name: "Times New Roman" }, fill: { fgColor: { rgb: "DCFCE7" } }, border: borderThin };
+        const rowTongHangIdx = wsData.length;
+        wsData.push([
+          { v: "TỔNG CỘNG HÀNG HÓA", s: { ...totalGreen, alignment: { horizontal: "right" } } },
+          { v: "", s: totalGreen }, { v: "", s: totalGreen }, { v: "", s: totalGreen }, { v: "", s: totalGreen },
+          { v: "", s: totalGreen },
+          { v: duLieuXuatExcel.sumChanA, t: "n", s: { ...totalGreen, alignment: { horizontal: "right" } } },
+          { v: duLieuXuatExcel.sumLeA, t: "n", s: { ...totalGreen, alignment: { horizontal: "right" } } },
+          { v: "", s: totalGreen },
+          { v: duLieuXuatExcel.sumTienA, t: "n", z: "#,##0", s: { ...totalGreen, alignment: { horizontal: "right" } } },
+          { v: "", s: totalGreen }
+        ]);
+
+        const mergesList = [
+          { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
+          { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
+          { s: { r: 3, c: 0 }, e: { r: 3, c: 10 } },
+          { s: { r: rowTongHangIdx, c: 0 }, e: { r: rowTongHangIdx, c: 4 } }
+        ];
+
+        // Khối B: Chứng Từ Đi Kèm
+        if (duLieuXuatExcel.chungTu.length > 0) {
+          const rowBannerIdx = wsData.length;
+          const bannerStyle = { font: { bold: true, sz: 10, name: "Times New Roman", color: { rgb: "334155" } }, fill: { fgColor: { rgb: "E2E8F0" } }, border: borderThin, alignment: { horizontal: "center" } };
+          wsData.push(Array(11).fill(null).map((_, i) => ({
+            v: i === 0 ? "CHỨNG TỪ / GIẤY TỜ ĐI KÈM — KHÔNG TÍNH VÀO TỔNG SỐ KIỆN Ở TRÊN" : "",
+            s: bannerStyle
+          })));
+          mergesList.push({ s: { r: rowBannerIdx, c: 0 }, e: { r: rowBannerIdx, c: 10 } });
+
+          duLieuXuatExcel.chungTu.forEach(c => {
+            const docStyle = { font: { sz: 9.5, name: "Times New Roman" }, fill: { fgColor: { rgb: "F8FAFC" } }, border: borderThin, alignment: { vertical: "center" } };
+            wsData.push([
+              { v: c.stt, t: "n", s: { ...docStyle, alignment: { horizontal: "center" } } },
+              { v: c.ma, t: "s", s: { ...docStyle, font: { bold: true } } },
+              { v: c.ten, t: "s", s: docStyle },
+              { v: c.qc, t: "n", s: { ...docStyle, alignment: { horizontal: "center" } } },
+              { v: c.dvt, t: "s", s: { ...docStyle, alignment: { horizontal: "center" } } },
+              { v: c.tongSL, t: "n", s: { ...docStyle, font: { bold: true }, alignment: { horizontal: "right" } } },
+              { v: "", s: docStyle },
+              { v: "", s: docStyle },
+              { v: c.donGia, t: "n", z: "#,##0", s: { ...docStyle, alignment: { horizontal: "right" } } },
+              { v: c.thanhTien, t: "n", z: "#,##0", s: { ...docStyle, alignment: { horizontal: "right" } } },
+              { v: "CHỨNG TỪ", t: "s", s: { ...docStyle, font: { italic: true }, alignment: { horizontal: "center" } } }
+            ]);
+          });
+
+          const rowCongDocIdx = wsData.length;
+          wsData.push([
+            { v: "CỘNG CHỨNG TỪ", s: bannerStyle },
+            { v: "", s: bannerStyle }, { v: "", s: bannerStyle }, { v: "", s: bannerStyle }, { v: "", s: bannerStyle },
+            { v: "", s: bannerStyle }, { v: "", s: bannerStyle }, { v: "", s: bannerStyle }, { v: "", s: bannerStyle },
+            { v: duLieuXuatExcel.sumTienB, t: "n", z: "#,##0", s: { ...bannerStyle, alignment: { horizontal: "right" } } },
+            { v: "", s: bannerStyle }
+          ]);
+          mergesList.push({ s: { r: rowCongDocIdx, c: 0 }, e: { r: rowCongDocIdx, c: 4 } });
+        }
+
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        ws['!merges'] = mergesList;
+        ws['!cols'] = [{ wch: 5 }, { wch: 14 }, { wch: 32 }, { wch: 8 }, { wch: 8 }, { wch: 11 }, { wch: 9 }, { wch: 8 }, { wch: 13 }, { wch: 15 }, { wch: 16 }];
+        XLSX.utils.book_append_sheet(wb, ws, "PhieuXuatKho");
+        XLSX.writeFile(wb, `Phieu_Xuat_Kho_${xe.replace(/[^a-zA-Z0-9]/g, '_')}_${ngay}.xlsx`);
+      }
+    }
+
+    // ========================================================
+    // LƯU ĐỢT NÀY VÀO LỊCH SỬ SANG BƯỚC 3
+    // ========================================================
+
+    function luuSangBuoc3() {
+      const hoaDonDuocChon = danhSachHoaDon.filter(h => h.chon);
+      if (hoaDonDuocChon.length === 0) {
+        alert("⚠️ Vui lòng chọn ít nhất 1 hóa đơn để lưu!");
+        return;
+      }
+
+      const xe = document.getElementById('xeVanChuyen').value;
+      const taiXe = document.getElementById('taiXe').value;
+      const ngayRaw = document.getElementById('ngayGiaoHang').value;
+      const ngayGiao = chuanHoaNgayVN_(ngayRaw);
+      const nvGiao = document.getElementById('nvGiaoHang').value;
+      const nvThu = document.getElementById('nvThuTien').value;
+
+      const maDot = `DOT_${xe.replace(/[^a-zA-Z0-9]/g, '')}_${ngayRaw.replace(/-/g, '')}_${Date.now().toString().slice(-4)}`;
+
+      const dotMoi = {
+        maDot: maDot,
+        xe: xe,
+        taiXe: taiXe,
+        ngayGiao: ngayGiao,
+        ngayRaw: ngayRaw,
+        nvGiao: nvGiao,
+        nvThu: nvThu,
+        soLuongHD: hoaDonDuocChon.length,
+        danhSachHD: hoaDonDuocChon.map(h => h.maHD),
+        danhSachChiTiet: duLieuXuatExcel.bangKe,
+        tongTien: duLieuXuatExcel.tongThanhTien,
+        taoLuc: new Date().toISOString()
+      };
+
+      let lichSu = [];
+      try {
+        lichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
+      } catch (e) {
+        lichSu = [];
+      }
+
+      lichSu.unshift(dotMoi);
+      localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSu));
+      localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dotMoi));
+
+      alert(`💾 Đã lưu thành công đợt điều động "${maDot}"!\n\n` +
+            `• Xe: ${xe}\n` +
+            `• Số lượng hóa đơn: ${hoaDonDuocChon.length}\n` +
+            `• Tổng thành tiền: ${formatTien(duLieuXuatExcel.tongThanhTien)} đ\n\n` +
+            `📌 Đang chuyển tiếp sang Bước 3 (Lưu trữ & Đối soát)...`);
+
+      window.location.href = "buoc3_luu_tru.html";
+    }
+
+    // Khởi chạy khi tải trang
+    window.addEventListener('DOMContentLoaded', khoiTaoTrang);
+  </script>
+</body>
+</html>
