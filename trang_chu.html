@@ -196,23 +196,23 @@
     <!-- Tóm tắt đầu trang -->
     <div class="pipeline-summary">
       <div class="pipeline-summary-text">
-        <h1><span>🧭</span> Trung Tâm Quy Trình Bán Hàng ➡ Kế Toán MISA</h1>
-        <p>Hệ thống xử lý khép kín 7 bước dành riêng cho Công ty TNHH Thái Mỹ Hương. Bấm vào từng bước theo đúng thứ tự để làm việc.</p>
+        <h1><span>🧭</span> Trung Tâm Quy Trình 3 Bước: KiotViet ➡ Quyết Toán ➡ MISA</h1>
+        <p>Hệ thống xử lý tinh gọn 3 bước cho 3 vị trí nhân sự của Công ty TNHH Thái Mỹ Hương. Bấm vào từng bước theo đúng thứ tự để làm việc.</p>
       </div>
       <div class="pipeline-quick-stats">
         <div class="quick-stat-badge">
-          <span>📦 Kho lưu trữ:</span> <b id="statLuuTru">Đang tải...</b>
+          <span>📦 Chuyến xe đã lưu:</span> <b id="statLuuTru">Đang tải...</b>
         </div>
         <div class="quick-stat-badge">
-          <span>📋 Chờ kiểm đơn:</span> <b id="statChoKiem">Đang tải...</b>
+          <span>💵 Chờ quyết toán:</span> <b id="statChoKiem">Đang tải...</b>
         </div>
         <div class="quick-stat-badge">
-          <span>🚚 Chuyến xe:</span> <b>20 chuyến</b>
+          <span>🚚 Chuyến xe quản lý:</span> <b>20 xe</b>
         </div>
       </div>
     </div>
 
-    <!-- Danh sách các Bước chuẩn quy trình tinh gọn -->
+    <!-- Danh sách 3 Bước chuẩn quy trình tinh gọn -->
     <div class="pipeline-steps-list">
 
       <!-- BƯỚC 1 -->
@@ -220,16 +220,16 @@
         <div class="step-badge-num active-step">1</div>
         <div class="step-content">
           <div class="step-header-row">
-            <span class="step-title">Bước 1: Nạp Excel KiotViet, Điều Động Xe & Tạo PXK</span>
-            <span class="step-tag green">Đầu vào & Chia xe</span>
+            <span class="step-title">Bước 1: Nạp Excel, Điều Động Xe & Phiếu Xuất Kho / Bảng Kê</span>
+            <span class="step-tag green">Người 1: Thủ kho / Điều phối xe</span>
           </div>
           <div class="step-desc">
-            Kéo thả file Excel bán hàng KiotViet trực tiếp. Hệ thống tự động cập nhật danh mục khách hàng, hàng hóa mới và quét nhận diện đơn giao lại. Người điều vận chọn xe, tài xế và xuất in Phiếu Xuất Kho, Bảng Kê Thu Tiền chuẩn xác.
+            Nạp file Excel KiotViet (hỗ trợ nạp ban đầu, ghép bổ sung nhiều file, chống trùng lặp, xóa từng dòng hoặc xóa hết). Tạo <b>Bảng Kê Thu Tiền</b> và <b>Phiếu Xuất Kho Tổng Hợp</b> (Quy cách thùng chẵn/lẻ, tách dòng 2 giá, khối A/B, copy 3 cột Mã hàng - Chẵn - Lẻ, in dọc A4 căn top đẹp). Tự động nhận diện đơn giao lại và lưu chuyến xe.
           </div>
         </div>
         <div class="step-action">
-          <a href="buoc2_phieu_xuat_kho.html" class="btn btn-primary btn-sm">
-            <span>Bắt đầu điều xe</span>
+          <a href="buoc1_dieu_xe_xuat_kho.html" class="btn btn-primary btn-sm">
+            <span>Bắt đầu Bước 1</span>
             <span>➡</span>
           </a>
         </div>
@@ -240,16 +240,16 @@
         <div class="step-badge-num">2</div>
         <div class="step-content">
           <div class="step-header-row">
-            <span class="step-title">Bước 2: Kho Lưu Trữ Đối Soát & Chi Tiết Hóa Đơn (18 Cột)</span>
-            <span class="step-tag">Kho dữ liệu</span>
+            <span class="step-title">Bước 2: Quyết Toán Thu Tiền & Xử Lý Hàng Trả Về Khi Xe Về</span>
+            <span class="step-tag amber">Người 2: Kế toán thu tiền / Thủ quỹ</span>
           </div>
           <div class="step-desc">
-            Lưu trữ lịch sử các đợt điều động xe, bảng 18 cột đối soát chi tiết, tự động nhận diện và đồng bộ đơn giao lại, tìm kiếm tức thời và xuất Excel đối soát chuyên nghiệp.
+            Khi xe giao hàng về: Quyết toán từng đơn hàng. Xử lý các trường hợp: Giao đủ thu tiền mặt/chuyển khoản (chọn ngân hàng nhận), Hàng trả về nguyên đơn (trả hẳn vào kho vs hẹn giao lại lần sau), Hàng trả về 1 phần. Bảng đếm 9 mệnh giá tiền mặt khớp từng đồng và in biên bản quyết toán nộp tiền có chữ ký.
           </div>
         </div>
         <div class="step-action">
-          <a href="buoc3_luu_tru.html" class="btn btn-outline btn-sm">
-            <span>Xem kho lưu trữ</span>
+          <a href="buoc2_quyet_toan_thu_tien.html" class="btn btn-outline btn-sm">
+            <span>Vào Bước 2</span>
             <span>➡</span>
           </a>
         </div>
@@ -260,76 +260,16 @@
         <div class="step-badge-num">3</div>
         <div class="step-content">
           <div class="step-header-row">
-            <span class="step-title">Bước 3: Kiểm Đơn Giao Về & Thu Tiền</span>
-            <span class="step-tag amber">Đối soát xe</span>
+            <span class="step-title">Bước 3: Đẩy Dữ Liệu Lên MISA (Kế Toán Tổng Hợp)</span>
+            <span class="step-tag green">Người 3: Kế toán MISA</span>
           </div>
           <div class="step-desc">
-            Khi xe giao hàng về: đối chiếu số tiền thực tế tài xế thu (tiền mặt, chuyển khoản, nợ phát sinh, hàng trả về). Đánh dấu các đơn giao không được để giao lại.
+            Lấy dữ liệu các chuyến xe đã quyết toán ở Bước 2. Tự động hạch toán định khoản Nợ/Có (1111, 1121 theo ngân hàng, 131, 511, 521 hàng trả lại), kiểm tra đầy đủ cột và <b>Tải File Excel Import MISA Chuẩn 100%</b> để nạp thẳng vào phần mềm kế toán MISA SME/AMIS trong 1 phút.
           </div>
         </div>
         <div class="step-action">
-          <a href="buoc4_kiem_don.html" class="btn btn-outline btn-sm">
-            <span>Kiểm đơn xe</span>
-            <span>➡</span>
-          </a>
-        </div>
-      </div>
-
-      <!-- BƯỚC 4 -->
-      <div class="pipeline-step-card">
-        <div class="step-badge-num">4</div>
-        <div class="step-content">
-          <div class="step-header-row">
-            <span class="step-title">Bước 4: Báo Cáo Đối Soát & Gỡ Đơn Giao Lại</span>
-            <span class="step-tag">Chốt doanh số</span>
-          </div>
-          <div class="step-desc">
-            Gỡ bỏ các đơn tick "Giao lại" ra khỏi kho lưu trữ (tránh tính nợ oan và để nạp lại đợt sau). Cập nhật chính xác doanh thu thực tế vào hồ sơ.
-          </div>
-        </div>
-        <div class="step-action">
-          <a href="buoc5_bao_cao.html" class="btn btn-outline btn-sm">
-            <span>Báo cáo đối soát</span>
-            <span>➡</span>
-          </a>
-        </div>
-      </div>
-
-      <!-- BƯỚC 5 -->
-      <div class="pipeline-step-card">
-        <div class="step-badge-num">5</div>
-        <div class="step-content">
-          <div class="step-header-row">
-            <span class="step-title">Bước 5: Bảng Kê Nộp Tiền & Đếm Mệnh Giá</span>
-            <span class="step-tag">Thu quỹ</span>
-          </div>
-          <div class="step-desc">
-            Bảng kiểm đếm tiền mặt theo từng mệnh giá (500k, 200k, 100k...), đối chiếu chênh lệch giữa tiền nộp thực tế và tiền trên hóa đơn, ghi sổ nộp tiền xe.
-          </div>
-        </div>
-        <div class="step-action">
-          <a href="buoc6_nop_tien.html" class="btn btn-outline btn-sm">
-            <span>Bảng kê nộp tiền</span>
-            <span>➡</span>
-          </a>
-        </div>
-      </div>
-
-      <!-- BƯỚC 6 -->
-      <div class="pipeline-step-card">
-        <div class="step-badge-num">6</div>
-        <div class="step-content">
-          <div class="step-header-row">
-            <span class="step-title">Bước 6: Xuất File Bán Hàng MISA Chuẩn 69 Cột</span>
-            <span class="step-tag green">Đầu ra Kế toán</span>
-          </div>
-          <div class="step-desc">
-            Tự động gom chi tiết hóa đơn, định khoản TK Nợ (1111, 1121x, 1311, 13881), tách thuế VAT (8%, 10%), xuất file Excel 69 cột nạp trực tiếp vào MISA.
-          </div>
-        </div>
-        <div class="step-action">
-          <a href="buoc7_xuat_misa.html" class="btn btn-primary btn-sm">
-            <span>Xuất file MISA</span>
+          <a href="buoc3_day_misa.html" class="btn btn-primary btn-sm">
+            <span>Vào Bước 3</span>
             <span>➡</span>
           </a>
         </div>

@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bước 3: Đẩy Dữ Liệu Lên MISA — THÁI MỸ HƯƠNG</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <script src="config.js"></script>
+  <link rel="stylesheet" href="layout.css">
+  <style>
+    .b3-container {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    /* Thanh lọc chuyến xe & Thông số */
+    .hero-meta-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Thẻ thống kê tài chính MISA */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+    }
+    .kpi-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: var(--shadow-sm);
+    }
+    .kpi-title {
+      font-size: 11.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .kpi-value {
+      font-size: 20px;
+      font-weight: 900;
+      color: var(--text-main);
+      line-height: 1.1;
+    }
+    .kpi-sub {
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+
+    /* Bảng hạch toán MISA */
+    .table-container {
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      overflow-x: auto;
+      box-shadow: var(--shadow-sm);
+    }
+    .table-misa {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      text-align: left;
+    }
+    .table-misa th {
+      background: #f8fafc;
+      color: #334155;
+      font-weight: 800;
+      padding: 9px 10px;
+      border-bottom: 2px solid var(--border-color);
+      white-space: nowrap;
+    }
+    .table-misa td {
+      padding: 7px 10px;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+    .table-misa tr:hover td {
+      background-color: #f8fafc;
+    }
+
+    /* Badge & Tags */
+    .badge-tk {
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-weight: 800;
+      font-size: 11px;
+    }
+    .tk-no { background: #dbeafe; color: #1e40af; }
+    .tk-co { background: #dcfce7; color: #166534; }
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .badge-done { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+    .badge-pending { background: #fef9c3; color: #a16207; border: 1px solid #fde047; }
+
+    /* Khối hướng dẫn cho kế toán */
+    .guide-box {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: var(--radius-lg);
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+
+  <main class="tmh-main">
+    <!-- Header trang -->
+    <div class="tmh-page-header">
+      <div class="tmh-page-header-text">
+        <h1 class="tmh-page-header-title">Bước 3: Đẩy Dữ Liệu Lên MISA (Kế Toán)</h1>
+        <p class="tmh-page-header-sub">Tự động hạch toán Nợ/Có (1111, 1121, 131, 511, 521), kiểm tra đầy đủ cột và xuất file Excel chuẩn 100% để Nhập khẩu thẳng vào MISA.</p>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button type="button" class="btn btn-outline" onclick="copyDuLieuBangMISA()">
+          <span>📋</span> Copy Bảng Dữ Liệu
+        </button>
+        <button type="button" class="btn btn-primary" onclick="xuatFileExcelMISA()" style="font-weight:800;">
+          <span>📥</span> Tải File Excel Import MISA (1 Click)
+        </button>
+        <button type="button" class="btn btn-success" onclick="danhDauDaDayMISA()">
+          <span>✅</span> Đánh Dấu Đã Đẩy MISA
+        </button>
+      </div>
+    </div>
+
+    <div class="b3-container">
+
+      <!-- KHỐI HƯỚNG DẪN 3 BƯỚC CHO KẾ TOÁN MISA -->
+      <div class="guide-box">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="font-size:24px;">💡</div>
+          <div>
+            <div style="font-weight:800; color:#166534; font-size:13.5px;">Hướng dẫn nhập khẩu vào phần mềm MISA (SME / AMIS):</div>
+            <div style="font-size:12px; color:#15803d; margin-top:2px;">
+              <b>Bước 1:</b> Bấm nút xanh <b>"Tải File Excel Import MISA"</b> ở trên ➡ 
+              <b>Bước 2:</b> Mở MISA vào phân hệ <b>Bán hàng</b> ➡ Bấm <b>Tiện ích</b> ➡ <b>Nhập khẩu từ Excel</b> ➡ 
+              <b>Bước 3:</b> Chọn file vừa tải về và bấm <b>Thực hiện</b> là xong ngay!
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- THANH CHỌN CHUYẾN XE / ĐỢT CẦN ĐẨY MISA -->
+      <div class="hero-meta-bar">
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+          <div style="display:flex; flex-direction:column; gap:3px;">
+            <label style="font-size:11.5px; font-weight:700; color:var(--text-muted);">🚚 Chọn chuyến xe cần xuất MISA:</label>
+            <select id="selChuyenXeMisa" class="form-control" style="font-weight:700; min-width:340px;" onchange="chonChuyenXeMisa(this.value)">
+              <option value="">-- Đang nạp danh sách chuyến xe... --</option>
+            </select>
+          </div>
+          <button type="button" class="btn btn-outline" style="align-self:flex-end; height:34px; padding:0 10px;" onclick="taiLaiDuLieuMisa()">
+            <span>🔄</span> Làm mới
+          </button>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:13px;">
+          <span class="tag-highlight" id="tagXeMisa">🚚 Xe: --</span>
+          <span class="tag-highlight" id="tagNgayMisa">📅 Ngày: --</span>
+          <span id="tagTrangThaiMisa" class="badge-status badge-pending">⏳ Chờ xuất MISA</span>
+        </div>
+      </div>
+
+      <!-- 5 THẺ THỐNG KÊ TỔNG HỢP MISA -->
+      <div class="kpi-grid">
+        <div class="kpi-card" style="border-left: 4px solid var(--text-main);">
+          <div class="kpi-title"><span>📊</span> Doanh Thu Bán Hàng</div>
+          <div class="kpi-value" id="kpiDoanhThu">0 đ</div>
+          <div class="kpi-sub" id="kpiSoDong">0 dòng chứng từ</div>
+        </div>
+
+        <div class="kpi-card" style="border-left: 4px solid #16a34a;">
+          <div class="kpi-title" style="color:#16a34a;"><span>💵</span> Tiền Mặt (TK 1111)</div>
+          <div class="kpi-value" style="color:#16a34a;" id="kpiTK1111">0 đ</div>
+          <div class="kpi-sub">Nợ TK 1111 / Có TK 5111</div>
+        </div>
+
+        <div class="kpi-card" style="border-left: 4px solid #2563eb;">
+          <div class="kpi-title" style="color:#2563eb;"><span>💳</span> Ngân Hàng (TK 1121)</div>
+          <div class="kpi-value" style="color:#2563eb;" id="kpiTK1121">0 đ</div>
+          <div class="kpi-sub">Nợ TK 1121 / Có TK 5111</div>
+        </div>
+
+        <div class="kpi-card" style="border-left: 4px solid #dc2626;">
+          <div class="kpi-title" style="color:#dc2626;"><span>🧾</span> Công Nợ (TK 131)</div>
+          <div class="kpi-value" style="color:#dc2626;" id="kpiTK131">0 đ</div>
+          <div class="kpi-sub">Nợ TK 131 / Có TK 5111</div>
+        </div>
+
+        <div class="kpi-card" style="border-left: 4px solid #ea580c;">
+          <div class="kpi-title" style="color:#ea580c;"><span>📦</span> Giảm Trừ / Trả Lại (5212)</div>
+          <div class="kpi-value" style="color:#ea580c;" id="kpiTK5212">0 đ</div>
+          <div class="kpi-sub">Nợ TK 5212 (Hàng trả về)</div>
+        </div>
+      </div>
+
+      <!-- BẢNG DỮ LIỆU HẠCH TOÁN CHI TIẾT THEO MẪU MISA -->
+      <div class="table-container">
+        <div style="padding:12px 16px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div style="font-weight:800; color:var(--text-main); font-size:13.5px; display:flex; align-items:center; gap:6px;">
+            <span>📑</span> Bảng Hạch Toán Chi Tiết Chứng Từ Bán Hàng Chuẩn MISA
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="text" id="timKiemMisa" class="form-control" placeholder="🔍 Tìm mã HĐ, khách hàng, mã hàng..." style="width:240px; height:30px; font-size:12px;" oninput="locBangMisa()">
+            <span id="badgeKiemTraLoi" class="badge-status badge-done" style="height:26px; padding:0 10px;">
+              ✅ 100% dòng hợp lệ sẵn sàng xuất
+            </span>
+          </div>
+        </div>
+
+        <table class="table-misa" id="tableMisa">
+          <thead>
+            <tr>
+              <th style="width:35px; text-align:center;">STT</th>
+              <th style="width:85px;">Ngày HT</th>
+              <th style="width:85px;">Ngày CT</th>
+              <th style="width:105px;">Số CT (Mã HĐ)</th>
+              <th style="width:100px;">Mã KH</th>
+              <th style="min-width:160px;">Tên Khách Hàng</th>
+              <th style="min-width:140px;">Diễn Giải</th>
+              <th style="width:90px;">Mã Hàng</th>
+              <th style="min-width:150px;">Tên Hàng Hóa</th>
+              <th style="width:50px; text-align:center;">ĐVT</th>
+              <th style="width:65px; text-align:right;">Số Lượng</th>
+              <th style="width:85px; text-align:right;">Đơn Giá</th>
+              <th style="width:95px; text-align:right;">Thành Tiền</th>
+              <th style="width:65px; text-align:center;">TK Nợ</th>
+              <th style="width:65px; text-align:center;">TK Có</th>
+              <th style="width:100px;">TK Ngân Hàng</th>
+              <th style="width:85px; text-align:center;">Trạng Thái</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyMisa">
+            <tr>
+              <td colspan="17" style="text-align:center; padding:30px; color:var(--text-muted);">
+                Đang nạp dữ liệu hạch toán...
+              </td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr style="background:#f8fafc; font-weight:800; border-top:2px solid var(--border-color);">
+              <td colspan="10" style="text-align:right;">TỔNG CỘNG:</td>
+              <td style="text-align:right;" id="footMisaSL">0</td>
+              <td></td>
+              <td style="text-align:right; color:var(--text-main);" id="footMisaTien">0</td>
+              <td colspan="4"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+    </div>
+  </main>
+
+  <script src="layout.js"></script>
+  <script>
+    // ========================================================
+    // LOGIC BƯỚC 3: ĐẨY DỮ LIỆU LÊN MISA
+    // ========================================================
+
+    let danhSachTatCaDot = [];
+    let dotHienTai = null;
+    let danhSachDongMisa = [];
+
+    async function khoiTaoTrang() {
+      if (typeof khoiTaoLayout === 'function') {
+        await khoiTaoLayout({
+          pageTitle: "Bước 3: Đẩy Dữ Liệu Lên MISA",
+          activeMenuId: "buoc3"
+        });
+      }
+
+      await taiLaiDuLieuMisa();
+    }
+
+    async function taiLaiDuLieuMisa() {
+      const sel = document.getElementById('selChuyenXeMisa');
+      sel.innerHTML = '<option value="">-- Đang nạp danh sách chuyến xe... --</option>';
+
+      try {
+        danhSachTatCaDot = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
+      } catch (e) {
+        danhSachTatCaDot = [];
+      }
+
+      if (danhSachTatCaDot.length === 0) {
+        sel.innerHTML = '<option value="">⚠️ Chưa có chuyến xe nào</option>';
+        return;
+      }
+
+      sel.innerHTML = '';
+      danhSachTatCaDot.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.maDot;
+        const trangThaiText = d.daDayMisa ? "✅ Đã đẩy MISA" : (d.daQuyetToan ? "💵 Đã quyết toán B2" : "⏳ Chưa quyết toán");
+        opt.textContent = `${d.xe} (${d.ngayGiao || 'Hôm nay'}) — [${d.soLuongHD || (d.danhSachHD && d.danhSachHD.length) || 0} HĐ, ${formatTien(d.tongTien || 0)} đ] — ${trangThaiText}`;
+        sel.appendChild(opt);
+      });
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const paramMaDot = urlParams.get('maDot');
+      let maDotChon = danhSachTatCaDot[0].maDot;
+      if (paramMaDot && danhSachTatCaDot.some(d => d.maDot === paramMaDot)) {
+        maDotChon = paramMaDot;
+      }
+
+      sel.value = maDotChon;
+      chonChuyenXeMisa(maDotChon);
+    }
+
+    function chonChuyenXeMisa(maDot) {
+      dotHienTai = danhSachTatCaDot.find(d => d.maDot === maDot);
+      if (!dotHienTai) return;
+
+      document.getElementById('tagXeMisa').textContent = `🚚 Xe: ${dotHienTai.xe || 'Chưa gán'}`;
+      document.getElementById('tagNgayMisa').textContent = `📅 Ngày: ${dotHienTai.ngayGiao || 'Hôm nay'}`;
+
+      const tagStatus = document.getElementById('tagTrangThaiMisa');
+      if (dotHienTai.daDayMisa) {
+        tagStatus.className = "badge-status badge-done";
+        tagStatus.innerHTML = "✅ Đã đẩy MISA";
+      } else {
+        tagStatus.className = "badge-status badge-pending";
+        tagStatus.innerHTML = "⏳ Chờ xuất MISA";
+      }
+
+      taoDuLieuDongMisa(dotHienTai);
+    }
+
+    // Tự động xây dựng danh sách dòng hạch toán chuẩn MISA
+    function taoDuLieuDongMisa(dot) {
+      let rawKiot = [];
+      try { rawKiot = JSON.parse(localStorage.getItem("tmh_kiotviet_data") || "[]"); } catch(e){}
+
+      // Tra cứu chi tiết quyết toán thu tiền ở Bước 2
+      const mapQuyetToan = new Map();
+      if (Array.isArray(dot.danhSachChiTiet)) {
+        dot.danhSachChiTiet.forEach(item => {
+          const m = String(item.maHD || item.ma_hd || '').trim().toUpperCase();
+          if (m) mapQuyetToan.set(m, item);
+        });
+      }
+
+      const setMaHD = new Set((dot.danhSachHD || []).map(m => String(m).trim().toUpperCase()));
+      if (setMaHD.size === 0 && Array.isArray(dot.danhSachChiTiet)) {
+        dot.danhSachChiTiet.forEach(item => {
+          const m = String(item.maHD || item.ma_hd || '').trim().toUpperCase();
+          if (m) setMaHD.add(m);
+        });
+      }
+
+      // Lọc các dòng hàng hóa từ KiotViet thuộc chuyến xe này
+      let cacDongHang = (dot.cacDongChiTietKiotViet && dot.cacDongChiTietKiotViet.length > 0)
+        ? dot.cacDongChiTietKiotViet
+        : rawKiot.filter(r => setMaHD.has(String(r['Mã hóa đơn'] || '').trim().toUpperCase()));
+
+      // Nếu vẫn trống, fallback lấy danh sách hóa đơn làm chứng từ tổng hợp
+      if (cacDongHang.length === 0 && Array.isArray(dot.danhSachChiTiet)) {
+        cacDongHang = dot.danhSachChiTiet.map(item => ({
+          'Mã hóa đơn': item.maHD,
+          'Mã khách hàng': item.maKH,
+          'Tên khách hàng': item.tenKH,
+          'Mã hàng': 'HH_TONGHOP',
+          'Tên hàng': 'Hàng hóa tổng hợp theo hóa đơn ' + item.maHD,
+          'ĐVT': 'Đơn',
+          'Số lượng': 1,
+          'Đơn giá': item.thanhTien,
+          'Thành tiền': item.thanhTien,
+          'Người bán': item.nguoiBan
+        }));
+      }
+
+      const ngayHT = dot.ngayGiao || new Date().toLocaleDateString('vi-VN');
+      danhSachDongMisa = [];
+      let stt = 1;
+
+      cacDongHang.forEach(r => {
+        const maHD = String(r['Mã hóa đơn'] || '').trim().toUpperCase();
+        const maHang = String(r['Mã hàng'] || '').trim().toUpperCase();
+        const tenHang = String(r['Tên hàng'] || '').trim();
+        const dvt = String(r['ĐVT'] || 'Thùng').trim();
+        const sl = parseFloat(r['Số lượng'] || 0);
+        const donGia = parseFloat(r['Đơn giá'] || r['Giá bán'] || 0);
+        const thanhTien = parseFloat(r['Thành tiền'] || 0);
+        const maKH = String(r['Mã khách hàng'] || '').trim().toUpperCase() || 'KH_LE';
+        const tenKH = String(r['Tên khách hàng'] || 'Khách Lẻ').trim();
+        const nguoiBan = String(r['Người bán'] || '').trim();
+
+        // Lấy thông tin thanh toán từ Bước 2
+        const infoQT = mapQuyetToan.get(maHD) || {};
+        const tienHDGoc = parseFloat(infoQT.tienHD || thanhTien);
+        const tienMat = parseFloat(infoQT.tienMat || 0);
+        const chuyenKhoan = parseFloat(infoQT.chuyenKhoan || 0);
+        const traVe = parseFloat(infoQT.traVe || 0);
+        const noPhatSinh = parseFloat(infoQT.noPhatSinh || 0);
+        const nganHang = infoQT.taiKhoanNhan || 'VCB';
+
+        // Tự động xác định tài khoản Nợ
+        let tkNo = "1111"; // Mặc định tiền mặt
+        if (traVe >= tienHDGoc && tienHDGoc > 0) {
+          tkNo = "5212"; // Hàng trả lại
+        } else if (chuyenKhoan > 0 && tienMat === 0) {
+          tkNo = "1121"; // Chuyển khoản ngân hàng
+        } else if (noPhatSinh > 0 && tienMat === 0 && chuyenKhoan === 0) {
+          tkNo = "131";  // Khách ghi nợ
+        } else if (chuyenKhoan > 0 && tienMat > 0) {
+          tkNo = "1111"; // Hỗn hợp (mặc định ưu tiên 1111/1121)
+        }
+
+        const tkCo = (tkNo === "5212") ? "131" : "5111";
+
+        danhSachDongMisa.push({
+          stt: stt++,
+          ngayHT: ngayHT,
+          ngayCT: ngayHT,
+          soCT: maHD,
+          maKH: maKH,
+          tenKH: tenKH,
+          dienGiai: `Bán hàng xe ${dot.xe} - HĐ ${maHD}`,
+          maHang: maHang,
+          tenHang: tenHang,
+          dvt: dvt,
+          soLuong: sl,
+          donGia: donGia,
+          thanhTien: thanhTien,
+          tkNo: tkNo,
+          tkCo: tkCo,
+          tkNganHang: (tkNo === "1121") ? nganHang : "",
+          nguoiBan: nguoiBan,
+          hopLe: !!(maKH && maHang && thanhTien > 0)
+        });
+      });
+
+      veBangMisa();
+      tinhToanTongTheMisa();
+    }
+
+    function veBangMisa() {
+      const tbody = document.getElementById('tbodyMisa');
+      const tuKhoa = (document.getElementById('timKiemMisa')?.value || '').trim().toLowerCase();
+      tbody.innerHTML = '';
+
+      if (danhSachDongMisa.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="17" style="text-align:center; padding:30px; color:var(--text-muted);">Không có dữ liệu chứng từ nào cho chuyến xe này.</td></tr>`;
+        return;
+      }
+
+      danhSachDongMisa.forEach(r => {
+        if (tuKhoa) {
+          const match = r.soCT.toLowerCase().includes(tuKhoa) || 
+                        r.tenKH.toLowerCase().includes(tuKhoa) || 
+                        r.maHang.toLowerCase().includes(tuKhoa) || 
+                        r.tenHang.toLowerCase().includes(tuKhoa);
+          if (!match) return;
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="text-align:center; font-weight:700; color:var(--text-muted);">${r.stt}</td>
+          <td>${r.ngayHT}</td>
+          <td>${r.ngayCT}</td>
+          <td><b>${r.soCT}</b></td>
+          <td><b>${r.maKH}</b></td>
+          <td>${r.tenKH}</td>
+          <td style="font-size:11px; color:var(--text-muted);">${r.dienGiai}</td>
+          <td><b>${r.maHang}</b></td>
+          <td>${r.tenHang}</td>
+          <td style="text-align:center;">${r.dvt}</td>
+          <td style="text-align:right; font-weight:700;">${formatTien(r.soLuong)}</td>
+          <td style="text-align:right;">${formatTien(r.donGia)}</td>
+          <td style="text-align:right; font-weight:800; color:var(--text-main);">${formatTien(r.thanhTien)}</td>
+          <td style="text-align:center;"><span class="badge-tk tk-no">${r.tkNo}</span></td>
+          <td style="text-align:center;"><span class="badge-tk tk-co">${r.tkCo}</span></td>
+          <td style="color:#2563eb; font-weight:700;">${r.tkNganHang || ''}</td>
+          <td style="text-align:center;">
+            <span class="badge-status ${r.hopLe ? 'badge-done' : 'badge-pending'}">
+              ${r.hopLe ? '✅ Chuẩn' : '⚠️ Kiểm tra'}
+            </span>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function locBangMisa() {
+      veBangMisa();
+    }
+
+    function tinhToanTongTheMisa() {
+      let tongTien = 0;
+      let tongSL = 0;
+      let tien1111 = 0;
+      let tien1121 = 0;
+      let tien131 = 0;
+      let tien5212 = 0;
+      let coLoi = false;
+
+      danhSachDongMisa.forEach(r => {
+        tongTien += r.thanhTien;
+        tongSL += r.soLuong;
+
+        if (r.tkNo === "1111") tien1111 += r.thanhTien;
+        else if (r.tkNo === "1121") tien1121 += r.thanhTien;
+        else if (r.tkNo === "131") tien131 += r.thanhTien;
+        else if (r.tkNo === "5212") tien5212 += r.thanhTien;
+
+        if (!r.hopLe) coLoi = true;
+      });
+
+      document.getElementById('kpiDoanhThu').textContent = formatTien(tongTien) + ' đ';
+      document.getElementById('kpiSoDong').textContent = `${danhSachDongMisa.length} dòng hàng hóa`;
+
+      document.getElementById('kpiTK1111').textContent = formatTien(tien1111) + ' đ';
+      document.getElementById('kpiTK1121').textContent = formatTien(tien1121) + ' đ';
+      document.getElementById('kpiTK131').textContent = formatTien(tien131) + ' đ';
+      document.getElementById('kpiTK5212').textContent = formatTien(tien5212) + ' đ';
+
+      document.getElementById('footMisaSL').textContent = formatTien(tongSL);
+      document.getElementById('footMisaTien').textContent = formatTien(tongTien);
+
+      const badgeLoi = document.getElementById('badgeKiemTraLoi');
+      if (coLoi) {
+        badgeLoi.className = "badge-status badge-pending";
+        badgeLoi.innerHTML = "⚠️ Có dòng thiếu thông tin";
+      } else {
+        badgeLoi.className = "badge-status badge-done";
+        badgeLoi.innerHTML = "✅ 100% dòng hợp lệ sẵn sàng xuất MISA";
+      }
+    }
+
+    // ========================================================
+    // XUẤT FILE EXCEL MISA CHUẨN 100% SỐ CỘT (XLSX-JS-STYLE)
+    // ========================================================
+
+    function xuatFileExcelMISA() {
+      if (danhSachDongMisa.length === 0) {
+        alert("⚠️ Không có dòng dữ liệu nào để xuất file MISA!");
+        return;
+      }
+
+      try {
+        // Cấu trúc tiêu đề chuẩn theo mẫu Excel Nhập khẩu của MISA SME/AMIS
+        const headers = [
+          "Ngày hạch toán (*)",
+          "Ngày chứng từ (*)",
+          "Số chứng từ (*)",
+          "Mã khách hàng (*)",
+          "Tên khách hàng",
+          "Địa chỉ",
+          "Mã số thuế",
+          "Diễn giải",
+          "Mã hàng (*)",
+          "Tên hàng",
+          "ĐVT",
+          "Số lượng (*)",
+          "Đơn giá",
+          "Thành tiền (*)",
+          "TK Nợ (*)",
+          "TK Có (*)",
+          "Tài khoản ngân hàng",
+          "Nhân viên bán hàng"
+        ];
+
+        const rowsData = [headers];
+
+        danhSachDongMisa.forEach(r => {
+          rowsData.push([
+            r.ngayHT,
+            r.ngayCT,
+            r.soCT,
+            r.maKH,
+            r.tenKH,
+            "", // Địa chỉ
+            "", // MST
+            r.dienGiai,
+            r.maHang,
+            r.tenHang,
+            r.dvt,
+            r.soLuong,
+            r.donGia,
+            r.thanhTien,
+            r.tkNo,
+            r.tkCo,
+            r.tkNganHang || "",
+            r.nguoiBan || ""
+          ]);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(rowsData);
+
+        // Định dạng độ rộng cột tối ưu
+        ws['!cols'] = [
+          { wch: 13 }, // Ngày HT
+          { wch: 13 }, // Ngày CT
+          { wch: 16 }, // Số CT
+          { wch: 15 }, // Mã KH
+          { wch: 28 }, // Tên KH
+          { wch: 15 }, // Địa chỉ
+          { wch: 14 }, // MST
+          { wch: 32 }, // Diễn giải
+          { wch: 16 }, // Mã hàng
+          { wch: 28 }, // Tên hàng
+          { wch: 10 }, // ĐVT
+          { wch: 12 }, // Số lượng
+          { wch: 14 }, // Đơn giá
+          { wch: 16 }, // Thành tiền
+          { wch: 10 }, // TK Nợ
+          { wch: 10 }, // TK Có
+          { wch: 20 }, // TK Ngân hàng
+          { wch: 18 }  // NV Bán hàng
+        ];
+
+        // Tạo workbook
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "ChungTuBanHangMISA");
+
+        const tenFile = `MISA_BanHang_${dotHienTai ? dotHienTai.xe.replace(/[^a-zA-Z0-9]/g, '_') : 'TMH'}_${new Date().toISOString().slice(0,10)}.xlsx`;
+        XLSX.writeFile(wb, tenFile);
+
+        hienThiToast("📥 Đã xuất file Excel MISA chuẩn thành công!");
+        alert(`✅ ĐÃ XUẤT FILE MISA THÀNH CÔNG!\n\n• Tên file: ${tenFile}\n• Tổng số dòng: ${danhSachDongMisa.length} dòng\n\n📌 Bây giờ kế toán chỉ cần mở MISA ➡ Bán hàng ➡ Tiện ích ➡ Nhập khẩu từ Excel để nạp file này vào!`);
+      } catch (err) {
+        alert("Lỗi xuất file Excel: " + err.message);
+      }
+    }
+
+    // Copy toàn bộ dữ liệu bảng MISA vào clipboard
+    function copyDuLieuBangMISA() {
+      if (danhSachDongMisa.length === 0) {
+        alert("⚠️ Không có dữ liệu để copy!");
+        return;
+      }
+
+      let text = "Ngày HT\tNgày CT\tSố CT\tMã KH\tTên KH\tDiễn giải\tMã hàng\tTên hàng\tĐVT\tSố lượng\tĐơn giá\tThành tiền\tTK Nợ\tTK Có\tTK Ngân hàng\n";
+      danhSachDongMisa.forEach(r => {
+        text += `${r.ngayHT}\t${r.ngayCT}\t${r.soCT}\t${r.maKH}\t${r.tenKH}\t${r.dienGiai}\t${r.maHang}\t${r.tenHang}\t${r.dvt}\t${r.soLuong}\t${r.donGia}\t${r.thanhTien}\t${r.tkNo}\t${r.tkCo}\t${r.tkNganHang}\n`;
+      });
+
+      navigator.clipboard.writeText(text).then(() => {
+        hienThiToast("📋 Đã copy bảng dữ liệu MISA vào Clipboard!");
+        alert("📋 Đã copy toàn bộ bảng dữ liệu MISA! Bạn có thể dán (Ctrl + V) trực tiếp vào Excel hoặc MISA.");
+      }).catch(err => {
+        alert("Lỗi copy: " + err.message);
+      });
+    }
+
+    // Đánh dấu đã đẩy MISA
+    async function danhDauDaDayMISA() {
+      if (!dotHienTai) {
+        alert("⚠️ Vui lòng chọn một chuyến xe!");
+        return;
+      }
+
+      dotHienTai.daDayMisa = true;
+      dotHienTai.thoiGianDayMisa = new Date().toISOString();
+
+      const idx = danhSachTatCaDot.findIndex(d => d.maDot === dotHienTai.maDot);
+      if (idx >= 0) danhSachTatCaDot[idx] = dotHienTai;
+      localStorage.setItem("tmh_lich_su_dot", JSON.stringify(danhSachTatCaDot));
+
+      const tagStatus = document.getElementById('tagTrangThaiMisa');
+      tagStatus.className = "badge-status badge-done";
+      tagStatus.innerHTML = "✅ Đã đẩy MISA";
+
+      alert(`✅ Đã đánh dấu chuyến xe "${dotHienTai.xe}" là ĐÃ ĐẨY LÊN MISA!`);
+      hienThiToast("✅ Đã ghi nhận hoàn tất quy trình 3 bước!");
+    }
+
+    function formatTien(n) {
+      if (isNaN(n) || n === null || n === undefined) return "0";
+      return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+
+    function hienThiToast(msg) {
+      let t = document.getElementById('tmhToast');
+      if (!t) {
+        t = document.createElement('div');
+        t.id = 'tmhToast';
+        t.style.cssText = "position:fixed; bottom:24px; right:24px; background:#0f172a; color:#fff; padding:10px 18px; border-radius:8px; font-weight:700; font-size:13px; z-index:99999; box-shadow:0 10px 25px rgba(0,0,0,0.3); transition:all 0.3s ease;";
+        document.body.appendChild(t);
+      }
+      t.textContent = msg;
+      t.style.opacity = '1';
+      t.style.transform = 'translateY(0)';
+      setTimeout(() => {
+        t.style.opacity = '0';
+        t.style.transform = 'translateY(10px)';
+      }, 3500);
+    }
+
+    window.addEventListener('DOMContentLoaded', khoiTaoTrang);
+  </script>
+</body>
+</html>
