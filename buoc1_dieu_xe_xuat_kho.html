@@ -537,6 +537,19 @@
 
         <!-- Danh sách hóa đơn nạp từ Bước 1 -->
         <div class="form-group">
+          <!-- Banner Đơn Hẹn Giao Lại Từ Chuyến Trước -->
+          <div id="bannerDonGiaoLai" style="display:none; background:#fff7ed; border:1px solid #f97316; border-radius:6px; padding:10px 12px; margin-bottom:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+              <div>
+                <div style="font-weight:800; color:#c2410c; font-size:12.5px;">🔄 Có <span id="soLuongDonGiaoLai">0</span> đơn hẹn giao lại từ chuyến trước!</div>
+                <div id="moTaDonGiaoLai" style="font-size:11px; color:#9a3412; margin-top:2px;"></div>
+              </div>
+              <button type="button" class="btn" onclick="napCacDonGiaoLaiVaoChuyenXeNay()" style="background:#ea580c; color:#ffffff; font-size:11.5px; font-weight:700; padding:6px 12px; border:none; border-radius:4px; cursor:pointer; white-space:nowrap; box-shadow:0 2px 4px rgba(234,88,12,0.3);">
+                ➕ Thêm vào xe này
+              </button>
+            </div>
+          </div>
+
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <label>Hóa đơn theo xe (<span id="badgeSoHDChon" style="color:var(--primary); font-weight:800;">0/0</span>):</label>
             <div style="display:flex; gap:5px; align-items:center;">
@@ -1440,6 +1453,7 @@
       napDropdownNhanSu();
       await napQuyCachHangHoa();
       napDuLieuTuBuoc1();
+      kiemTraBannerDonGiaoLai();
 
       // Phục hồi badge hiển thị file đã nạp nếu có dữ liệu
       try {
@@ -1646,6 +1660,93 @@
           h.laGiaoLai = false;
         }
       });
+    }
+
+    // ========================================================
+    // QUẢN LÝ HÀNG ĐỢI ĐƠN HẸN GIAO LẠI (TỪ BƯỚC 2 SANG BƯỚC 1)
+    // ========================================================
+
+    function kiemTraBannerDonGiaoLai() {
+      let dsGL = [];
+      try {
+        dsGL = JSON.parse(localStorage.getItem('tmh_danh_sach_cho_giao_lai') || '[]');
+      } catch (e) {}
+
+      const banner = document.getElementById('bannerDonGiaoLai');
+      if (!banner) return;
+
+      if (dsGL.length > 0) {
+        banner.style.display = 'block';
+        const elSo = document.getElementById('soLuongDonGiaoLai');
+        if (elSo) elSo.textContent = dsGL.length;
+        const danhSachMa = dsGL.map(d => `${d.maHD} (${formatTien(d.tienHD)}đ)`).slice(0, 3).join(', ');
+        const elMoTa = document.getElementById('moTaDonGiaoLai');
+        if (elMoTa) {
+          elMoTa.textContent = danhSachMa + (dsGL.length > 3 ? ` và ${dsGL.length - 3} đơn khác...` : '');
+        }
+      } else {
+        banner.style.display = 'none';
+      }
+    }
+
+    function napCacDonGiaoLaiVaoChuyenXeNay() {
+      let dsGL = [];
+      try {
+        dsGL = JSON.parse(localStorage.getItem('tmh_danh_sach_cho_giao_lai') || '[]');
+      } catch (e) {}
+
+      if (dsGL.length === 0) {
+        alert("Không có đơn hàng nào đang chờ giao lại!");
+        return;
+      }
+
+      if (!Array.isArray(danhSachHoaDon)) danhSachHoaDon = [];
+      if (!Array.isArray(duLieuKiotViet)) duLieuKiotViet = [];
+
+      let demThem = 0;
+      dsGL.forEach(item => {
+        const maHD = String(item.maHD || '').trim().toUpperCase();
+        const tonTai = danhSachHoaDon.find(h => h.maHD.toUpperCase() === maHD);
+        if (tonTai) {
+          tonTai.chon = true;
+          tonTai.laGiaoLai = true;
+        } else {
+          danhSachHoaDon.unshift({
+            maHD: maHD,
+            tenKH: item.tenKH || 'Khách Lẻ',
+            tongTien: item.tienHD || 0,
+            chon: true,
+            laGiaoLai: true,
+            thongTinCu: {
+              xe: item.xeCu,
+              ngayGiao: item.ngayCu
+            }
+          });
+          demThem++;
+        }
+
+        // Nạp các dòng chi tiết KiotViet nếu có
+        if (Array.isArray(item.chiTietKiotViet) && item.chiTietKiotViet.length > 0) {
+          item.chiTietKiotViet.forEach(dong => {
+            const maHang = String(dong['Mã hàng'] || '').trim().toUpperCase();
+            const daCo = duLieuKiotViet.some(d => 
+              String(d['Mã hóa đơn'] || '').trim().toUpperCase() === maHD && 
+              String(d['Mã hàng'] || '').trim().toUpperCase() === maHang
+            );
+            if (!daCo) {
+              duLieuKiotViet.push(dong);
+            }
+          });
+        }
+      });
+
+      veDanhSachCheckboxHD();
+      chayTaoPhieu();
+
+      const banner = document.getElementById('bannerDonGiaoLai');
+      if (banner) banner.style.display = 'none';
+
+      hienThiToast(`🎉 Đã đưa ${dsGL.length} đơn hẹn giao lại vào chuyến xe hiện tại!`);
     }
 
     // Render danh sách checkbox hóa đơn kèm huy hiệu Đơn Giao Lại
@@ -2525,6 +2626,16 @@
       lichSu.unshift(dotMoi);
       localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSu));
       localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dotMoi));
+
+      // Xóa các đơn đã được phân vào chuyến xe này khỏi hàng đợi chờ giao lại
+      try {
+        let dsChoGiaoLai = JSON.parse(localStorage.getItem('tmh_danh_sach_cho_giao_lai') || '[]');
+        if (dsChoGiaoLai.length > 0) {
+          const setChon = new Set(hoaDonDuocChon.map(h => h.maHD.toUpperCase()));
+          dsChoGiaoLai = dsChoGiaoLai.filter(item => !setChon.has(item.maHD.toUpperCase()));
+          localStorage.setItem('tmh_danh_sach_cho_giao_lai', JSON.stringify(dsChoGiaoLai));
+        }
+      } catch (e) {}
 
       // Đồng bộ trực tiếp lên Supabase luu_tru
       if (typeof sb !== 'undefined') {
