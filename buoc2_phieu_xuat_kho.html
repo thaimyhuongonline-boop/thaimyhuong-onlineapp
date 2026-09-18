@@ -237,25 +237,66 @@
       background: #e0f2fe;
     }
 
+    /* Nút bộ lọc Chẵn / Lẻ */
+    .btn-filter {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-weight: 600;
+      transition: var(--transition);
+      padding: 3px 8px;
+      font-size: 11px;
+      border-radius: 3px;
+    }
+    .btn-filter:hover {
+      background: #e2e8f0;
+      color: var(--text-main);
+    }
+    .btn-filter.active {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+
     /* ========================================================
-     * ĐỊNH DẠNG IN A4: VỪA KHÍT 100% BỀ NGANG, KHÔNG TRÀN
+     * ĐỊNH DẠNG IN A4: CĂN TOP CHUẨN XÁC, VỪA KHÍT 100% BỀ NGANG
      * ======================================================== */
     @media print {
       @page {
         size: A4 portrait;
-        margin: 5mm 6mm 5mm 6mm;
+        margin: 7mm 8mm 6mm 8mm;
       }
       html, body {
         width: 100% !important;
+        height: auto !important;
+        min-height: 0 !important;
         margin: 0 !important;
         padding: 0 !important;
         background: #ffffff !important;
+        overflow: visible !important;
       }
       body * {
         visibility: hidden;
       }
-      .tmh-sidebar, .tmh-topbar, .control-card, .preview-toolbar, .tmh-footer, .tmh-stepper-wrap, #tmhPageLoading, #manHinhCho {
+      /* Ẩn triệt để tất cả các thành phần ngoài biểu mẫu khỏi dòng render */
+      .tmh-sidebar, .tmh-topbar, .tmh-page-header, .tmh-stepper-wrap, .tmh-footer,
+      .control-card, .preview-toolbar, #tmhPageLoading, #manHinhCho, #boLocChanLeWrap,
+      .tab-group, #btnCopy3Cot, #tmhToastMsg {
         display: none !important;
+      }
+      /* Triệt tiêu margin, padding, flex-centering của tất cả các container cha */
+      .tmh-layout, .tmh-main-wrapper, .tmh-page-body, .b2-grid, .preview-card {
+        display: block !important;
+        position: static !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        min-height: 0 !important;
+        height: auto !important;
+        width: 100% !important;
+        background: transparent !important;
       }
       .sheet-paper.in-duoc, .sheet-paper.in-duoc * {
         visibility: visible;
@@ -272,7 +313,13 @@
         border: none !important;
         padding: 0 !important;
         margin: 0 !important;
+        margin-top: 0 !important;
         box-sizing: border-box !important;
+      }
+      .doc-header {
+        margin-top: 0 !important;
+        margin-bottom: 8px !important;
+        padding-top: 0 !important;
       }
       .doc-table {
         width: 100% !important;
@@ -443,25 +490,35 @@
       <div class="preview-card">
         
         <div class="preview-toolbar">
-          <div class="tab-group">
-            <button type="button" class="tab-btn active" id="tabBtnBangKe" onclick="chuyenTab('bangke')">
-              <span>📋</span> Bảng Kê Thu Tiền (Mẫu 1)
-            </button>
-            <button type="button" class="tab-btn" id="tabBtnXuatKho" onclick="chuyenTab('xuatkho')">
-              <span>📦</span> Phiếu Xuất Kho (Mẫu 2)
-            </button>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <div class="tab-group">
+              <button type="button" class="tab-btn active" id="tabBtnBangKe" onclick="chuyenTab('bangke')">
+                <span>📋</span> Bảng Kê Thu Tiền (Mẫu 1)
+              </button>
+              <button type="button" class="tab-btn" id="tabBtnXuatKho" onclick="chuyenTab('xuatkho')">
+                <span>📦</span> Phiếu Xuất Kho (Mẫu 2)
+              </button>
+            </div>
+
+            <!-- Bộ lọc Chẵn / Lẻ (chỉ hiển thị khi ở tab Phiếu Xuất Kho) -->
+            <div id="boLocChanLeWrap" style="display:none; align-items:center; gap:2px; background:#f1f5f9; padding:2px 4px; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
+              <span style="font-size:11px; font-weight:700; color:var(--text-muted); padding:0 4px;">Lọc hàng:</span>
+              <button type="button" class="btn btn-filter active" id="btnLocAll" onclick="doiBoLocChanLe('all')" title="Hiển thị tất cả mặt hàng">Tất cả</button>
+              <button type="button" class="btn btn-filter" id="btnLocChan" onclick="doiBoLocChanLe('chan')" title="Chỉ hiển thị các mặt hàng có số kiện Chẵn > 0">Có Chẵn</button>
+              <button type="button" class="btn btn-filter" id="btnLocLe" onclick="doiBoLocChanLe('le')" title="Chỉ hiển thị các mặt hàng có số lượng Lẻ > 0">Có Lẻ</button>
+            </div>
           </div>
           
           <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-            <!-- Cụm nút In ấn vừa vặn khổ A4 -->
-            <div style="display:flex; border:1px solid var(--border-color); border-radius:var(--radius-sm); overflow:hidden;">
-              <button type="button" class="btn btn-outline btn-sm" onclick="inBieuMau('portrait')" title="In vừa khít bề ngang khổ giấy A4 Đứng" style="border:none; border-radius:0; padding:6px 10px; font-weight:700;">
-                <span>📄</span> In A4 Đứng
-              </button>
-              <button type="button" class="btn btn-outline btn-sm" onclick="inBieuMau('landscape')" title="In rộng rãi khổ giấy A4 Ngang" style="border:none; border-left:1px solid var(--border-color); border-radius:0; padding:6px 10px; font-weight:700;">
-                <span>📑</span> In A4 Ngang
-              </button>
-            </div>
+            <!-- Nút Copy 3 Cột: Mã Hàng, Chẵn, Lẻ -->
+            <button type="button" class="btn btn-outline btn-sm" id="btnCopy3Cot" onclick="copy3CotChanLe()" title="Sao chép 3 cột: Mã hàng, Chẵn, Lẻ để dán trực tiếp vào Excel / Google Sheets" style="display:none; font-weight:700;">
+              <span>📋</span> Copy 3 cột (Mã, Chẵn, Lẻ)
+            </button>
+
+            <!-- Nút In A4 Dọc căn chuẩn lề Top -->
+            <button type="button" class="btn btn-primary btn-sm" onclick="inBieuMau('portrait')" title="In vừa khít khổ giấy A4 Dọc căn chuẩn lề trên">
+              <span>🖨️</span> In A4 Dọc
+            </button>
 
             <button type="button" class="btn btn-outline btn-sm" onclick="xuatExcelHienTai()">
               <span>📥</span> Xuất Excel Chuẩn
@@ -592,6 +649,7 @@
     let danhSachHoaDon = [];
     let mapQuyCach = new Map();
     let tabHienTai = 'bangke';
+    let boLocChanLe = 'all'; // 'all' | 'chan' | 'le'
 
     let duLieuXuatExcel = {
       bangKe: [],
@@ -778,7 +836,7 @@
     }
 
     // ========================================================
-    // IN ẤN CHUẨN A4 ĐỨNG & A4 NGANG
+    // IN ẤN CHUẨN A4 DỌC CĂN TOP
     // ========================================================
     function inBieuMau(huongIn) {
       const view = (tabHienTai === 'bangke') ? document.getElementById('viewBangKe') : document.getElementById('viewXuatKho');
@@ -797,13 +855,109 @@
         document.head.appendChild(styleTag);
       }
 
-      if (huongIn === 'landscape') {
-        styleTag.innerHTML = `@page { size: A4 landscape; margin: 5mm 6mm; }`;
-      } else {
-        styleTag.innerHTML = `@page { size: A4 portrait; margin: 5mm 6mm; }`;
+      styleTag.innerHTML = `@page { size: A4 portrait; margin: 7mm 8mm 6mm 8mm; }`;
+      window.print();
+    }
+
+    // ========================================================
+    // BỘ LỌC CHẴN / LẺ CHO PHIẾU XUẤT KHO
+    // ========================================================
+    function doiBoLocChanLe(kieu) {
+      boLocChanLe = kieu;
+      ['btnLocAll', 'btnLocChan', 'btnLocLe'].forEach(id => {
+        const b = document.getElementById(id);
+        if (b) b.classList.remove('active');
+      });
+      if (kieu === 'all') document.getElementById('btnLocAll')?.classList.add('active');
+      if (kieu === 'chan') document.getElementById('btnLocChan')?.classList.add('active');
+      if (kieu === 'le') document.getElementById('btnLocLe')?.classList.add('active');
+
+      if (duLieuKiotViet && duLieuKiotViet.length > 0) {
+        const layTatCa = danhSachHoaDon.every(h => !h.chon);
+        const setMaHDDuocChon = new Set(danhSachHoaDon.filter(h => h.chon).map(h => h.ma));
+        const cacDongTheoXe = duLieuKiotViet.filter(r => {
+          const maHD = String(r['Mã hóa đơn'] || '').trim().toUpperCase();
+          return layTatCa || setMaHDDuocChon.has(maHD);
+        });
+        taoPhieuXuatKhoTongHop(cacDongTheoXe);
+      }
+    }
+
+    // ========================================================
+    // SAO CHÉP 3 CỘT: MÃ HÀNG, CHẴN, LẺ (DÁN EXCEL)
+    // ========================================================
+    function copy3CotChanLe() {
+      if (!duLieuXuatExcel || !duLieuXuatExcel.hangHoa || duLieuXuatExcel.hangHoa.length === 0) {
+        alert("Chưa có dữ liệu Phiếu Xuất Kho để sao chép!");
+        return;
       }
 
-      window.print();
+      const rowsToCopy = duLieuXuatExcel.hangHoa;
+      if (rowsToCopy.length === 0) {
+        alert("Không có dòng hàng hóa nào phù hợp để sao chép!");
+        return;
+      }
+
+      // Định dạng Tab-Separated Values (TSV) để dán chuẩn xác vào Excel / Google Sheets
+      let text = "Mã Hàng\tChẵn\tLẻ\n";
+      rowsToCopy.forEach(r => {
+        text += `${r.ma}\t${r.chan}\t${r.le}\n`;
+      });
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          hienThiToast(`✅ Đã copy 3 cột (Mã hàng, Chẵn, Lẻ) của ${rowsToCopy.length} dòng vào Clipboard! Bạn có thể dán (Ctrl+V) vào Excel.`);
+        }).catch(() => {
+          saoChepFallback(text, rowsToCopy.length);
+        });
+      } else {
+        saoChepFallback(text, rowsToCopy.length);
+      }
+    }
+
+    function saoChepFallback(text, soDong) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        hienThiToast(`✅ Đã copy 3 cột (Mã hàng, Chẵn, Lẻ) của ${soDong} dòng vào Clipboard!`);
+      } catch (e) {
+        alert("Không thể tự động copy, vui lòng thử lại!");
+      }
+      document.body.removeChild(ta);
+    }
+
+    function hienThiToast(msg) {
+      let t = document.getElementById('tmhToastMsg');
+      if (!t) {
+        t = document.createElement('div');
+        t.id = 'tmhToastMsg';
+        t.style.position = 'fixed';
+        t.style.bottom = '24px';
+        t.style.right = '24px';
+        t.style.background = '#0f172a';
+        t.style.color = '#ffffff';
+        t.style.padding = '12px 18px';
+        t.style.borderRadius = '8px';
+        t.style.fontSize = '13px';
+        t.style.fontWeight = '600';
+        t.style.boxShadow = '0 10px 25px rgba(0,0,0,0.25)';
+        t.style.zIndex = '999999';
+        t.style.transition = 'all 0.3s ease';
+        document.body.appendChild(t);
+      }
+      t.innerHTML = msg;
+      t.style.opacity = '1';
+      t.style.transform = 'translateY(0)';
+      clearTimeout(t.timer);
+      t.timer = setTimeout(() => {
+        t.style.opacity = '0';
+        t.style.transform = 'translateY(10px)';
+      }, 3500);
     }
 
     // ========================================================
@@ -1226,9 +1380,21 @@
       let sumChanA = 0, sumLeA = 0, sumTienA = 0;
       const rowsExcelA = [];
 
+      // ── ÁP DỤNG BỘ LỌC CHẴN / LẺ (NẾU ĐƯỢC CHỌN) ─────────────────
+      let hangHoaHienThi = hangHoa.map(item => {
+        const kq = taoDongXuatKho_(item, 0);
+        return { item: item, kq: kq };
+      });
+
+      if (boLocChanLe === 'chan') {
+        hangHoaHienThi = hangHoaHienThi.filter(x => x.kq.chan > 0);
+      } else if (boLocChanLe === 'le') {
+        hangHoaHienThi = hangHoaHienThi.filter(x => x.kq.le > 0);
+      }
+
       // ── RENDER KHỐI A: HÀNG HÓA ──────────────────────────────────
-      hangHoa.forEach(item => {
-        const kq = taoDongXuatKho_(item, ++stt);
+      hangHoaHienThi.forEach(({ item, kq }) => {
+        stt++;
         sumChanA += kq.chan;
         sumLeA += kq.le;
         sumTienA += item.thanhTien;
@@ -1268,10 +1434,14 @@
       });
 
       // DÒNG TỔNG CỘNG HÀNG HÓA
+      let nhanTongA = "TỔNG CỘNG HÀNG HÓA";
+      if (boLocChanLe === 'chan') nhanTongA += " (CHỈ HÀNG CHẴN)";
+      if (boLocChanLe === 'le') nhanTongA += " (CHỈ HÀNG LẺ)";
+
       const trTongA = document.createElement('tr');
       trTongA.className = 'row-tong';
       trTongA.innerHTML = `
-        <td colspan="5" style="text-align:right; font-weight:bold; padding-right:12px;">TỔNG CỘNG HÀNG HÓA</td>
+        <td colspan="5" style="text-align:right; font-weight:bold; padding-right:12px;">${nhanTongA}</td>
         <td></td>
         <td class="cell-num" style="font-weight:bold;">${sumChanA}</td>
         <td class="cell-num" style="font-weight:bold;">${sumLeA}</td>
@@ -1351,6 +1521,11 @@
       document.getElementById('tabBtnXuatKho').classList.toggle('active', tab === 'xuatkho');
       document.getElementById('viewBangKe').style.display = (tab === 'bangke') ? 'block' : 'none';
       document.getElementById('viewXuatKho').style.display = (tab === 'xuatkho') ? 'block' : 'none';
+
+      const boLoc = document.getElementById('boLocChanLeWrap');
+      const btnCopy = document.getElementById('btnCopy3Cot');
+      if (boLoc) boLoc.style.display = (tab === 'xuatkho') ? 'inline-flex' : 'none';
+      if (btnCopy) btnCopy.style.display = (tab === 'xuatkho') ? 'inline-flex' : 'none';
     }
 
     // ========================================================
