@@ -326,7 +326,7 @@
       // Đọc và hợp nhất từ Supabase luu_tru
       if (typeof sb !== 'undefined') {
         try {
-          const { data, error } = await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(250);
+          const { data, error } = await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(1000);
           if (!error && data && data.length > 0 && typeof chuyenDoiLuuTruThanhDanhSachDot === 'function') {
             const dsDotSB = chuyenDoiLuuTruThanhDanhSachDot(data);
             let coChuyenMoi = false;

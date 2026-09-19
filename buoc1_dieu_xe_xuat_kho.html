@@ -1534,8 +1534,11 @@
               'ĐVT': c.dvt,
               'Số lượng': c.so_luong,
               'Đơn giá': c.don_gia,
+              'Giá bán': c.don_gia,
               'Thành tiền': c.thanh_tien,
-              'Quy cách': c.quy_cach
+              'Quy cách': c.quy_cach,
+              'Người bán': c.nguoi_ban || '',
+              'Giảm giá hóa đơn': 0
             }));
           }
         } catch (e) {}
@@ -1605,6 +1608,7 @@
       localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSu));
       if (typeof sb !== 'undefined') {
         sb.from('luu_tru').delete().eq('ma_dot', maDot).then(() => {});
+        sb.from('chi_tiet_hoa_don').delete().eq('ma_dot', maDot).then(() => {});
       }
       moModalXemLaiChuyenXe(); // Render lại danh sách
       hienThiToast("🗑️ Đã xóa chuyến xe khỏi lịch sử!");
@@ -1707,6 +1711,68 @@
       napDropdownNhanSu();
       await napQuyCachHangHoa();
 
+      // 1. Đồng bộ lịch sử chuyến xe từ Supabase luu_tru (để xem lại biểu mẫu có ngay trên mọi máy)
+      if (typeof sb !== 'undefined') {
+        try {
+          const { data: dataLT } = await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(250);
+          if (dataLT && dataLT.length > 0 && typeof chuyenDoiLuuTruThanhDanhSachDot === 'function') {
+            const dsDotSB = chuyenDoiLuuTruThanhDanhSachDot(dataLT);
+            let lichSu = [];
+            try { lichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]"); } catch(e){}
+            dsDotSB.forEach(dSB => {
+              const idx = lichSu.findIndex(d => d.maDot === dSB.maDot);
+              if (idx === -1) lichSu.push(dSB);
+              else {
+                lichSu[idx].daQuyetToan = dSB.daQuyetToan;
+                lichSu[idx].soLuongHD = dSB.soLuongHD;
+                lichSu[idx].tongTien = dSB.tongTien;
+                if (!lichSu[idx].danhSachChiTiet || lichSu[idx].danhSachChiTiet.length === 0) {
+                  lichSu[idx].danhSachChiTiet = dSB.danhSachChiTiet;
+                }
+              }
+            });
+            localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSu));
+          }
+        } catch (e) {
+          console.warn("Lỗi tải lịch sử từ Supabase:", e);
+        }
+      }
+
+      // 2. Đồng bộ dữ liệu Excel KiotViet tạm từ Supabase (Đảm bảo máy A, máy B và Quản lý đều thấy chung)
+      if (typeof taiKiotTamTuSupabase === 'function') {
+        try {
+          const kiotCloud = await taiKiotTamTuSupabase();
+          if (kiotCloud && Array.isArray(kiotCloud.duLieu) && kiotCloud.duLieu.length > 0) {
+            const localRaw = localStorage.getItem("tmh_kiotviet_data");
+            const localArr = localRaw ? JSON.parse(localRaw || "[]") : [];
+            // Nếu local chưa có hoặc cloud có dữ liệu khác
+            if (localArr.length === 0 || JSON.stringify(localArr) !== JSON.stringify(kiotCloud.duLieu)) {
+              duLieuKiotViet = kiotCloud.duLieu;
+              localStorage.setItem("tmh_kiotviet_data", JSON.stringify(duLieuKiotViet));
+              localStorage.setItem("tmh_danh_sach_ten_file", JSON.stringify(kiotCloud.danhSachTenFile || []));
+            }
+          }
+        } catch (e) {
+          console.warn("Lỗi tải KiotViet tạm từ Supabase:", e);
+        }
+      }
+
+      // 3. Đồng bộ danh sách đơn hẹn giao lại từ Supabase don_giao_lai
+      if (typeof taiDonGiaoLaiTuSupabase === 'function') {
+        try {
+          const donGLCloud = await taiDonGiaoLaiTuSupabase();
+          if (Array.isArray(donGLCloud) && donGLCloud.length > 0) {
+            let dsGL = [];
+            try { dsGL = JSON.parse(localStorage.getItem('tmh_danh_sach_cho_giao_lai') || '[]'); } catch(e){}
+            const setMaGL = new Set(dsGL.map(x => x.maHD));
+            donGLCloud.forEach(d => {
+              if (!setMaGL.has(d.maHD)) dsGL.push(d);
+            });
+            localStorage.setItem('tmh_danh_sach_cho_giao_lai', JSON.stringify(dsGL));
+          }
+        } catch(e) {}
+      }
+
       // Dọn dẹp dữ liệu KiotViet tạm nếu các hóa đơn đã được phân hết vào các chuyến xe đã lưu
       try {
         const lichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
@@ -1724,9 +1790,11 @@
             if (rawMoi.length !== rawKiot.length) {
               if (rawMoi.length > 0) {
                 localStorage.setItem("tmh_kiotviet_data", JSON.stringify(rawMoi));
+                dongBoKiotTamLenSupabase(rawMoi, JSON.parse(localStorage.getItem('tmh_danh_sach_ten_file') || '[]'));
               } else {
                 localStorage.removeItem("tmh_kiotviet_data");
                 localStorage.removeItem("tmh_danh_sach_ten_file");
+                xoaKiotTamSupabase();
               }
             }
           }
@@ -1748,6 +1816,9 @@
           badgeEl.innerHTML = `📄 <b>${fileText}</b> (${danhSachHoaDon.length} HĐ, ${duLieuKiotViet.length} dòng)`;
         }
       } catch (e) {}
+
+      // Kích hoạt cơ chế Realtime đồng bộ tức thời giữa các máy tính ở Bước 1
+      khoiTaoRealtimeB1();
 
       // Kiểm tra nếu mở từ Bước 3 xem lại biểu mẫu đợt cụ thể (?maDot=...)
       const urlParams = new URLSearchParams(window.location.search);
@@ -1788,7 +1859,89 @@
             chayTaoPhieu();
           }
         }
+    }
+
+    // Tự động đồng bộ KiotViet tạm từ Supabase về màn hình Bước 1
+    async function dongBoKiotTamVeTrang() {
+      if (typeof taiKiotTamTuSupabase !== 'function') return;
+      try {
+        const kiotCloud = await taiKiotTamTuSupabase();
+        if (kiotCloud && Array.isArray(kiotCloud.duLieu) && kiotCloud.duLieu.length > 0) {
+          duLieuKiotViet = kiotCloud.duLieu;
+          localStorage.setItem("tmh_kiotviet_data", JSON.stringify(duLieuKiotViet));
+          localStorage.setItem("tmh_danh_sach_ten_file", JSON.stringify(kiotCloud.danhSachTenFile || []));
+          napDuLieuTuBuoc1();
+          chayTaoPhieu();
+          const badgeEl = document.getElementById('fileInfoBadge');
+          if (badgeEl) {
+            badgeEl.style.display = 'block';
+            const fileText = kiotCloud.danhSachTenFile && kiotCloud.danhSachTenFile.length > 2 
+              ? `${kiotCloud.danhSachTenFile.length} file (${kiotCloud.danhSachTenFile.slice(0, 2).join(', ')}...)`
+              : (kiotCloud.danhSachTenFile && kiotCloud.danhSachTenFile.length > 0 ? kiotCloud.danhSachTenFile.join(' + ') : 'Dữ liệu KiotViet');
+            badgeEl.innerHTML = `📄 <b>${fileText}</b> (${danhSachHoaDon.length} HĐ, ${duLieuKiotViet.length} dòng)`;
+          }
+        }
+      } catch (e) {
+        console.warn("Lỗi dongBoKiotTamVeTrang:", e);
       }
+    }
+
+    // Tự động đồng bộ lịch sử chuyến xe từ Supabase về Bước 1
+    async function dongBoLichSuDotVeTrang() {
+      if (typeof sb === 'undefined') return;
+      try {
+        const { data: dataLT } = await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(250);
+        if (dataLT && dataLT.length > 0 && typeof chuyenDoiLuuTruThanhDanhSachDot === 'function') {
+          const dsDotSB = chuyenDoiLuuTruThanhDanhSachDot(dataLT);
+          let lichSu = [];
+          try { lichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]"); } catch(e){}
+          dsDotSB.forEach(dSB => {
+            const idx = lichSu.findIndex(d => d.maDot === dSB.maDot);
+            if (idx === -1) lichSu.push(dSB);
+            else {
+              lichSu[idx].daQuyetToan = dSB.daQuyetToan;
+              lichSu[idx].soLuongHD = dSB.soLuongHD;
+              lichSu[idx].tongTien = dSB.tongTien;
+            }
+          });
+          localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSu));
+        }
+      } catch(e) {}
+    }
+
+    // Kích hoạt cơ chế Realtime đa người dùng cho Bước 1
+    function khoiTaoRealtimeB1() {
+      if (typeof sb !== 'undefined') {
+        try {
+          sb.channel('tmh_realtime_buoc1')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'file_kiot_tam' }, async () => {
+              console.log("⚡ [Realtime Bước 1] Phát hiện cập nhật file_kiot_tam từ máy khác");
+              await dongBoKiotTamVeTrang();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'luu_tru' }, async () => {
+              console.log("⚡ [Realtime Bước 1] Phát hiện cập nhật chuyến xe luu_tru từ máy khác");
+              await dongBoLichSuDotVeTrang();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'don_giao_lai' }, async () => {
+              console.log("⚡ [Realtime Bước 1] Phát hiện cập nhật đơn giao lại từ máy khác");
+              if (typeof taiDonGiaoLaiTuSupabase === 'function') {
+                const dsGL = await taiDonGiaoLaiTuSupabase();
+                localStorage.setItem('tmh_danh_sach_cho_giao_lai', JSON.stringify(dsGL));
+                kiemTraBannerDonGiaoLai();
+              }
+            })
+            .subscribe();
+        } catch(e) {
+          console.warn("Lỗi kích hoạt Realtime Bước 1:", e);
+        }
+      }
+
+      // Tự động kiểm tra và làm mới khi người dùng quay lại tab trình duyệt
+      window.addEventListener('focus', async () => {
+        await dongBoKiotTamVeTrang();
+        await dongBoLichSuDotVeTrang();
+        kiemTraBannerDonGiaoLai();
+      });
     }
 
     // Nạp danh sách Nhân sự
@@ -2087,6 +2240,7 @@
         document.getElementById('viewBangKe').style.display = 'none';
         document.getElementById('viewXuatKho').style.display = 'none';
         document.getElementById('btnLuuBuoc3').style.display = 'none';
+        if (typeof xoaKiotTamSupabase === 'function') xoaKiotTamSupabase();
       } else {
         localStorage.setItem("tmh_kiotviet_data", JSON.stringify(duLieuKiotViet));
         const badgeEl = document.getElementById('fileInfoBadge');
@@ -2096,6 +2250,9 @@
             ? `${danhSachTenFile.length} file (${danhSachTenFile.slice(0, 2).join(', ')}...)`
             : (danhSachTenFile.length > 0 ? danhSachTenFile.join(' + ') : 'Dữ liệu Excel');
           badgeEl.innerHTML = `📄 <b>${fileText}</b> (${danhSachHoaDon.length} HĐ, ${duLieuKiotViet.length} dòng)`;
+        }
+        if (typeof dongBoKiotTamLenSupabase === 'function') {
+          dongBoKiotTamLenSupabase(duLieuKiotViet, JSON.parse(localStorage.getItem('tmh_danh_sach_ten_file') || '[]'));
         }
       }
       veDanhSachCheckboxHD();
@@ -2129,6 +2286,7 @@
         document.getElementById('viewBangKe').style.display = 'none';
         document.getElementById('viewXuatKho').style.display = 'none';
         document.getElementById('btnLuuBuoc3').style.display = 'none';
+        if (typeof xoaKiotTamSupabase === 'function') xoaKiotTamSupabase();
       } else {
         localStorage.setItem("tmh_kiotviet_data", JSON.stringify(duLieuKiotViet));
         const badgeEl = document.getElementById('fileInfoBadge');
@@ -2138,6 +2296,9 @@
             ? `${danhSachTenFile.length} file (${danhSachTenFile.slice(0, 2).join(', ')}...)`
             : (danhSachTenFile.length > 0 ? danhSachTenFile.join(' + ') : 'Dữ liệu Excel');
           badgeEl.innerHTML = `📄 <b>${fileText}</b> (${danhSachHoaDon.length} HĐ, ${duLieuKiotViet.length} dòng)`;
+        }
+        if (typeof dongBoKiotTamLenSupabase === 'function') {
+          dongBoKiotTamLenSupabase(duLieuKiotViet, JSON.parse(localStorage.getItem('tmh_danh_sach_ten_file') || '[]'));
         }
       }
 
@@ -2164,6 +2325,7 @@
         badgeEl.style.display = 'none';
         badgeEl.removeAttribute('data-files');
       }
+      if (typeof xoaKiotTamSupabase === 'function') xoaKiotTamSupabase();
       napDuLieuTuBuoc1();
       document.getElementById('manHinhCho').style.display = 'block';
       document.getElementById('viewBangKe').style.display = 'none';
@@ -2897,6 +3059,9 @@
           dsChoGiaoLai = dsChoGiaoLai.filter(item => !setChon.has(item.maHD.toUpperCase()));
           localStorage.setItem('tmh_danh_sach_cho_giao_lai', JSON.stringify(dsChoGiaoLai));
         }
+        if (typeof xoaDonGiaoLaiSupabase === 'function') {
+          xoaDonGiaoLaiSupabase(hoaDonDuocChon.map(h => h.maHD));
+        }
       } catch (e) {}
 
       // Đồng bộ trực tiếp lên Supabase luu_tru và chi_tiet_hoa_don (Auto-healing kháng lỗi)
@@ -2969,11 +3134,17 @@
         if (badgeEl) {
           badgeEl.innerHTML = `📄 Dữ liệu còn lại (<b>${danhSachHoaDon.length}</b> HĐ chưa chia xe)`;
         }
+        if (typeof dongBoKiotTamLenSupabase === 'function') {
+          dongBoKiotTamLenSupabase(duLieuKiotViet, JSON.parse(localStorage.getItem('tmh_danh_sach_ten_file') || '[]'));
+        }
       } else {
         localStorage.removeItem("tmh_kiotviet_data");
         localStorage.removeItem("tmh_danh_sach_ten_file");
         const badgeEl = document.getElementById('fileInfoBadge');
         if (badgeEl) badgeEl.style.display = 'none';
+        if (typeof xoaKiotTamSupabase === 'function') {
+          xoaKiotTamSupabase();
+        }
       }
 
       veDanhSachCheckboxHD();
@@ -3286,6 +3457,11 @@
         localStorage.setItem("tmh_kiotviet_data", JSON.stringify(duLieuTongHop));
         localStorage.setItem("tmh_danh_sach_ten_file", JSON.stringify(danhSachTenFile));
         duLieuKiotViet = duLieuTongHop;
+
+        // Đồng bộ dữ liệu Excel tạm lên Supabase file_kiot_tam để các máy khác cùng thấy ngay lập tức
+        if (typeof dongBoKiotTamLenSupabase === 'function') {
+          dongBoKiotTamLenSupabase(duLieuTongHop, danhSachTenFile);
+        }
 
         napDuLieuTuBuoc1();
         chayTaoPhieu();

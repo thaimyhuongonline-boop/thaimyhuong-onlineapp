@@ -264,4 +264,154 @@ function chuyenDoiLuuTruThanhDanhSachDot(rowsLuuTru) {
   });
 }
 
+/**
+ * ĐỒNG BỘ DỮ LIỆU EXCEL KIOTVIET CHƯA CHIA XE LÊN SUPABASE (DÙNG CHUNG CHO MỌI MÁY)
+ * Lưu vào bảng file_kiot_tam với id cố định 'kiot_chua_chia_xe'
+ */
+async function dongBoKiotTamLenSupabase(duLieuKiotViet, danhSachTenFile = [], nguoiTao = "") {
+  if (typeof sb === 'undefined') return { success: false, error: 'Chưa khởi tạo Supabase' };
+  if (!Array.isArray(duLieuKiotViet) || duLieuKiotViet.length === 0) {
+    return await xoaKiotTamSupabase();
+  }
+
+  try {
+    const setHD = new Set();
+    let tongTien = 0;
+    duLieuKiotViet.forEach(r => {
+      const m = String(r['Mã hóa đơn'] || '').trim().toUpperCase();
+      if (m && !m.includes('TỔNG')) setHD.add(m);
+      const tt = parseFloat(r['Thành tiền'] || 0);
+      if (!isNaN(tt)) tongTien += tt;
+    });
+
+    const payload = {
+      id: 'kiot_chua_chia_xe',
+      ten_file: Array.isArray(danhSachTenFile) ? danhSachTenFile.join(', ') : String(danhSachTenFile || 'Excel KiotViet'),
+      so_hd: setHD.size,
+      so_dong: duLieuKiotViet.length,
+      tong_doanh_so: tongTien,
+      thoi_gian: new Date().toISOString(),
+      du_lieu: duLieuKiotViet,
+      nguoi_tao: nguoiTao || localStorage.getItem('userAccount') || 'Nhân sự'
+    };
+
+    const res = await upsertSupabaseTuTu('file_kiot_tam', payload, { onConflict: 'id' });
+    if (res.success) {
+      console.log(`✅ [Supabase Sync] Đã lưu ${duLieuKiotViet.length} dòng KiotViet tạm (${setHD.size} HĐ) lên Cloud!`);
+    }
+    return res;
+  } catch (err) {
+    console.error("Lỗi dongBoKiotTamLenSupabase:", err);
+    return { success: false, error: err };
+  }
+}
+
+/**
+ * TẢI DỮ LIỆU EXCEL KIOTVIET CHƯA CHIA XE TỪ SUPABASE (DÀNH CHO MÁY B VÀ QUẢN LÝ)
+ */
+async function taiKiotTamTuSupabase() {
+  if (typeof sb === 'undefined') return null;
+  try {
+    const { data, error } = await sb.from('file_kiot_tam').select('*').eq('id', 'kiot_chua_chia_xe').maybeSingle();
+    if (error || !data || !Array.isArray(data.du_lieu)) return null;
+
+    let tenFiles = [];
+    if (data.ten_file) {
+      tenFiles = data.ten_file.split(',').map(s => s.trim()).filter(Boolean);
+    }
+
+    return {
+      duLieu: data.du_lieu,
+      danhSachTenFile: tenFiles,
+      soHD: data.so_hd || 0,
+      soDong: data.so_dong || 0,
+      tongDoanhSo: parseFloat(data.tong_doanh_so || 0),
+      taoLuc: data.tao_luc,
+      thoiGian: data.thoi_gian,
+      nguoiTao: data.nguoi_tao
+    };
+  } catch (err) {
+    console.warn("Lỗi taiKiotTamTuSupabase:", err);
+    return null;
+  }
+}
+
+/**
+ * XÓA DỮ LIỆU KIOT TẠM TRÊN SUPABASE KHI ĐÃ ĐIỀU XE XONG TOÀN BỘ HOẶC XÓA HẾT
+ */
+async function xoaKiotTamSupabase() {
+  if (typeof sb === 'undefined') return { success: false };
+  try {
+    const { error } = await sb.from('file_kiot_tam').delete().eq('id', 'kiot_chua_chia_xe');
+    if (!error) console.log("🗑️ [Supabase Sync] Đã làm sạch file_kiot_tam trên Cloud.");
+    return { success: !error, error };
+  } catch (err) {
+    console.warn("Lỗi xoaKiotTamSupabase:", err);
+    return { success: false, error: err };
+  }
+}
+
+/**
+ * ĐỒNG BỘ DANH SÁCH ĐƠN HẸN GIAO LẠI TỪ BƯỚC 2 SANG BẢNG don_giao_lai TRÊN SUPABASE
+ */
+async function dongBoDonGiaoLaiLenSupabase(danhSachChoGiaoLai) {
+  if (typeof sb === 'undefined' || !Array.isArray(danhSachChoGiaoLai) || danhSachChoGiaoLai.length === 0) return;
+  try {
+    const rows = danhSachChoGiaoLai.map(item => ({
+      ma_hd: item.maHD || item.ma_hd,
+      ma_kh: item.maKH || item.ma_kh || '',
+      ten_kh: item.tenKH || item.ten_kh || '',
+      thanh_tien: parseFloat(item.thanhTien || item.tienHD || item.thanh_tien || 0),
+      tien_goc: parseFloat(item.tienHD || item.thanhTien || 0),
+      ngay_don_goc: item.ngayGiaoGoc || item.ngay_don_goc || '',
+      dot_goc: item.maDotGoc || item.dot_goc || '',
+      xe_goc: item.xeGoc || item.xe_goc || '',
+      trang_thai: 'cho_giao_lai'
+    }));
+
+    await upsertSupabaseTuTu('don_giao_lai', rows, { onConflict: 'ma_hd' });
+  } catch (e) {
+    console.warn("Lỗi dongBoDonGiaoLaiLenSupabase:", e);
+  }
+}
+
+/**
+ * TẢI DANH SÁCH ĐƠN HẸN GIAO LẠI TỪ SUPABASE VỀ CHO BƯỚC 1 HIỂN THỊ
+ */
+async function taiDonGiaoLaiTuSupabase() {
+  if (typeof sb === 'undefined') return [];
+  try {
+    const { data, error } = await sb.from('don_giao_lai').select('*').eq('trang_thai', 'cho_giao_lai');
+    if (error || !Array.isArray(data)) return [];
+    return data.map(d => ({
+      maHD: d.ma_hd,
+      maKH: d.ma_kh,
+      tenKH: d.ten_kh,
+      thanhTien: parseFloat(d.thanh_tien || 0),
+      tienHD: parseFloat(d.tien_goc || d.thanh_tien || 0),
+      ngayGiaoGoc: d.ngay_don_goc,
+      maDotGoc: d.dot_goc,
+      xeGoc: d.xe_goc
+    }));
+  } catch (e) {
+    console.warn("Lỗi taiDonGiaoLaiTuSupabase:", e);
+    return [];
+  }
+}
+
+/**
+ * XÓA ĐƠN GIAO LẠI TRÊN SUPABASE KHI ĐÃ ĐƯỢC CHIA VÀO CHUYẾN XE MỚI
+ */
+async function xoaDonGiaoLaiSupabase(danhSachMaHD) {
+  if (typeof sb === 'undefined' || !Array.isArray(danhSachMaHD) || danhSachMaHD.length === 0) return;
+  try {
+    for (const m of danhSachMaHD) {
+      await sb.from('don_giao_lai').delete().eq('ma_hd', m);
+    }
+  } catch (e) {
+    console.warn("Lỗi xoaDonGiaoLaiSupabase:", e);
+  }
+}
+
+
 

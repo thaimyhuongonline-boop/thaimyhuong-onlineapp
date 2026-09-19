@@ -363,6 +363,10 @@
               console.log("⚡ Nhận sự kiện thay đổi luu_tru trên Trang Chủ");
               taiThongKeNhanh();
             })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'file_kiot_tam' }, () => {
+              console.log("⚡ Nhận sự kiện thay đổi file_kiot_tam trên Trang Chủ");
+              taiThongKeNhanh();
+            })
             .subscribe();
         } catch (e) {}
       }

@@ -545,7 +545,7 @@
       // Đọc và hợp nhất từ Supabase luu_tru
       if (typeof sb !== 'undefined') {
         try {
-          const { data, error } = await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(250);
+          const { data, error } = await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(1000);
           if (!error && data && data.length > 0 && typeof chuyenDoiLuuTruThanhDanhSachDot === 'function') {
             const dsDotSB = chuyenDoiLuuTruThanhDanhSachDot(data);
             let coChuyenMoi = false;
@@ -1369,6 +1369,15 @@
         }
       });
       localStorage.setItem('tmh_danh_sach_cho_giao_lai', JSON.stringify(danhSachChoGiaoLai));
+
+      // Đồng bộ danh sách đơn hẹn giao lại lên Supabase don_giao_lai
+      if (typeof dongBoDonGiaoLaiLenSupabase === 'function' && danhSachChoGiaoLai.length > 0) {
+        dongBoDonGiaoLaiLenSupabase(danhSachChoGiaoLai);
+      }
+      const cacHDHoanThanh = danhSachHoaDonQuyetToan.filter(h => h.tinhTrang === 'giao_du' || h.loaiTraVe === 'tra_han').map(h => h.maHD);
+      if (typeof xoaDonGiaoLaiSupabase === 'function' && cacHDHoanThanh.length > 0) {
+        xoaDonGiaoLaiSupabase(cacHDHoanThanh);
+      }
 
       // 3. Đồng bộ Supabase luu_tru (Kháng lỗi tự phục hồi)
       if (typeof sb !== 'undefined') {
