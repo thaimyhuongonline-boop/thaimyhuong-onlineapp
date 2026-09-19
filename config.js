@@ -156,3 +156,112 @@ function layQuyenModule(moduleKey) {
   }
 }
 
+/**
+ * Hàm Upsert Supabase thông minh có khả năng tự phục hồi (Auto-healing)
+ * Nếu bảng trên CSDL Supabase thiếu một cột nào đó (lỗi PGRST204),
+ * hàm sẽ tự động loại bỏ cột đó và thử lại ngay, tránh bị từ chối toàn bộ đợt lưu.
+ */
+async function upsertSupabaseTuTu(tableName, payload, options = {}) {
+  if (typeof sb === 'undefined') return { success: false, error: 'Chưa khởi tạo Supabase client' };
+
+  let currentPayload = Array.isArray(payload)
+    ? payload.map(item => ({ ...item }))
+    : { ...payload };
+
+  const conflictCol = options.onConflict;
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const query = conflictCol 
+        ? sb.from(tableName).upsert(currentPayload, { onConflict: conflictCol })
+        : sb.from(tableName).upsert(currentPayload);
+
+      const { data, error } = await query;
+      if (!error) return { success: true, data };
+
+      // Phát hiện lỗi thiếu cột PostgREST (PGRST204)
+      if (error.message && error.message.includes("Could not find the") && error.message.includes("column")) {
+        const match = error.message.match(/Could not find the '([^']+)' column/i);
+        if (match && match[1]) {
+          const colLoi = match[1];
+          console.warn(`[Auto-heal] Bảng "${tableName}" chưa có cột "${colLoi}". Đang loại bỏ để lưu an toàn...`);
+          if (Array.isArray(currentPayload)) {
+            currentPayload.forEach(row => delete row[colLoi]);
+          } else {
+            delete currentPayload[colLoi];
+          }
+          continue;
+        }
+      }
+
+      console.error(`[Supabase Upsert Error] ${tableName}:`, error);
+      return { success: false, error };
+    } catch (ex) {
+      console.error(`[Supabase Exception] ${tableName}:`, ex);
+      return { success: false, error: ex };
+    }
+  }
+  return { success: false, error: 'Vượt quá số lần thử tự phục hồi' };
+}
+
+/**
+ * Gom nhóm danh sách bản ghi từ bảng luu_tru trên Supabase thành danh sách chuyến xe (đợt)
+ * Dùng chung cho Bước 1, Bước 2, Bước 3
+ */
+function chuyenDoiLuuTruThanhDanhSachDot(rowsLuuTru) {
+  if (!Array.isArray(rowsLuuTru) || rowsLuuTru.length === 0) return [];
+  const mapDot = new Map();
+  rowsLuuTru.forEach(r => {
+    const mDot = r.ma_dot || 'DOT_KHAC';
+    if (!mapDot.has(mDot)) {
+      mapDot.set(mDot, {
+        maDot: mDot,
+        xe: r.xe || 'Xe chung',
+        taiXe: r.tai_xe || '',
+        ngayGiao: r.ngay_giao || '',
+        ngayRaw: r.ngay_giao || '',
+        nvGiao: r.giao_hang || '',
+        nvThu: r.thu_tien || '',
+        danhSachChiTiet: [],
+        danhSachHD: [],
+        tongTien: 0,
+        soLuongHD: 0,
+        daQuyetToan: false,
+        taoLuc: r.tao_luc || new Date().toISOString()
+      });
+    }
+    const dot = mapDot.get(mDot);
+    if (!dot.danhSachHD.includes(r.ma_hd)) {
+      dot.danhSachHD.push(r.ma_hd);
+    }
+    dot.danhSachChiTiet.push({
+      maHD: r.ma_hd,
+      stt: r.stt,
+      tenKH: r.ten_kh,
+      nguoiBan: r.nguoi_ban,
+      maKH: r.ma_kh,
+      doanhSo: parseFloat(r.doanh_so || 0),
+      giamSP: parseFloat(r.giam_gia_sp || 0),
+      giamHD: parseFloat(r.giam_gia_hd || 0),
+      thanhTien: parseFloat(r.thanh_tien || 0),
+      tienMat: parseFloat(r.tien_mat || 0),
+      chuyenKhoan: parseFloat(r.chuyen_khoan || 0),
+      taiKhoanNhan: r.tai_khoan_nhan || '',
+      traVe: parseFloat(r.tra_ve || 0),
+      noPhatSinh: parseFloat(r.no_phat_sinh || 0),
+      ghiChu: r.ghi_chu || '',
+      laGiaoLai: !!r.la_giao_lai,
+      daKiemDon: !!r.da_kiem_don
+    });
+  });
+
+  return Array.from(mapDot.values()).map(d => {
+    d.soLuongHD = d.danhSachChiTiet.length;
+    d.tongTien = d.danhSachChiTiet.reduce((s, x) => s + (x.thanhTien || 0), 0);
+    // Nếu tất cả các đơn đều đã kiểm đơn hoặc có ít nhất 1 đơn đã kiểm đơn và không có đơn nào chưa thu
+    d.daQuyetToan = d.danhSachChiTiet.length > 0 && d.danhSachChiTiet.every(x => x.daKiemDon);
+    return d;
+  });
+}
+
+

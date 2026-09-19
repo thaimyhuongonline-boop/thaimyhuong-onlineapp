@@ -74,9 +74,16 @@ CREATE TABLE IF NOT EXISTS public.luu_tru (
     no_phat_sinh NUMERIC(15, 2) DEFAULT 0,
     ma_dot VARCHAR(100),
     da_kiem_don BOOLEAN DEFAULT FALSE,
+    ghi_chu TEXT,
+    la_giao_lai BOOLEAN DEFAULT FALSE,
+    da_quyet_toan BOOLEAN DEFAULT FALSE,
     tao_luc TIMESTAMPTZ DEFAULT NOW(),
     cap_nhat_luc TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE public.luu_tru ADD COLUMN IF NOT EXISTS ghi_chu TEXT;
+ALTER TABLE public.luu_tru ADD COLUMN IF NOT EXISTS la_giao_lai BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.luu_tru ADD COLUMN IF NOT EXISTS da_quyet_toan BOOLEAN DEFAULT FALSE;
+
 CREATE INDEX IF NOT EXISTS idx_luu_tru_xe ON public.luu_tru(xe);
 CREATE INDEX IF NOT EXISTS idx_luu_tru_ma_dot ON public.luu_tru(ma_dot);
 CREATE INDEX IF NOT EXISTS idx_luu_tru_ma_kh ON public.luu_tru(ma_kh);

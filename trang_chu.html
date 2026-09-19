@@ -329,7 +329,10 @@
       }
 
       // 3. Tải số liệu thống kê nhanh từ Supabase để người dùng biết tình trạng dữ liệu
-      taiThongKeNhanh();
+      await taiThongKeNhanh();
+
+      // 4. Kích hoạt Realtime cập nhật số liệu tức thì cho Quản trị viên
+      khoiTaoRealtimeTrangChu();
     });
 
     async function taiThongKeNhanh() {
@@ -350,6 +353,22 @@
         document.getElementById("statLuuTru").textContent = "Đã sẵn sàng";
         document.getElementById("statChoKiem").textContent = "Sẵn sàng";
       }
+    }
+
+    function khoiTaoRealtimeTrangChu() {
+      if (typeof sb !== 'undefined') {
+        try {
+          sb.channel('tmh_realtime_trangchu')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'luu_tru' }, () => {
+              console.log("⚡ Nhận sự kiện thay đổi luu_tru trên Trang Chủ");
+              taiThongKeNhanh();
+            })
+            .subscribe();
+        } catch (e) {}
+      }
+
+      window.addEventListener('focus', taiThongKeNhanh);
+      setInterval(taiThongKeNhanh, 15000);
     }
   </script>
 </body>
