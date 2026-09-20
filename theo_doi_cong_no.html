@@ -16,6 +16,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script src="pwa.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <link rel="stylesheet" href="layout.css">
   <style>
     .cong-no-container {
@@ -426,9 +427,11 @@
           
           <div style="display:flex; align-items:center; gap:4px; font-size:12px;">
             <span style="color:var(--text-muted); font-weight:700;">Từ:</span>
-            <input type="date" id="locTuNgay" class="form-control" style="width:130px; font-size:11.5px;" onchange="locDanhSachCongNo()">
+            <input type="date" id="locTuNgay" class="form-control" style="width:125px; font-size:11.5px;" onchange="locDanhSachCongNo()" title="Từ ngày (để trống nếu xem toàn bộ)">
             <span style="color:var(--text-muted); font-weight:700;">Đến:</span>
-            <input type="date" id="locDenNgay" class="form-control" style="width:130px; font-size:11.5px;" onchange="locDanhSachCongNo()">
+            <input type="date" id="locDenNgay" class="form-control" style="width:125px; font-size:11.5px;" onchange="locDanhSachCongNo()" title="Đến ngày">
+            <button type="button" class="btn btn-outline" style="height:28px; padding:0 6px; font-size:11px;" title="Xem toàn bộ công nợ từ trước đến nay" onclick="datBoLocTatCaNgay()">📅 Tất cả</button>
+            <button type="button" class="btn btn-outline" style="height:28px; padding:0 6px; font-size:11px;" title="Lọc công nợ trong tháng hiện tại" onclick="datBoLocThangNay()">Tháng này</button>
           </div>
 
           <select id="locKhachHang" class="form-control" style="max-width:200px; font-weight:700;" onchange="locDanhSachCongNo()">
@@ -694,6 +697,79 @@
     let cheDoXemHienTai = 'khach_hang'; // 'khach_hang' hoặc 'hoa_don'
     let khachHangDangXemLichSu = null;
 
+    // Helper định dạng ngày địa phương YYYY-MM-DD
+    function layNgayLocalYYYYMMDD(d) {
+      if (!d || !(d instanceof Date) || isNaN(d)) d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+
+    // Helper chuẩn hóa mọi định dạng ngày sang chuẩn YYYY-MM-DD để so sánh chính xác
+    function chuanHoaNgayYYYYMMDD(strDate) {
+      if (!strDate) return '';
+      strDate = String(strDate).trim();
+      if (strDate.includes('T')) strDate = strDate.split('T')[0];
+      if (strDate.includes(' ')) strDate = strDate.split(' ')[0];
+
+      // Nếu là định dạng ngày Việt Nam: DD/MM/YYYY hoặc D/M/YYYY
+      if (strDate.includes('/')) {
+        const p = strDate.split('/');
+        if (p.length === 3) {
+          const d = p[0].padStart(2, '0');
+          const m = p[1].padStart(2, '0');
+          const y = p[2].length === 2 ? ('20' + p[2]) : p[2];
+          return `${y}-${m}-${d}`;
+        }
+      }
+
+      // Nếu là định dạng phân cách gạch ngang: DD-MM-YYYY hoặc YYYY-MM-DD
+      if (strDate.includes('-')) {
+        const p = strDate.split('-');
+        if (p.length === 3) {
+          if (p[0].length === 4) {
+            // YYYY-MM-DD
+            return `${p[0]}-${p[1].padStart(2, '0')}-${p[2].padStart(2, '0')}`;
+          } else {
+            // DD-MM-YYYY
+            const d = p[0].padStart(2, '0');
+            const m = p[1].padStart(2, '0');
+            const y = p[2].length === 2 ? ('20' + p[2]) : p[2];
+            return `${y}-${m}-${d}`;
+          }
+        }
+      }
+
+      return strDate;
+    }
+
+    // Helper chuẩn hóa chuỗi tiếng Việt Unicode NFC và chữ thường để so sánh an toàn
+    function chuanHoaChuoiVN(str) {
+      if (!str) return '';
+      return str.toString().trim().normalize('NFC').toLowerCase();
+    }
+
+    // Đặt bộ lọc xem toàn bộ công nợ từ trước đến nay (xóa lọc ngày)
+    function datBoLocTatCaNgay() {
+      const elTu = document.getElementById('locTuNgay');
+      const elDen = document.getElementById('locDenNgay');
+      if (elTu) elTu.value = '';
+      if (elDen) elDen.value = '';
+      locDanhSachCongNo();
+    }
+
+    // Đặt bộ lọc xem công nợ trong tháng hiện tại
+    function datBoLocThangNay() {
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      const elTu = document.getElementById('locTuNgay');
+      const elDen = document.getElementById('locDenNgay');
+      if (elTu) elTu.value = layNgayLocalYYYYMMDD(firstDay);
+      if (elDen) elDen.value = layNgayLocalYYYYMMDD(now);
+      locDanhSachCongNo();
+    }
+
     async function khoiTaoTrang() {
       // 1. Khởi tạo layout
       if (typeof khoiTaoLayout === 'function') {
@@ -703,16 +779,17 @@
         });
       }
 
-      // 2. Thiết lập ngày mặc định cho bộ lọc đối chiếu (30 ngày trước đến hôm nay)
-      const now = new Date();
-      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-      document.getElementById('locTuNgay').value = firstDay.toISOString().slice(0, 10);
-      document.getElementById('locDenNgay').value = now.toISOString().slice(0, 10);
+      // 2. Mặc định để trống lọc ngày để hiển thị ĐẦY ĐỦ toàn bộ công nợ hiện hữu của khách hàng
+      // (Người dùng có thể bấm 'Tháng này' hoặc chọn ngày bất cứ khi nào cần thu hẹp)
+      const elTu = document.getElementById('locTuNgay');
+      const elDen = document.getElementById('locDenNgay');
+      if (elTu) elTu.value = '';
+      if (elDen) elDen.value = '';
 
       // 3. Nạp danh mục tài khoản ngân hàng từ hệ thống (giống Bước 2)
       await taiDanhMucTaiKhoanNganHang();
 
-      // 4. Tải dữ liệu công nợ
+      // 4. Tải và tổng hợp dữ liệu công nợ từ các nguồn
       await taiLaiDuLieuCongNo();
     }
 
@@ -775,15 +852,70 @@
       localStorage.setItem('tmh_theo_doi_cong_no', JSON.stringify(ds));
     }
 
-    // Tải dữ liệu công nợ
+    // Tải và tổng hợp dữ liệu công nợ từ mọi nguồn (Sổ công nợ, Lịch sử đợt giao xe, Supabase)
     async function taiLaiDuLieuCongNo() {
       danhSachCongNo = docSoCongNo();
+      let coThayDoi = false;
 
+      // 1. Quét và đồng bộ thêm từ lịch sử chuyến xe trên máy (tmh_lich_su_dot) nếu có đơn nợ chưa vào sổ
+      try {
+        const dsDot = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
+        dsDot.forEach(dot => {
+          const dsHD = dot.danhSachHD || [];
+          dsHD.forEach(h => {
+            const no = parseFloat(h.noPhatSinh || h.no_phat_sinh || 0);
+            if (no > 0) {
+              const maHD = h.maHD || h.ma_hd || '';
+              if (!maHD) return;
+              const idNo = `NO_${maHD}`;
+              const idx = danhSachCongNo.findIndex(d => d.id === idNo || d.maHD === maHD);
+              if (idx === -1) {
+                danhSachCongNo.push({
+                  id: idNo,
+                  maHD: maHD,
+                  maKH: h.maKH || h.ma_kh || '',
+                  tenKH: h.tenKH || h.ten_kh || 'Khách Hàng',
+                  nguoiBan: h.nguoiBan || h.nguoi_ban || '',
+                  maDot: dot.maDot || '',
+                  xe: dot.xe || '',
+                  taiXe: dot.taiXe || dot.tai_xe || '',
+                  ngayGiao: dot.ngayGiao || dot.ngay_giao || '',
+                  tienHD: parseFloat(h.tienHD || h.thanh_tien || 0),
+                  soTienNo: no,
+                  daThu: 0,
+                  conLai: no,
+                  trangThai: 'chua_thu',
+                  ngayGhiNo: dot.ngayGiao || dot.ngay_giao || new Date().toLocaleDateString('vi-VN'),
+                  ghiChu: h.ghiChu || `Nợ chuyến xe ${dot.xe || ''}`
+                });
+                coThayDoi = true;
+              } else {
+                const item = danhSachCongNo[idx];
+                if ((!item.tenKH || item.tenKH === 'Khách Hàng') && (h.tenKH || h.ten_kh)) {
+                  item.tenKH = h.tenKH || h.ten_kh;
+                  coThayDoi = true;
+                }
+                if (!item.maKH && (h.maKH || h.ma_kh)) {
+                  item.maKH = h.maKH || h.ma_kh;
+                  coThayDoi = true;
+                }
+                if (!item.ngayGiao && (dot.ngayGiao || dot.ngay_giao)) {
+                  item.ngayGiao = dot.ngayGiao || dot.ngay_giao;
+                  coThayDoi = true;
+                }
+              }
+            }
+          });
+        });
+      } catch (e) {
+        console.warn("Lỗi quét tmh_lich_su_dot:", e);
+      }
+
+      // 2. Đồng bộ từ Supabase nếu có kết nối
       if (typeof sb !== 'undefined') {
         try {
           const { data, error } = await sb.from('luu_tru').select('*').gt('no_phat_sinh', 0);
           if (!error && Array.isArray(data)) {
-            let coThayDoi = false;
             data.forEach(r => {
               const idNo = `NO_${r.ma_hd}`;
               const idx = danhSachCongNo.findIndex(d => d.id === idNo || d.maHD === r.ma_hd);
@@ -807,15 +939,26 @@
                   ghiChu: r.ghi_chu || ''
                 });
                 coThayDoi = true;
+              } else {
+                const item = danhSachCongNo[idx];
+                if ((!item.tenKH || item.tenKH === 'Khách Hàng') && r.ten_kh) {
+                  item.tenKH = r.ten_kh;
+                  coThayDoi = true;
+                }
+                if (!item.maKH && r.ma_kh) {
+                  item.maKH = r.ma_kh;
+                  coThayDoi = true;
+                }
               }
             });
-            if (coThayDoi) {
-              ghiSoCongNo(danhSachCongNo);
-            }
           }
         } catch (e) {
           console.warn("Lỗi đọc Supabase:", e);
         }
+      }
+
+      if (coThayDoi) {
+        ghiSoCongNo(danhSachCongNo);
       }
 
       capNhatKPI();
@@ -906,23 +1049,39 @@
       // Lọc danh sách đơn nợ ban đầu
       let dsLoc = danhSachCongNo.filter(d => {
         const conLai = (d.conLai !== undefined) ? d.conLai : Math.max(0, (d.soTienNo || 0) - (d.daThu || 0));
-        if (locTT === 'chua_thu' && (d.trangThai === 'da_thu_du' || conLai <= 0 || (d.daThu || 0) > 0)) return false;
-        if (locTT === 'da_thu_mot_phan' && (conLai <= 0 || (d.daThu || 0) === 0)) return false;
+        const daThu = d.daThu || 0;
+
+        // 1. Lọc trạng thái
+        if (locTT === 'chua_thu' && (d.trangThai === 'da_thu_du' || conLai <= 0 || daThu > 0)) return false;
+        if (locTT === 'da_thu_mot_phan' && (conLai <= 0 || daThu === 0)) return false;
         if (locTT === 'da_thu_du' && (d.trangThai !== 'da_thu_du' && conLai > 0)) return false;
 
-        if (locKH !== 'tat_ca' && (d.tenKH || '').trim() !== locKH) return false;
+        // 2. Lọc khách hàng: Chuẩn hóa chuỗi an toàn Unicode
+        if (locKH && locKH !== 'tat_ca') {
+          const cleanKH = chuanHoaChuoiVN(d.tenKH);
+          const cleanLoc = chuanHoaChuoiVN(locKH);
+          if (cleanKH !== cleanLoc && !cleanKH.includes(cleanLoc) && !cleanLoc.includes(cleanKH)) {
+            return false;
+          }
+        }
 
-        // Lọc ngày
-        const ngayGhi = d.ngayGiao || d.ngayGhiNo || '';
-        if (tuNgay && ngayGhi && ngayGhi < tuNgay) return false;
-        if (denNgay && ngayGhi && ngayGhi > denNgay) return false;
+        // 3. Lọc ngày: Chuẩn hóa mọi định dạng ngày sang YYYY-MM-DD để so sánh chính xác tuyệt đối
+        const ngayGhiRaw = d.ngayGiao || d.ngayGhiNo || '';
+        const ngayChuan = chuanHoaNgayYYYYMMDD(ngayGhiRaw);
+        if (ngayChuan) {
+          if (tuNgay && ngayChuan < tuNgay) return false;
+          if (denNgay && ngayChuan > denNgay) return false;
+        }
 
+        // 4. Lọc từ khóa tìm kiếm
         if (tuKhoa) {
-          const match = (d.maHD || '').toLowerCase().includes(tuKhoa) ||
-                        (d.tenKH || '').toLowerCase().includes(tuKhoa) ||
-                        (d.xe || '').toLowerCase().includes(tuKhoa) ||
-                        (d.taiXe || '').toLowerCase().includes(tuKhoa) ||
-                        (d.nguoiBan || '').toLowerCase().includes(tuKhoa);
+          const cleanTK = chuanHoaChuoiVN(tuKhoa);
+          const match = chuanHoaChuoiVN(d.maHD).includes(cleanTK) ||
+                        chuanHoaChuoiVN(d.tenKH).includes(cleanTK) ||
+                        chuanHoaChuoiVN(d.maKH).includes(cleanTK) ||
+                        chuanHoaChuoiVN(d.xe).includes(cleanTK) ||
+                        chuanHoaChuoiVN(d.taiXe).includes(cleanTK) ||
+                        chuanHoaChuoiVN(d.nguoiBan).includes(cleanTK);
           if (!match) return false;
         }
         return true;
@@ -1354,8 +1513,8 @@
 
     function inDoiChieuCongNoTuBoLoc(tenKHCutThe = null) {
       const locKH = tenKHCutThe || document.getElementById('locKhachHang').value;
-      const tuNgay = document.getElementById('locTuNgay').value;
-      const denNgay = document.getElementById('locDenNgay').value;
+      const tuNgay = (document.getElementById('locTuNgay')?.value || '').trim();
+      const denNgay = (document.getElementById('locDenNgay')?.value || '').trim();
 
       if (!locKH || locKH === 'tat_ca') {
         alert("⚠️ Vui lòng chọn một Khách Hàng cụ thể trong bộ lọc để in Biên bản đối chiếu công nợ!");
@@ -1363,17 +1522,26 @@
         return;
       }
 
-      // Lọc các đơn nợ của khách hàng này trong khoảng thời gian
+      // Lọc các đơn nợ của khách hàng này trong khoảng thời gian (chuẩn hóa ngày và tên)
       const dsIn = danhSachCongNo.filter(d => {
-        if ((d.tenKH || '').trim() !== locKH) return false;
-        const ngayGhi = d.ngayGiao || d.ngayGhiNo || '';
-        if (tuNgay && ngayGhi && ngayGhi < tuNgay) return false;
-        if (denNgay && ngayGhi && ngayGhi > denNgay) return false;
+        const cleanKH = chuanHoaChuoiVN(d.tenKH);
+        const cleanLoc = chuanHoaChuoiVN(locKH);
+        if (cleanKH !== cleanLoc && !cleanKH.includes(cleanLoc) && !cleanLoc.includes(cleanKH)) return false;
+
+        const ngayGhiRaw = d.ngayGiao || d.ngayGhiNo || '';
+        const ngayChuan = chuanHoaNgayYYYYMMDD(ngayGhiRaw);
+        if (ngayChuan) {
+          if (tuNgay && ngayChuan < tuNgay) return false;
+          if (denNgay && ngayChuan > denNgay) return false;
+        }
         return true;
       });
 
       if (dsIn.length === 0) {
-        alert(`Không tìm thấy dữ liệu công nợ của khách hàng "${locKH}" trong khoảng thời gian từ ${dinhDangNgayVN(tuNgay)} đến ${dinhDangNgayVN(denNgay)}!`);
+        const khoangTG = (tuNgay && denNgay) 
+          ? `từ ngày ${dinhDangNgayVN(tuNgay)} đến ngày ${dinhDangNgayVN(denNgay)}` 
+          : "hiện tại";
+        alert(`Không tìm thấy dữ liệu công nợ của khách hàng "${locKH}" trong khoảng thời gian ${khoangTG}!`);
         return;
       }
 
@@ -1382,7 +1550,10 @@
       document.getElementById('p_maKhachHang').textContent = dsIn[0].maKH || '--';
       document.getElementById('p_nvPhuTrach').textContent = dsIn[0].nguoiBan || 'Nguyễn Tấn Đạt';
       document.getElementById('p_ngayLap').textContent = new Date().toLocaleDateString('vi-VN');
-      document.getElementById('p_statementGiaiDoan').textContent = `Từ ngày: ${dinhDangNgayVN(tuNgay)} đến ngày: ${dinhDangNgayVN(denNgay)}`;
+
+      const strTuNgay = tuNgay ? dinhDangNgayVN(tuNgay) : (dsIn.length > 0 ? (dinhDangNgayVN(chuanHoaNgayYYYYMMDD(dsIn[dsIn.length - 1].ngayGiao || dsIn[dsIn.length - 1].ngayGhiNo)) || 'Đầu kỳ') : 'Đầu kỳ');
+      const strDenNgay = denNgay ? dinhDangNgayVN(denNgay) : dinhDangNgayVN(layNgayLocalYYYYMMDD(new Date()));
+      document.getElementById('p_statementGiaiDoan').textContent = `Từ ngày: ${strTuNgay} đến ngày: ${strDenNgay}`;
 
       let sumHD = 0, sumNo = 0, sumThu = 0, sumCon = 0;
       const tbody = document.getElementById('p_tbodyStatement');
@@ -1422,24 +1593,253 @@
       window.print();
     }
 
-    // Xuất dữ liệu ra file Excel / CSV
+    // ========================================================
+    // XUẤT FILE EXCEL CHUẨN ĐẸP DẠNG BẢNG (.XLSX)
+    // ========================================================
     function xuatExcelCongNo() {
       if (danhSachCongNo.length === 0) {
-        alert("Không có dữ liệu công nợ để xuất file!");
+        alert("⚠️ Không có dữ liệu công nợ để xuất file!");
         return;
       }
-      let csv = "\uFEFFSTT,Ngay Ghi No,Ma HD,Ten Khach Hang,NV Ban,Chuyen Xe,Tai Xe,Tien HD,Tien No,Da Thu,Con Lai,Trang Thai,Ghi Chu\n";
+
+      const ngayXuat = layNgayLocalYYYYMMDD(new Date());
+
+      // Kiểm tra thư viện XLSX (xlsx-js-style)
+      if (typeof XLSX !== 'undefined') {
+        try {
+          const wb = XLSX.utils.book_new();
+
+          const borderThin = {
+            top: { style: "thin", color: { rgb: "CBD5E1" } },
+            bottom: { style: "thin", color: { rgb: "CBD5E1" } },
+            left: { style: "thin", color: { rgb: "CBD5E1" } },
+            right: { style: "thin", color: { rgb: "CBD5E1" } }
+          };
+
+          const headerStyle = {
+            font: { bold: true, sz: 10.5, name: "Calibri", color: { rgb: "FFFFFF" } },
+            fill: { fgColor: { rgb: "15803D" } }, // Xanh thương hiệu Thái Mỹ Hương
+            alignment: { horizontal: "center", vertical: "center", wrapText: true },
+            border: borderThin
+          };
+
+          const totalRowStyle = {
+            font: { bold: true, sz: 11, name: "Calibri" },
+            fill: { fgColor: { rgb: "F1F5F9" } },
+            border: borderThin
+          };
+
+          // ----------------------------------------------------
+          // SHEET 1: TỔNG HỢP CÔNG NỢ THEO KHÁCH HÀNG
+          // ----------------------------------------------------
+          const mapKH = new Map();
+          danhSachCongNo.forEach(d => {
+            const key = (d.tenKH || 'Khách Lẻ').trim();
+            if (!mapKH.has(key)) {
+              mapKH.set(key, {
+                tenKH: key,
+                maKH: d.maKH || '',
+                nguoiBan: d.nguoiBan || '',
+                soDon: 0,
+                donGanNhat: d.maHD,
+                tongTienHD: 0,
+                tongNo: 0,
+                tongDaThu: 0,
+                tongConLai: 0
+              });
+            }
+            const g = mapKH.get(key);
+            const cl = (d.conLai !== undefined) ? d.conLai : Math.max(0, (d.soTienNo || 0) - (d.daThu || 0));
+            g.soDon++;
+            g.tongTienHD += (d.tienHD || 0);
+            g.tongNo += (d.soTienNo || 0);
+            g.tongDaThu += (d.daThu || 0);
+            g.tongConLai += cl;
+            if (d.maKH && !g.maKH) g.maKH = d.maKH;
+            if (d.nguoiBan && !g.nguoiBan) g.nguoiBan = d.nguoiBan;
+          });
+
+          const dsKH = Array.from(mapKH.values()).sort((a, b) => b.tongConLai - a.tongConLai);
+
+          const wsKHData = [
+            [{ v: "CÔNG TY TNHH THÁI MỸ HƯƠNG", s: { font: { bold: true, sz: 12 } } }],
+            [{ v: "291 Văn Tiến Dũng, P. Hòa Xuân, Q. Cẩm Lệ, TP. Đà Nẵng — ĐT: 090 580 1918 / 090 585 1918", s: { font: { italic: true, sz: 9.5 } } }],
+            [],
+            [{ v: "BẢNG TỔNG HỢP THEO DÕI CÔNG NỢ THEO KHÁCH HÀNG", s: { font: { bold: true, sz: 14, color: { rgb: "15803D" } }, alignment: { horizontal: "center" } } }],
+            [{ v: `Ngày xuất dữ liệu: ${new Date().toLocaleDateString('vi-VN')} | Tổng số khách hàng nợ: ${dsKH.length}`, s: { font: { italic: true, sz: 10 }, alignment: { horizontal: "center" } } }],
+            []
+          ];
+
+          const headersKH = [
+            "STT", "Tên Khách Hàng", "Mã KH", "NV Bán Hàng", "Số Đơn Nợ", "Đơn Gần Nhất",
+            "Tổng Tiền HĐ", "Tổng Nợ Ghi Nhận", "Đã Thu Hồi", "Còn Phải Thu (Tồn)", "Trạng Thái"
+          ];
+          wsKHData.push(headersKH.map(h => ({ v: h, s: headerStyle })));
+
+          let sumKHTienHD = 0, sumKHTongNo = 0, sumKHDaThu = 0, sumKHTongCon = 0;
+
+          dsKH.forEach((k, idx) => {
+            sumKHTienHD += k.tongTienHD;
+            sumKHTongNo += k.tongNo;
+            sumKHDaThu += k.tongDaThu;
+            sumKHTongCon += k.tongConLai;
+
+            const tt = k.tongConLai <= 0 ? "Đã thu đủ" : (k.tongDaThu > 0 ? "Thu 1 phần" : "Chưa thu");
+
+            wsKHData.push([
+              { v: idx + 1, s: { alignment: { horizontal: "center" }, border: borderThin } },
+              { v: k.tenKH, s: { font: { bold: true }, border: borderThin } },
+              { v: k.maKH || "", s: { border: borderThin } },
+              { v: k.nguoiBan || "", s: { border: borderThin } },
+              { v: k.soDon, t: "n", s: { alignment: { horizontal: "center" }, border: borderThin } },
+              { v: k.donGanNhat || "", s: { alignment: { horizontal: "center" }, border: borderThin } },
+              { v: k.tongTienHD, t: "n", z: "#,##0", s: { alignment: { horizontal: "right" }, border: borderThin } },
+              { v: k.tongNo, t: "n", z: "#,##0", s: { alignment: { horizontal: "right" }, border: borderThin } },
+              { v: k.tongDaThu, t: "n", z: "#,##0", s: { alignment: { horizontal: "right" }, border: borderThin } },
+              { v: k.tongConLai, t: "n", z: "#,##0", s: { font: { bold: true, color: { rgb: "DC2626" } }, alignment: { horizontal: "right" }, border: borderThin } },
+              { v: tt, s: { alignment: { horizontal: "center" }, border: borderThin } }
+            ]);
+          });
+
+          // Dòng tổng cộng
+          wsKHData.push([
+            { v: "TỔNG CỘNG", s: { ...totalRowStyle, alignment: { horizontal: "center" } } },
+            { v: "", s: totalRowStyle },
+            { v: "", s: totalRowStyle },
+            { v: "", s: totalRowStyle },
+            { v: danhSachCongNo.length, t: "n", s: { ...totalRowStyle, alignment: { horizontal: "center" } } },
+            { v: "", s: totalRowStyle },
+            { v: sumKHTienHD, t: "n", z: "#,##0", s: { ...totalRowStyle, alignment: { horizontal: "right" } } },
+            { v: sumKHTongNo, t: "n", z: "#,##0", s: { ...totalRowStyle, alignment: { horizontal: "right" } } },
+            { v: sumKHDaThu, t: "n", z: "#,##0", s: { ...totalRowStyle, alignment: { horizontal: "right" } } },
+            { v: sumKHTongCon, t: "n", z: "#,##0", s: { ...totalRowStyle, alignment: { horizontal: "right" }, font: { bold: true, sz: 11.5, color: { rgb: "DC2626" } } } },
+            { v: "", s: totalRowStyle }
+          ]);
+
+          const wsKH = XLSX.utils.aoa_to_sheet(wsKHData);
+          wsKH['!cols'] = [
+            { wch: 6 },  // STT
+            { wch: 36 }, // Tên KH
+            { wch: 14 }, // Mã KH
+            { wch: 18 }, // NV Bán
+            { wch: 10 }, // Số đơn
+            { wch: 14 }, // Đơn gần nhất
+            { wch: 15 }, // Tổng tiền HĐ
+            { wch: 15 }, // Tổng nợ
+            { wch: 15 }, // Đã thu
+            { wch: 16 }, // Còn nợ
+            { wch: 15 }  // Trạng thái
+          ];
+
+          XLSX.utils.book_append_sheet(wb, wsKH, "Tong_Hop_Theo_Khach");
+
+          // ----------------------------------------------------
+          // SHEET 2: CHI TIẾT TỪNG HÓA ĐƠN NỢ
+          // ----------------------------------------------------
+          const wsHDData = [
+            [{ v: "CÔNG TY TNHH THÁI MỸ HƯƠNG", s: { font: { bold: true, sz: 12 } } }],
+            [{ v: "291 Văn Tiến Dũng, P. Hòa Xuân, Q. Cẩm Lệ, TP. Đà Nẵng — ĐT: 090 580 1918 / 090 585 1918", s: { font: { italic: true, sz: 9.5 } } }],
+            [],
+            [{ v: "BẢNG CHI TIẾT TỪNG HÓA ĐƠN GHI NHẬN CÔNG NỢ", s: { font: { bold: true, sz: 14, color: { rgb: "15803D" } }, alignment: { horizontal: "center" } } }],
+            [{ v: `Ngày xuất dữ liệu: ${new Date().toLocaleDateString('vi-VN')} | Tổng số đơn nợ: ${danhSachCongNo.length}`, s: { font: { italic: true, sz: 10 }, alignment: { horizontal: "center" } } }],
+            []
+          ];
+
+          const headersHD = [
+            "STT", "Ngày Nợ", "Mã HĐ", "Tên Khách Hàng", "Mã KH", "NV Bán Hàng",
+            "Chuyến Xe", "Tài Xế", "Tiền HĐ", "Tiền Nợ", "Đã Thu", "Còn Lại", "Trạng Thái", "Ghi Chú Thu"
+          ];
+          wsHDData.push(headersHD.map(h => ({ v: h, s: headerStyle })));
+
+          let sumHDTienHD = 0, sumHDTongNo = 0, sumHDDaThu = 0, sumHDTongCon = 0;
+
+          danhSachCongNo.forEach((d, idx) => {
+            const cl = (d.conLai !== undefined) ? d.conLai : Math.max(0, (d.soTienNo || 0) - (d.daThu || 0));
+            const daThu = d.daThu || 0;
+            sumHDTienHD += (d.tienHD || 0);
+            sumHDTongNo += (d.soTienNo || 0);
+            sumHDDaThu += daThu;
+            sumHDTongCon += cl;
+
+            const tt = (d.trangThai === 'da_thu_du' || cl <= 0) ? "Đã thu đủ" : (daThu > 0 ? "Thu 1 phần" : "Chưa thu");
+
+            wsHDData.push([
+              { v: idx + 1, s: { alignment: { horizontal: "center" }, border: borderThin } },
+              { v: d.ngayGiao || d.ngayGhiNo || "", s: { alignment: { horizontal: "center" }, border: borderThin } },
+              { v: d.maHD || "", s: { font: { bold: true }, alignment: { horizontal: "center" }, border: borderThin } },
+              { v: d.tenKH || "", s: { font: { bold: true }, border: borderThin } },
+              { v: d.maKH || "", s: { border: borderThin } },
+              { v: d.nguoiBan || "", s: { border: borderThin } },
+              { v: d.xe || "", s: { alignment: { horizontal: "center" }, border: borderThin } },
+              { v: d.taiXe || "", s: { border: borderThin } },
+              { v: d.tienHD || 0, t: "n", z: "#,##0", s: { alignment: { horizontal: "right" }, border: borderThin } },
+              { v: d.soTienNo || 0, t: "n", z: "#,##0", s: { alignment: { horizontal: "right" }, border: borderThin } },
+              { v: daThu, t: "n", z: "#,##0", s: { alignment: { horizontal: "right" }, border: borderThin } },
+              { v: cl, t: "n", z: "#,##0", s: { font: { bold: true, color: { rgb: "DC2626" } }, alignment: { horizontal: "right" }, border: borderThin } },
+              { v: tt, s: { alignment: { horizontal: "center" }, border: borderThin } },
+              { v: d.ghiChuThu || d.ghiChu || "", s: { border: borderThin } }
+            ]);
+          });
+
+          // Dòng tổng cộng
+          wsHDData.push([
+            { v: "TỔNG CỘNG", s: { ...totalRowStyle, alignment: { horizontal: "center" } } },
+            { v: "", s: totalRowStyle },
+            { v: "", s: totalRowStyle },
+            { v: "", s: totalRowStyle },
+            { v: "", s: totalRowStyle },
+            { v: "", s: totalRowStyle },
+            { v: "", s: totalRowStyle },
+            { v: "", s: totalRowStyle },
+            { v: sumHDTienHD, t: "n", z: "#,##0", s: { ...totalRowStyle, alignment: { horizontal: "right" } } },
+            { v: sumHDTongNo, t: "n", z: "#,##0", s: { ...totalRowStyle, alignment: { horizontal: "right" } } },
+            { v: sumHDDaThu, t: "n", z: "#,##0", s: { ...totalRowStyle, alignment: { horizontal: "right" } } },
+            { v: sumHDTongCon, t: "n", z: "#,##0", s: { ...totalRowStyle, alignment: { horizontal: "right" }, font: { bold: true, sz: 11.5, color: { rgb: "DC2626" } } } },
+            { v: "", s: totalRowStyle },
+            { v: "", s: totalRowStyle }
+          ]);
+
+          const wsHD = XLSX.utils.aoa_to_sheet(wsHDData);
+          wsHD['!cols'] = [
+            { wch: 6 },  // STT
+            { wch: 13 }, // Ngày Nợ
+            { wch: 14 }, // Mã HĐ
+            { wch: 36 }, // Tên KH
+            { wch: 14 }, // Mã KH
+            { wch: 18 }, // NV Bán
+            { wch: 16 }, // Chuyến xe
+            { wch: 15 }, // Tài xế
+            { wch: 14 }, // Tiền HĐ
+            { wch: 14 }, // Tiền Nợ
+            { wch: 14 }, // Đã Thu
+            { wch: 15 }, // Còn Lại
+            { wch: 14 }, // Trạng Thái
+            { wch: 30 }  // Ghi Chú
+          ];
+
+          XLSX.utils.book_append_sheet(wb, wsHD, "Chi_Tiet_Tung_Don_No");
+
+          // Xuất file bảng tính Excel .xlsx
+          XLSX.writeFile(wb, `So_Theo_Doi_Cong_No_ThaiMyHuong_${ngayXuat}.xlsx`);
+          return;
+        } catch (err) {
+          console.error("Lỗi xuất file XLSX, chuyển sang CSV dự phòng:", err);
+        }
+      }
+
+      // Dự phòng nếu trình duyệt chưa tải kịp thư viện XLSX: Xuất file CSV UTF-8 có BOM
+      let csv = "\uFEFFSTT,Ngay Ghi No,Ma HD,Ten Khach Hang,Ma KH,NV Ban,Chuyen Xe,Tai Xe,Tien HD,Tien No,Da Thu,Con Lai,Trang Thai,Ghi Chu\n";
       danhSachCongNo.forEach((d, i) => {
         const cl = (d.conLai !== undefined) ? d.conLai : Math.max(0, (d.soTienNo || 0) - (d.daThu || 0));
         const tt = (d.trangThai === 'da_thu_du' || cl <= 0) ? "Đã thu đủ" : (d.daThu > 0 ? "Thu 1 phần" : "Chưa thu");
-        csv += `"${i + 1}","${d.ngayGiao || d.ngayGhiNo || ''}","${d.maHD || ''}","${(d.tenKH || '').replace(/"/g, '""')}","${d.nguoiBan || ''}","${d.xe || ''}","${d.taiXe || ''}","${d.tienHD || 0}","${d.soTienNo || 0}","${d.daThu || 0}","${cl}","${tt}","${(d.ghiChuThu || d.ghiChu || '').replace(/"/g, '""')}"\n`;
+        csv += `"${i + 1}","${d.ngayGiao || d.ngayGhiNo || ''}","${d.maHD || ''}","${(d.tenKH || '').replace(/"/g, '""')}","${d.maKH || ''}","${d.nguoiBan || ''}","${d.xe || ''}","${d.taiXe || ''}","${d.tienHD || 0}","${d.soTienNo || 0}","${d.daThu || 0}","${cl}","${tt}","${(d.ghiChuThu || d.ghiChu || '').replace(/"/g, '""')}"\n`;
       });
 
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `SO_THEO_DOI_CONG_NO_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = `So_Theo_Doi_Cong_No_ThaiMyHuong_${ngayXuat}.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
