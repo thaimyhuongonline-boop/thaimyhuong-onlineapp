@@ -14,6 +14,7 @@ const DANH_SACH_7_BUOC = [
 const MENU_CHINH = [
   { id: "tongquan", href: "trang_chu.html", ic: "🧭", label: "Tổng quan Quy trình", desc: "Trung tâm điều phối quy trình 3 bước KiotViet ➡ MISA", roles: ["admin", "quanly", "nhanvien"] },
   { id: "quytrinh", href: "buoc1_dieu_xe_xuat_kho.html", ic: "🔄", label: "Quy trình Bán hàng (3 Bước)", isProcess: true, desc: "Quy trình tinh gọn: Điều xe ➡ Thu tiền ➡ MISA", roles: ["admin", "quanly", "nhanvien"] },
+  { id: "congno", href: "theo_doi_cong_no.html", ic: "📒", label: "Theo Dõi Công Nợ", desc: "Sổ theo dõi và quản lý công nợ khách hàng", roles: ["admin", "quanly", "nhanvien"] },
   { id: "danhmuc", href: "danh_muc.html", ic: "📚", label: "Danh Mục", desc: "Hàng hoá, Khách hàng, Xe, Ngân hàng, Nhân sự...", roles: ["admin", "quanly", "nhanvien"] },
   { id: "taikhoan", href: "quan_ly_taikhoan.html", ic: "🛡️", label: "Tài khoản & Phân quyền", desc: "Quản lý nhân viên & ma trận phân quyền", roles: ["admin"] }
 ];
@@ -206,7 +207,7 @@ async function khoiTaoLayout(options = {}) {
   let stepperHtml = "";
   if (isProcessPage) {
     stepperHtml = `
-      <div class="tmh-stepper-wrap">
+      <div class="tmh-stepper-wrap no-print">
         <div class="tmh-stepper-header">
           <div class="tmh-stepper-title">
             <span>🔄 Quy trình 3 bước: Điều Xe ➡ Quyết Toán Thu Tiền ➡ Đẩy MISA</span>

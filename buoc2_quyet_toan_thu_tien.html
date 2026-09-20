@@ -425,7 +425,7 @@
     @media print {
       @page {
         size: A4 portrait;
-        margin: 8mm 10mm 8mm 10mm;
+        margin: 6mm 8mm 6mm 8mm;
       }
       *, *::before, *::after {
         box-sizing: border-box !important;
@@ -440,7 +440,8 @@
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
-      .tmh-sidebar, .tmh-topbar, .tmh-page-header, .no-print, .b2-container, #tmhToast, .modal-overlay {
+      /* Ẩn hoàn toàn giao diện web, sidebar, stepper 3 bước và footer */
+      #tmhAppWrapper, .tmh-stepper-wrap, .tmh-main-wrapper, .tmh-footer, .tmh-sidebar, .tmh-topbar, .tmh-page-header, .tmh-main, .no-print, .b2-container, #tmhToast, .modal-overlay, main {
         display: none !important;
       }
       .print-only {
@@ -449,46 +450,59 @@
       }
       .print-a4-page {
         width: 100% !important;
+        max-width: 194mm !important;
         margin: 0 auto !important;
+        padding-right: 1mm !important;
+        box-sizing: border-box !important;
       }
       .print-header-title {
         text-align: center;
         font-size: 17pt;
         font-weight: bold;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
       }
       .print-meta-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 12px;
+        width: 100% !important;
+        border-collapse: collapse !important;
+        margin-bottom: 10px;
         font-size: 10.5pt;
+        box-sizing: border-box !important;
       }
       .print-meta-table td {
-        padding: 2.5px 4px;
+        padding: 2px 4px;
         border: none !important;
       }
       .print-two-col-grid {
         display: flex;
-        gap: 14px;
+        justify-content: space-between;
+        gap: 10px;
         align-items: flex-start;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
+        width: 100%;
+        box-sizing: border-box;
       }
       .print-two-col-grid > table {
-        flex: 1;
-        width: 50%;
+        flex: 1 1 0%;
+        width: calc(50% - 5px);
+        max-width: calc(50% - 5px);
+        box-sizing: border-box;
       }
       .print-grid-table, .print-detail-table {
-        width: 100%;
-        border-collapse: collapse;
+        width: 100% !important;
+        border-collapse: collapse !important;
         font-size: 9.5pt;
+        box-sizing: border-box !important;
+        table-layout: fixed;
       }
       .print-grid-table th, .print-grid-table td,
       .print-detail-table th, .print-detail-table td {
         border: 1px solid #000000 !important;
         padding: 3px 5px !important;
         vertical-align: middle;
+        overflow-wrap: break-word;
+        word-break: break-word;
       }
       .print-grid-table th, .print-detail-table th {
         font-weight: bold;
@@ -937,8 +951,8 @@
           </thead>
           <tbody>
             <tr>
-              <td>Tổng tiền hàng xe đi</td>
-              <td class="t-right" id="p_tongXuat">0</td>
+              <td style="width: 60%;">Tổng tiền hàng xe đi</td>
+              <td class="t-right" style="width: 40%;" id="p_tongXuat">0</td>
             </tr>
             <tr>
               <td>Khách trả tiền mặt</td>
@@ -979,9 +993,9 @@
         <table class="print-grid-table">
           <thead>
             <tr style="background: #fff2cc;">
-              <th style="text-align: center;">MỆNH GIÁ</th>
-              <th style="text-align: center; width: 75px;">SỐ LƯỢNG</th>
-              <th style="text-align: center; width: 105px;">THÀNH TIỀN</th>
+              <th style="text-align: center; width: 36%;">MỆNH GIÁ</th>
+              <th style="text-align: center; width: 26%;">SỐ LƯỢNG</th>
+              <th style="text-align: center; width: 38%;">THÀNH TIỀN</th>
             </tr>
           </thead>
           <tbody id="p_tbodyMenhGia">
@@ -1008,10 +1022,10 @@
             <th colspan="4" style="text-align: center;">DANH SÁCH KHÁCH CHUYỂN KHOẢN</th>
           </tr>
           <tr style="background: #f8fafc;">
-            <th style="width: 45%;">Tên KH</th>
-            <th style="width: 15%; text-align: center;">Mã HĐ</th>
-            <th style="width: 20%; text-align: right;">Số tiền CK</th>
-            <th style="width: 20%;">Tài khoản nhận</th>
+            <th style="width: 38%;">Tên KH</th>
+            <th style="width: 16%; text-align: center;">Mã HĐ</th>
+            <th style="width: 18%; text-align: right;">Số tiền CK</th>
+            <th style="width: 28%;">Tài khoản nhận</th>
           </tr>
         </thead>
         <tbody id="p_tbodyCK">
@@ -1068,6 +1082,24 @@
         <button type="button" class="btn btn-outline" style="height:28px; padding:0 8px; font-weight:800;" onclick="dongModalSoCongNo()">✕ Đóng</button>
       </div>
       <div class="modal-body">
+        <!-- Thanh điều khiển khi chọn nhiều đơn nợ để xe thu hộ -->
+        <div id="barChonNhieuNoCu" style="display:none; background:#f0fdf4; border:1px solid #86efac; border-radius:var(--radius-md); padding:10px 14px; margin-bottom:12px; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:18px;">🛒</span>
+            <span style="font-size:13px; font-weight:700; color:#15803d;">
+              Đã chọn: <b id="soDonNoDaChon" style="color:#16a34a; font-size:15px;">0</b> đơn nợ | Tổng tiền xe thu hộ: <b id="tongTienNoDaChon" style="color:#16a34a; font-size:16px;">0 đ</b>
+            </span>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button type="button" class="btn btn-outline" style="height:32px; padding:0 10px; font-size:12px;" onclick="boChonTatCaDonNo()">
+              Bỏ chọn tất cả
+            </button>
+            <button type="button" class="btn btn-primary" style="height:32px; padding:0 14px; font-size:12px; font-weight:800;" onclick="xacNhanThuCacDonNoDaChon()">
+              ✅ Xác Nhận Thu Hộ Các Đơn Đã Chọn
+            </button>
+          </div>
+        </div>
+
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
           <input type="text" id="timKiemSoCongNo" class="form-control" placeholder="🔍 Tìm theo tên khách hàng, mã HĐ, xe..." style="width:280px; height:32px; font-size:12px;" oninput="locSoCongNo()">
           <div style="font-weight:700; font-size:12.5px; color:#b91c1c;" id="tongNoToanHeThong">
@@ -1088,7 +1120,7 @@
                 <th style="width:105px; text-align:right;">Đã Thu</th>
                 <th style="width:105px; text-align:right;">Còn Lại</th>
                 <th style="width:100px; text-align:center;">Trạng Thái</th>
-                <th style="width:110px; text-align:center;">Thao Tác</th>
+                <th style="width:130px; text-align:center;" id="thThaoTacCongNo">Thao Tác</th>
               </tr>
             </thead>
             <tbody id="tbodySoCongNo">
@@ -1123,6 +1155,7 @@
     let thuNoCu = 0;
     let ghiChuThuNoCu = '';
     let idDonNoDangThu = null;
+    let danhSachDonNoDangThu = [];
     let tienThoi = 0;
     let nguoiNop = '';
     let nguoiNhan = '';
@@ -1350,6 +1383,7 @@
       thuNoCu = parseFloat(dotHienTai.thuNoCu || 0);
       ghiChuThuNoCu = dotHienTai.ghiChuThuNoCu || '';
       idDonNoDangThu = dotHienTai.idDonNoDangThu || null;
+      danhSachDonNoDangThu = Array.isArray(dotHienTai.danhSachDonNoDangThu) ? [...dotHienTai.danhSachDonNoDangThu] : (idDonNoDangThu ? [{ id: idDonNoDangThu, conLai: thuNoCu }] : []);
       tienThoi = parseFloat(dotHienTai.tienThoi || 0);
       nguoiNop = dotHienTai.nguoiNop || dotHienTai.taiXe || '';
       nguoiNhan = dotHienTai.nguoiNhan || 'Thủ quỹ';
@@ -2247,11 +2281,26 @@
       cheDoChonNoCuDangBat = cheDoChon;
       const modal = document.getElementById('modalSoCongNo');
       const title = document.getElementById('modalSoCongNoTitle');
+      const bar = document.getElementById('barChonNhieuNoCu');
+      const thThaoTac = document.getElementById('thThaoTacCongNo');
+
       if (title) {
-        title.textContent = cheDoChon ? "Chọn Khách Hàng Nợ Cũ Để Xe Thu Hộ" : "Sổ Theo Dõi Công Nợ Khách Hàng";
+        title.textContent = cheDoChon ? "Chọn Khách Hàng Nợ Cũ Để Xe Thu Hộ (Chọn Nhiều Đơn)" : "Sổ Theo Dõi Công Nợ Khách Hàng";
+      }
+      if (bar) {
+        bar.style.display = cheDoChon ? 'flex' : 'none';
+      }
+      if (thThaoTac) {
+        thThaoTac.innerHTML = cheDoChon ? `
+          <label style="cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; margin:0;" title="Chọn / Bỏ chọn tất cả">
+            <input type="checkbox" id="chkChonTatCa" onchange="chonTatCaDonNo(this.checked)">
+            <span>Chọn Thu</span>
+          </label>
+        ` : `Thao Tác`;
       }
       modal.style.display = 'flex';
       renderSoCongNo();
+      capNhatBarChonNhieu();
     }
 
     function dongModalSoCongNo() {
@@ -2302,9 +2351,22 @@
         }
 
         let nutThaoTac = '';
+        const daChon = danhSachDonNoDangThu.some(item => item.id === d.id);
+        const rowBg = daChon ? 'style="background:#f0fdf4 !important; font-weight:bold;"' : '';
+
         if (cheDoChonNoCuDangBat) {
           if (conLai > 0) {
-            nutThaoTac = `<button type="button" class="btn btn-primary" style="height:26px; padding:0 8px; font-size:11px;" onclick="chonThuNoDonNay('${d.id}')">👉 Thu đơn này</button>`;
+            nutThaoTac = `
+              <div style="display:flex; align-items:center; justify-content:center; gap:6px;">
+                <input type="checkbox" class="chk-don-no" data-id="${d.id}" ${daChon ? 'checked' : ''} 
+                  onchange="toggleChonDonNo('${d.id}', this.checked)" style="transform:scale(1.25); cursor:pointer;">
+                <button type="button" class="btn ${daChon ? 'btn-primary' : 'btn-outline'}" 
+                  style="height:26px; padding:0 8px; font-size:11px;" 
+                  onclick="toggleChonDonNo('${d.id}', ${!daChon})">
+                  ${daChon ? '✓ Đã chọn' : '+ Thu đơn này'}
+                </button>
+              </div>
+            `;
           } else {
             nutThaoTac = `<span style="font-size:11px; color:var(--text-muted);">Đã xong</span>`;
           }
@@ -2317,7 +2379,7 @@
         }
 
         return `
-          <tr>
+          <tr ${rowBg}>
             <td style="text-align:center; font-weight:700; color:var(--text-muted);">${i + 1}</td>
             <td>${d.ngayGiao || d.ngayGhiNo || '--'}</td>
             <td><b style="font-family:monospace;">${d.maHD}</b></td>
@@ -2334,12 +2396,109 @@
       }).join('');
     }
 
+    function capNhatBarChonNhieu() {
+      const elCount = document.getElementById('soDonNoDaChon');
+      const elTong = document.getElementById('tongTienNoDaChon');
+      const count = danhSachDonNoDangThu.length;
+      const tong = danhSachDonNoDangThu.reduce((s, it) => s + (it.conLai || 0), 0);
+      if (elCount) elCount.textContent = count;
+      if (elTong) elTong.textContent = formatTien(tong) + ' đ';
+
+      const chkAll = document.getElementById('chkChonTatCa');
+      if (chkAll) {
+        const ds = docSoCongNo().filter(d => ((d.conLai !== undefined) ? d.conLai : (d.soTienNo || 0)) > 0);
+        chkAll.checked = (ds.length > 0 && ds.every(d => danhSachDonNoDangThu.some(item => item.id === d.id)));
+      }
+    }
+
+    function toggleChonDonNo(id, isChecked) {
+      const ds = docSoCongNo();
+      const don = ds.find(d => d.id === id);
+      if (!don) return;
+
+      const conLai = (don.conLai !== undefined) ? don.conLai : don.soTienNo;
+      if (isChecked) {
+        if (!danhSachDonNoDangThu.some(it => it.id === id)) {
+          danhSachDonNoDangThu.push({
+            id: don.id,
+            maHD: don.maHD,
+            tenKH: don.tenKH,
+            soTienNo: don.soTienNo,
+            conLai: conLai
+          });
+        }
+      } else {
+        danhSachDonNoDangThu = danhSachDonNoDangThu.filter(it => it.id !== id);
+      }
+      capNhatBarChonNhieu();
+      renderSoCongNo();
+    }
+
+    function chonTatCaDonNo(isChecked) {
+      const ds = docSoCongNo();
+      if (isChecked) {
+        ds.forEach(d => {
+          const conLai = (d.conLai !== undefined) ? d.conLai : d.soTienNo;
+          if (conLai > 0 && !danhSachDonNoDangThu.some(it => it.id === d.id)) {
+            danhSachDonNoDangThu.push({
+              id: d.id,
+              maHD: d.maHD,
+              tenKH: d.tenKH,
+              soTienNo: d.soTienNo,
+              conLai: conLai
+            });
+          }
+        });
+      } else {
+        danhSachDonNoDangThu = [];
+      }
+      capNhatBarChonNhieu();
+      renderSoCongNo();
+    }
+
+    function boChonTatCaDonNo() {
+      danhSachDonNoDangThu = [];
+      capNhatBarChonNhieu();
+      renderSoCongNo();
+    }
+
+    function xacNhanThuCacDonNoDaChon() {
+      if (danhSachDonNoDangThu.length === 0) {
+        alert("⚠️ Bạn chưa chọn đơn nợ nào để thu hộ!");
+        return;
+      }
+
+      thuNoCu = danhSachDonNoDangThu.reduce((s, it) => s + (it.conLai || 0), 0);
+      if (danhSachDonNoDangThu.length === 1) {
+        const it = danhSachDonNoDangThu[0];
+        ghiChuThuNoCu = `${it.tenKH} (HĐ ${it.maHD})`;
+      } else {
+        ghiChuThuNoCu = `Thu ${danhSachDonNoDangThu.length} đơn nợ: ` + danhSachDonNoDangThu.map(d => `${d.maHD} (${d.tenKH}: ${formatTien(d.conLai)}đ)`).join(', ');
+      }
+
+      document.getElementById('inputThuNoCu').value = formatTien(thuNoCu);
+      document.getElementById('inputGhiChuThuNoCu').value = ghiChuThuNoCu;
+
+      dongModalSoCongNo();
+      tinhToanTongThe();
+      tinhTongBangDemTien();
+
+      hienThiToast(`💰 Đã chọn xe thu hộ ${danhSachDonNoDangThu.length} đơn nợ (Tổng: ${formatTien(thuNoCu)} đ)!`);
+    }
+
     function chonThuNoDonNay(id) {
       const ds = docSoCongNo();
       const don = ds.find(d => d.id === id);
       if (!don) return;
 
       const conLai = (don.conLai !== undefined) ? don.conLai : don.soTienNo;
+      danhSachDonNoDangThu = [{
+        id: don.id,
+        maHD: don.maHD,
+        tenKH: don.tenKH,
+        soTienNo: don.soTienNo,
+        conLai: conLai
+      }];
       thuNoCu = conLai;
       ghiChuThuNoCu = `${don.tenKH} (HĐ ${don.maHD})`;
       idDonNoDangThu = don.id;
@@ -2400,6 +2559,7 @@
       dotHienTai.thuNoCu = thuNoCu;
       dotHienTai.ghiChuThuNoCu = ghiChuThuNoCu;
       dotHienTai.idDonNoDangThu = idDonNoDangThu;
+      dotHienTai.danhSachDonNoDangThu = [...danhSachDonNoDangThu];
       dotHienTai.tienThoi = tienThoi;
       dotHienTai.soTienPhaiThu = soTienPhaiThu;
       dotHienTai.nguoiNop = nguoiNop;
@@ -2446,8 +2606,19 @@
         }
       });
 
-      // Nếu có thu nợ cũ, cập nhật trạng thái giảm nợ
-      if (thuNoCu > 0 && idDonNoDangThu) {
+      // Nếu có thu nợ cũ (hỗ trợ nhiều đơn nợ cùng lúc)
+      if (danhSachDonNoDangThu && danhSachDonNoDangThu.length > 0) {
+        danhSachDonNoDangThu.forEach(itemNo => {
+          const idxThu = dsCongNoHienTai.findIndex(d => d.id === itemNo.id || d.maHD === itemNo.maHD);
+          if (idxThu >= 0) {
+            const tienThu = itemNo.conLai || itemNo.tienThu || dsCongNoHienTai[idxThu].conLai || dsCongNoHienTai[idxThu].soTienNo;
+            dsCongNoHienTai[idxThu].daThu = (dsCongNoHienTai[idxThu].daThu || 0) + tienThu;
+            dsCongNoHienTai[idxThu].conLai = Math.max(0, (dsCongNoHienTai[idxThu].conLai || dsCongNoHienTai[idxThu].soTienNo) - tienThu);
+            dsCongNoHienTai[idxThu].trangThai = dsCongNoHienTai[idxThu].conLai <= 0 ? 'da_thu_du' : 'da_thu_mot_phan';
+            dsCongNoHienTai[idxThu].ghiChuThu = `Đã thu ${formatTien(tienThu)} đ qua xe ${dotHienTai.xe} (${dotHienTai.ngayGiao})`;
+          }
+        });
+      } else if (thuNoCu > 0 && idDonNoDangThu) {
         const idxThu = dsCongNoHienTai.findIndex(d => d.id === idDonNoDangThu);
         if (idxThu >= 0) {
           dsCongNoHienTai[idxThu].daThu = (dsCongNoHienTai[idxThu].daThu || 0) + thuNoCu;

@@ -19,6 +19,7 @@ const PRECACHE_ASSETS = [
   './buoc2_quyet_toan_thu_tien.html',
   './buoc3_day_misa.html',
   './danh_muc.html',
+  './theo_doi_cong_no.html',
   './quan_ly_taikhoan.html',
   './layout.css',
   './layout.js',
