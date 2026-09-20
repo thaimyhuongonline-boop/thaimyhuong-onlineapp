@@ -1112,3 +1112,34 @@ select.form-control {
   }
 }
 
+/* ====================================================================
+ * PWA INSTALL BUTTON & ANIMATIONS
+ * ==================================================================== */
+.btn-pwa-install {
+  background: #f0fdf4 !important;
+  color: #16a34a !important;
+  border-color: #86efac !important;
+  font-weight: 700 !important;
+  transition: all 0.25s ease !important;
+}
+.btn-pwa-install:hover {
+  background: #dcfce7 !important;
+  border-color: #4ade80 !important;
+  color: #15803d !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.15);
+}
+.btn-pwa-install.pulse-highlight {
+  animation: tmhPulseInstall 2.2s infinite;
+}
+@keyframes tmhPulseInstall {
+  0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(22, 163, 74, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+}
+@keyframes tmhSlideUp {
+  from { opacity: 0; transform: translate(-50%, 20px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+

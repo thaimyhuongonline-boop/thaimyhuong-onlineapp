@@ -129,8 +129,12 @@ async function khoiTaoLayout(options = {}) {
         }).join('')}
       </div>
 
-      <!-- Chân Sidebar: User Profile -->
+      <!-- Chân Sidebar: User Profile & Cài đặt App -->
       <div class="tmh-sidebar-footer">
+        <button type="button" class="btn btn-outline btn-pwa-install" onclick="moModalCaiDatApp()" title="Cài đặt App Thái Mỹ Hương lên điện thoại / máy tính" style="width:100%; margin-bottom:10px; justify-content:center;">
+          <span>📲</span>
+          <span>Cài đặt ứng dụng</span>
+        </button>
         <div class="tmh-sidebar-user">
           <div class="tmh-user-avatar">${userInitials}</div>
           <div class="tmh-user-meta">
@@ -174,6 +178,10 @@ async function khoiTaoLayout(options = {}) {
           <span>🟢</span>
           <span>Supabase Online</span>
         </div>
+        <button type="button" class="btn btn-outline btn-pwa-install" onclick="moModalCaiDatApp()" title="Cài đặt App lên điện thoại hoặc máy tính">
+          <span>📲</span>
+          <span>Cài đặt</span>
+        </button>
         <button type="button" class="btn btn-outline" onclick="dangXuat()" title="Đăng xuất khỏi hệ thống">
           <span>🚪</span>
           <span>Đăng xuất</span>
@@ -261,7 +269,10 @@ async function khoiTaoLayout(options = {}) {
   // 9. Xử lý Toggle & Collapse Sidebar
   khoiTaoSidebarEvents();
 
-  // 10. Ẩn loading
+  // 10. Khởi tạo PWA (Manifest, Meta tags, Service Worker & Auto-update)
+  khoiTaoPWALayout();
+
+  // 11. Ẩn loading
   if (overlay) {
     overlay.style.display = "none";
   }
@@ -275,6 +286,52 @@ async function khoiTaoLayout(options = {}) {
     chucVu: chucVu,
     tenCap: tenCap
   };
+}
+
+/**
+ * Tự động chèn thẻ meta PWA, link manifest và nạp pwa.js
+ */
+function khoiTaoPWALayout() {
+  if (!document.querySelector('link[rel="manifest"]')) {
+    const link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = 'manifest.json';
+    document.head.appendChild(link);
+  }
+
+  if (!document.querySelector('meta[name="theme-color"]')) {
+    const meta = document.createElement('meta');
+    meta.name = 'theme-color';
+    meta.content = '#16a34a';
+    document.head.appendChild(meta);
+  }
+
+  if (!document.querySelector('link[rel="apple-touch-icon"]')) {
+    const link = document.createElement('link');
+    link.rel = 'apple-touch-icon';
+    link.href = 'icons/apple-touch-icon.png';
+    document.head.appendChild(link);
+  }
+
+  if (!document.querySelector('meta[name="apple-mobile-web-app-capable"]')) {
+    const meta = document.createElement('meta');
+    meta.name = 'apple-mobile-web-app-capable';
+    meta.content = 'yes';
+    document.head.appendChild(meta);
+  }
+
+  if (!document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')) {
+    const meta = document.createElement('meta');
+    meta.name = 'apple-mobile-web-app-status-bar-style';
+    meta.content = 'black-translucent';
+    document.head.appendChild(meta);
+  }
+
+  if (!document.querySelector('script[src*="pwa.js"]')) {
+    const s = document.createElement('script');
+    s.src = 'pwa.js';
+    document.head.appendChild(s);
+  }
 }
 
 function khoiTaoSidebarEvents() {

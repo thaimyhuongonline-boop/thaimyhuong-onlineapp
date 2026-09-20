@@ -1,0 +1,86 @@
+{
+  "name": "Thái Mỹ Hương — Bán Hàng & MISA",
+  "short_name": "Thái Mỹ Hương",
+  "description": "Hệ thống Quản lý Bán hàng, Điều động Xe & Quyết toán KiotViet sang MISA — Công ty TNHH Thái Mỹ Hương",
+  "start_url": "./index.html",
+  "scope": "./",
+  "id": "thaimyhuong-pwa",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "window-controls-overlay"
+  ],
+  "orientation": "any",
+  "background_color": "#f0fdf4",
+  "theme_color": "#16a34a",
+  "lang": "vi",
+  "dir": "ltr",
+  "categories": [
+    "business",
+    "productivity"
+  ],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Trang chủ",
+      "short_name": "Trang chủ",
+      "description": "Xem tổng quan hệ thống",
+      "url": "./trang_chu.html",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Bước 1: Điều Xe & PXK",
+      "short_name": "Bước 1",
+      "description": "Nạp Excel & Lập Phiếu Xuất Kho",
+      "url": "./buoc1_dieu_xe_xuat_kho.html",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Bước 2: Quyết Toán",
+      "short_name": "Bước 2",
+      "description": "Quyết toán thu tiền xe về",
+      "url": "./buoc2_quyet_toan_thu_tien.html",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

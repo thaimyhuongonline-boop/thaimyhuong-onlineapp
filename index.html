@@ -7,7 +7,18 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- PWA Manifest & Icons -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#16a34a">
+  <link rel="icon" type="image/png" href="icons/favicon.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Thái Mỹ Hương">
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="pwa.js"></script>
   <style>
     :root {
       --primary: #16a34a;
@@ -592,6 +603,12 @@
           <span>ĐĂNG NHẬP HỆ THỐNG</span>
           <span>→</span>
         </button>
+
+        <div style="margin-top: 12px; display: flex; justify-content: center;">
+          <button type="button" class="btn-pwa-install" onclick="moModalCaiDatApp()" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 11px 16px; border-radius: 10px; border: 1px solid #86efac; background: #f0fdf4; color: #15803d; font-weight: 700; font-size: 13.5px; cursor: pointer; transition: all 0.2s; font-family: inherit;">
+            <span>📲</span> Cài đặt Ứng dụng Thái Mỹ Hương
+          </button>
+        </div>
 
         <div id="thongBao"></div>
       </form>
