@@ -444,6 +444,11 @@
             <option value="da_thu_mot_phan">⚠️ Thu một phần</option>
             <option value="da_thu_du">✅ Đã thu đủ</option>
           </select>
+
+          <!-- NÚT THÊM ĐƠN THỦ CÔNG NGOÀI BẢNG KÊ (VỊ TRÍ KHUNG ĐỎ USER YÊU CẦU) -->
+          <button type="button" class="btn btn-primary" style="height:32px; padding:0 12px; font-size:12px; font-weight:700; white-space:nowrap; background:#16a34a; border-color:#15803d;" onclick="moModalThemDonThuCong()">
+            <span>➕</span> Thêm Đơn Ngoài Bảng Kê
+          </button>
         </div>
 
         <div style="display:flex; align-items:center; gap:8px;">
@@ -543,6 +548,84 @@
         <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
           <button type="button" class="btn btn-outline" onclick="dongModalThuNoTaiQuy()">Hủy</button>
           <button type="button" class="btn btn-primary" onclick="luuThuNoTaiQuy()">💾 Xác Nhận Thu Nợ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL THÊM ĐƠN NỢ THỦ CÔNG (NGOÀI BẢNG KÊ) -->
+  <div id="modalThemDonThuCong" class="modal-overlay no-print" style="display:none;" onclick="if(event.target===this) dongModalThemDonThuCong()">
+    <div class="modal-card" style="max-width:540px;">
+      <div class="modal-header">
+        <div>
+          <div style="font-weight:800; font-size:14.5px; color:var(--text-main);">➕ Thêm Đơn Nợ Thủ Công (Ngoài Bảng Kê)</div>
+          <div style="font-size:11.5px; color:var(--text-muted);">Ghi nhận công nợ trực tiếp cho khách hàng ngoài các chuyến xe giao hàng</div>
+        </div>
+        <button type="button" class="btn btn-outline" style="height:26px; padding:0 8px; font-weight:800;" onclick="dongModalThemDonThuCong()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label><span style="color:#dc2626; font-weight:800;">*</span> Tên Khách Hàng:</label>
+          <input type="text" id="themTenKH" class="form-control" list="listKhachHangGoiY" 
+            placeholder="Nhập hoặc chọn tên khách hàng..." onchange="tuDongDienThongTinKH(this.value)">
+          <datalist id="listKhachHangGoiY"></datalist>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div class="form-group">
+            <label>Mã Khách Hàng (nếu có):</label>
+            <input type="text" id="themMaKH" class="form-control" placeholder="VD: KH008949...">
+          </div>
+          <div class="form-group">
+            <label>Nhân Viên Bán Phụ Trách:</label>
+            <input type="text" id="themNVBan" class="form-control" list="listNVGoiY" placeholder="Chọn hoặc nhập tên NV...">
+            <datalist id="listNVGoiY"></datalist>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div class="form-group">
+            <label>Mã HĐ / Số Chứng Từ:</label>
+            <input type="text" id="themMaHD" class="form-control" placeholder="Để trống sẽ tự sinh mã...">
+          </div>
+          <div class="form-group">
+            <label>Ngày Ghi Nhận Nợ:</label>
+            <input type="date" id="themNgayGhiNo" class="form-control">
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div class="form-group">
+            <label><span style="color:#dc2626; font-weight:800;">*</span> Số Tiền Nợ Cần Thu (đ):</label>
+            <input type="text" id="themSoTienNo" class="form-control" style="font-size:15px; font-weight:800; color:#dc2626;" 
+              placeholder="0" oninput="formatInputTienModal(this)">
+          </div>
+          <div class="form-group">
+            <label>Tổng Tiền Đơn Hàng (đ):</label>
+            <input type="text" id="themTienHD" class="form-control" style="font-size:14px; font-weight:700;" 
+              placeholder="Mặc định = Tiền nợ" oninput="formatInputTienModal(this)">
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div class="form-group">
+            <label>Nguồn Gốc / Chuyến Xe:</label>
+            <input type="text" id="themChuyenXe" class="form-control" value="Ngoài bảng kê" placeholder="VD: Ngoài bảng kê / Nợ cũ...">
+          </div>
+          <div class="form-group">
+            <label>Tài Xế (nếu có):</label>
+            <input type="text" id="themTaiXe" class="form-control" value="--" placeholder="Tài xế giao nếu có...">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Lý Do / Ghi Chú Chi Tiết:</label>
+          <input type="text" id="themGhiChu" class="form-control" placeholder="VD: Bán trực tiếp tại kho / Nợ tồn đợt trước...">
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+          <button type="button" class="btn btn-outline" onclick="dongModalThemDonThuCong()">Hủy</button>
+          <button type="button" class="btn btn-primary" onclick="luuDonNoThuCong()">💾 Lưu Đơn Nợ</button>
         </div>
       </div>
     </div>
@@ -1276,7 +1359,7 @@
                   ${d.maKH ? `<span style="font-size:11px; color:var(--text-muted);"> (${d.maKH})</span>` : ''}
                 </td>
                 <td>${d.nguoiBan || '--'}</td>
-                <td><b>${d.xe || '--'}</b></td>
+                <td>${(d.ngoaiBangKe || d.xe === 'Ngoài bảng kê' || d.maDot === 'NGOAI_BANG_KE') ? `<span class="badge-status" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:11px;">Ngoài bảng kê</span>` : `<b>${d.xe || '--'}</b>`}</td>
                 <td>${d.taiXe || '--'}</td>
                 <td class="num-cell">${formatTien(d.tienHD || 0)}</td>
                 <td class="num-cell" style="color:#b91c1c;">${formatTien(d.soTienNo || 0)}</td>
@@ -1339,7 +1422,7 @@
             <td style="text-align:center; font-weight:700; color:var(--text-muted);">${i + 1}</td>
             <td>${d.ngayGiao || d.ngayGhiNo || '--'}</td>
             <td style="text-align:center; font-family:monospace; font-weight:700;">${d.maHD}</td>
-            <td>${d.xe || '--'}</td>
+            <td>${(d.ngoaiBangKe || d.xe === 'Ngoài bảng kê' || d.maDot === 'NGOAI_BANG_KE') ? `<span class="badge-status" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:10.5px;">Ngoài bảng kê</span>` : (d.xe || '--')}</td>
             <td>${d.taiXe || '--'}</td>
             <td class="num-cell">${formatTien(d.tienHD || 0)}</td>
             <td class="num-cell" style="color:#b91c1c;">${formatTien(d.soTienNo || 0)}</td>
@@ -1374,6 +1457,154 @@
     function inDoiChieuChoKhachDangXem() {
       if (!khachHangDangXemLichSu) return;
       inDoiChieuChoKhach(encodeURIComponent(khachHangDangXemLichSu));
+    }
+
+    // ========================================================
+    // THÊM ĐƠN NỢ THỦ CÔNG (NGOÀI BẢNG KÊ)
+    // ========================================================
+    function moModalThemDonThuCong() {
+      const modal = document.getElementById('modalThemDonThuCong');
+      if (!modal) return;
+
+      // 1. Reset các trường nhập
+      document.getElementById('themTenKH').value = '';
+      document.getElementById('themMaKH').value = '';
+      document.getElementById('themNVBan').value = '';
+      document.getElementById('themMaHD').value = '';
+      document.getElementById('themNgayGhiNo').value = layNgayLocalYYYYMMDD(new Date());
+      document.getElementById('themSoTienNo').value = '';
+      document.getElementById('themTienHD').value = '';
+      document.getElementById('themChuyenXe').value = 'Ngoài bảng kê';
+      document.getElementById('themTaiXe').value = '--';
+      document.getElementById('themGhiChu').value = '';
+
+      // 2. Gợi ý danh sách khách hàng từ sổ công nợ & danh mục
+      const setKH = new Map();
+      danhSachCongNo.forEach(d => {
+        if (d.tenKH) setKH.set(d.tenKH.trim(), { tenKH: d.tenKH.trim(), maKH: d.maKH || '', nguoiBan: d.nguoiBan || '' });
+      });
+      try {
+        const dmKhach = JSON.parse(localStorage.getItem('tmh_danh_muc_khach_hang') || '[]');
+        dmKhach.forEach(k => {
+          const ten = k.ten_khach_hang || k.ten_kh || k.ten || '';
+          if (ten && !setKH.has(ten.trim())) {
+            setKH.set(ten.trim(), { tenKH: ten.trim(), maKH: k.ma_khach_hang || k.ma_kh || '', nguoiBan: k.nv_kinh_doanh || k.nguoi_ban || '' });
+          }
+        });
+      } catch (e) {}
+
+      const dlKH = document.getElementById('listKhachHangGoiY');
+      if (dlKH) {
+        dlKH.innerHTML = Array.from(setKH.keys()).sort().map(ten => `<option value="${ten}"></option>`).join('');
+      }
+
+      // 3. Gợi ý danh sách nhân viên bán hàng
+      const setNV = new Set();
+      danhSachCongNo.forEach(d => { if (d.nguoiBan) setNV.add(d.nguoiBan.trim()); });
+      try {
+        const dmNV = JSON.parse(localStorage.getItem('tmh_danh_muc_nv_kinh_doanh') || '[]');
+        dmNV.forEach(n => {
+          const ten = n.ten_nv || n.ten || n.ho_ten || '';
+          if (ten) setNV.add(ten.trim());
+        });
+      } catch (e) {}
+
+      const dlNV = document.getElementById('listNVGoiY');
+      if (dlNV) {
+        dlNV.innerHTML = Array.from(setNV).sort().map(ten => `<option value="${ten}"></option>`).join('');
+      }
+
+      modal.style.display = 'flex';
+      setTimeout(() => document.getElementById('themTenKH')?.focus(), 100);
+    }
+
+    function dongModalThemDonThuCong() {
+      const modal = document.getElementById('modalThemDonThuCong');
+      if (modal) modal.style.display = 'none';
+    }
+
+    // Tự động điền mã KH và NV bán hàng khi người dùng chọn/nhập tên khách
+    function tuDongDienThongTinKH(tenInput) {
+      if (!tenInput) return;
+      const clean = chuanHoaChuoiVN(tenInput);
+      const match = danhSachCongNo.find(d => chuanHoaChuoiVN(d.tenKH) === clean);
+      if (match) {
+        const inpMa = document.getElementById('themMaKH');
+        const inpNV = document.getElementById('themNVBan');
+        if (inpMa && !inpMa.value && match.maKH) inpMa.value = match.maKH;
+        if (inpNV && !inpNV.value && match.nguoiBan) inpNV.value = match.nguoiBan;
+      }
+    }
+
+    function luuDonNoThuCong() {
+      const tenKH = (document.getElementById('themTenKH')?.value || '').trim();
+      if (!tenKH) {
+        alert("⚠️ Vui lòng nhập Tên Khách Hàng!");
+        document.getElementById('themTenKH')?.focus();
+        return;
+      }
+
+      const soTienNo = parseVNNumber_(document.getElementById('themSoTienNo')?.value || '');
+      if (soTienNo <= 0) {
+        alert("⚠️ Vui lòng nhập Số Tiền Nợ lớn hơn 0!");
+        document.getElementById('themSoTienNo')?.focus();
+        return;
+      }
+
+      const tienHDInput = parseVNNumber_(document.getElementById('themTienHD')?.value || '');
+      const tienHD = tienHDInput > 0 ? tienHDInput : soTienNo;
+
+      let maHD = (document.getElementById('themMaHD')?.value || '').trim();
+      if (!maHD) {
+        // Tự động sinh mã đơn nợ ngoài bảng kê: NBK_YYMMDD_XXX
+        const todayStr = layNgayLocalYYYYMMDD(new Date()).replace(/-/g, '').slice(2);
+        maHD = `NBK${todayStr}_${Math.floor(100 + Math.random() * 900)}`;
+      }
+
+      // Kiểm tra trùng mã HĐ
+      if (danhSachCongNo.some(d => (d.maHD || '').toUpperCase() === maHD.toUpperCase())) {
+        alert(`⚠️ Mã hóa đơn / chứng từ "${maHD}" đã tồn tại trên hệ thống! Vui lòng nhập mã khác.`);
+        document.getElementById('themMaHD')?.focus();
+        return;
+      }
+
+      const ngayGhiNo = document.getElementById('themNgayGhiNo')?.value || layNgayLocalYYYYMMDD(new Date());
+      const maKH = (document.getElementById('themMaKH')?.value || '').trim();
+      const nguoiBan = (document.getElementById('themNVBan')?.value || '').trim() || 'Nguyễn Tấn Đạt';
+      const chuyenXe = (document.getElementById('themChuyenXe')?.value || '').trim() || 'Ngoài bảng kê';
+      const taiXe = (document.getElementById('themTaiXe')?.value || '').trim() || '--';
+      const ghiChu = (document.getElementById('themGhiChu')?.value || '').trim() || 'Đơn nợ ngoài bảng kê';
+
+      const donMoi = {
+        id: `NO_${maHD}`,
+        maHD: maHD,
+        maKH: maKH,
+        tenKH: tenKH,
+        nguoiBan: nguoiBan,
+        maDot: 'NGOAI_BANG_KE',
+        xe: chuyenXe,
+        taiXe: taiXe,
+        ngayGiao: ngayGhiNo,
+        tienHD: tienHD,
+        soTienNo: soTienNo,
+        daThu: 0,
+        conLai: soTienNo,
+        trangThai: 'chua_thu',
+        ngayGhiNo: ngayGhiNo,
+        ngoaiBangKe: true,
+        ghiChu: ghiChu
+      };
+
+      // Đưa lên đầu danh sách để kế toán nhìn thấy ngay lập tức
+      danhSachCongNo.unshift(donMoi);
+      ghiSoCongNo(danhSachCongNo);
+
+      dongModalThemDonThuCong();
+      capNhatKPI();
+      capNhatDropdownKhachHang();
+      veBangCongNo();
+
+      alert(`✅ Đã thêm thành công đơn nợ ngoài bảng kê "${maHD}" cho khách hàng "${tenKH}" với số tiền ${formatTien(soTienNo)} đ!`);
     }
 
     // ========================================================
