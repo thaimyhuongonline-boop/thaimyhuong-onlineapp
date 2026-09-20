@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sổ Theo Dõi Công Nợ Khách Hàng — CÔNG TY TNHH THÁI MỸ HƯƠNG</title>
+  <title>Sổ Theo Dõi & Quản Lý Công Nợ Khách Hàng — CÔNG TY TNHH THÁI MỸ HƯƠNG</title>
   <!-- PWA Manifest & Meta Tags -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#16a34a">
@@ -65,6 +65,35 @@
     .kpi-sub {
       font-size: 11.5px;
       color: var(--text-muted);
+    }
+
+    /* Tabs Chế độ xem: Theo Khách Hàng / Theo Hóa Đơn */
+    .view-tabs-bar {
+      display: flex;
+      gap: 8px;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 2px;
+    }
+    .view-tab-btn {
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      border: none;
+      background: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+    .view-tab-btn.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+      background: #f0fdf4;
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
     }
 
     /* Thanh tìm kiếm & bộ lọc */
@@ -173,12 +202,15 @@
       background: #ffffff;
       border-radius: var(--radius-lg);
       width: 100%;
-      max-width: 550px;
+      max-width: 650px;
       max-height: 90vh;
       display: flex;
       flex-direction: column;
       box-shadow: var(--shadow-lg);
       overflow: hidden;
+    }
+    .modal-card-large {
+      max-width: 950px;
     }
     .modal-header {
       padding: 14px 18px;
@@ -205,20 +237,130 @@
       font-weight: 700;
       color: var(--text-muted);
     }
+
+    /* BẢNG IN ĐỐI CHIẾU CÔNG NỢ A4 */
+    .print-only {
+      display: none;
+    }
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 8mm 12mm 8mm 12mm;
+      }
+      *, *::before, *::after {
+        box-sizing: border-box !important;
+      }
+      body, html {
+        background: #ffffff !important;
+        color: #000000 !important;
+        font-family: "Times New Roman", Times, Georgia, serif !important;
+        font-size: 11pt !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      #tmhAppWrapper, .tmh-sidebar, .tmh-topbar, .tmh-page-header, .no-print, .cong-no-container, #tmhToast, .modal-overlay, main {
+        display: none !important;
+      }
+      .print-only {
+        display: block !important;
+        width: 100% !important;
+      }
+      .print-a4-statement {
+        width: 100% !important;
+        max-width: 190mm !important;
+        margin: 0 auto !important;
+        box-sizing: border-box !important;
+      }
+      .statement-company {
+        font-size: 10pt;
+        line-height: 1.35;
+        border-bottom: 1.5px solid #000000;
+        padding-bottom: 8px;
+        margin-bottom: 12px;
+      }
+      .statement-title {
+        text-align: center;
+        font-size: 16pt;
+        font-weight: bold;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+      }
+      .statement-subtitle {
+        text-align: center;
+        font-style: italic;
+        font-size: 10.5pt;
+        margin-bottom: 14px;
+      }
+      .statement-customer-box {
+        border: 1px solid #000000;
+        padding: 8px 12px;
+        margin-bottom: 12px;
+        font-size: 10.5pt;
+        line-height: 1.5;
+        background: #fafafa;
+      }
+      .statement-table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        font-size: 9.5pt;
+        margin-bottom: 12px;
+        table-layout: fixed;
+      }
+      .statement-table th, .statement-table td {
+        border: 1px solid #000000 !important;
+        padding: 4px 6px !important;
+        vertical-align: middle;
+        overflow-wrap: break-word;
+        word-break: break-word;
+      }
+      .statement-table th {
+        background: #f1f5f9 !important;
+        font-weight: bold;
+        text-align: center;
+      }
+      .statement-summary-box {
+        margin-top: 10px;
+        padding: 8px 12px;
+        border: 1px dashed #000000;
+        background: #f8fafc;
+        font-size: 10.5pt;
+        line-height: 1.6;
+      }
+      .statement-signatures {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 25px;
+        text-align: center;
+        page-break-inside: avoid;
+      }
+      .statement-sign-col {
+        width: 32%;
+      }
+      .statement-sign-title {
+        font-weight: bold;
+        font-size: 10.5pt;
+        margin-bottom: 50px;
+      }
+    }
   </style>
 </head>
 <body>
 
   <main class="tmh-main">
     <!-- Header trang -->
-    <div class="tmh-page-header">
+    <div class="tmh-page-header no-print">
       <div class="tmh-page-header-text">
         <h1 class="tmh-page-header-title">📒 Sổ Theo Dõi & Quản Lý Công Nợ Khách Hàng</h1>
-        <p class="tmh-page-header-sub">Tổng hợp toàn bộ các đơn nợ phát sinh từ các chuyến xe giao hàng, đối soát công nợ cũ và theo dõi tiến độ thu hồi quỹ.</p>
+        <p class="tmh-page-header-sub">Phân loại nợ theo khách hàng, theo dõi lịch sử đơn nợ, đối soát ngân hàng khi thu nợ và in biên bản đối chiếu chi tiết từ ngày đến ngày.</p>
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
         <button type="button" class="btn btn-outline" onclick="taiLaiDuLieuCongNo()">
           <span>🔄</span> Tải Lại Dữ Liệu
+        </button>
+        <button type="button" class="btn btn-outline" onclick="inDoiChieuCongNoTuBoLoc()" title="In Biên bản đối chiếu công nợ chi tiết theo bộ lọc">
+          <span>🖨️</span> In Đối Chiếu Công Nợ
         </button>
         <button type="button" class="btn btn-outline" onclick="xuatExcelCongNo()">
           <span>📥</span> Xuất File Excel
@@ -229,7 +371,7 @@
       </div>
     </div>
 
-    <div class="cong-no-container">
+    <div class="cong-no-container no-print">
       
       <!-- KPI CARDS -->
       <div class="kpi-grid">
@@ -266,13 +408,34 @@
         </div>
       </div>
 
+      <!-- TABS CHẾ ĐỘ XEM -->
+      <div class="view-tabs-bar">
+        <button type="button" class="view-tab-btn active" id="tabTheoKhachHang" onclick="chuyenCheDoXem('khach_hang')">
+          <span>👥</span> Phân Loại Theo Khách Hàng (Tổng Nợ)
+        </button>
+        <button type="button" class="view-tab-btn" id="tabTheoHoaDon" onclick="chuyenCheDoXem('hoa_don')">
+          <span>📋</span> Chi Tiết Từng Hóa Đơn Nợ
+        </button>
+      </div>
+
       <!-- FILTER & SEARCH BAR -->
       <div class="filter-bar">
         <div class="filter-group">
-          <input type="text" id="timKiemCongNo" class="form-control" style="width:280px;" 
-            placeholder="🔍 Tìm tên khách hàng, mã HĐ, xe, tài xế..." oninput="locDanhSachCongNo()">
+          <input type="text" id="timKiemCongNo" class="form-control" style="width:240px;" 
+            placeholder="🔍 Tìm tên khách, mã HĐ, xe..." oninput="locDanhSachCongNo()">
           
-          <select id="locTrangThai" class="form-control" style="font-weight:700; width:170px;" onchange="locDanhSachCongNo()">
+          <div style="display:flex; align-items:center; gap:4px; font-size:12px;">
+            <span style="color:var(--text-muted); font-weight:700;">Từ:</span>
+            <input type="date" id="locTuNgay" class="form-control" style="width:130px; font-size:11.5px;" onchange="locDanhSachCongNo()">
+            <span style="color:var(--text-muted); font-weight:700;">Đến:</span>
+            <input type="date" id="locDenNgay" class="form-control" style="width:130px; font-size:11.5px;" onchange="locDanhSachCongNo()">
+          </div>
+
+          <select id="locKhachHang" class="form-control" style="max-width:200px; font-weight:700;" onchange="locDanhSachCongNo()">
+            <option value="tat_ca">👥 Tất cả khách hàng</option>
+          </select>
+
+          <select id="locTrangThai" class="form-control" style="font-weight:700; width:155px;" onchange="locDanhSachCongNo()">
             <option value="tat_ca">Tất cả trạng thái</option>
             <option value="chua_thu">⏳ Chưa thu</option>
             <option value="da_thu_mot_phan">⚠️ Thu một phần</option>
@@ -280,48 +443,31 @@
           </select>
         </div>
 
-        <div style="font-size:12px; color:var(--text-muted);">
-          Hiển thị: <b id="lblSoLuongHienThi" style="color:var(--text-main);">0</b> đơn nợ
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button type="button" class="btn btn-outline" style="height:32px; padding:0 10px; font-size:11.5px;" onclick="inDoiChieuCongNoTuBoLoc()">
+            <span>🖨️</span> In Đối Chiếu
+          </button>
+          <div style="font-size:12px; color:var(--text-muted);">
+            Hiển thị: <b id="lblSoLuongHienThi" style="color:var(--text-main);">0</b> mục
+          </div>
         </div>
       </div>
 
-      <!-- BẢNG THEO DÕI CHI TIẾT CÔNG NỢ -->
+      <!-- BẢNG THEO DÕI CÔNG NỢ (RENDER ĐỘNG THEO TAB) -->
       <div class="table-container">
         <table class="table-cong-no" id="tableCongNo">
-          <thead>
-            <tr>
-              <th style="width:35px; text-align:center;">STT</th>
-              <th style="width:95px;">Ngày Ghi Nợ</th>
-              <th style="width:105px; text-align:center;">Mã HĐ</th>
-              <th style="min-width:200px;">Khách Hàng</th>
-              <th style="width:120px;">NV Bán Hàng</th>
-              <th style="width:110px;">Chuyến Xe</th>
-              <th style="width:100px;">Tài Xế</th>
-              <th style="width:110px; text-align:right;">Tiền HĐ (đ)</th>
-              <th style="width:110px; text-align:right;">Tiền Nợ (đ)</th>
-              <th style="width:110px; text-align:right;">Đã Thu (đ)</th>
-              <th style="width:115px; text-align:right;">Còn Lại (đ)</th>
-              <th style="width:105px; text-align:center;">Trạng Thái</th>
-              <th style="min-width:140px;">Ghi Chú Thu Nợ</th>
-              <th style="width:110px; text-align:center;">Thao Tác</th>
-            </tr>
+          <thead id="theadCongNo">
+            <!-- Header render động theo tab -->
           </thead>
           <tbody id="tbodyCongNo">
             <tr>
-              <td colspan="14" style="text-align:center; padding:30px; color:var(--text-muted);">
+              <td colspan="12" style="text-align:center; padding:30px; color:var(--text-muted);">
                 Đang tải dữ liệu sổ công nợ...
               </td>
             </tr>
           </tbody>
-          <tfoot>
-            <tr style="background:#f8fafc; font-weight:800; border-top:2px solid #cbd5e1;">
-              <td colspan="7" style="text-align:right;">TỔNG CỘNG:</td>
-              <td class="num-cell" id="footTienHD">0</td>
-              <td class="num-cell" style="color:#b91c1c;" id="footTienNo">0</td>
-              <td class="num-cell" style="color:#16a34a;" id="footDaThu">0</td>
-              <td class="num-cell" style="color:#dc2626;" id="footConLai">0</td>
-              <td colspan="3"></td>
-            </tr>
+          <tfoot id="tfootCongNo">
+            <!-- Footer render động -->
           </tfoot>
         </table>
       </div>
@@ -329,8 +475,8 @@
     </div>
   </main>
 
-  <!-- MODAL THU NỢ TẠI QUÝ -->
-  <div id="modalThuNoTaiQuy" class="modal-overlay" style="display:none;" onclick="if(event.target===this) dongModalThuNoTaiQuy()">
+  <!-- MODAL THU NỢ TẠI QUỸ (CÓ CHỌN THÔNG TIN NGÂN HÀNG NHƯ BƯỚC 2) -->
+  <div id="modalThuNoTaiQuy" class="modal-overlay no-print" style="display:none;" onclick="if(event.target===this) dongModalThuNoTaiQuy()">
     <div class="modal-card">
       <div class="modal-header">
         <div style="font-weight:800; font-size:14px; color:var(--text-main);">💰 Ghi Nhận Thu Nợ Tại Quỹ</div>
@@ -364,7 +510,7 @@
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
           <div class="form-group">
             <label>Hình Thức Thu:</label>
-            <select id="modalHinhThuc" class="form-control">
+            <select id="modalHinhThuc" class="form-control" style="font-weight:700;" onchange="thayDoiHinhThucThuModal(this.value)">
               <option value="Tiền mặt">💵 Tiền mặt</option>
               <option value="Chuyển khoản">🏦 Chuyển khoản ngân hàng</option>
             </select>
@@ -372,6 +518,17 @@
           <div class="form-group">
             <label>Ngày Thu Tiền:</label>
             <input type="date" id="modalNgayThu" class="form-control">
+          </div>
+        </div>
+
+        <!-- Ô CHỌN NGÂN HÀNG THỤ HƯỞNG (TƯƠNG TỰ BƯỚC 2) -->
+        <div class="form-group" id="boxChonNganHangThu" style="display:none; background:#eff6ff; padding:10px; border-radius:var(--radius-sm); border:1px solid #bfdbfe;">
+          <label style="color:#1d4ed8; font-weight:800;">🏦 Ngân Hàng Nhận (Tài khoản thụ hưởng của công ty):</label>
+          <select id="modalNganHangNhan" class="form-control" style="font-weight:700; color:#1d4ed8;">
+            <!-- Render động từ Danh Mục Tài Khoản Ngân Hàng -->
+          </select>
+          <div style="font-size:11px; color:#2563eb; margin-top:2px;">
+            Số tài khoản lấy trực tiếp từ Danh mục - Tài khoản ngân hàng giống hệt Bước 2.
           </div>
         </div>
 
@@ -388,9 +545,154 @@
     </div>
   </div>
 
+  <!-- MODAL XEM LỊCH SỬ ĐƠN NỢ CỦA KHÁCH HÀNG -->
+  <div id="modalLichSuKhachHang" class="modal-overlay no-print" style="display:none;" onclick="if(event.target===this) dongModalLichSu()">
+    <div class="modal-card modal-card-large">
+      <div class="modal-header">
+        <div>
+          <div style="font-weight:800; font-size:14px; color:var(--text-main);" id="modalLichSuTitle">Lịch Sử Công Nợ Khách Hàng</div>
+          <div style="font-size:11.5px; color:var(--text-muted);" id="modalLichSuSub">Chi tiết các đơn hàng nợ và tiến độ thanh toán</div>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button type="button" class="btn btn-outline" style="height:28px; padding:0 10px; font-size:11.5px;" onclick="inDoiChieuChoKhachDangXem()">
+            <span>🖨️</span> In Đối Chiếu
+          </button>
+          <button type="button" class="btn btn-outline" style="height:28px; padding:0 8px; font-weight:800;" onclick="dongModalLichSu()">✕</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px; background:#f8fafc; padding:10px; border-radius:var(--radius-sm); border:1px solid #e2e8f0;">
+          <div><span style="color:var(--text-muted); font-size:11px;">Tổng tiền HĐ:</span> <b id="histTongHD" style="font-size:13px; color:var(--text-main);">0 đ</b></div>
+          <div><span style="color:var(--text-muted); font-size:11px;">Tổng tiền nợ:</span> <b id="histTongNo" style="font-size:13px; color:#b91c1c;">0 đ</b></div>
+          <div><span style="color:var(--text-muted); font-size:11px;">Đã thanh toán:</span> <b id="histDaThu" style="font-size:13px; color:#16a34a;">0 đ</b></div>
+          <div><span style="color:var(--text-muted); font-size:11px;">Còn lại cần thu:</span> <b id="histConLai" style="font-size:14px; color:#dc2626;">0 đ</b></div>
+        </div>
+
+        <div class="table-container" style="max-height:380px; overflow-y:auto;">
+          <table class="table-cong-no">
+            <thead>
+              <tr>
+                <th style="width:30px; text-align:center;">STT</th>
+                <th style="width:90px;">Ngày HĐ</th>
+                <th style="width:95px; text-align:center;">Mã HĐ</th>
+                <th style="width:105px;">Chuyến Xe</th>
+                <th style="width:95px;">Tài Xế</th>
+                <th style="width:100px; text-align:right;">Tiền HĐ</th>
+                <th style="width:100px; text-align:right;">Tiền Nợ</th>
+                <th style="width:100px; text-align:right;">Đã Thu</th>
+                <th style="width:100px; text-align:right;">Còn Lại</th>
+                <th style="width:90px; text-align:center;">Trạng Thái</th>
+                <th style="min-width:130px;">Ghi Chú Thu</th>
+                <th style="width:85px; text-align:center;">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyLichSuDon">
+              <!-- Render động -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MẪU IN BIÊN BẢN ĐỐI CHIẾU CÔNG NỢ CHI TIẾT A4             -->
+  <!-- ======================================================== -->
+  <div id="khuVucInDoiChieuCongNoA4" class="print-only">
+    <div class="print-a4-statement">
+      
+      <!-- Thông tin công ty phát hành -->
+      <div class="statement-company">
+        <div style="font-weight: bold; font-size: 11pt;">CÔNG TY TNHH THÁI MỸ HƯƠNG</div>
+        <div>Địa chỉ: 291 Văn Tiến Dũng, P. Hòa Xuân, Q. Cẩm Lệ, TP. Đà Nẵng</div>
+        <div>Điện thoại: 090 580 1918 / 090 585 1918 &nbsp;|&nbsp; MST: 0401085814</div>
+      </div>
+
+      <!-- Tiêu đề biên bản -->
+      <div class="statement-title">BIÊN BẢN ĐỐI CHIẾU CÔNG NỢ CHI TIẾT</div>
+      <div class="statement-subtitle" id="p_statementGiaiDoan">Từ ngày 01/09/2026 đến ngày 20/09/2026</div>
+
+      <!-- Khung thông tin khách hàng -->
+      <div class="statement-customer-box">
+        <div style="display: flex; justify-content: space-between;">
+          <div>Khách hàng: <b id="p_tenKhachHang">--</b></div>
+          <div>Mã khách hàng: <b id="p_maKhachHang">--</b></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-top: 3px;">
+          <div>Nhân viên phụ trách bán hàng: <b id="p_nvPhuTrach">--</b></div>
+          <div>Ngày lập biên bản: <b id="p_ngayLap">20/09/2026</b></div>
+        </div>
+      </div>
+
+      <!-- Bảng chi tiết từng hóa đơn nợ -->
+      <table class="statement-table">
+        <thead>
+          <tr>
+            <th style="width: 6%;">STT</th>
+            <th style="width: 14%;">Ngày HĐ</th>
+            <th style="width: 15%;">Mã HĐ</th>
+            <th style="width: 15%;">Chuyến Xe</th>
+            <th style="width: 13%; text-align: right;">Tiền HĐ</th>
+            <th style="width: 12%; text-align: right;">Tiền Nợ</th>
+            <th style="width: 12%; text-align: right;">Đã Thu</th>
+            <th style="width: 13%; text-align: right;">Còn Nợ</th>
+          </tr>
+        </thead>
+        <tbody id="p_tbodyStatement">
+          <!-- Render động các dòng nợ -->
+        </tbody>
+        <tfoot>
+          <tr style="font-weight: bold; background: #f8fafc;">
+            <td colspan="4" style="text-align: right;">TỔNG CỘNG:</td>
+            <td style="text-align: right;" id="p_sumTienHD">0</td>
+            <td style="text-align: right;" id="p_sumTienNo">0</td>
+            <td style="text-align: right;" id="p_sumDaThu">0</td>
+            <td style="text-align: right;" id="p_sumConLai">0</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <!-- Hộp tổng kết công nợ & số tiền bằng chữ -->
+      <div class="statement-summary-box">
+        <div>• Tổng công nợ phát sinh trong kỳ: <b id="p_tongNoBox">0 đ</b></div>
+        <div>• Số tiền khách hàng đã thanh toán: <b id="p_daThuBox">0 đ</b></div>
+        <div style="font-size: 11pt; margin-top: 3px;">
+          👉 <b>TỔNG TIỀN CÒN NỢ CẦN THANH TOÁN: <span id="p_conLaiBox" style="color: #000000; font-size: 12pt;">0 đ</span></b>
+        </div>
+        <div style="font-style: italic; margin-top: 2px;">
+          (Bằng chữ: <span id="p_soTienBangChu">Không đồng</span>)
+        </div>
+        <div style="margin-top: 6px; font-size: 10pt; color: #333333;">
+          💳 <i>Thông tin thanh toán chuyển khoản:</i> <b>Techcombank</b> — STK: <b>20166789</b> — Chủ TK: <b>THÁI MỸ HƯƠNG</b><br>
+          hoặc <b>Vietcombank</b> — STK: <b>0041000266096</b> — Chủ TK: <b>CÔNG TY TNHH THÁI MỸ HƯƠNG</b>
+        </div>
+      </div>
+
+      <!-- Chữ ký xác nhận 3 bên -->
+      <div class="statement-signatures">
+        <div class="statement-sign-col">
+          <div class="statement-sign-title">ĐẠI DIỆN KHÁCH HÀNG</div>
+          <div style="font-size: 9.5pt; color: #555555;">(Ký, ghi rõ họ tên)</div>
+        </div>
+        <div class="statement-sign-col">
+          <div class="statement-sign-title">KẾ TOÁN CÔNG NỢ</div>
+          <div style="font-size: 9.5pt; color: #555555;">(Ký, ghi rõ họ tên)</div>
+        </div>
+        <div class="statement-sign-col">
+          <div class="statement-sign-title">GIÁM ĐỐC / ĐẠI DIỆN CÔNG TY</div>
+          <div style="font-size: 9.5pt; color: #555555;">(Ký, đóng dấu)</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <script src="layout.js"></script>
   <script>
     let danhSachCongNo = [];
+    let danhMucNganHang = [];
+    let cheDoXemHienTai = 'khach_hang'; // 'khach_hang' hoặc 'hoa_don'
+    let khachHangDangXemLichSu = null;
 
     async function khoiTaoTrang() {
       // 1. Khởi tạo layout
@@ -401,8 +703,64 @@
         });
       }
 
-      // 2. Tải dữ liệu công nợ
-      taiLaiDuLieuCongNo();
+      // 2. Thiết lập ngày mặc định cho bộ lọc đối chiếu (30 ngày trước đến hôm nay)
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      document.getElementById('locTuNgay').value = firstDay.toISOString().slice(0, 10);
+      document.getElementById('locDenNgay').value = now.toISOString().slice(0, 10);
+
+      // 3. Nạp danh mục tài khoản ngân hàng từ hệ thống (giống Bước 2)
+      await taiDanhMucTaiKhoanNganHang();
+
+      // 4. Tải dữ liệu công nợ
+      await taiLaiDuLieuCongNo();
+    }
+
+    // Tải danh mục tài khoản ngân hàng từ Danh mục hệ thống
+    async function taiDanhMucTaiKhoanNganHang() {
+      let list = [];
+      try {
+        const raw = localStorage.getItem('tmh_danh_muc_tai_khoan_ngan_hang');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) list = parsed;
+        }
+      } catch (e) {}
+
+      if (typeof sb !== 'undefined') {
+        try {
+          const { data, error } = await sb.from('tai_khoan_ngan_hang').select('*');
+          if (!error && Array.isArray(data) && data.length > 0) {
+            list = data;
+            localStorage.setItem('tmh_danh_muc_tai_khoan_ngan_hang', JSON.stringify(list));
+          }
+        } catch (e) {}
+      }
+
+      if (list.length === 0) {
+        list = [
+          { ten_tk: "TCB - 20166789", so_tk: "20166789", ten_ngan_hang: "Techcombank", chu_tai_khoan: "THÁI MỸ HƯƠNG", mac_dinh: true },
+          { ten_tk: "VCB - 0041000266096 (Thái Mỹ Hương)", so_tk: "0041000266096", ten_ngan_hang: "Vietcombank", chu_tai_khoan: "CÔNG TY TNHH THÁI MỸ HƯƠNG", mac_dinh: false },
+          { ten_tk: "VCB - 0041000123456 (Cá nhân Đạt)", so_tk: "0041000123456", ten_ngan_hang: "Vietcombank", chu_tai_khoan: "NGUYỄN TẤN ĐẠT", mac_dinh: false },
+          { ten_tk: "MBBank - 0905801918 (Cá nhân)", so_tk: "0905801918", ten_ngan_hang: "MBBank", chu_tai_khoan: "THÁI MỸ HƯƠNG", mac_dinh: false }
+        ];
+      }
+
+      danhMucNganHang = list
+        .filter(n => (n.so_tk !== 'TIEN_MAT' && n.ten_tk !== 'Tiền mặt lái xe'))
+        .map(n => ({
+          tenHienThi: n.ten_tk || `${n.ten_ngan_hang || ''} - ${n.so_tk || ''}`.trim(),
+          soTK: n.so_tk || '',
+          macDinh: !!n.mac_dinh
+        }));
+
+      // Render danh sách ngân hàng vào modal thu nợ
+      const selNH = document.getElementById('modalNganHangNhan');
+      if (selNH) {
+        selNH.innerHTML = danhMucNganHang.map(n => 
+          `<option value="${n.tenHienThi}" ${n.macDinh ? 'selected' : ''}>${n.tenHienThi}</option>`
+        ).join('');
+      }
     }
 
     function docSoCongNo() {
@@ -417,11 +775,10 @@
       localStorage.setItem('tmh_theo_doi_cong_no', JSON.stringify(ds));
     }
 
-    // Tải dữ liệu công nợ từ LocalStorage & Supabase
+    // Tải dữ liệu công nợ
     async function taiLaiDuLieuCongNo() {
       danhSachCongNo = docSoCongNo();
 
-      // Nếu có Supabase, đồng bộ thêm nếu cần
       if (typeof sb !== 'undefined') {
         try {
           const { data, error } = await sb.from('luu_tru').select('*').gt('no_phat_sinh', 0);
@@ -462,16 +819,34 @@
       }
 
       capNhatKPI();
+      capNhatDropdownKhachHang();
       veBangCongNo();
     }
 
-    // Tính toán và hiển thị KPI
+    // Cập nhật danh sách khách hàng vào bộ lọc
+    function capNhatDropdownKhachHang() {
+      const sel = document.getElementById('locKhachHang');
+      const valDangChon = sel.value;
+      const setKH = new Set();
+
+      danhSachCongNo.forEach(d => {
+        if (d.tenKH) setKH.add(d.tenKH.trim());
+      });
+
+      const dsSorted = Array.from(setKH).sort();
+      sel.innerHTML = '<option value="tat_ca">👥 Tất cả khách hàng</option>';
+      dsSorted.forEach(ten => {
+        const opt = document.createElement('option');
+        opt.value = ten;
+        opt.textContent = ten;
+        if (ten === valDangChon) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+
+    // Cập nhật 4 chỉ số KPI
     function capNhatKPI() {
-      let tongNo = 0;
-      let daThu = 0;
-      let conLai = 0;
-      let demChuaXong = 0;
-      let demDaXong = 0;
+      let tongNo = 0, daThu = 0, conLai = 0, demChuaXong = 0, demDaXong = 0;
 
       danhSachCongNo.forEach(d => {
         const no = d.soTienNo || 0;
@@ -496,17 +871,51 @@
       document.getElementById('kpiSoDonChuaXong').textContent = `${demChuaXong} đơn`;
     }
 
-    // Render bảng công nợ
-    function veBangCongNo() {
-      const tbody = document.getElementById('tbodyCongNo');
-      const tuKhoa = (document.getElementById('timKiemCongNo')?.value || '').trim().toLowerCase();
-      const locTT = document.getElementById('locTrangThai')?.value || 'tat_ca';
+    // Chuyển tab chế độ xem
+    function chuyenCheDoXem(cheDo) {
+      cheDoXemHienTai = cheDo;
+      const btnKH = document.getElementById('tabTheoKhachHang');
+      const btnHD = document.getElementById('tabTheoHoaDon');
+      if (cheDo === 'khach_hang') {
+        btnKH.classList.add('active');
+        btnHD.classList.remove('active');
+      } else {
+        btnHD.classList.add('active');
+        btnKH.classList.remove('active');
+      }
+      veBangCongNo();
+    }
 
-      let dsHienThi = danhSachCongNo.filter(d => {
+    function locDanhSachCongNo() {
+      veBangCongNo();
+    }
+
+    // ========================================================
+    // RENDER BẢNG DỮ LIỆU CÔNG NỢ
+    // ========================================================
+    function veBangCongNo() {
+      const thead = document.getElementById('theadCongNo');
+      const tbody = document.getElementById('tbodyCongNo');
+      const tfoot = document.getElementById('tfootCongNo');
+      const tuKhoa = (document.getElementById('timKiemCongNo')?.value || '').trim().toLowerCase();
+      const locKH = document.getElementById('locKhachHang')?.value || 'tat_ca';
+      const locTT = document.getElementById('locTrangThai')?.value || 'tat_ca';
+      const tuNgay = document.getElementById('locTuNgay')?.value || '';
+      const denNgay = document.getElementById('locDenNgay')?.value || '';
+
+      // Lọc danh sách đơn nợ ban đầu
+      let dsLoc = danhSachCongNo.filter(d => {
         const conLai = (d.conLai !== undefined) ? d.conLai : Math.max(0, (d.soTienNo || 0) - (d.daThu || 0));
         if (locTT === 'chua_thu' && (d.trangThai === 'da_thu_du' || conLai <= 0 || (d.daThu || 0) > 0)) return false;
         if (locTT === 'da_thu_mot_phan' && (conLai <= 0 || (d.daThu || 0) === 0)) return false;
         if (locTT === 'da_thu_du' && (d.trangThai !== 'da_thu_du' && conLai > 0)) return false;
+
+        if (locKH !== 'tat_ca' && (d.tenKH || '').trim() !== locKH) return false;
+
+        // Lọc ngày
+        const ngayGhi = d.ngayGiao || d.ngayGhiNo || '';
+        if (tuNgay && ngayGhi && ngayGhi < tuNgay) return false;
+        if (denNgay && ngayGhi && ngayGhi > denNgay) return false;
 
         if (tuKhoa) {
           const match = (d.maHD || '').toLowerCase().includes(tuKhoa) ||
@@ -519,72 +928,298 @@
         return true;
       });
 
-      document.getElementById('lblSoLuongHienThi').textContent = dsHienThi.length;
+      // ----------------------------------------------------
+      // CHẾ ĐỘ 1: PHÂN LOẠI NỢ THEO KHÁCH HÀNG (TỔNG NỢ)
+      // ----------------------------------------------------
+      if (cheDoXemHienTai === 'khach_hang') {
+        thead.innerHTML = `
+          <tr>
+            <th style="width:35px; text-align:center;">STT</th>
+            <th>Tên Khách Hàng</th>
+            <th style="width:120px;">NV Bán Hàng</th>
+            <th style="width:90px; text-align:center;">Số Đơn Nợ</th>
+            <th style="width:105px; text-align:center;">Đơn Gần Nhất</th>
+            <th style="width:115px; text-align:right;">Tổng Tiền HĐ</th>
+            <th style="width:115px; text-align:right;">Tổng Nợ</th>
+            <th style="width:115px; text-align:right;">Đã Thu</th>
+            <th style="width:120px; text-align:right;">Tổng Còn Nợ</th>
+            <th style="width:105px; text-align:center;">Trạng Thái</th>
+            <th style="width:210px; text-align:center;">Thao Tác</th>
+          </tr>
+        `;
 
-      let sumTienHD = 0, sumTienNo = 0, sumDaThu = 0, sumConLai = 0;
-
-      if (dsHienThi.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="14" style="text-align:center; padding:30px; color:var(--text-muted);">Không tìm thấy đơn nợ nào phù hợp với bộ lọc.</td></tr>`;
-      } else {
-        tbody.innerHTML = dsHienThi.map((d, i) => {
-          const conLai = (d.conLai !== undefined) ? d.conLai : Math.max(0, (d.soTienNo || 0) - (d.daThu || 0));
-          const daThu = d.daThu || 0;
-
-          sumTienHD += (d.tienHD || 0);
-          sumTienNo += (d.soTienNo || 0);
-          sumDaThu += daThu;
-          sumConLai += conLai;
-
-          let badge = '';
-          if (d.trangThai === 'da_thu_du' || conLai <= 0) {
-            badge = `<span class="badge-status badge-da-thu">✅ Đã thu đủ</span>`;
-          } else if (daThu > 0) {
-            badge = `<span class="badge-status badge-mot-phan">⚠️ Thu 1 phần</span>`;
-          } else {
-            badge = `<span class="badge-status badge-chua-thu">⏳ Chưa thu</span>`;
+        // Gom nhóm theo khách hàng
+        const mapKH = new Map();
+        dsLoc.forEach(d => {
+          const key = (d.tenKH || 'Khách Lẻ').trim();
+          if (!mapKH.has(key)) {
+            mapKH.set(key, {
+              tenKH: key,
+              maKH: d.maKH || '',
+              nguoiBan: d.nguoiBan || '',
+              soDon: 0,
+              donGanNhat: d.maHD,
+              ngayGanNhat: d.ngayGiao || d.ngayGhiNo,
+              tongTienHD: 0,
+              tongNo: 0,
+              tongDaThu: 0,
+              tongConLai: 0,
+              danhSachDon: []
+            });
           }
+          const group = mapKH.get(key);
+          const cl = (d.conLai !== undefined) ? d.conLai : Math.max(0, (d.soTienNo || 0) - (d.daThu || 0));
+          group.soDon++;
+          group.tongTienHD += (d.tienHD || 0);
+          group.tongNo += (d.soTienNo || 0);
+          group.tongDaThu += (d.daThu || 0);
+          group.tongConLai += cl;
+          group.danhSachDon.push(d);
+          if (d.maKH && !group.maKH) group.maKH = d.maKH;
+          if (d.nguoiBan && !group.nguoiBan) group.nguoiBan = d.nguoiBan;
+        });
 
-          return `
-            <tr>
-              <td style="text-align:center; font-weight:700; color:var(--text-muted);">${i + 1}</td>
-              <td style="white-space:nowrap;">${d.ngayGiao || d.ngayGhiNo || '--'}</td>
-              <td style="text-align:center;"><b style="font-family:monospace; font-size:12.5px;">${d.maHD}</b></td>
-              <td>
-                <b style="color:var(--text-main);">${d.tenKH}</b>
-                ${d.maKH ? `<span style="font-size:11px; color:var(--text-muted);"> (${d.maKH})</span>` : ''}
-              </td>
-              <td>${d.nguoiBan || '--'}</td>
-              <td><b>${d.xe || '--'}</b></td>
-              <td>${d.taiXe || '--'}</td>
-              <td class="num-cell">${formatTien(d.tienHD || 0)}</td>
-              <td class="num-cell" style="color:#b91c1c;">${formatTien(d.soTienNo || 0)}</td>
-              <td class="num-cell" style="color:#16a34a;">${formatTien(daThu)}</td>
-              <td class="num-cell" style="color:#dc2626; font-size:13px;">${formatTien(conLai)}</td>
-              <td style="text-align:center;">${badge}</td>
-              <td style="font-size:11.5px; color:var(--text-muted);">${d.ghiChuThu || d.ghiChu || '--'}</td>
-              <td style="text-align:center;">
-                ${conLai > 0 ? `
-                  <button type="button" class="btn btn-primary" style="height:26px; padding:0 8px; font-size:11px;" onclick="moThuNoChoDon('${d.id}')">
-                    💰 Thu nợ
-                  </button>
-                ` : `<span style="color:#16a34a; font-weight:700; font-size:11.5px;">Đã xong</span>`}
-              </td>
-            </tr>
-          `;
-        }).join('');
+        const dsKH = Array.from(mapKH.values()).sort((a, b) => b.tongConLai - a.tongConLai);
+        document.getElementById('lblSoLuongHienThi').textContent = `${dsKH.length} khách hàng`;
+
+        let sumHD = 0, sumNo = 0, sumThu = 0, sumCon = 0;
+
+        if (dsKH.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:30px; color:var(--text-muted);">Không tìm thấy khách hàng nào phù hợp với bộ lọc.</td></tr>`;
+        } else {
+          tbody.innerHTML = dsKH.map((k, i) => {
+            sumHD += k.tongTienHD;
+            sumNo += k.tongNo;
+            sumThu += k.tongDaThu;
+            sumCon += k.tongConLai;
+
+            let badge = '';
+            if (k.tongConLai <= 0) {
+              badge = `<span class="badge-status badge-da-thu">✅ Đã thu đủ</span>`;
+            } else if (k.tongDaThu > 0) {
+              badge = `<span class="badge-status badge-mot-phan">⚠️ Thu 1 phần</span>`;
+            } else {
+              badge = `<span class="badge-status badge-chua-thu">⏳ Chưa thu</span>`;
+            }
+
+            return `
+              <tr>
+                <td style="text-align:center; font-weight:700; color:var(--text-muted);">${i + 1}</td>
+                <td>
+                  <b style="color:var(--text-main); font-size:13px;">${k.tenKH}</b>
+                  ${k.maKH ? `<div style="font-size:11px; color:var(--text-muted);">${k.maKH}</div>` : ''}
+                </td>
+                <td>${k.nguoiBan || '--'}</td>
+                <td style="text-align:center;">
+                  <span class="badge-status" style="background:#f1f5f9; color:#334155; border:1px solid #cbd5e1;">
+                    ${k.soDon} đơn
+                  </span>
+                </td>
+                <td style="text-align:center; font-family:monospace; font-weight:700;">
+                  ${k.donGanNhat || '--'}
+                </td>
+                <td class="num-cell">${formatTien(k.tongTienHD)}</td>
+                <td class="num-cell" style="color:#b91c1c;">${formatTien(k.tongNo)}</td>
+                <td class="num-cell" style="color:#16a34a;">${formatTien(k.tongDaThu)}</td>
+                <td class="num-cell" style="color:#dc2626; font-size:13.5px; font-weight:900;">
+                  ${formatTien(k.tongConLai)}
+                </td>
+                <td style="text-align:center;">${badge}</td>
+                <td style="text-align:center;">
+                  <div style="display:flex; gap:4px; justify-content:center;">
+                    <button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:11px;" 
+                      onclick="moLichSuDonKhachHang('${encodeURIComponent(k.tenKH)}')">
+                      📜 Lịch sử
+                    </button>
+                    ${k.tongConLai > 0 ? `
+                      <button type="button" class="btn btn-primary" style="height:26px; padding:0 6px; font-size:11px;" 
+                        onclick="moThuNoChoKhachHang('${encodeURIComponent(k.tenKH)}')">
+                        💰 Thu nợ
+                      </button>
+                    ` : ''}
+                    <button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:11px; color:#2563eb;" 
+                      onclick="inDoiChieuChoKhach('${encodeURIComponent(k.tenKH)}')">
+                      🖨️ In
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        }
+
+        tfoot.innerHTML = `
+          <tr style="background:#f8fafc; font-weight:800; border-top:2px solid #cbd5e1;">
+            <td colspan="5" style="text-align:right;">TỔNG CỘNG:</td>
+            <td class="num-cell">${formatTien(sumHD)}</td>
+            <td class="num-cell" style="color:#b91c1c;">${formatTien(sumNo)}</td>
+            <td class="num-cell" style="color:#16a34a;">${formatTien(sumThu)}</td>
+            <td class="num-cell" style="color:#dc2626; font-size:14px;">${formatTien(sumCon)}</td>
+            <td colspan="2"></td>
+          </tr>
+        `;
+      } 
+      // ----------------------------------------------------
+      // CHẾ ĐỘ 2: CHI TIẾT TỪNG HÓA ĐƠN NỢ
+      // ----------------------------------------------------
+      else {
+        thead.innerHTML = `
+          <tr>
+            <th style="width:35px; text-align:center;">STT</th>
+            <th style="width:95px;">Ngày Nợ</th>
+            <th style="width:105px; text-align:center;">Mã HĐ</th>
+            <th style="min-width:180px;">Khách Hàng</th>
+            <th style="width:110px;">NV Bán</th>
+            <th style="width:100px;">Chuyến Xe</th>
+            <th style="width:95px;">Tài Xế</th>
+            <th style="width:105px; text-align:right;">Tiền HĐ</th>
+            <th style="width:105px; text-align:right;">Tiền Nợ</th>
+            <th style="width:105px; text-align:right;">Đã Thu</th>
+            <th style="width:110px; text-align:right;">Còn Lại</th>
+            <th style="width:100px; text-align:center;">Trạng Thái</th>
+            <th style="min-width:140px;">Ghi Chú Thu</th>
+            <th style="width:100px; text-align:center;">Thao Tác</th>
+          </tr>
+        `;
+
+        document.getElementById('lblSoLuongHienThi').textContent = `${dsLoc.length} đơn nợ`;
+
+        let sumHD = 0, sumNo = 0, sumThu = 0, sumCon = 0;
+
+        if (dsLoc.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="14" style="text-align:center; padding:30px; color:var(--text-muted);">Không tìm thấy đơn nợ nào phù hợp với bộ lọc.</td></tr>`;
+        } else {
+          tbody.innerHTML = dsLoc.map((d, i) => {
+            const conLai = (d.conLai !== undefined) ? d.conLai : Math.max(0, (d.soTienNo || 0) - (d.daThu || 0));
+            const daThu = d.daThu || 0;
+
+            sumHD += (d.tienHD || 0);
+            sumNo += (d.soTienNo || 0);
+            sumThu += daThu;
+            sumCon += conLai;
+
+            let badge = '';
+            if (d.trangThai === 'da_thu_du' || conLai <= 0) {
+              badge = `<span class="badge-status badge-da-thu">✅ Đã thu đủ</span>`;
+            } else if (daThu > 0) {
+              badge = `<span class="badge-status badge-mot-phan">⚠️ Thu 1 phần</span>`;
+            } else {
+              badge = `<span class="badge-status badge-chua-thu">⏳ Chưa thu</span>`;
+            }
+
+            return `
+              <tr>
+                <td style="text-align:center; font-weight:700; color:var(--text-muted);">${i + 1}</td>
+                <td style="white-space:nowrap;">${d.ngayGiao || d.ngayGhiNo || '--'}</td>
+                <td style="text-align:center;"><b style="font-family:monospace; font-size:12.5px;">${d.maHD}</b></td>
+                <td>
+                  <b style="color:var(--text-main);">${d.tenKH}</b>
+                  ${d.maKH ? `<span style="font-size:11px; color:var(--text-muted);"> (${d.maKH})</span>` : ''}
+                </td>
+                <td>${d.nguoiBan || '--'}</td>
+                <td><b>${d.xe || '--'}</b></td>
+                <td>${d.taiXe || '--'}</td>
+                <td class="num-cell">${formatTien(d.tienHD || 0)}</td>
+                <td class="num-cell" style="color:#b91c1c;">${formatTien(d.soTienNo || 0)}</td>
+                <td class="num-cell" style="color:#16a34a;">${formatTien(daThu)}</td>
+                <td class="num-cell" style="color:#dc2626; font-size:13px; font-weight:800;">${formatTien(conLai)}</td>
+                <td style="text-align:center;">${badge}</td>
+                <td style="font-size:11.5px; color:var(--text-muted);">${d.ghiChuThu || d.ghiChu || '--'}</td>
+                <td style="text-align:center;">
+                  ${conLai > 0 ? `
+                    <button type="button" class="btn btn-primary" style="height:26px; padding:0 8px; font-size:11px;" onclick="moThuNoChoDon('${d.id}')">
+                      💰 Thu nợ
+                    </button>
+                  ` : `<span style="color:#16a34a; font-weight:700; font-size:11px;">Đã xong</span>`}
+                </td>
+              </tr>
+            `;
+          }).join('');
+        }
+
+        tfoot.innerHTML = `
+          <tr style="background:#f8fafc; font-weight:800; border-top:2px solid #cbd5e1;">
+            <td colspan="7" style="text-align:right;">TỔNG CỘNG:</td>
+            <td class="num-cell">${formatTien(sumHD)}</td>
+            <td class="num-cell" style="color:#b91c1c;">${formatTien(sumNo)}</td>
+            <td class="num-cell" style="color:#16a34a;">${formatTien(sumThu)}</td>
+            <td class="num-cell" style="color:#dc2626; font-size:14px;">${formatTien(sumCon)}</td>
+            <td colspan="3"></td>
+          </tr>
+        `;
       }
-
-      document.getElementById('footTienHD').textContent = formatTien(sumTienHD);
-      document.getElementById('footTienNo').textContent = formatTien(sumTienNo);
-      document.getElementById('footDaThu').textContent = formatTien(sumDaThu);
-      document.getElementById('footConLai').textContent = formatTien(sumConLai);
     }
 
-    function locDanhSachCongNo() {
-      veBangCongNo();
+    // ========================================================
+    // LỊCH SỬ ĐƠN NỢ THEO KHÁCH HÀNG (MODAL)
+    // ========================================================
+    function moLichSuDonKhachHang(tenKHRaw) {
+      const tenKH = decodeURIComponent(tenKHRaw);
+      khachHangDangXemLichSu = tenKH;
+      const modal = document.getElementById('modalLichSuKhachHang');
+      document.getElementById('modalLichSuTitle').textContent = `📜 Lịch Sử Đơn Nợ Khách Hàng: ${tenKH}`;
+
+      const dsCuaKH = danhSachCongNo.filter(d => (d.tenKH || '').trim() === tenKH);
+      let sumHD = 0, sumNo = 0, sumThu = 0, sumCon = 0;
+
+      const tbody = document.getElementById('tbodyLichSuDon');
+      tbody.innerHTML = dsCuaKH.map((d, i) => {
+        const cl = (d.conLai !== undefined) ? d.conLai : Math.max(0, (d.soTienNo || 0) - (d.daThu || 0));
+        const daThu = d.daThu || 0;
+        sumHD += (d.tienHD || 0);
+        sumNo += (d.soTienNo || 0);
+        sumThu += daThu;
+        sumCon += cl;
+
+        let badge = (d.trangThai === 'da_thu_du' || cl <= 0) 
+          ? `<span class="badge-status badge-da-thu">Đã thu đủ</span>`
+          : (daThu > 0 ? `<span class="badge-status badge-mot-phan">Thu 1 phần</span>` : `<span class="badge-status badge-chua-thu">Chưa thu</span>`);
+
+        return `
+          <tr>
+            <td style="text-align:center; font-weight:700; color:var(--text-muted);">${i + 1}</td>
+            <td>${d.ngayGiao || d.ngayGhiNo || '--'}</td>
+            <td style="text-align:center; font-family:monospace; font-weight:700;">${d.maHD}</td>
+            <td>${d.xe || '--'}</td>
+            <td>${d.taiXe || '--'}</td>
+            <td class="num-cell">${formatTien(d.tienHD || 0)}</td>
+            <td class="num-cell" style="color:#b91c1c;">${formatTien(d.soTienNo || 0)}</td>
+            <td class="num-cell" style="color:#16a34a;">${formatTien(daThu)}</td>
+            <td class="num-cell" style="color:#dc2626; font-weight:800;">${formatTien(cl)}</td>
+            <td style="text-align:center;">${badge}</td>
+            <td style="font-size:11px; color:var(--text-muted);">${d.ghiChuThu || d.ghiChu || '--'}</td>
+            <td style="text-align:center;">
+              ${cl > 0 ? `
+                <button type="button" class="btn btn-primary" style="height:24px; padding:0 6px; font-size:10.5px;" onclick="dongModalLichSu(); moThuNoChoDon('${d.id}')">
+                  Thu nợ
+                </button>
+              ` : `✅`}
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      document.getElementById('histTongHD').textContent = formatTien(sumHD) + ' đ';
+      document.getElementById('histTongNo').textContent = formatTien(sumNo) + ' đ';
+      document.getElementById('histDaThu').textContent = formatTien(sumThu) + ' đ';
+      document.getElementById('histConLai').textContent = formatTien(sumCon) + ' đ';
+
+      modal.style.display = 'flex';
     }
 
-    // Modal Thu nợ tại quỹ
+    function dongModalLichSu() {
+      document.getElementById('modalLichSuKhachHang').style.display = 'none';
+      khachHangDangXemLichSu = null;
+    }
+
+    function inDoiChieuChoKhachDangXem() {
+      if (!khachHangDangXemLichSu) return;
+      inDoiChieuChoKhach(encodeURIComponent(khachHangDangXemLichSu));
+    }
+
+    // ========================================================
+    // MODAL THU NỢ TẠI QUỸ (HỖ TRỢ CHỌN TÀI KHOẢN NGÂN HÀNG)
+    // ========================================================
     function moModalThuNoTaiQuy() {
       const modal = document.getElementById('modalThuNoTaiQuy');
       const sel = document.getElementById('modalSelDonNo');
@@ -606,16 +1241,37 @@
       document.getElementById('modalTienNo').value = '';
       document.getElementById('modalConLai').value = '';
       document.getElementById('modalSoTienThu').value = '';
+      document.getElementById('modalHinhThuc').value = 'Tiền mặt';
+      thayDoiHinhThucThuModal('Tiền mặt');
       document.getElementById('modalNgayThu').value = new Date().toISOString().slice(0, 10);
       document.getElementById('modalGhiChu').value = '';
 
       modal.style.display = 'flex';
     }
 
+    function thayDoiHinhThucThuModal(val) {
+      const boxNH = document.getElementById('boxChonNganHangThu');
+      if (val === 'Chuyển khoản') {
+        boxNH.style.display = 'flex';
+      } else {
+        boxNH.style.display = 'none';
+      }
+    }
+
     function moThuNoChoDon(id) {
       moModalThuNoTaiQuy();
       document.getElementById('modalSelDonNo').value = id;
       chonDonNoTrenModal(id);
+    }
+
+    function moThuNoChoKhachHang(tenKHRaw) {
+      const tenKH = decodeURIComponent(tenKHRaw);
+      const donDauTien = danhSachCongNo.find(d => (d.tenKH || '').trim() === tenKH && ((d.conLai !== undefined ? d.conLai : (d.soTienNo || 0)) > 0));
+      if (donDauTien) {
+        moThuNoChoDon(donDauTien.id);
+      } else {
+        moModalThuNoTaiQuy();
+      }
     }
 
     function dongModalThuNoTaiQuy() {
@@ -664,20 +1320,106 @@
       }
 
       const hinhThuc = document.getElementById('modalHinhThuc').value;
+      const nhNhan = (hinhThuc === 'Chuyển khoản') ? document.getElementById('modalNganHangNhan').value : '';
       const ngayThu = document.getElementById('modalNgayThu').value || new Date().toISOString().slice(0, 10);
       const ghiChu = document.getElementById('modalGhiChu').value;
+
+      let phuongThucChiTiet = hinhThuc;
+      if (hinhThuc === 'Chuyển khoản' && nhNhan) {
+        phuongThucChiTiet = `CK qua ${nhNhan}`;
+      }
 
       don.daThu = (don.daThu || 0) + soTienThu;
       don.conLai = Math.max(0, clHienTai - soTienThu);
       don.trangThai = don.conLai <= 0 ? 'da_thu_du' : 'da_thu_mot_phan';
-      don.ghiChuThu = `Đã thu ${formatTien(soTienThu)} đ (${hinhThuc}) ngày ${ngayThu}. ${ghiChu}`;
+      don.taiKhoanNhan = nhNhan || don.taiKhoanNhan;
+      don.ghiChuThu = `Đã thu ${formatTien(soTienThu)} đ (${phuongThucChiTiet}) ngày ${ngayThu}. ${ghiChu}`;
 
       ghiSoCongNo(danhSachCongNo);
       dongModalThuNoTaiQuy();
       capNhatKPI();
       veBangCongNo();
 
-      alert(`✅ Đã ghi nhận thu thành công ${formatTien(soTienThu)} đ cho đơn "${don.maHD}" của khách "${don.tenKH}"!`);
+      alert(`✅ Đã ghi nhận thu thành công ${formatTien(soTienThu)} đ (${phuongThucChiTiet}) cho đơn "${don.maHD}" của khách "${don.tenKH}"!`);
+    }
+
+    // ========================================================
+    // IN BIÊN BẢN ĐỐI CHIẾU CÔNG NỢ CHI TIẾT TỪ NGÀY ĐẾN NGÀY
+    // ========================================================
+    function inDoiChieuChoKhach(tenKHRaw) {
+      const tenKH = decodeURIComponent(tenKHRaw);
+      document.getElementById('locKhachHang').value = tenKH;
+      inDoiChieuCongNoTuBoLoc(tenKH);
+    }
+
+    function inDoiChieuCongNoTuBoLoc(tenKHCutThe = null) {
+      const locKH = tenKHCutThe || document.getElementById('locKhachHang').value;
+      const tuNgay = document.getElementById('locTuNgay').value;
+      const denNgay = document.getElementById('locDenNgay').value;
+
+      if (!locKH || locKH === 'tat_ca') {
+        alert("⚠️ Vui lòng chọn một Khách Hàng cụ thể trong bộ lọc để in Biên bản đối chiếu công nợ!");
+        document.getElementById('locKhachHang').focus();
+        return;
+      }
+
+      // Lọc các đơn nợ của khách hàng này trong khoảng thời gian
+      const dsIn = danhSachCongNo.filter(d => {
+        if ((d.tenKH || '').trim() !== locKH) return false;
+        const ngayGhi = d.ngayGiao || d.ngayGhiNo || '';
+        if (tuNgay && ngayGhi && ngayGhi < tuNgay) return false;
+        if (denNgay && ngayGhi && ngayGhi > denNgay) return false;
+        return true;
+      });
+
+      if (dsIn.length === 0) {
+        alert(`Không tìm thấy dữ liệu công nợ của khách hàng "${locKH}" trong khoảng thời gian từ ${dinhDangNgayVN(tuNgay)} đến ${dinhDangNgayVN(denNgay)}!`);
+        return;
+      }
+
+      // Điền thông tin vào mẫu in
+      document.getElementById('p_tenKhachHang').textContent = locKH;
+      document.getElementById('p_maKhachHang').textContent = dsIn[0].maKH || '--';
+      document.getElementById('p_nvPhuTrach').textContent = dsIn[0].nguoiBan || 'Nguyễn Tấn Đạt';
+      document.getElementById('p_ngayLap').textContent = new Date().toLocaleDateString('vi-VN');
+      document.getElementById('p_statementGiaiDoan').textContent = `Từ ngày: ${dinhDangNgayVN(tuNgay)} đến ngày: ${dinhDangNgayVN(denNgay)}`;
+
+      let sumHD = 0, sumNo = 0, sumThu = 0, sumCon = 0;
+      const tbody = document.getElementById('p_tbodyStatement');
+      tbody.innerHTML = dsIn.map((d, i) => {
+        const cl = (d.conLai !== undefined) ? d.conLai : Math.max(0, (d.soTienNo || 0) - (d.daThu || 0));
+        const daThu = d.daThu || 0;
+        sumHD += (d.tienHD || 0);
+        sumNo += (d.soTienNo || 0);
+        sumThu += daThu;
+        sumCon += cl;
+
+        return `
+          <tr>
+            <td style="text-align: center;">${i + 1}</td>
+            <td style="text-align: center;">${d.ngayGiao || d.ngayGhiNo || '--'}</td>
+            <td style="text-align: center; font-weight: bold; font-family: monospace;">${d.maHD}</td>
+            <td>${d.xe ? d.xe + (d.taiXe ? ' (' + d.taiXe + ')' : '') : '--'}</td>
+            <td style="text-align: right;">${formatTien(d.tienHD || 0)}</td>
+            <td style="text-align: right; color: #b91c1c; font-weight: bold;">${formatTien(d.soTienNo || 0)}</td>
+            <td style="text-align: right; color: #15803d;">${formatTien(daThu)}</td>
+            <td style="text-align: right; font-weight: bold; color: #000000;">${formatTien(cl)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      document.getElementById('p_sumTienHD').textContent = formatTien(sumHD);
+      document.getElementById('p_sumTienNo').textContent = formatTien(sumNo);
+      document.getElementById('p_sumDaThu').textContent = formatTien(sumThu);
+      document.getElementById('p_sumConLai').textContent = formatTien(sumCon);
+
+      document.getElementById('p_tongNoBox').textContent = formatTien(sumNo) + ' đ';
+      document.getElementById('p_daThuBox').textContent = formatTien(sumThu) + ' đ';
+      document.getElementById('p_conLaiBox').textContent = formatTien(sumCon) + ' đ';
+      document.getElementById('p_soTienBangChu').textContent = docSoThanhChu(sumCon);
+
+      // Kích hoạt in trình duyệt
+      window.print();
     }
 
     // Xuất dữ liệu ra file Excel / CSV
@@ -702,6 +1444,59 @@
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+    }
+
+    // Helper định dạng ngày Việt Nam
+    function dinhDangNgayVN(strDate) {
+      if (!strDate) return '--';
+      const parts = strDate.split('-');
+      if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      return strDate;
+    }
+
+    // Helper đọc số thành chữ tiếng Việt chuẩn kế toán
+    function docSoThanhChu(so) {
+      if (isNaN(so) || so <= 0) return "Không đồng";
+      const chuSo = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
+      function docNhomBa(baSo) {
+        let tram = Math.floor(baSo / 100);
+        let chuc = Math.floor((baSo % 100) / 10);
+        let donVi = baSo % 10;
+        let ketQua = "";
+        if (tram > 0) ketQua += chuSo[tram] + " trăm ";
+        if (chuc > 1) {
+          ketQua += chuSo[chuc] + " mươi ";
+          if (donVi === 1) ketQua += "mốt ";
+          else if (donVi === 5) ketQua += "lăm ";
+          else if (donVi > 0) ketQua += chuSo[donVi] + " ";
+        } else if (chuc === 1) {
+          ketQua += "mười ";
+          if (donVi === 5) ketQua += "lăm ";
+          else if (donVi > 0) ketQua += chuSo[donVi] + " ";
+        } else if (tram > 0 && donVi > 0) {
+          ketQua += "lẻ " + chuSo[donVi] + " ";
+        } else if (donVi > 0) {
+          ketQua += chuSo[donVi] + " ";
+        }
+        return ketQua.trim();
+      }
+
+      const donViLon = ["", "nghìn", "triệu", "tỷ", "nghìn tỷ"];
+      let chuoi = "";
+      let i = 0;
+      let soDu = Math.round(so);
+      while (soDu > 0) {
+        let baSo = soDu % 1000;
+        if (baSo > 0) {
+          let s = docNhomBa(baSo);
+          chuoi = s + " " + donViLon[i] + " " + chuoi;
+        }
+        soDu = Math.floor(soDu / 1000);
+        i++;
+      }
+      chuoi = chuoi.trim();
+      if (!chuoi) return "Không đồng";
+      return chuoi.charAt(0).toUpperCase() + chuoi.slice(1) + " đồng chẵn";
     }
 
     // Helper tiện ích

@@ -550,8 +550,15 @@
       <div class="hero-meta-bar no-print">
         <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
           <div style="display:flex; flex-direction:column; gap:3px;">
-            <label style="font-size:11.5px; font-weight:700; color:var(--text-muted);">🚚 Chọn chuyến xe về cần tính tiền:</label>
-            <select id="selChuyenXe" class="form-control" style="font-weight:700; min-width:320px;" onchange="chonChuyenXeTuDropdown(this.value)">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+              <label style="font-size:11.5px; font-weight:700; color:var(--text-muted);">🚚 Chọn chuyến xe về cần tính tiền:</label>
+              <select id="locTrangThaiChuyenXe" class="form-control" style="font-size:11px; height:24px; padding:1px 6px; font-weight:700; width:170px; background:#f8fafc; cursor:pointer;" onchange="locVaRenderDropdownChuyenXe()">
+                <option value="tat_ca">⚡ Tất cả chuyến xe</option>
+                <option value="cho_tinh_tien">⏳ Chờ tính tiền (Chưa thu)</option>
+                <option value="da_quyet_toan">✅ Đã quyết toán (Đã thu)</option>
+              </select>
+            </div>
+            <select id="selChuyenXe" class="form-control" style="font-weight:700; min-width:340px;" onchange="chonChuyenXeTuDropdown(this.value)">
               <option value="">-- Đang tải danh sách các chuyến xe... --</option>
             </select>
           </div>
@@ -1307,28 +1314,59 @@
         return;
       }
 
-      if (sel) {
-        sel.innerHTML = '';
-        danhSachTatCaDot.forEach(d => {
-          const opt = document.createElement('option');
-          opt.value = d.maDot;
-          const daQuyetToan = d.daQuyetToan ? "✅ Đã quyết toán" : "⏳ Chờ tính tiền";
-          opt.textContent = `${d.xe} (${d.ngayGiao || 'Hôm nay'}) — ${d.taiXe || 'Chưa rõ TX'} [${d.soLuongHD || (d.danhSachHD && d.danhSachHD.length) || 0} HĐ, ${formatTien(d.tongTien || 0)} đ] — ${daQuyetToan}`;
-          sel.appendChild(opt);
-        });
-      }
+      // SẮP XẾP CHUẨN: Chuyến xe CHƯA THU (Chờ tính tiền) nằm trên, xe ĐÃ THU (Đã quyết toán) nằm dưới
+      danhSachTatCaDot.sort((a, b) => {
+        const aDone = !!a.daQuyetToan;
+        const bDone = !!b.daQuyetToan;
+        if (!aDone && bDone) return -1;
+        if (aDone && !bDone) return 1;
+        return (b.maDot || '').localeCompare(a.maDot || '');
+      });
 
-      // Kiểm tra tham số ?maDot= trên URL
+      // Lọc và hiển thị dropdown theo bộ lọc trạng thái
+      locVaRenderDropdownChuyenXe(isAutoSync);
+    }
+
+    // Lọc và render dropdown chọn chuyến xe: Hỗ trợ lọc Chưa thu / Đã thu & Giữ sắp xếp chưa thu nằm trên
+    function locVaRenderDropdownChuyenXe(isAutoSync = false) {
+      const sel = document.getElementById('selChuyenXe');
+      const locTT = document.getElementById('locTrangThaiChuyenXe')?.value || 'tat_ca';
+      if (!sel) return;
+
       const urlParams = new URLSearchParams(window.location.search);
       const paramMaDot = urlParams.get('maDot');
-      let maDotChon = danhSachTatCaDot[0].maDot;
-      if (paramMaDot && danhSachTatCaDot.some(d => d.maDot === paramMaDot)) {
+      const maDotDangChonTruocDo = sel.value || (dotHienTai ? dotHienTai.maDot : '');
+
+      let dsLoc = danhSachTatCaDot;
+      if (locTT === 'cho_tinh_tien') {
+        dsLoc = danhSachTatCaDot.filter(d => !d.daQuyetToan);
+      } else if (locTT === 'da_quyet_toan') {
+        dsLoc = danhSachTatCaDot.filter(d => !!d.daQuyetToan);
+      }
+
+      sel.innerHTML = '';
+      if (dsLoc.length === 0) {
+        sel.innerHTML = `<option value="">⚠️ Không có chuyến xe nào (${locTT === 'cho_tinh_tien' ? 'Chờ tính tiền' : 'Đã quyết toán'})</option>`;
+        return;
+      }
+
+      dsLoc.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.maDot;
+        const daQuyetToan = d.daQuyetToan ? "✅ Đã quyết toán" : "⏳ Chờ tính tiền";
+        opt.textContent = `${d.xe} (${d.ngayGiao || 'Hôm nay'}) — ${d.taiXe || 'Chưa rõ TX'} [${d.soLuongHD || (d.danhSachHD && d.danhSachHD.length) || 0} HĐ, ${formatTien(d.tongTien || 0)} đ] — ${daQuyetToan}`;
+        sel.appendChild(opt);
+      });
+
+      // Xác định chuyến xe cần nạp
+      let maDotChon = dsLoc[0].maDot;
+      if (paramMaDot && dsLoc.some(d => d.maDot === paramMaDot)) {
         maDotChon = paramMaDot;
-      } else if (maDotDangChonTruocDo && danhSachTatCaDot.some(d => d.maDot === maDotDangChonTruocDo)) {
+      } else if (maDotDangChonTruocDo && dsLoc.some(d => d.maDot === maDotDangChonTruocDo)) {
         maDotChon = maDotDangChonTruocDo;
       }
 
-      if (sel) sel.value = maDotChon;
+      sel.value = maDotChon;
       if (!isAutoSync || !dotHienTai || dotHienTai.maDot !== maDotChon) {
         chonChuyenXeTuDropdown(maDotChon);
       }
@@ -2579,6 +2617,9 @@
         if (h.noPhatSinh > 0) {
           const idNo = `NO_${h.maHD}`;
           const tonTaiIdx = dsCongNoHienTai.findIndex(d => d.id === idNo || d.maHD === h.maHD);
+          const daThuCu = (tonTaiIdx >= 0 && dsCongNoHienTai[tonTaiIdx].daThu) ? dsCongNoHienTai[tonTaiIdx].daThu : 0;
+          const conLaiMoi = Math.max(0, h.noPhatSinh - daThuCu);
+          const trangThaiMoi = conLaiMoi <= 0 ? 'da_thu_du' : (daThuCu > 0 ? 'da_thu_mot_phan' : 'chua_thu');
           const banGhiNo = {
             id: idNo,
             maHD: h.maHD,
@@ -2591,10 +2632,10 @@
             ngayGiao: dotHienTai.ngayGiao || new Date().toISOString().slice(0, 10),
             tienHD: h.tienHD,
             soTienNo: h.noPhatSinh,
-            daThu: (tonTaiIdx >= 0 && dsCongNoHienTai[tonTaiIdx].daThu) ? dsCongNoHienTai[tonTaiIdx].daThu : 0,
-            conLai: h.noPhatSinh,
-            trangThai: 'chua_thu',
-            ngayGhiNo: new Date().toLocaleDateString('vi-VN'),
+            daThu: daThuCu,
+            conLai: conLaiMoi,
+            trangThai: trangThaiMoi,
+            ngayGhiNo: (tonTaiIdx >= 0 && dsCongNoHienTai[tonTaiIdx].ngayGhiNo) ? dsCongNoHienTai[tonTaiIdx].ngayGhiNo : new Date().toLocaleDateString('vi-VN'),
             ghiChu: h.ghiChu || `Nợ chuyến xe ${dotHienTai.xe}`
           };
           if (tonTaiIdx >= 0) {
