@@ -251,15 +251,16 @@ function chuyenDoiLuuTruThanhDanhSachDot(rowsLuuTru) {
       noPhatSinh: parseFloat(r.no_phat_sinh || 0),
       ghiChu: r.ghi_chu || '',
       laGiaoLai: !!r.la_giao_lai,
-      daKiemDon: !!r.da_kiem_don
+      daKiemDon: !!r.da_kiem_don,
+      daQuyetToan: !!r.da_quyet_toan
     });
   });
 
   return Array.from(mapDot.values()).map(d => {
     d.soLuongHD = d.danhSachChiTiet.length;
     d.tongTien = d.danhSachChiTiet.reduce((s, x) => s + (x.thanhTien || 0), 0);
-    // Nếu tất cả các đơn đều đã kiểm đơn hoặc có ít nhất 1 đơn đã kiểm đơn và không có đơn nào chưa thu
-    d.daQuyetToan = d.danhSachChiTiet.length > 0 && d.danhSachChiTiet.every(x => x.daKiemDon);
+    // Nếu các đơn đã kiểm đơn hoặc đã quyết toán
+    d.daQuyetToan = d.danhSachChiTiet.length > 0 && d.danhSachChiTiet.every(x => x.daKiemDon || x.daQuyetToan);
     return d;
   });
 }

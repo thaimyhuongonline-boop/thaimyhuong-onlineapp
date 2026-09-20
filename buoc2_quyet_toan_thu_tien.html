@@ -546,26 +546,34 @@
       if (typeof sb !== 'undefined') {
         try {
           const { data, error } = await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(1000);
-          if (!error && data && data.length > 0 && typeof chuyenDoiLuuTruThanhDanhSachDot === 'function') {
+          if (!error && Array.isArray(data) && typeof chuyenDoiLuuTruThanhDanhSachDot === 'function') {
             const dsDotSB = chuyenDoiLuuTruThanhDanhSachDot(data);
-            let coChuyenMoi = false;
-            dsDotSB.forEach(dotSB => {
-              const idx = danhSachTatCaDot.findIndex(d => d.maDot === dotSB.maDot);
-              if (idx === -1) {
-                danhSachTatCaDot.push(dotSB);
-                coChuyenMoi = true;
-              } else {
-                danhSachTatCaDot[idx].daQuyetToan = dotSB.daQuyetToan;
-                danhSachTatCaDot[idx].soLuongHD = dotSB.soLuongHD;
-                danhSachTatCaDot[idx].tongTien = dotSB.tongTien;
-                if (!danhSachTatCaDot[idx].danhSachChiTiet || danhSachTatCaDot[idx].danhSachChiTiet.length === 0) {
-                  danhSachTatCaDot[idx].danhSachChiTiet = dotSB.danhSachChiTiet;
+            if (dsDotSB.length > 0) {
+              const setMaDotSB = new Set(dsDotSB.map(d => d.maDot));
+              // Loại bỏ các chuyến đã bị xóa khỏi Supabase
+              danhSachTatCaDot = danhSachTatCaDot.filter(d => setMaDotSB.has(d.maDot));
+              let coChuyenMoi = false;
+              dsDotSB.forEach(dotSB => {
+                const idx = danhSachTatCaDot.findIndex(d => d.maDot === dotSB.maDot);
+                if (idx === -1) {
+                  danhSachTatCaDot.push(dotSB);
+                  coChuyenMoi = true;
+                } else {
+                  danhSachTatCaDot[idx].daQuyetToan = dotSB.daQuyetToan;
+                  danhSachTatCaDot[idx].soLuongHD = dotSB.soLuongHD;
+                  danhSachTatCaDot[idx].tongTien = dotSB.tongTien;
+                  if (!dotHienTai || dotHienTai.maDot !== dotSB.maDot) {
+                    danhSachTatCaDot[idx].danhSachChiTiet = dotSB.danhSachChiTiet;
+                  }
                 }
+              });
+              localStorage.setItem("tmh_lich_su_dot", JSON.stringify(danhSachTatCaDot));
+              if (isAutoSync && coChuyenMoi) {
+                hienThiToast("🔔 Đã tự động nhận chuyến xe mới từ nhân sự điều xe!");
               }
-            });
-            localStorage.setItem("tmh_lich_su_dot", JSON.stringify(danhSachTatCaDot));
-            if (isAutoSync && coChuyenMoi) {
-              hienThiToast("🔔 Đã tự động nhận chuyến xe mới từ nhân sự điều xe!");
+            } else if (data.length === 0) {
+              danhSachTatCaDot = [];
+              localStorage.removeItem("tmh_lich_su_dot");
             }
           }
         } catch (e) {
