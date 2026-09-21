@@ -420,6 +420,7 @@ const MODULE_PHAN_QUYEN = [
   { id: "dieuxe",    label: "B1: Điều Xe & Phiếu Xuất Kho", trang: ["buoc1_dieu_xe_xuat_kho.html", "buoc1_upload.html", "buoc2_phieu_xuat_kho.html"] },
   { id: "quyettoan", label: "B2: Quyết Toán Thu Tiền", trang: ["buoc2_quyet_toan_thu_tien.html"] },
   { id: "misa",      label: "B3: Đẩy Dữ Liệu MISA", trang: ["buoc3_day_misa.html", "buoc3_luu_tru.html"] },
+  { id: "baocao",    label: "Báo Cáo Tổng Hợp", trang: ["bao_cao_tong_hop.html"] },
   { id: "congno",    label: "Theo Dõi Công Nợ", trang: ["theo_doi_cong_no.html"] },
   { id: "danhmuc",   label: "Danh Mục", trang: ["danh_muc.html"] },
   { id: "taikhoan",  label: "Tài khoản & Phân quyền", trang: ["quan_ly_taikhoan.html"] }
@@ -427,13 +428,13 @@ const MODULE_PHAN_QUYEN = [
 
 // Ma trận mẫu ban đầu (khi Supabase chưa có dữ liệu phân quyền)
 const MA_TRAN_MAC_DINH = {
-  "Giám đốc Điều hành": { tongquan: "all", dieuxe: "all",  quyettoan: "all",  misa: "all",  congno: "all",  danhmuc: "all",  taikhoan: "all" },
-  "Kế toán Bán hàng":   { tongquan: "all", dieuxe: "all",  quyettoan: "view", misa: "none", congno: "view", danhmuc: "view", taikhoan: "none" },
-  "Kế toán Công nợ":    { tongquan: "all", dieuxe: "view", quyettoan: "all",  misa: "none", congno: "all",  danhmuc: "view", taikhoan: "none" },
-  "Kế toán Tổng hợp":   { tongquan: "all", dieuxe: "all",  quyettoan: "all",  misa: "all",  congno: "all",  danhmuc: "all",  taikhoan: "view" },
-  "Kiểm duyệt viên":    { tongquan: "all", dieuxe: "all",  quyettoan: "all",  misa: "none", congno: "view", danhmuc: "view", taikhoan: "none" },
-  "Thủ kho":            { tongquan: "all", dieuxe: "all",  quyettoan: "none", misa: "none", congno: "none", danhmuc: "view", taikhoan: "none" },
-  "Tài xế":             { tongquan: "all", dieuxe: "view", quyettoan: "view", misa: "none", congno: "none", danhmuc: "none", taikhoan: "none" }
+  "Giám đốc Điều hành": { tongquan: "all", dieuxe: "all",  quyettoan: "all",  misa: "all",  baocao: "all",  congno: "all",  danhmuc: "all",  taikhoan: "all" },
+  "Kế toán Bán hàng":   { tongquan: "all", dieuxe: "all",  quyettoan: "view", misa: "none", baocao: "none", congno: "view", danhmuc: "view", taikhoan: "none" },
+  "Kế toán Công nợ":    { tongquan: "all", dieuxe: "view", quyettoan: "all",  misa: "none", baocao: "view", congno: "all",  danhmuc: "view", taikhoan: "none" },
+  "Kế toán Tổng hợp":   { tongquan: "all", dieuxe: "all",  quyettoan: "all",  misa: "all",  baocao: "all",  congno: "all",  danhmuc: "all",  taikhoan: "view" },
+  "Kiểm duyệt viên":    { tongquan: "all", dieuxe: "all",  quyettoan: "all",  misa: "none", baocao: "view", congno: "view", danhmuc: "view", taikhoan: "none" },
+  "Thủ kho":            { tongquan: "all", dieuxe: "all",  quyettoan: "none", misa: "none", baocao: "none", congno: "none", danhmuc: "view", taikhoan: "none" },
+  "Tài xế":             { tongquan: "all", dieuxe: "view", quyettoan: "view", misa: "none", baocao: "none", congno: "none", danhmuc: "none", taikhoan: "none" }
 };
 
 const _BAC_QUYEN = { none: 0, view: 1, all: 2 };
@@ -461,7 +462,10 @@ function tinhQuyenModule(pq, moduleId, cap) {
     else if (moduleId === "misa") cu = _quyenCaoNhat(pq, ["buoc7"]);
     if (cu) return cu;
   }
-  return moduleId === "taikhoan" ? "none" : "all";
+  // Tài khoản & Báo cáo: mặc định chỉ Cấp 1 (taikhoan) / Cấp 1-2 (baocao); các mục khác mặc định mở
+  if (moduleId === "taikhoan") return "none";
+  if (moduleId === "baocao") return cap <= 2 ? "all" : "none";
+  return "all";
 }
 
 function _docCapVaMaTranHienTai() {

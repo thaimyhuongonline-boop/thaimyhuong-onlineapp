@@ -14,6 +14,7 @@ const DANH_SACH_7_BUOC = [
 const MENU_CHINH = [
   { id: "tongquan", href: "trang_chu.html", ic: "🧭", label: "Tổng quan Quy trình", desc: "Trung tâm điều phối quy trình 3 bước KiotViet ➡ MISA", roles: ["admin", "quanly", "nhanvien"] },
   { id: "quytrinh", href: "buoc1_dieu_xe_xuat_kho.html", ic: "🔄", label: "Quy trình Bán hàng (3 Bước)", isProcess: true, desc: "Quy trình tinh gọn: Điều xe ➡ Thu tiền ➡ MISA", roles: ["admin", "quanly", "nhanvien"] },
+  { id: "baocao", href: "bao_cao_tong_hop.html", ic: "📊", label: "Báo Cáo Tổng Hợp", desc: "Tổng kết xuất kho, tiền mặt, chuyển khoản, hàng trả về, công nợ — xem chi tiết để đối soát", roles: ["admin", "quanly"] },
   { id: "congno", href: "theo_doi_cong_no.html", ic: "📒", label: "Theo Dõi Công Nợ", desc: "Sổ theo dõi và quản lý công nợ khách hàng", roles: ["admin", "quanly", "nhanvien"] },
   { id: "danhmuc", href: "danh_muc.html", ic: "📚", label: "Danh Mục", desc: "Hàng hoá, Khách hàng, Xe, Ngân hàng, Nhân sự...", roles: ["admin", "quanly", "nhanvien"] },
   { id: "taikhoan", href: "quan_ly_taikhoan.html", ic: "🛡️", label: "Tài khoản & Phân quyền", desc: "Quản lý nhân viên & ma trận phân quyền", roles: ["admin"] }
@@ -229,10 +230,13 @@ async function khoiTaoLayout(options = {}) {
           <div class="tmh-stepper-title">
             <span>🔄 Quy trình 3 bước: Điều Xe ➡ Quyết Toán Thu Tiền ➡ Đẩy MISA</span>
           </div>
+          <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">
           <a href="trang_chu.html" class="tmh-stepper-sub" style="text-decoration:none; color:var(--primary); font-weight:700;">
             ← Xem toàn bộ quy trình
           </a>
+          ${layQuyenModule("baocao") !== "none" ? `<a href="bao_cao_tong_hop.html" class="tmh-stepper-sub" style="text-decoration:none; color:var(--primary); font-weight:700;">📊 Báo cáo tổng hợp →</a>` : ""}
         </div>
+          </div>
         <div class="tmh-stepper-track">
           ${DANH_SACH_7_BUOC.map((b, idx) => {
                   if (layQuyenModule(b.mod) === "none") return "";

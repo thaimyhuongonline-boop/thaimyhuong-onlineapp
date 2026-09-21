@@ -1406,10 +1406,12 @@
         if (!maTranPhanQuyen[cv]) maTranPhanQuyen[cv] = {};
         const qCuaCv = maTranPhanQuyen[cv];
         const cvH = escapeHtml(cv);
+        // Cấp thấp nhất (số nhỏ nhất) của nhân sự giữ chức vụ này — dùng để suy ra mặc định cho mục chưa cấu hình (vd: Báo cáo)
+        const capCv = danhSachNhanSu.some(x => (x.chuc_vu || "").trim() === cv && (parseInt(x.phan_loai_tk) || 3) <= 2) ? 2 : 3;
 
         const tdModules = CAC_MODULE.map(mod => {
           // Giá trị hiển thị = đúng giá trị hệ thống sẽ áp dụng (kể cả quy đổi từ dữ liệu 7 bước cũ)
-          let val = tinhQuyenModule(qCuaCv, mod.id, 3);
+          let val = tinhQuyenModule(qCuaCv, mod.id, capCv);
           if (qCuaCv[mod.id] === undefined && cv === "Giám đốc Điều hành") val = "all";
           qCuaCv[mod.id] = val;
           return `

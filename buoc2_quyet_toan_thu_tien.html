@@ -675,7 +675,7 @@
               0 đ
             </div>
             <div style="font-size:11px; color:#15803d; text-align:right;">
-              = Khách trả TM + Thu nợ cũ - Chi - Tiền thối
+              = Khách trả TM + Thu nợ cũ - Chi + Tiền thối
             </div>
           </div>
         </div>
@@ -2078,8 +2078,8 @@
       }
 
       // SỐ TIỀN PHẢI THU (Tài xế thực tế nộp quỹ theo đúng chuẩn hình 3):
-      // SỐ TIỀN PHẢI THU = Khách trả TM + Thu nợ cũ - Chi - Tiền thối
-      const soTienPhaiThu = Math.max(0, tongMat + thuNoCu - tienChi - tienThoi);
+      // SỐ TIỀN PHẢI THU = Khách trả TM + Thu nợ cũ - Chi + Tiền thối
+      const soTienPhaiThu = Math.max(0, tongMat + thuNoCu - tienChi + tienThoi);
       const boxSoPhaiThu = document.getElementById('kpiSoTienPhaiThuBox');
       if (boxSoPhaiThu) {
         boxSoPhaiThu.textContent = formatTien(soTienPhaiThu) + ' đ';
@@ -2265,7 +2265,7 @@
 
       // Lấy tổng tiền mặt phải nộp (sau khi tính Chi & Thu nợ cũ)
       let tongMat = danhSachHoaDonQuyetToan.reduce((s, h) => s + (h.tienMat || 0), 0);
-      const soTienPhaiThu = Math.max(0, tongMat + thuNoCu - tienChi - tienThoi);
+      const soTienPhaiThu = Math.max(0, tongMat + thuNoCu - tienChi + tienThoi);
       kiemTraKhopTienMat(soTienPhaiThu, tongTien);
     }
 
@@ -2583,7 +2583,7 @@
         tongNo += h.noPhatSinh;
       });
 
-      const soTienPhaiThu = Math.max(0, tongMat + thuNoCu - tienChi - tienThoi);
+      const soTienPhaiThu = Math.max(0, tongMat + thuNoCu - tienChi + tienThoi);
 
       // 1. Cập nhật vào đợt hiện tại
       dotHienTai.daQuyetToan = true;
@@ -2801,6 +2801,7 @@
         `• Khách còn nợ: ${formatTien(tongNo)} đ\n` +
         `• Chi phí xe: ${formatTien(tienChi)} đ\n` +
         `• Thu nợ cũ KH: ${formatTien(thuNoCu)} đ\n` +
+        `• Tiền thối (hoàn tạm ứng): ${formatTien(tienThoi)} đ\n` +
         `-----------------------------------------\n` +
         `🎯 SỐ TIỀN PHẢI THU (TÀI XẾ NỘP QUỸ): ${formatTien(soTienPhaiThu)} đ` +
         thongBaoExtra +
@@ -2846,7 +2847,7 @@
         tongNo += h.noPhatSinh;
       });
 
-      const soTienPhaiThu = Math.max(0, tongMat + thuNoCu - tienChi - tienThoi);
+      const soTienPhaiThu = Math.max(0, tongMat + thuNoCu - tienChi + tienThoi);
 
       document.getElementById('p_tongXuat').textContent = formatTien(tongXuat);
       document.getElementById('p_tongMat').textContent = formatTien(tongMat);
