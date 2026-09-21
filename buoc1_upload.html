@@ -778,7 +778,7 @@
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td style="text-align:center;">
-            <input type="checkbox" ${f.daChon ? 'checked' : ''} onchange="toggleChonFile('${f.id}', this.checked)">
+            <input type="checkbox" ${f.daChon ? 'checked' : ''} onchange="toggleChonFile(${escapeHtml(JSON.stringify(f.id))}, this.checked)">
           </td>
           <td style="text-align:center;">${idx + 1}</td>
           <td><b>${f.tenFile}</b></td>
@@ -788,10 +788,10 @@
           <td style="text-align:right; font-weight:700; color:#15803d;">${Math.round(f.tongDoanhSo).toLocaleString('vi-VN')} đ</td>
           <td style="text-align:center;">
             <div style="display:flex; gap:6px; justify-content:center;">
-              <button type="button" class="btn btn-outline btn-sm" onclick="xemChiTietFile('${f.id}')" title="Xem danh sách hóa đơn">
+              <button type="button" class="btn btn-outline btn-sm" onclick="xemChiTietFile(${escapeHtml(JSON.stringify(f.id))})" title="Xem danh sách hóa đơn">
                 <span>👁️</span>
               </button>
-              <button type="button" class="btn btn-outline btn-sm" onclick="xoaChuDongFile('${f.id}')" style="color:#b91c1c; border-color:#fca5a5;" title="Xóa chủ động file này">
+              <button type="button" class="btn btn-outline btn-sm" onclick="xoaChuDongFile(${escapeHtml(JSON.stringify(f.id))})" style="color:#b91c1c; border-color:#fca5a5;" title="Xóa chủ động file này">
                 <span>🗑️</span>
               </button>
             </div>
@@ -856,9 +856,9 @@
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td style="text-align:center;">${i + 1}</td>
-            <td><b>${hd.maHD}</b></td>
-            <td>${hd.tenKH}</td>
-            <td>${hd.nguoiBan}</td>
+            <td><b>${escapeHtml(hd.maHD)}</b></td>
+            <td>${escapeHtml(hd.tenKH)}</td>
+            <td>${escapeHtml(hd.nguoiBan)}</td>
             <td style="text-align:right; font-weight:700;">${Math.round(hd.tongTien).toLocaleString('vi-VN')} đ</td>
           `;
           tbody.appendChild(tr);
@@ -911,9 +911,9 @@
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td style="text-align:center;">${idx + 1}</td>
-            <td><b>${b.maHang}</b></td>
-            <td>${b.tenHang}</td>
-            <td><code>${b.maHD}</code></td>
+            <td><b>${escapeHtml(b.maHang)}</b></td>
+            <td>${escapeHtml(b.tenHang)}</td>
+            <td><code>${escapeHtml(b.maHD)}</code></td>
             <td style="text-align:right; color:var(--text-muted);">${Math.round(b.giaCu).toLocaleString('vi-VN')} đ</td>
             <td style="text-align:right; font-weight:700;">${Math.round(b.giaMoi).toLocaleString('vi-VN')} đ</td>
             <td style="text-align:right; font-weight:700; color:${laTang ? '#b91c1c' : '#15803d'};">

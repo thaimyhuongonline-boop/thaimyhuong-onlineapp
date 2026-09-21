@@ -137,26 +137,6 @@ async function dangXuat() {
 }
 
 /**
- * Kiểm tra quyền của người dùng hiện tại đối với một module/bước
- * @param {string} moduleKey - 'buoc1', 'buoc2', ..., 'buoc7', 'taikhoan'
- * @returns {string} 'all' | 'view' | 'none'
- */
-function layQuyenModule(moduleKey) {
-  try {
-    const profile = JSON.parse(localStorage.getItem("nhan_su_profile") || "{}");
-    const cap = parseInt(profile.phan_loai_tk || profile.cap_tai_khoan);
-    if (cap === 1) return "all"; // Cấp 1 Toàn quyền mọi module
-
-    const pq = JSON.parse(localStorage.getItem("userPermissions") || "{}");
-    if (pq && pq[moduleKey]) return pq[moduleKey];
-
-    return cap === 2 ? "all" : "view";
-  } catch (e) {
-    return "view";
-  }
-}
-
-/**
  * Hàm Upsert Supabase thông minh có khả năng tự phục hồi (Auto-healing)
  * Nếu bảng trên CSDL Supabase thiếu một cột nào đó (lỗi PGRST204),
  * hàm sẽ tự động loại bỏ cột đó và thử lại ngay, tránh bị từ chối toàn bộ đợt lưu.
@@ -416,3 +396,149 @@ async function xoaDonGiaoLaiSupabase(danhSachMaHD) {
 
 
 
+
+/* ====================================================================
+ * escapeHtml — Escape dữ liệu người dùng trước khi chèn vào innerHTML
+ * ==================================================================== */
+function escapeHtml(v) {
+  if (v === null || v === undefined) return "";
+  return String(v)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/* ====================================================================
+ * PHÂN QUYỀN THEO MODULE THỰC TẾ CỦA APP
+ * Mỗi module tương ứng 1 tab/trang có thật trong menu.
+ * Mức quyền: 'all' (toàn quyền) | 'view' (chỉ xem) | 'none' (không truy cập)
+ * ==================================================================== */
+const MODULE_PHAN_QUYEN = [
+  { id: "tongquan",  label: "Tổng quan Quy trình", trang: ["trang_chu.html"] },
+  { id: "dieuxe",    label: "B1: Điều Xe & Phiếu Xuất Kho", trang: ["buoc1_dieu_xe_xuat_kho.html", "buoc1_upload.html", "buoc2_phieu_xuat_kho.html"] },
+  { id: "quyettoan", label: "B2: Quyết Toán Thu Tiền", trang: ["buoc2_quyet_toan_thu_tien.html"] },
+  { id: "misa",      label: "B3: Đẩy Dữ Liệu MISA", trang: ["buoc3_day_misa.html", "buoc3_luu_tru.html"] },
+  { id: "congno",    label: "Theo Dõi Công Nợ", trang: ["theo_doi_cong_no.html"] },
+  { id: "danhmuc",   label: "Danh Mục", trang: ["danh_muc.html"] },
+  { id: "taikhoan",  label: "Tài khoản & Phân quyền", trang: ["quan_ly_taikhoan.html"] }
+];
+
+// Ma trận mẫu ban đầu (khi Supabase chưa có dữ liệu phân quyền)
+const MA_TRAN_MAC_DINH = {
+  "Giám đốc Điều hành": { tongquan: "all", dieuxe: "all",  quyettoan: "all",  misa: "all",  congno: "all",  danhmuc: "all",  taikhoan: "all" },
+  "Kế toán Bán hàng":   { tongquan: "all", dieuxe: "all",  quyettoan: "view", misa: "none", congno: "view", danhmuc: "view", taikhoan: "none" },
+  "Kế toán Công nợ":    { tongquan: "all", dieuxe: "view", quyettoan: "all",  misa: "none", congno: "all",  danhmuc: "view", taikhoan: "none" },
+  "Kế toán Tổng hợp":   { tongquan: "all", dieuxe: "all",  quyettoan: "all",  misa: "all",  congno: "all",  danhmuc: "all",  taikhoan: "view" },
+  "Kiểm duyệt viên":    { tongquan: "all", dieuxe: "all",  quyettoan: "all",  misa: "none", congno: "view", danhmuc: "view", taikhoan: "none" },
+  "Thủ kho":            { tongquan: "all", dieuxe: "all",  quyettoan: "none", misa: "none", congno: "none", danhmuc: "view", taikhoan: "none" },
+  "Tài xế":             { tongquan: "all", dieuxe: "view", quyettoan: "view", misa: "none", congno: "none", danhmuc: "none", taikhoan: "none" }
+};
+
+const _BAC_QUYEN = { none: 0, view: 1, all: 2 };
+function _quyenCaoNhat(pq, keys) {
+  let best = -1, val = null;
+  keys.forEach(function (k) {
+    if (pq && _BAC_QUYEN[pq[k]] !== undefined && _BAC_QUYEN[pq[k]] > best) { best = _BAC_QUYEN[pq[k]]; val = pq[k]; }
+  });
+  return val;
+}
+
+/**
+ * Tính mức quyền của 1 module từ ma trận quyền của chức vụ.
+ * - Có khoá mới -> dùng luôn.
+ * - Dữ liệu cũ (buoc1..buoc7) -> quy đổi: dieuxe = max(buoc1..3), quyettoan = max(buoc4..6), misa = buoc7.
+ * - Không có -> cấp 1/2/3 mặc định 'all' (giữ hành vi cũ), riêng taikhoan chỉ cấp 1.
+ */
+function tinhQuyenModule(pq, moduleId, cap) {
+  if (cap === 1) return "all";
+  if (pq && _BAC_QUYEN[pq[moduleId]] !== undefined) return pq[moduleId];
+  if (pq) {
+    let cu = null;
+    if (moduleId === "dieuxe") cu = _quyenCaoNhat(pq, ["buoc1", "buoc2", "buoc3"]);
+    else if (moduleId === "quyettoan") cu = _quyenCaoNhat(pq, ["buoc4", "buoc5", "buoc6"]);
+    else if (moduleId === "misa") cu = _quyenCaoNhat(pq, ["buoc7"]);
+    if (cu) return cu;
+  }
+  return moduleId === "taikhoan" ? "none" : "all";
+}
+
+function _docCapVaMaTranHienTai() {
+  let cap = 3, pq = null;
+  try {
+    const profile = JSON.parse(localStorage.getItem("nhan_su_profile") || "{}");
+    cap = parseInt(profile.phan_loai_tk || profile.cap_tai_khoan) || 3;
+  } catch (e) {}
+  try {
+    const raw = localStorage.getItem("userPermissions");
+    if (raw) pq = JSON.parse(raw);
+  } catch (e) {}
+  return { cap: cap, pq: pq };
+}
+
+/**
+ * Kiểm tra quyền của người dùng hiện tại đối với một module
+ * @returns {string} 'all' | 'view' | 'none'
+ */
+function layQuyenModule(moduleKey) {
+  const c = _docCapVaMaTranHienTai();
+  return tinhQuyenModule(c.pq, moduleKey, c.cap);
+}
+
+/** Module tương ứng với trang hiện tại (theo tên file) */
+function layModuleCuaTrang(fileName) {
+  const f = fileName || (window.location.pathname.split("/").pop() || "");
+  const m = MODULE_PHAN_QUYEN.find(function (x) { return x.trang.indexOf(f) !== -1; });
+  return m ? m.id : null;
+}
+
+/** Nạp lại ma trận quyền mới nhất từ Supabase (để thay đổi của quản trị có hiệu lực ngay) */
+async function lamMoiMaTranQuyen(chucVu) {
+  if (!chucVu || typeof sb === "undefined") return;
+  try {
+    const res = await Promise.race([
+      sb.from("phan_quyen_vi_tri").select("cac_quyen").eq("chuc_vu", chucVu).maybeSingle(),
+      new Promise(function (_, rej) { setTimeout(function () { rej(new Error("timeout")); }, 4000); })
+    ]);
+    if (res && res.data && res.data.cac_quyen) {
+      localStorage.setItem("userPermissions", JSON.stringify(res.data.cac_quyen));
+    }
+  } catch (e) { /* giữ bản đã lưu trên máy */ }
+}
+
+/**
+ * CHẾ ĐỘ CHỈ XEM: chặn mọi thao tác ghi (insert/update/upsert/delete) lên Supabase
+ * từ trang hiện tại khi người dùng chỉ có quyền 'view'.
+ */
+window.TMH_CHE_DO_XEM = false;
+(function baoVeGhiSupabase() {
+  if (typeof sb === "undefined" || sb.__tmhGuard) return;
+  sb.__tmhGuard = true;
+  const goc = sb.from.bind(sb);
+  const loi = { message: "Bạn chỉ có quyền XEM ở mục này, không được thêm/sửa/xoá dữ liệu." };
+  function chan() {
+    try { alert("🔒 " + loi.message); } catch (e) {}
+    const p = new Proxy(function () {}, {
+      get: function (_, k) {
+        if (k === "then") return function (ok) { return Promise.resolve({ data: null, error: loi, status: 403 }).then(ok); };
+        if (k === "catch") return function () { return Promise.resolve(); };
+        return function () { return p; };
+      },
+      apply: function () { return p; }
+    });
+    return p;
+  }
+  sb.from = function (table) {
+    const q = goc(table);
+    ["insert", "update", "upsert", "delete"].forEach(function (m) {
+      const fn = q[m];
+      if (typeof fn !== "function") return;
+      q[m] = function () {
+        if (window.TMH_CHE_DO_XEM) return chan();
+        return fn.apply(q, arguments);
+      };
+    });
+    return q;
+  };
+})();

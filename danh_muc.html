@@ -564,7 +564,7 @@
             if (col.id.includes("gia")) {
               displayVal = `<b style="color: var(--primary);">${val.toLocaleString("vi-VN")} đ</b>`;
               if (tabHienTai === "hang_hoa" && Array.isArray(row.lich_su_gia) && row.lich_su_gia.length > 0) {
-                displayVal += ` <span class="badge-tag" style="background:#e6f4ea; color:#137333; font-size:10px; cursor:pointer;" onclick="moModalSua('${encodeURIComponent(valKhoa)}')" title="Xem chi tiết ${row.lich_su_gia.length} lần đổi giá">📈 ${row.lich_su_gia.length} mốc giá</span>`;
+                displayVal += ` <span class="badge-tag" style="background:#e6f4ea; color:#137333; font-size:10px; cursor:pointer;" onclick="moModalSua(${escapeHtml(JSON.stringify(encodeURIComponent(valKhoa)))})" title="Xem chi tiết ${row.lich_su_gia.length} lần đổi giá">📈 ${row.lich_su_gia.length} mốc giá</span>`;
               }
             } else {
               displayVal = `<b>${val}</b>`;
@@ -584,10 +584,10 @@
 
         bodyHtml += `
           <td style="text-align: center; white-space: nowrap;">
-            <button type="button" class="btn btn-outline btn-sm" onclick="moModalSua('${encodeURIComponent(valKhoa)}')">
+            <button type="button" class="btn btn-outline btn-sm" onclick="moModalSua(${escapeHtml(JSON.stringify(encodeURIComponent(valKhoa)))})">
               ✏️ Sửa
             </button>
-            <button type="button" class="btn btn-outline btn-sm" style="color: var(--accent-red); margin-left: 4px;" onclick="xoaBanGhi('${encodeURIComponent(valKhoa)}')">
+            <button type="button" class="btn btn-outline btn-sm" style="color: var(--accent-red); margin-left: 4px;" onclick="xoaBanGhi(${escapeHtml(JSON.stringify(encodeURIComponent(valKhoa)))})">
               🗑️ Xóa
             </button>
           </td>

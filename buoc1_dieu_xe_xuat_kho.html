@@ -1403,8 +1403,8 @@
           d.innerHTML = `
             <span style="font-weight:700;">${ten}</span>
             <div style="display:flex; gap:6px;">
-              <button type="button" class="btn btn-outline btn-sm" onclick="suaMucDanhMuc('${ten}')" style="padding:2px 8px; font-size:11px;">✏️ Sửa</button>
-              <button type="button" class="btn btn-outline btn-sm" onclick="xoaMucDanhMuc('${ten}')" style="padding:2px 8px; font-size:11px; color:#dc2626;">🗑️ Xóa</button>
+              <button type="button" class="btn btn-outline btn-sm" onclick="suaMucDanhMuc(${escapeHtml(JSON.stringify(ten))})" style="padding:2px 8px; font-size:11px;">✏️ Sửa</button>
+              <button type="button" class="btn btn-outline btn-sm" onclick="xoaMucDanhMuc(${escapeHtml(JSON.stringify(ten))})" style="padding:2px 8px; font-size:11px; color:#dc2626;">🗑️ Xóa</button>
             </div>
           `;
           container.appendChild(d);
@@ -1552,22 +1552,22 @@
         item.innerHTML = `
           <div style="flex:1; min-width:0;">
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px; flex-wrap:wrap;">
-              <span style="font-size:14px; font-weight:800; color:var(--text-main);">🚚 ${dot.xe}</span>
+              <span style="font-size:14px; font-weight:800; color:var(--text-main);">🚚 ${escapeHtml(dot.xe)}</span>
               <span style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:700; color:#475569;">📅 ${dot.ngayGiao || dot.ngayRaw || 'Hôm nay'}</span>
               <span style="font-size:11px;">${daQT}</span>
             </div>
             <div style="font-size:12px; color:var(--text-muted); display:flex; gap:12px; flex-wrap:wrap;">
-              <span>👤 Tài xế: <b>${dot.taiXe || 'Chưa rõ'}</b></span>
+              <span>👤 Tài xế: <b>${escapeHtml(dot.taiXe || 'Chưa rõ')}</b></span>
               <span>📦 Số hóa đơn: <b>${soHD} HĐ</b></span>
               <span>💰 Tổng tiền: <b style="color:#16a34a;">${formatTien(tongTien)} đ</b></span>
-              ${dot.nvGiao ? `<span>Lơ xe: ${dot.nvGiao}</span>` : ''}
+              ${dot.nvGiao ? `<span>Lơ xe: ${escapeHtml(dot.nvGiao)}</span>` : ''}
             </div>
           </div>
           <div style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
-            <button type="button" class="btn btn-primary btn-sm" onclick="xemLaiMotChuyenXe('${dot.maDot}')" title="Mở lại biểu mẫu Phiếu xuất kho và Bảng kê thu tiền của chuyến xe này">
+            <button type="button" class="btn btn-primary btn-sm" onclick="xemLaiMotChuyenXe(${escapeHtml(JSON.stringify(dot.maDot))})" title="Mở lại biểu mẫu Phiếu xuất kho và Bảng kê thu tiền của chuyến xe này">
               <span>👁️</span> Xem Biểu Mẫu
             </button>
-            <button type="button" class="btn btn-outline btn-sm" onclick="xoaMotChuyenXeKhoiLichSu('${dot.maDot}')" style="color:#dc2626; border-color:#fca5a5;" title="Xóa chuyến xe này khỏi lịch sử">
+            <button type="button" class="btn btn-outline btn-sm" onclick="xoaMotChuyenXeKhoiLichSu(${escapeHtml(JSON.stringify(dot.maDot))})" style="color:#dc2626; border-color:#fca5a5;" title="Xóa chuyến xe này khỏi lịch sử">
               <span>🗑️</span>
             </button>
           </div>
@@ -2323,12 +2323,12 @@
           : '';
         div.innerHTML = `
           <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:0;">
-            <input type="checkbox" id="chk_${h.maHD}" ${h.chon ? 'checked' : ''} onchange="toggleChonMotHD('${h.maHD}', this.checked)">
-            <label for="chk_${h.maHD}" class="invoice-info" style="cursor:pointer; margin:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-              <b>${h.maHD}</b> ${tagGiaoLai} — ${h.tenKH} <span style="color:#15803d; font-weight:700;">(${formatTien(h.tongTien)} đ)</span>
+            <input type="checkbox" id="chk_${escapeHtml(h.maHD)}" ${h.chon ? 'checked' : ''} onchange="toggleChonMotHD(${escapeHtml(JSON.stringify(h.maHD))}, this.checked)">
+            <label for="chk_${escapeHtml(h.maHD)}" class="invoice-info" style="cursor:pointer; margin:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+              <b>${escapeHtml(h.maHD)}</b> ${tagGiaoLai} — ${escapeHtml(h.tenKH)} <span style="color:#15803d; font-weight:700;">(${formatTien(h.tongTien)} đ)</span>
             </label>
           </div>
-          <button type="button" onclick="xoaMotHoaDon('${h.maHD}')" title="Xóa bỏ hóa đơn này khỏi danh sách" style="border:none; background:transparent; color:#ef4444; font-size:13px; font-weight:bold; cursor:pointer; padding:2px 6px; border-radius:3px; line-height:1;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='transparent'">✕</button>
+          <button type="button" onclick="xoaMotHoaDon(${escapeHtml(JSON.stringify(h.maHD))})" title="Xóa bỏ hóa đơn này khỏi danh sách" style="border:none; background:transparent; color:#ef4444; font-size:13px; font-weight:bold; cursor:pointer; padding:2px 6px; border-radius:3px; line-height:1;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='transparent'">✕</button>
         `;
         container.appendChild(div);
       });
@@ -2597,9 +2597,9 @@
             ${g.maHD}
             ${g.laGiaoLai ? '<span class="tag-giao-lai">🔄 Giao lại</span>' : ''}
           </td>
-          <td>${g.maKH}</td>
-          <td>${g.tenKH}</td>
-          <td>${g.nguoiBan}</td>
+          <td>${escapeHtml(g.maKH)}</td>
+          <td>${escapeHtml(g.tenKH)}</td>
+          <td>${escapeHtml(g.nguoiBan)}</td>
           <td class="cell-num">${formatTien(g.doanhSo)}</td>
           <td class="cell-num">${formatTien(g.giamSP)}</td>
           <td class="cell-num">${formatTien(g.giamHD)}</td>
@@ -2802,7 +2802,7 @@
           <td style="text-align:center;">${stt}</td>
           <td style="font-weight:700;">${item.ma}</td>
           <td>${item.ten}</td>
-          <td class="cell-qc" onclick="suaQuyCachNhanh('${item.ma}', ${item.qc})" title="Bấm để sửa nhanh quy cách">
+          <td class="cell-qc" onclick="suaQuyCachNhanh(${escapeHtml(JSON.stringify(item.ma))}, ${item.qc})" title="Bấm để sửa nhanh quy cách">
             <span style="color:#0284c7; text-decoration:underline; font-weight:bold;">${item.qc}</span> <em>✏️</em>
           </td>
           <td style="text-align:center;">${item.dvt}</td>

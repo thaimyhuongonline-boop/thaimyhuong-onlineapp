@@ -5,9 +5,9 @@
 
 // Danh sách 3 bước quy trình tinh gọn chuyển dữ liệu từ KiotViet sang Quyết Toán & MISA
 const DANH_SACH_7_BUOC = [
-  { id: "buoc1", href: "buoc1_dieu_xe_xuat_kho.html", ic: "📊", label: "1. Điều Xe & Phiếu Xuất Kho", desc: "Nạp Excel KiotViet, ghép bổ sung, chia xe & tạo PXK, DSTT" },
-  { id: "buoc2", href: "buoc2_quyet_toan_thu_tien.html", ic: "💵", label: "2. Quyết Toán Thu Tiền", desc: "Xe về tính tiền: Tiền mặt, CK ngân hàng, hàng trả về & bảng đếm tiền nộp" },
-  { id: "buoc3", href: "buoc3_day_misa.html", ic: "📤", label: "3. Đẩy Dữ Liệu Lên MISA", desc: "Tự động hạch toán nợ/có, kiểm tra & xuất Excel chuẩn MISA" }
+  { id: "buoc1", mod: "dieuxe", href: "buoc1_dieu_xe_xuat_kho.html", ic: "📊", label: "1. Điều Xe & Phiếu Xuất Kho", desc: "Nạp Excel KiotViet, ghép bổ sung, chia xe & tạo PXK, DSTT" },
+  { id: "buoc2", mod: "quyettoan", href: "buoc2_quyet_toan_thu_tien.html", ic: "💵", label: "2. Quyết Toán Thu Tiền", desc: "Xe về tính tiền: Tiền mặt, CK ngân hàng, hàng trả về & bảng đếm tiền nộp" },
+  { id: "buoc3", mod: "misa", href: "buoc3_day_misa.html", ic: "📤", label: "3. Đẩy Dữ Liệu Lên MISA", desc: "Tự động hạch toán nợ/có, kiểm tra & xuất Excel chuẩn MISA" }
 ];
 
 // Danh sách Menu chính trên Sidebar
@@ -40,13 +40,28 @@ async function khoiTaoLayout(options = {}) {
   const nd = await baoVeTrang();
   if (!nd) return null; // Chưa đăng nhập -> baoVeTrang() đã chuyển hướng về index.html
 
+  // 2b. Làm mới ma trận quyền mới nhất từ Supabase rồi kiểm tra quyền truy cập trang
+  await lamMoiMaTranQuyen(nd.chuc_vu);
+  const moduleTrang = layModuleCuaTrang();
+  const quyenTrang = moduleTrang ? layQuyenModule(moduleTrang) : "all";
+  if (quyenTrang === "none") {
+    return chanTruyCapTrang(overlay);
+  }
+  if (quyenTrang === "view") {
+    window.TMH_CHE_DO_XEM = true;
+  }
+
   const tenNguoiDung = nd.ho_ten || "Quý nhân viên";
   const vaiTro = nd.vai_tro || "nhanvien";
   const capDo = nd.cap_tai_khoan || (vaiTro === "admin" ? 1 : 3);
   const tenCap = nd.ten_cap || (capDo === 1 ? "Toàn quyền" : (capDo === 2 ? "Cấp Quản lý" : "Nhân sự"));
   const tenVaiTro = tenCap;
   const chucVu = nd.chuc_vu || "Nhân sự";
-  const userInitials = tenNguoiDung.trim().split(" ").map(w => w[0]).slice(-2).join("").toUpperCase() || "TMH";
+  const userInitials = tenNguoiDung.trim().split(/\s+/).filter(Boolean).map(w => w[0]).slice(-2).join("").toUpperCase() || "TMH";
+  const tenNguoiDungH = escapeHtml(tenNguoiDung);
+  const chucVuH = escapeHtml(chucVu);
+  const tenCapH = escapeHtml(tenCap);
+  const userInitialsH = escapeHtml(userInitials);
 
   // Đọc phân quyền ma trận của người dùng hiện tại
   let userPq = {};
@@ -90,16 +105,17 @@ async function khoiTaoLayout(options = {}) {
       <div class="tmh-sidebar-menu">
         <div class="tmh-menu-cat">Chức năng hệ thống</div>
         ${MENU_CHINH.map(m => {
-          // Cấp 1 (Toàn quyền): Thấy tất cả các menu
-          if (capDo !== 1) {
-            // Kiểm tra theo ma trận phân quyền nếu có cấu hình
-            if (userPq && Object.keys(userPq).length > 0) {
-              const qVal = userPq[m.id];
-              if (qVal === 'none' || qVal === '') return '';
-            } else if (m.roles && !m.roles.includes(vaiTro)) {
-              return '';
-            }
+          // Lọc menu theo ma trận phân quyền (cấp 1 luôn thấy tất cả)
+          const modMenu = m.isProcess ? null : m.id;
+          if (m.isProcess) {
+            if (!DANH_SACH_7_BUOC.some(b => layQuyenModule(b.mod) !== "none")) return "";
+          } else if (layQuyenModule(modMenu) === "none") {
+            return "";
           }
+          const hrefMenu = m.isProcess
+            ? (DANH_SACH_7_BUOC.find(b => layQuyenModule(b.mod) !== "none") || DANH_SACH_7_BUOC[0]).href
+            : m.href;
+
 
           const isActive = m.isProcess ? isProcessPage : (currentPath === m.href || options.activeMenuId === m.id);
 
@@ -108,6 +124,7 @@ async function khoiTaoLayout(options = {}) {
             subMenuHtml = `
               <div class="tmh-submenu-wrap">
                 ${DANH_SACH_7_BUOC.map((b, idx) => {
+                  if (layQuyenModule(b.mod) === "none") return "";
                   const isStepActive = currentPath === b.href || options.activeMenuId === b.id;
                   return `
                     <a href="${b.href}" class="tmh-submenu-item ${isStepActive ? 'active' : ''}" title="${b.desc}">
@@ -121,7 +138,7 @@ async function khoiTaoLayout(options = {}) {
           }
 
           return `
-            <a href="${m.href}" class="tmh-menu-item ${isActive ? 'active' : ''}" title="${m.desc}">
+            <a href="${hrefMenu}" class="tmh-menu-item ${isActive ? 'active' : ''}" title="${m.desc}">
               <span class="tmh-menu-ic">${m.ic}</span>
               <span class="tmh-menu-label">${m.label}</span>
             </a>
@@ -137,10 +154,10 @@ async function khoiTaoLayout(options = {}) {
           <span>Cài đặt ứng dụng</span>
         </button>
         <div class="tmh-sidebar-user">
-          <div class="tmh-user-avatar">${userInitials}</div>
+          <div class="tmh-user-avatar">${userInitialsH}</div>
           <div class="tmh-user-meta">
-            <div class="name" title="${tenNguoiDung}">${tenNguoiDung}</div>
-            <div class="tmh-badge-role" style="font-size:11px;" title="${chucVu}">${chucVu} (${tenCap})</div>
+            <div class="name" title="${tenNguoiDungH}">${tenNguoiDungH}</div>
+            <div class="tmh-badge-role" style="font-size:11px;" title="${chucVuH}">${chucVuH} (${tenCapH})</div>
           </div>
         </div>
       </div>
@@ -218,13 +235,14 @@ async function khoiTaoLayout(options = {}) {
         </div>
         <div class="tmh-stepper-track">
           ${DANH_SACH_7_BUOC.map((b, idx) => {
+                  if (layQuyenModule(b.mod) === "none") return "";
             const isStepActive = currentPath === b.href || options.activeMenuId === b.id || (b.id === 'buoc1' && currentPath === 'buoc2_phieu_xuat_kho.html');
             return `
               <a href="${b.href}" class="tmh-stepper-tab ${isStepActive ? 'active' : ''}" title="${b.desc}">
                 <span class="tmh-stepper-num">${idx + 1}</span>
                 <span>${b.label}</span>
               </a>
-              ${idx < DANH_SACH_7_BUOC.length - 1 ? '<span class="tmh-stepper-arrow">›</span>' : ''}
+              ${DANH_SACH_7_BUOC.slice(idx + 1).some(x => layQuyenModule(x.mod) !== 'none') ? '<span class="tmh-stepper-arrow">›</span>' : ''}
             `;
           }).join('')}
         </div>
@@ -266,6 +284,8 @@ async function khoiTaoLayout(options = {}) {
       targetContent.style.display = "block";
     }
   }
+
+  hienBannerCheDoXem();
 
   // 9. Xử lý Toggle & Collapse Sidebar
   khoiTaoSidebarEvents();
@@ -370,4 +390,41 @@ function khoiTaoSidebarEvents() {
       backdrop.classList.remove("show");
     });
   }
+}
+
+/**
+ * Chặn truy cập trang khi chức vụ không có quyền (mức 'none').
+ * Chuyển về trang đầu tiên được phép; trang gọi sẽ không chạy tiếp (Promise không kết thúc).
+ */
+function chanTruyCapTrang(overlay) {
+  if (overlay) overlay.style.display = "none";
+  const trangDuocPhep = ["trang_chu.html", "buoc1_dieu_xe_xuat_kho.html", "buoc2_quyet_toan_thu_tien.html", "buoc3_day_misa.html", "theo_doi_cong_no.html", "danh_muc.html"]
+    .find(f => layQuyenModule(layModuleCuaTrang(f)) !== "none");
+  const box = document.createElement("div");
+  box.style.cssText = "position:fixed;inset:0;z-index:99999;background:#f0fdf4;display:flex;align-items:center;justify-content:center;font-family:sans-serif;padding:24px;text-align:center;";
+  box.innerHTML = `
+    <div style="max-width:420px;background:#fff;border:1px solid #bbf7d0;border-radius:16px;padding:32px;box-shadow:0 12px 32px rgba(15,23,42,.08);">
+      <div style="font-size:42px;">🔒</div>
+      <h2 style="margin:10px 0 6px;color:#14532d;">Bạn không có quyền truy cập mục này</h2>
+      <p style="color:#64748b;font-size:14px;line-height:1.5;">Chức vụ của bạn chưa được cấp quyền. Vui lòng liên hệ Quản trị viên để được cấp quyền.</p>
+      <div style="margin-top:18px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+        ${trangDuocPhep ? `<a href="${trangDuocPhep}" style="padding:10px 18px;background:#16a34a;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;">Về trang được phép</a>` : ""}
+        <button type="button" onclick="dangXuat()" style="padding:10px 18px;border:1px solid #86efac;background:#f0fdf4;color:#15803d;border-radius:10px;font-weight:700;cursor:pointer;">Đăng xuất</button>
+      </div>
+    </div>`;
+  document.body.appendChild(box);
+  return new Promise(function () {}); // dừng luôn phần khởi tạo còn lại của trang
+}
+
+/** Banner báo chế độ chỉ xem (hiển thị sau khi layout dựng xong) */
+function hienBannerCheDoXem() {
+  if (!window.TMH_CHE_DO_XEM || document.getElementById("tmhBannerXem")) return;
+  const body = document.getElementById("tmhPageBody");
+  if (!body) return;
+  const b = document.createElement("div");
+  b.id = "tmhBannerXem";
+  b.className = "no-print";
+  b.style.cssText = "background:#fef9c3;border:1px solid #fde047;color:#854d0e;padding:10px 14px;border-radius:10px;margin-bottom:12px;font-size:13px;font-weight:700;";
+  b.textContent = "🟡 Bạn chỉ có quyền XEM ở mục này — mọi thao tác thêm / sửa / xoá dữ liệu trên hệ thống sẽ bị chặn.";
+  body.prepend(b);
 }

@@ -332,11 +332,12 @@
 
       if (!ctx) return;
 
-      // 2. Ẩn menu Tài khoản nếu không phải cấp 1 (Toàn quyền)
-      if (ctx.capTaiKhoan !== 1) {
-        const cardTk = document.getElementById("cardQuanLyTaiKhoan");
-        if (cardTk) cardTk.style.display = "none";
-      }
+      // 2. Ẩn các thẻ chức năng mà chức vụ hiện tại không có quyền truy cập
+      document.querySelectorAll(".pipeline-step-card, .support-card").forEach(function (card) {
+        const a = card.querySelector("a[href]");
+        const mod = a ? layModuleCuaTrang(a.getAttribute("href")) : null;
+        if (mod && layQuyenModule(mod) === "none") card.style.display = "none";
+      });
 
       // 3. Tải số liệu thống kê nhanh từ Supabase để người dùng biết tình trạng dữ liệu
       await taiThongKeNhanh();

@@ -577,9 +577,9 @@
             ${laDotDangXem ? '<span style="color:#16a34a; font-size:11px; margin-left:4px;">(Đang xem)</span>' : ''}
           </td>
           <td>${d.ngayGiao || '—'}</td>
-          <td style="font-weight:800; color:var(--primary);">${d.xe || '—'}</td>
-          <td>${d.taiXe || '—'}</td>
-          <td>${d.nvThu || '—'}</td>
+          <td style="font-weight:800; color:var(--primary);">${escapeHtml(d.xe || '—')}</td>
+          <td>${escapeHtml(d.taiXe || '—')}</td>
+          <td>${escapeHtml(d.nvThu || '—')}</td>
           <td class="text-center" style="font-weight:700;">${d.soLuongHD || (d.danhSachHD ? d.danhSachHD.length : 0)}</td>
           <td class="text-right" style="font-weight:700; color:#15803d;">${formatTien(tongTien)} đ</td>
           <td class="text-center" style="font-size:11.5px; color:var(--text-muted);">${tg}</td>
@@ -651,7 +651,7 @@
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td class="text-center" style="width:36px;">
-            <input type="checkbox" class="chk-dong-18cot" value="${r.maHD || ''}" onchange="capNhatTrangThaiNutXoa()" style="cursor:pointer; width:15px; height:15px;">
+            <input type="checkbox" class="chk-dong-18cot" value="${escapeHtml(r.maHD || '')}" onchange="capNhatTrangThaiNutXoa()" style="cursor:pointer; width:15px; height:15px;">
           </td>
           <td class="text-center">${idx + 1}</td>
           <td>${ngayHienThi}</td>
@@ -663,9 +663,9 @@
             ${r.maHD || ''}
             ${r.laGiaoLai ? '<span style="background:#fee2e2; color:#b91c1c; font-size:10px; font-weight:800; padding:1px 5px; border-radius:4px; margin-left:4px;">🔄 Giao lại</span>' : ''}
           </td>
-          <td>${r.tenKH || ''}</td>
-          <td>${r.nguoiBan || ''}</td>
-          <td>${r.maKH || ''}</td>
+          <td>${escapeHtml(r.tenKH || '')}</td>
+          <td>${escapeHtml(r.nguoiBan || '')}</td>
+          <td>${escapeHtml(r.maKH || '')}</td>
           <td class="text-right">${formatTien(dSo)}</td>
           <td class="text-right">${formatTien(gSP)}</td>
           <td class="text-right">${formatTien(gHD)}</td>

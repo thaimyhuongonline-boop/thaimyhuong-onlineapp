@@ -449,6 +449,10 @@
           <button type="button" class="btn btn-primary" style="height:32px; padding:0 12px; font-size:12px; font-weight:700; white-space:nowrap; background:#16a34a; border-color:#15803d;" onclick="moModalThemDonThuCong()">
             <span>➕</span> Thêm Đơn Ngoài Bảng Kê
           </button>
+
+          <button type="button" class="btn btn-outline" style="height:32px; padding:0 12px; font-size:12px; font-weight:700; white-space:nowrap;" onclick="moModalDonDaXoa()" title="Xem nhật ký xoá đơn nợ và hoàn tác">
+            <span>🗑️</span> Đơn Đã Xoá
+          </button>
         </div>
 
         <div style="display:flex; align-items:center; gap:8px;">
@@ -626,6 +630,37 @@
         <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
           <button type="button" class="btn btn-outline" onclick="dongModalThemDonThuCong()">Hủy</button>
           <button type="button" class="btn btn-primary" onclick="luuDonNoThuCong()">💾 Lưu Đơn Nợ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL NHẬT KÝ ĐƠN NỢ ĐÃ XOÁ (XOÁ MỀM) & HOÀN TÁC -->
+  <div id="modalDonDaXoa" class="modal-overlay no-print" style="display:none;" onclick="if(event.target===this) dongModalDonDaXoa()">
+    <div class="modal-card modal-card-large">
+      <div class="modal-header">
+        <div>
+          <div style="font-weight:800; font-size:14px; color:var(--text-main);">🗑️ Nhật Ký Đơn Nợ Đã Xoá</div>
+          <div style="font-size:11.5px; color:var(--text-muted);">Đơn bị xoá mềm trên mọi máy — ghi rõ người xoá, thời điểm, lý do và có thể hoàn tác</div>
+        </div>
+        <button type="button" class="btn btn-outline" style="height:28px; padding:0 8px; font-weight:800;" onclick="dongModalDonDaXoa()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="table-container" style="max-height:420px; overflow-y:auto;">
+          <table class="table-cong-no">
+            <thead>
+              <tr>
+                <th>Mã HĐ</th>
+                <th>Khách hàng</th>
+                <th style="text-align:right;">Còn lại (đ)</th>
+                <th>Lý do xoá</th>
+                <th>Người xoá / Thời điểm</th>
+                <th>Trạng thái</th>
+                <th style="text-align:center;">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="bodyDonDaXoa"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -918,7 +953,7 @@
       const selNH = document.getElementById('modalNganHangNhan');
       if (selNH) {
         selNH.innerHTML = danhMucNganHang.map(n => 
-          `<option value="${n.tenHienThi}" ${n.macDinh ? 'selected' : ''}>${n.tenHienThi}</option>`
+          `<option value="${escapeHtml(n.tenHienThi)}" ${n.macDinh ? 'selected' : ''}>${escapeHtml(n.tenHienThi)}</option>`
         ).join('');
       }
     }
@@ -937,8 +972,12 @@
 
     // Tải và tổng hợp dữ liệu công nợ từ mọi nguồn (Sổ công nợ, Lịch sử đợt giao xe, Supabase)
     async function taiLaiDuLieuCongNo() {
+      await taiNhatKyXoaCloud();
       danhSachCongNo = docSoCongNo();
-      let coThayDoi = false;
+      // Ẩn các đơn đã bị xoá mềm ở bất kỳ máy nào (kể cả bản còn nằm trong sổ trên máy này)
+      const truocLoc = danhSachCongNo.length;
+      danhSachCongNo = danhSachCongNo.filter(d => !idDaXoaCloud.has(d.id));
+      let coThayDoi = danhSachCongNo.length !== truocLoc;
 
       // 1. Quét và đồng bộ thêm từ lịch sử chuyến xe trên máy (tmh_lich_su_dot) nếu có đơn nợ chưa vào sổ
       try {
@@ -1254,10 +1293,10 @@
               <tr>
                 <td style="text-align:center; font-weight:700; color:var(--text-muted);">${i + 1}</td>
                 <td>
-                  <b style="color:var(--text-main); font-size:13px;">${k.tenKH}</b>
-                  ${k.maKH ? `<div style="font-size:11px; color:var(--text-muted);">${k.maKH}</div>` : ''}
+                  <b style="color:var(--text-main); font-size:13px;">${escapeHtml(k.tenKH)}</b>
+                  ${k.maKH ? `<div style="font-size:11px; color:var(--text-muted);">${escapeHtml(k.maKH)}</div>` : ''}
                 </td>
-                <td>${k.nguoiBan || '--'}</td>
+                <td>${escapeHtml(k.nguoiBan || '--')}</td>
                 <td style="text-align:center;">
                   <span class="badge-status" style="background:#f1f5f9; color:#334155; border:1px solid #cbd5e1;">
                     ${k.soDon} đơn
@@ -1276,17 +1315,17 @@
                 <td style="text-align:center;">
                   <div style="display:flex; gap:4px; justify-content:center;">
                     <button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:11px;" 
-                      onclick="moLichSuDonKhachHang('${encodeURIComponent(k.tenKH)}')">
+                      onclick="moLichSuDonKhachHang(${escapeHtml(JSON.stringify(encodeURIComponent(k.tenKH)))})">
                       📜 Lịch sử
                     </button>
                     ${k.tongConLai > 0 ? `
                       <button type="button" class="btn btn-primary" style="height:26px; padding:0 6px; font-size:11px;" 
-                        onclick="moThuNoChoKhachHang('${encodeURIComponent(k.tenKH)}')">
+                        onclick="moThuNoChoKhachHang(${escapeHtml(JSON.stringify(encodeURIComponent(k.tenKH)))})">
                         💰 Thu nợ
                       </button>
                     ` : ''}
                     <button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:11px; color:#2563eb;" 
-                      onclick="inDoiChieuChoKhach('${encodeURIComponent(k.tenKH)}')">
+                      onclick="inDoiChieuChoKhach(${escapeHtml(JSON.stringify(encodeURIComponent(k.tenKH)))})">
                       🖨️ In
                     </button>
                   </div>
@@ -1359,28 +1398,28 @@
               <tr>
                 <td style="text-align:center; font-weight:700; color:var(--text-muted);">${i + 1}</td>
                 <td style="white-space:nowrap;">${d.ngayGiao || d.ngayGhiNo || '--'}</td>
-                <td style="text-align:center;"><b style="font-family:monospace; font-size:12.5px;">${d.maHD}</b></td>
+                <td style="text-align:center;"><b style="font-family:monospace; font-size:12.5px;">${escapeHtml(d.maHD)}</b></td>
                 <td>
-                  <b style="color:var(--text-main);">${d.tenKH}</b>
-                  ${d.maKH ? `<span style="font-size:11px; color:var(--text-muted);"> (${d.maKH})</span>` : ''}
+                  <b style="color:var(--text-main);">${escapeHtml(d.tenKH)}</b>
+                  ${d.maKH ? `<span style="font-size:11px; color:var(--text-muted);"> (${escapeHtml(d.maKH)})</span>` : ''}
                 </td>
-                <td>${d.nguoiBan || '--'}</td>
-                <td>${(d.ngoaiBangKe || d.xe === 'Ngoài bảng kê' || d.maDot === 'NGOAI_BANG_KE') ? `<span class="badge-status" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:11px;">Ngoài bảng kê</span>` : `<b>${d.xe || '--'}</b>`}</td>
-                <td>${d.taiXe || '--'}</td>
+                <td>${escapeHtml(d.nguoiBan || '--')}</td>
+                <td>${(d.ngoaiBangKe || d.xe === 'Ngoài bảng kê' || d.maDot === 'NGOAI_BANG_KE') ? `<span class="badge-status" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:11px;">Ngoài bảng kê</span>` : `<b>${escapeHtml(d.xe || '--')}</b>`}</td>
+                <td>${escapeHtml(d.taiXe || '--')}</td>
                 <td class="num-cell">${formatTien(d.tienHD || 0)}</td>
                 <td class="num-cell" style="color:#b91c1c;">${formatTien(d.soTienNo || 0)}</td>
                 <td class="num-cell" style="color:#16a34a;">${formatTien(daThu)}</td>
                 <td class="num-cell" style="color:#dc2626; font-size:13px; font-weight:800;">${formatTien(conLai)}</td>
                 <td style="text-align:center;">${badge}</td>
-                <td style="font-size:11.5px; color:var(--text-muted);">${d.ghiChuThu || d.ghiChu || '--'}</td>
+                <td style="font-size:11.5px; color:var(--text-muted);">${escapeHtml(d.ghiChuThu || d.ghiChu || '--')}</td>
                 <td style="text-align:center;">
                   <div style="display:flex; gap:3px; justify-content:center; flex-wrap:wrap;">
                     ${conLai > 0 ? `
-                      <button type="button" class="btn btn-primary" style="height:26px; padding:0 6px; font-size:11px;" onclick="moThuNoChoDon('${d.id}')">
+                      <button type="button" class="btn btn-primary" style="height:26px; padding:0 6px; font-size:11px;" onclick="moThuNoChoDon(${escapeHtml(JSON.stringify(d.id))})">
                         💰 Thu nợ
                       </button>
                     ` : `<span style="color:#16a34a; font-weight:700; font-size:11px;">Đã xong</span>`}
-                    <button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:11px; color:#dc2626; border-color:#fca5a5;" onclick="xoaDonNo('${d.id}')" title="Xoá dòng này">
+                    <button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:11px; color:#dc2626; border-color:#fca5a5;" onclick="xoaDonNo(${escapeHtml(JSON.stringify(d.id))})" title="Xoá dòng này">
                       🗑️
                     </button>
                   </div>
@@ -1404,61 +1443,110 @@
     }
 
     // ========================================================
-    // XOÁ ĐƠN NỢ
+    // XOÁ MỀM ĐƠN NỢ (dùng chung mọi máy, có nhật ký & hoàn tác)
+    // --------------------------------------------------------
+    // - Đơn bị xoá được ghi vào bảng Supabase `cong_no_da_xoa` (kèm bản chụp đầy đủ,
+    //   người xoá, thời điểm, lý do). Bảng gốc `luu_tru` KHÔNG bị sửa.
+    // - Mọi máy đều đọc bảng này để ẩn đơn đã xoá => không còn lệch giữa các máy.
+    // - Hoàn tác = đánh dấu da_hoan_tac = TRUE và trả đơn về sổ.
     // ========================================================
 
-    // Lấy danh sách ID đã xoá (blacklist) từ localStorage
+    let idDaXoaCloud = new Set();   // các id đang bị xoá mềm (chưa hoàn tác)
+    let nhatKyXoaCloud = [];        // toàn bộ nhật ký xoá (mới nhất trước)
+
+    // Danh sách id bị ẩn: dữ liệu đám mây + danh sách cũ còn lại trên máy (chỉ đọc, để tương thích)
     function docDsIdDaXoa() {
-      try { return JSON.parse(localStorage.getItem('tmh_cong_no_da_xoa') || '[]'); } catch(e) { return []; }
-    }
-    function ghiDsIdDaXoa(ds) {
-      localStorage.setItem('tmh_cong_no_da_xoa', JSON.stringify(ds));
-    }
-    function themVaoBlacklist(id) {
-      const ds = docDsIdDaXoa();
-      if (!ds.includes(id)) { ds.push(id); ghiDsIdDaXoa(ds); }
+      let cu = [];
+      try { cu = JSON.parse(localStorage.getItem('tmh_cong_no_da_xoa') || '[]'); } catch (e) { cu = []; }
+      return Array.from(idDaXoaCloud).concat(cu);
     }
 
-    function xoaDonNo(id) {
+    async function taiNhatKyXoaCloud() {
+      if (typeof sb === 'undefined') return { ok: false, error: { message: 'Chưa kết nối Supabase' } };
+      try {
+        const { data, error } = await sb.from('cong_no_da_xoa').select('*').order('xoa_luc', { ascending: false });
+        if (error) {
+          console.warn('Không đọc được bảng cong_no_da_xoa (đã chạy sql/06_cong_no_xoa_mem.sql chưa?):', error);
+          return { ok: false, error };
+        }
+        nhatKyXoaCloud = data || [];
+        idDaXoaCloud = new Set(nhatKyXoaCloud.filter(r => !r.da_hoan_tac).map(r => r.id));
+        return { ok: true };
+      } catch (e) {
+        console.warn('Lỗi đọc nhật ký xoá:', e);
+        return { ok: false, error: e };
+      }
+    }
+
+    function layNguoiThaoTac() {
+      try {
+        const p = JSON.parse(localStorage.getItem('nhan_su_profile') || '{}');
+        const ten = p.ho_ten || 'Không rõ';
+        return p.so_dien_thoai ? `${ten} (${p.so_dien_thoai})` : ten;
+      } catch (e) { return 'Không rõ'; }
+    }
+
+    function chanNeuChiXem() {
+      if (window.TMH_CHE_DO_XEM) {
+        alert('🔒 Bạn chỉ có quyền XEM ở mục Công nợ, không được thêm/sửa/xoá dữ liệu.');
+        return true;
+      }
+      return false;
+    }
+
+    // Xoá mềm: ghi nhật ký lên Supabase TRƯỚC, thành công mới ẩn khỏi sổ. Trả về true nếu đã xoá.
+    async function thucHienXoaMemDonNo(id) {
+      if (chanNeuChiXem()) return false;
       const idx = danhSachCongNo.findIndex(d => d.id === id);
-      if (idx === -1) { alert('Không tìm thấy đơn nợ.'); return; }
+      if (idx === -1) { alert('Không tìm thấy đơn nợ.'); return false; }
       const don = danhSachCongNo[idx];
-      const msg = `⚠️ Bạn có chắc muốn XOÁ đơn nợ này không?\n\nMã HĐ: ${don.maHD}\nKhách: ${don.tenKH}\nTiền nợ: ${formatTien(don.soTienNo || 0)} đ\n\nThao tác này KHÔNG THỂ hoàn tác!`;
-      if (!confirm(msg)) return;
+      const conLai = don.conLai !== undefined ? don.conLai : (don.soTienNo || 0);
 
-      // Xoá khỏi bộ nhớ và localStorage
-      danhSachCongNo.splice(idx, 1);
+      if (!confirm(`⚠️ XOÁ đơn nợ này?\n\nMã HĐ: ${don.maHD}\nKhách: ${don.tenKH}\nTiền nợ: ${formatTien(don.soTienNo || 0)} đ\nCòn lại: ${formatTien(conLai)} đ\n\nĐơn sẽ được ẩn khỏi sổ trên MỌI máy, có ghi nhật ký và có thể hoàn tác trong mục "Đơn đã xoá".`)) return false;
+
+      const lyDo = (prompt('Nhập LÝ DO xoá đơn nợ (bắt buộc):') || '').trim();
+      if (!lyDo) { alert('⚠️ Chưa nhập lý do nên không xoá đơn nợ.'); return false; }
+
+      const { error } = await sb.from('cong_no_da_xoa').upsert({
+        id: don.id,
+        ma_hd: don.maHD || '',
+        ma_kh: don.maKH || '',
+        ten_kh: don.tenKH || '',
+        so_tien_no: don.soTienNo || 0,
+        da_thu: don.daThu || 0,
+        con_lai: conLai,
+        du_lieu_goc: don,
+        ly_do: lyDo,
+        nguoi_xoa: layNguoiThaoTac(),
+        xoa_luc: new Date().toISOString(),
+        da_hoan_tac: false,
+        nguoi_hoan_tac: null,
+        hoan_tac_luc: null
+      }, { onConflict: 'id' });
+
+      if (error) {
+        console.error('Lỗi xoá mềm đơn nợ:', error);
+        alert('❌ KHÔNG xoá được đơn nợ (chưa ghi được nhật ký lên máy chủ).\n\nChi tiết: ' + (error.message || JSON.stringify(error)) +
+          '\n\nNếu báo thiếu bảng "cong_no_da_xoa", hãy chạy file sql/06_cong_no_xoa_mem.sql trong Supabase SQL Editor.');
+        return false;
+      }
+
+      idDaXoaCloud.add(don.id);
+      const viTri = danhSachCongNo.findIndex(d => d.id === id);
+      if (viTri !== -1) danhSachCongNo.splice(viTri, 1);
       ghiSoCongNo(danhSachCongNo);
-      themVaoBlacklist(id);
       capNhatKPI();
       capNhatDropdownKhachHang();
       veBangCongNo();
-
-      // Đồng bộ Supabase: đặt no_phat_sinh = 0 trong bảng luu_tru (không xóa bản ghi gốc)
-      if (typeof sb !== 'undefined') {
-        const maHD = don.maHD || '';
-        if (maHD) {
-          sb.from('luu_tru').update({ no_phat_sinh: 0 }).eq('ma_hd', maHD)
-            .then(({ error }) => { if (error) console.warn('SB update error:', error); });
-        }
-      }
-      alert('✅ Đã xoá đơn nợ thành công!');
+      return true;
     }
 
-    function xoaDonNoTrongModal(id, tenKHRaw) {
-      const idx = danhSachCongNo.findIndex(d => d.id === id);
-      if (idx === -1) { alert('Không tìm thấy đơn nợ.'); return; }
-      const don = danhSachCongNo[idx];
-      const msg = `⚠️ Bạn có chắc muốn XOÁ đơn nợ này không?\n\nMã HĐ: ${don.maHD}\nKhách: ${don.tenKH}\nTiền nợ: ${formatTien(don.soTienNo || 0)} đ\n\nThao tác này KHÔNG THỂ hoàn tác!`;
-      if (!confirm(msg)) return;
+    async function xoaDonNo(id) {
+      if (await thucHienXoaMemDonNo(id)) alert('✅ Đã xoá đơn nợ (xoá mềm, có thể hoàn tác trong mục "Đơn đã xoá").');
+    }
 
-      danhSachCongNo.splice(idx, 1);
-      ghiSoCongNo(danhSachCongNo);
-      themVaoBlacklist(id);
-      capNhatKPI();
-      capNhatDropdownKhachHang();
-
-      // Re-render hoặc đóng modal
+    async function xoaDonNoTrongModal(id, tenKHRaw) {
+      if (!(await thucHienXoaMemDonNo(id))) return;
       const tenKH = decodeURIComponent(tenKHRaw);
       const conLai = danhSachCongNo.filter(d => (d.tenKH || '').trim() === tenKH);
       if (conLai.length > 0) {
@@ -1466,17 +1554,84 @@
       } else {
         dongModalLichSu();
       }
-      veBangCongNo();
+      alert('✅ Đã xoá đơn nợ (xoá mềm, có thể hoàn tác trong mục "Đơn đã xoá").');
+    }
 
-      // Đồng bộ Supabase: đặt no_phat_sinh = 0
-      if (typeof sb !== 'undefined') {
-        const maHD = don.maHD || '';
-        if (maHD) {
-          sb.from('luu_tru').update({ no_phat_sinh: 0 }).eq('ma_hd', maHD)
-            .then(({ error }) => { if (error) console.warn('SB update error:', error); });
-        }
+    // ---- Nhật ký xoá & hoàn tác ----
+    async function moModalDonDaXoa() {
+      document.getElementById('modalDonDaXoa').style.display = 'flex';
+      document.getElementById('bodyDonDaXoa').innerHTML = '<tr><td colspan="7" style="text-align:center; padding:18px;">⏳ Đang tải nhật ký…</td></tr>';
+      const r = await taiNhatKyXoaCloud();
+      if (!r.ok) {
+        document.getElementById('bodyDonDaXoa').innerHTML = `<tr><td colspan="7" style="text-align:center; padding:18px; color:#b91c1c;">❌ Không đọc được nhật ký: ${escapeHtml((r.error && r.error.message) || 'lỗi không rõ')}<br>Hãy chạy sql/06_cong_no_xoa_mem.sql trong Supabase.</td></tr>`;
+        return;
       }
-      alert('✅ Đã xoá đơn nợ thành công!');
+      veBangDonDaXoa();
+    }
+
+    function dongModalDonDaXoa() {
+      document.getElementById('modalDonDaXoa').style.display = 'none';
+    }
+
+    function veBangDonDaXoa() {
+      const body = document.getElementById('bodyDonDaXoa');
+      if (!nhatKyXoaCloud.length) {
+        body.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:18px; color:var(--text-muted);">Chưa có đơn nợ nào bị xoá.</td></tr>';
+        return;
+      }
+      body.innerHTML = nhatKyXoaCloud.map(r => {
+        const tg = r.xoa_luc ? new Date(r.xoa_luc).toLocaleString('vi-VN') : '--';
+        const trangThai = r.da_hoan_tac
+          ? `<span style="color:#16a34a; font-weight:700;">↩️ Đã hoàn tác</span><div style="font-size:10.5px; color:var(--text-muted);">${escapeHtml(r.nguoi_hoan_tac || '')} ${r.hoan_tac_luc ? '· ' + escapeHtml(new Date(r.hoan_tac_luc).toLocaleString('vi-VN')) : ''}</div>`
+          : `<span style="color:#b91c1c; font-weight:700;">🗑️ Đang bị xoá</span>`;
+        const nut = r.da_hoan_tac ? '' :
+          `<button type="button" class="btn btn-outline" style="height:24px; padding:0 8px; font-size:11px;" onclick="hoanTacXoaDonNo(${escapeHtml(JSON.stringify(r.id))})">↩️ Hoàn tác</button>`;
+        return `
+          <tr>
+            <td>${escapeHtml(r.ma_hd)}</td>
+            <td>${escapeHtml(r.ten_kh)}</td>
+            <td class="num-cell">${formatTien(r.con_lai || 0)}</td>
+            <td>${escapeHtml(r.ly_do)}</td>
+            <td>${escapeHtml(r.nguoi_xoa)}<div style="font-size:10.5px; color:var(--text-muted);">${escapeHtml(tg)}</div></td>
+            <td>${trangThai}</td>
+            <td style="text-align:center;">${nut}</td>
+          </tr>`;
+      }).join('');
+    }
+
+    async function hoanTacXoaDonNo(id) {
+      if (chanNeuChiXem()) return;
+      const r = nhatKyXoaCloud.find(x => x.id === id);
+      if (!r || r.da_hoan_tac) return;
+      if (!confirm(`Hoàn tác việc xoá đơn nợ ${r.ma_hd} của khách "${r.ten_kh}" (còn lại ${formatTien(r.con_lai || 0)} đ)?`)) return;
+
+      const { error } = await sb.from('cong_no_da_xoa').update({
+        da_hoan_tac: true,
+        nguoi_hoan_tac: layNguoiThaoTac(),
+        hoan_tac_luc: new Date().toISOString()
+      }).eq('id', id);
+
+      if (error) {
+        console.error('Lỗi hoàn tác:', error);
+        alert('❌ Không hoàn tác được: ' + (error.message || JSON.stringify(error)));
+        return;
+      }
+
+      // Trả đơn về sổ trên máy này (các máy khác sẽ nhận lại khi tải lại dữ liệu)
+      idDaXoaCloud.delete(id);
+      r.da_hoan_tac = true;
+      r.nguoi_hoan_tac = layNguoiThaoTac();
+      r.hoan_tac_luc = new Date().toISOString();
+      const goc = r.du_lieu_goc;
+      if (goc && goc.id && !danhSachCongNo.some(d => d.id === goc.id)) {
+        danhSachCongNo.push(goc);
+        ghiSoCongNo(danhSachCongNo);
+      }
+      capNhatKPI();
+      capNhatDropdownKhachHang();
+      veBangCongNo();
+      veBangDonDaXoa();
+      alert('✅ Đã hoàn tác, đơn nợ đã trở lại sổ công nợ.');
     }
 
     // ========================================================
@@ -1508,23 +1663,23 @@
           <tr>
             <td style="text-align:center; font-weight:700; color:var(--text-muted);">${i + 1}</td>
             <td>${d.ngayGiao || d.ngayGhiNo || '--'}</td>
-            <td style="text-align:center; font-family:monospace; font-weight:700;">${d.maHD}</td>
+            <td style="text-align:center; font-family:monospace; font-weight:700;">${escapeHtml(d.maHD)}</td>
             <td>${(d.ngoaiBangKe || d.xe === 'Ngoài bảng kê' || d.maDot === 'NGOAI_BANG_KE') ? `<span class="badge-status" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:10.5px;">Ngoài bảng kê</span>` : (d.xe || '--')}</td>
-            <td>${d.taiXe || '--'}</td>
+            <td>${escapeHtml(d.taiXe || '--')}</td>
             <td class="num-cell">${formatTien(d.tienHD || 0)}</td>
             <td class="num-cell" style="color:#b91c1c;">${formatTien(d.soTienNo || 0)}</td>
             <td class="num-cell" style="color:#16a34a;">${formatTien(daThu)}</td>
             <td class="num-cell" style="color:#dc2626; font-weight:800;">${formatTien(cl)}</td>
             <td style="text-align:center;">${badge}</td>
-            <td style="font-size:11px; color:var(--text-muted);">${d.ghiChuThu || d.ghiChu || '--'}</td>
+            <td style="font-size:11px; color:var(--text-muted);">${escapeHtml(d.ghiChuThu || d.ghiChu || '--')}</td>
             <td style="text-align:center;">
               <div style="display:flex; gap:3px; justify-content:center;">
                 ${cl > 0 ? `
-                  <button type="button" class="btn btn-primary" style="height:24px; padding:0 6px; font-size:10.5px;" onclick="dongModalLichSu(); moThuNoChoDon('${d.id}')">
+                  <button type="button" class="btn btn-primary" style="height:24px; padding:0 6px; font-size:10.5px;" onclick="dongModalLichSu(); moThuNoChoDon(${escapeHtml(JSON.stringify(d.id))})">
                     Thu nợ
                   </button>
                 ` : `<span title="Đã thu đủ">✅</span>`}
-                <button type="button" class="btn btn-outline" style="height:24px; padding:0 5px; font-size:10.5px; color:#dc2626; border-color:#fca5a5;" onclick="xoaDonNoTrongModal('${d.id}', '${encodeURIComponent(d.tenKH || '')}')" title="Xoá dòng này">
+                <button type="button" class="btn btn-outline" style="height:24px; padding:0 5px; font-size:10.5px; color:#dc2626; border-color:#fca5a5;" onclick="xoaDonNoTrongModal(${escapeHtml(JSON.stringify(d.id))}, ${escapeHtml(JSON.stringify(encodeURIComponent(d.tenKH || '')))})" title="Xoá dòng này">
                   🗑️
                 </button>
               </div>
@@ -1629,6 +1784,7 @@
     }
 
     function luuDonNoThuCong() {
+      if (chanNeuChiXem()) return;
       const tenKH = (document.getElementById('themTenKH')?.value || '').trim();
       if (!tenKH) {
         alert("⚠️ Vui lòng nhập Tên Khách Hàng!");
@@ -1781,6 +1937,7 @@
     }
 
     function luuThuNoTaiQuy() {
+      if (chanNeuChiXem()) return;
       const id = document.getElementById('modalSelDonNo').value;
       if (!id) {
         alert("⚠️ Vui lòng chọn một đơn nợ cần thu!");
@@ -1892,7 +2049,7 @@
           <tr>
             <td style="text-align: center;">${i + 1}</td>
             <td style="text-align: center;">${d.ngayGiao || d.ngayGhiNo || '--'}</td>
-            <td style="text-align: center; font-weight: bold; font-family: monospace;">${d.maHD}</td>
+            <td style="text-align: center; font-weight: bold; font-family: monospace;">${escapeHtml(d.maHD)}</td>
             <td>${d.xe ? d.xe + (d.taiXe ? ' (' + d.taiXe + ')' : '') : '--'}</td>
             <td style="text-align: right;">${formatTien(d.tienHD || 0)}</td>
             <td style="text-align: right; color: #b91c1c; font-weight: bold;">${formatTien(d.soTienNo || 0)}</td>

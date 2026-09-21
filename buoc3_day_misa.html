@@ -591,11 +591,11 @@
           <td>${r.ngayHT}</td>
           <td>${r.ngayCT}</td>
           <td><b>${r.soCT}</b></td>
-          <td><b>${r.maKH}</b></td>
-          <td>${r.tenKH}</td>
-          <td style="font-size:11px; color:var(--text-muted);">${r.dienGiai}</td>
-          <td><b>${r.maHang}</b></td>
-          <td>${r.tenHang}</td>
+          <td><b>${escapeHtml(r.maKH)}</b></td>
+          <td>${escapeHtml(r.tenKH)}</td>
+          <td style="font-size:11px; color:var(--text-muted);">${escapeHtml(r.dienGiai)}</td>
+          <td><b>${escapeHtml(r.maHang)}</b></td>
+          <td>${escapeHtml(r.tenHang)}</td>
           <td style="text-align:center;">${r.dvt}</td>
           <td style="text-align:right; font-weight:700;">${formatTien(r.soLuong)}</td>
           <td style="text-align:right;">${formatTien(r.donGia)}</td>
