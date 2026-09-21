@@ -951,6 +951,9 @@
               const maHD = h.maHD || h.ma_hd || '';
               if (!maHD) return;
               const idNo = `NO_${maHD}`;
+              // Bỏ qua nếu đã xóa thủ công
+              const dsIdDaXoa = docDsIdDaXoa();
+              if (dsIdDaXoa.includes(idNo)) return;
               const idx = danhSachCongNo.findIndex(d => d.id === idNo || d.maHD === maHD);
               if (idx === -1) {
                 danhSachCongNo.push({
@@ -1001,6 +1004,9 @@
           if (!error && Array.isArray(data)) {
             data.forEach(r => {
               const idNo = `NO_${r.ma_hd}`;
+              // Bỏ qua nếu đã xóa thủ công
+              const dsIdDaXoa = docDsIdDaXoa();
+              if (dsIdDaXoa.includes(idNo)) return;
               const idx = danhSachCongNo.findIndex(d => d.id === idNo || d.maHD === r.ma_hd);
               if (idx === -1) {
                 danhSachCongNo.push({
@@ -1400,20 +1406,41 @@
     // ========================================================
     // XOÁ ĐƠN NỢ
     // ========================================================
+
+    // Lấy danh sách ID đã xoá (blacklist) từ localStorage
+    function docDsIdDaXoa() {
+      try { return JSON.parse(localStorage.getItem('tmh_cong_no_da_xoa') || '[]'); } catch(e) { return []; }
+    }
+    function ghiDsIdDaXoa(ds) {
+      localStorage.setItem('tmh_cong_no_da_xoa', JSON.stringify(ds));
+    }
+    function themVaoBlacklist(id) {
+      const ds = docDsIdDaXoa();
+      if (!ds.includes(id)) { ds.push(id); ghiDsIdDaXoa(ds); }
+    }
+
     function xoaDonNo(id) {
       const idx = danhSachCongNo.findIndex(d => d.id === id);
       if (idx === -1) { alert('Không tìm thấy đơn nợ.'); return; }
       const don = danhSachCongNo[idx];
       const msg = `⚠️ Bạn có chắc muốn XOÁ đơn nợ này không?\n\nMã HĐ: ${don.maHD}\nKhách: ${don.tenKH}\nTiền nợ: ${formatTien(don.soTienNo || 0)} đ\n\nThao tác này KHÔNG THỂ hoàn tác!`;
       if (!confirm(msg)) return;
+
+      // Xoá khỏi bộ nhớ và localStorage
       danhSachCongNo.splice(idx, 1);
-      luuCongNoVaCapNhatKPI();
+      ghiSoCongNo(danhSachCongNo);
+      themVaoBlacklist(id);
+      capNhatKPI();
+      capNhatDropdownKhachHang();
       veBangCongNo();
-      // Đồng bộ Supabase nếu có
-      if (typeof supabase !== 'undefined') {
-        supabase.from('theo_doi_cong_no').delete().eq('id', id).then(({error}) => {
-          if (error) console.warn('Supabase delete error:', error);
-        });
+
+      // Đồng bộ Supabase: đặt no_phat_sinh = 0 trong bảng luu_tru (không xóa bản ghi gốc)
+      if (typeof sb !== 'undefined') {
+        const maHD = don.maHD || '';
+        if (maHD) {
+          sb.from('luu_tru').update({ no_phat_sinh: 0 }).eq('ma_hd', maHD)
+            .then(({ error }) => { if (error) console.warn('SB update error:', error); });
+        }
       }
       alert('✅ Đã xoá đơn nợ thành công!');
     }
@@ -1424,23 +1451,30 @@
       const don = danhSachCongNo[idx];
       const msg = `⚠️ Bạn có chắc muốn XOÁ đơn nợ này không?\n\nMã HĐ: ${don.maHD}\nKhách: ${don.tenKH}\nTiền nợ: ${formatTien(don.soTienNo || 0)} đ\n\nThao tác này KHÔNG THỂ hoàn tác!`;
       if (!confirm(msg)) return;
+
       danhSachCongNo.splice(idx, 1);
-      luuCongNoVaCapNhatKPI();
-      // Nếu modal vẫn đang mở, re-render lại modal
+      ghiSoCongNo(danhSachCongNo);
+      themVaoBlacklist(id);
+      capNhatKPI();
+      capNhatDropdownKhachHang();
+
+      // Re-render hoặc đóng modal
       const tenKH = decodeURIComponent(tenKHRaw);
       const conLai = danhSachCongNo.filter(d => (d.tenKH || '').trim() === tenKH);
       if (conLai.length > 0) {
         moLichSuDonKhachHang(tenKHRaw);
       } else {
-        // Không còn đơn nào của khách → đóng modal
         dongModalLichSu();
       }
       veBangCongNo();
-      // Đồng bộ Supabase nếu có
-      if (typeof supabase !== 'undefined') {
-        supabase.from('theo_doi_cong_no').delete().eq('id', id).then(({error}) => {
-          if (error) console.warn('Supabase delete error:', error);
-        });
+
+      // Đồng bộ Supabase: đặt no_phat_sinh = 0
+      if (typeof sb !== 'undefined') {
+        const maHD = don.maHD || '';
+        if (maHD) {
+          sb.from('luu_tru').update({ no_phat_sinh: 0 }).eq('ma_hd', maHD)
+            .then(({ error }) => { if (error) console.warn('SB update error:', error); });
+        }
       }
       alert('✅ Đã xoá đơn nợ thành công!');
     }
