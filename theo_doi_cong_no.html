@@ -1368,11 +1368,16 @@
                 <td style="text-align:center;">${badge}</td>
                 <td style="font-size:11.5px; color:var(--text-muted);">${d.ghiChuThu || d.ghiChu || '--'}</td>
                 <td style="text-align:center;">
-                  ${conLai > 0 ? `
-                    <button type="button" class="btn btn-primary" style="height:26px; padding:0 8px; font-size:11px;" onclick="moThuNoChoDon('${d.id}')">
-                      💰 Thu nợ
+                  <div style="display:flex; gap:3px; justify-content:center; flex-wrap:wrap;">
+                    ${conLai > 0 ? `
+                      <button type="button" class="btn btn-primary" style="height:26px; padding:0 6px; font-size:11px;" onclick="moThuNoChoDon('${d.id}')">
+                        💰 Thu nợ
+                      </button>
+                    ` : `<span style="color:#16a34a; font-weight:700; font-size:11px;">Đã xong</span>`}
+                    <button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:11px; color:#dc2626; border-color:#fca5a5;" onclick="xoaDonNo('${d.id}')" title="Xoá dòng này">
+                      🗑️
                     </button>
-                  ` : `<span style="color:#16a34a; font-weight:700; font-size:11px;">Đã xong</span>`}
+                  </div>
                 </td>
               </tr>
             `;
@@ -1390,6 +1395,54 @@
           </tr>
         `;
       }
+    }
+
+    // ========================================================
+    // XOÁ ĐƠN NỢ
+    // ========================================================
+    function xoaDonNo(id) {
+      const idx = danhSachCongNo.findIndex(d => d.id === id);
+      if (idx === -1) { alert('Không tìm thấy đơn nợ.'); return; }
+      const don = danhSachCongNo[idx];
+      const msg = `⚠️ Bạn có chắc muốn XOÁ đơn nợ này không?\n\nMã HĐ: ${don.maHD}\nKhách: ${don.tenKH}\nTiền nợ: ${formatTien(don.soTienNo || 0)} đ\n\nThao tác này KHÔNG THỂ hoàn tác!`;
+      if (!confirm(msg)) return;
+      danhSachCongNo.splice(idx, 1);
+      luuCongNoVaCapNhatKPI();
+      veBangCongNo();
+      // Đồng bộ Supabase nếu có
+      if (typeof supabase !== 'undefined') {
+        supabase.from('theo_doi_cong_no').delete().eq('id', id).then(({error}) => {
+          if (error) console.warn('Supabase delete error:', error);
+        });
+      }
+      alert('✅ Đã xoá đơn nợ thành công!');
+    }
+
+    function xoaDonNoTrongModal(id, tenKHRaw) {
+      const idx = danhSachCongNo.findIndex(d => d.id === id);
+      if (idx === -1) { alert('Không tìm thấy đơn nợ.'); return; }
+      const don = danhSachCongNo[idx];
+      const msg = `⚠️ Bạn có chắc muốn XOÁ đơn nợ này không?\n\nMã HĐ: ${don.maHD}\nKhách: ${don.tenKH}\nTiền nợ: ${formatTien(don.soTienNo || 0)} đ\n\nThao tác này KHÔNG THỂ hoàn tác!`;
+      if (!confirm(msg)) return;
+      danhSachCongNo.splice(idx, 1);
+      luuCongNoVaCapNhatKPI();
+      // Nếu modal vẫn đang mở, re-render lại modal
+      const tenKH = decodeURIComponent(tenKHRaw);
+      const conLai = danhSachCongNo.filter(d => (d.tenKH || '').trim() === tenKH);
+      if (conLai.length > 0) {
+        moLichSuDonKhachHang(tenKHRaw);
+      } else {
+        // Không còn đơn nào của khách → đóng modal
+        dongModalLichSu();
+      }
+      veBangCongNo();
+      // Đồng bộ Supabase nếu có
+      if (typeof supabase !== 'undefined') {
+        supabase.from('theo_doi_cong_no').delete().eq('id', id).then(({error}) => {
+          if (error) console.warn('Supabase delete error:', error);
+        });
+      }
+      alert('✅ Đã xoá đơn nợ thành công!');
     }
 
     // ========================================================
@@ -1431,11 +1484,16 @@
             <td style="text-align:center;">${badge}</td>
             <td style="font-size:11px; color:var(--text-muted);">${d.ghiChuThu || d.ghiChu || '--'}</td>
             <td style="text-align:center;">
-              ${cl > 0 ? `
-                <button type="button" class="btn btn-primary" style="height:24px; padding:0 6px; font-size:10.5px;" onclick="dongModalLichSu(); moThuNoChoDon('${d.id}')">
-                  Thu nợ
+              <div style="display:flex; gap:3px; justify-content:center;">
+                ${cl > 0 ? `
+                  <button type="button" class="btn btn-primary" style="height:24px; padding:0 6px; font-size:10.5px;" onclick="dongModalLichSu(); moThuNoChoDon('${d.id}')">
+                    Thu nợ
+                  </button>
+                ` : `<span title="Đã thu đủ">✅</span>`}
+                <button type="button" class="btn btn-outline" style="height:24px; padding:0 5px; font-size:10.5px; color:#dc2626; border-color:#fca5a5;" onclick="xoaDonNoTrongModal('${d.id}', '${encodeURIComponent(d.tenKH || '')}')" title="Xoá dòng này">
+                  🗑️
                 </button>
-              ` : `✅`}
+              </div>
             </td>
           </tr>
         `;
