@@ -987,6 +987,16 @@
     let thuNoNgayCloudMap = new Map();   // id đơn nợ -> ngày thanh toán gần nhất (YYYY-MM-DD, từ Supabase)
     let dangTaiCongNo = false;
 
+    // Bảng thu_no chưa được tạo trên Supabase (chưa chạy sql/07_thu_no_dong_bo.sql)?
+    // Nếu đúng, tạm thời KHÔNG chặn nghiệp vụ thu nợ — quay về lưu cục bộ như trước
+    // đây (không có chống thu trùng) thay vì làm gián đoạn hoàn toàn việc thu tiền.
+    let banThuNoChuaSanSang = false;
+    function laLoiThieuBangThuNo(err) {
+      if (!err) return false;
+      const msg = (err.message || err.details || err.hint || '').toString();
+      return err.code === 'PGRST205' || /Could not find the table/i.test(msg) || /public\.thu_no/i.test(msg);
+    }
+
     async function taiTongHopThuNoCloud() {
       thuNoCloudMap = new Map();
       thuNoNgayCloudMap = new Map();
@@ -994,6 +1004,7 @@
       try {
         const { data, error } = await sb.from('thu_no').select('id_don_no, so_tien, ngay_thu').not('id_don_no', 'is', null);
         if (error) {
+          if (laLoiThieuBangThuNo(error)) banThuNoChuaSanSang = true;
           console.warn('Không đọc được bảng thu_no (đã chạy sql/07_thu_no_dong_bo.sql chưa?):', error);
           return;
         }
@@ -2081,12 +2092,15 @@
       }
 
       // CHỐNG THU TRÙNG: kiểm tra lại số dư MỚI NHẤT trên Supabase ngay trước khi lưu,
-      // đề phòng người khác vừa thu đơn nợ này ở máy khác trong lúc form đang mở
+      // đề phòng người khác vừa thu đơn nợ này ở máy khác trong lúc form đang mở.
+      // Nếu bảng thu_no chưa được tạo trên Supabase (chưa chạy sql/07_thu_no_dong_bo.sql)
+      // thì KHÔNG chặn nghiệp vụ — tạm quay về lưu cục bộ như trước đây.
       const btnLuu = document.querySelector('#modalThuNoTaiQuy .btn-primary');
       if (btnLuu) btnLuu.disabled = true;
       let clMoiNhat;
+      let dongBoDuocCloud = true;
       try {
-        if (typeof sb !== 'undefined') {
+        if (typeof sb !== 'undefined' && !banThuNoChuaSanSang) {
           const { data, error } = await sb.from('thu_no').select('so_tien').eq('id_don_no', id);
           if (error) throw error;
           const daThuCloudMoiNhat = (data || []).reduce((s, r) => s + parseFloat(r.so_tien || 0), 0);
@@ -2095,12 +2109,20 @@
           don.daThu = daThuMoiNhat; // cập nhật ngay để hiển thị đúng nếu phải dừng lại
         } else {
           clMoiNhat = (don.conLai !== undefined) ? don.conLai : Math.max(0, (don.soTienNo || 0) - (don.daThu || 0));
+          dongBoDuocCloud = false;
         }
       } catch (e) {
-        console.error('Lỗi kiểm tra số dư mới nhất trước khi thu nợ:', e);
-        alert('❌ Không kiểm tra được số dư mới nhất từ máy chủ, vui lòng thử lại: ' + (e.message || String(e)));
-        if (btnLuu) btnLuu.disabled = false;
-        return;
+        if (laLoiThieuBangThuNo(e)) {
+          banThuNoChuaSanSang = true;
+          console.warn('⚠️ Bảng thu_no chưa được tạo trên Supabase — tạm thời lưu cục bộ (chưa chống được thu trùng). Hãy chạy sql/07_thu_no_dong_bo.sql trên Supabase để bật lại.', e);
+          clMoiNhat = (don.conLai !== undefined) ? don.conLai : Math.max(0, (don.soTienNo || 0) - (don.daThu || 0));
+          dongBoDuocCloud = false;
+        } else {
+          console.error('Lỗi kiểm tra số dư mới nhất trước khi thu nợ:', e);
+          alert('❌ Không kiểm tra được số dư mới nhất từ máy chủ, vui lòng thử lại: ' + (e.message || String(e)));
+          if (btnLuu) btnLuu.disabled = false;
+          return;
+        }
       }
 
       if (clMoiNhat <= 0) {
@@ -2118,9 +2140,10 @@
       }
 
       // Ghi nhận lên Supabase TRƯỚC — thành công mới cập nhật sổ trên máy này,
-      // để mọi máy khác đều thấy được khoản vừa thu (tránh thu trùng)
-      let resInsert = { error: { message: 'Chưa kết nối Supabase' } };
-      if (typeof sb !== 'undefined') {
+      // để mọi máy khác đều thấy được khoản vừa thu (tránh thu trùng). Nếu bảng
+      // thu_no chưa tồn tại thì bỏ qua bước này, lưu cục bộ như trước đây.
+      let resInsert = { error: null };
+      if (dongBoDuocCloud && typeof sb !== 'undefined') {
         resInsert = await sb.from('thu_no').insert([{
           id_don_no: id,
           ma_hd: don.maHD || '',
@@ -2134,6 +2157,12 @@
           ghi_chu: ghiChu || '',
           ngay_thu: ngayThu
         }]);
+        if (resInsert.error && laLoiThieuBangThuNo(resInsert.error)) {
+          banThuNoChuaSanSang = true;
+          console.warn('⚠️ Bảng thu_no chưa được tạo trên Supabase — khoản thu này chỉ lưu cục bộ. Hãy chạy sql/07_thu_no_dong_bo.sql trên Supabase để bật đồng bộ.', resInsert.error);
+          dongBoDuocCloud = false;
+          resInsert = { error: null };
+        }
       }
       if (btnLuu) btnLuu.disabled = false;
 
@@ -2156,7 +2185,10 @@
       capNhatKPI();
       veBangCongNo();
 
-      alert(`✅ Đã ghi nhận thu thành công ${formatTien(soTienThu)} đ (${phuongThucChiTiet}) cho đơn "${don.maHD}" của khách "${don.tenKH}"!\n\nKhoản thu này đã được đồng bộ lên hệ thống, mọi máy khác sẽ thấy ngay.`);
+      const canhBaoChuaDongBo = dongBoDuocCloud ? '' :
+        '\n\n⚠️ LƯU Ý: Hệ thống chống thu trùng (bảng thu_no) CHƯA được thiết lập trên máy chủ, nên khoản thu này mới chỉ lưu trên máy này. Vui lòng nhờ quản trị viên chạy file sql/07_thu_no_dong_bo.sql trên Supabase càng sớm càng tốt.';
+      alert(`✅ Đã ghi nhận thu thành công ${formatTien(soTienThu)} đ (${phuongThucChiTiet}) cho đơn "${don.maHD}" của khách "${don.tenKH}"!` +
+        (dongBoDuocCloud ? '\n\nKhoản thu này đã được đồng bộ lên hệ thống, mọi máy khác sẽ thấy ngay.' : canhBaoChuaDongBo));
     }
 
     // ========================================================
