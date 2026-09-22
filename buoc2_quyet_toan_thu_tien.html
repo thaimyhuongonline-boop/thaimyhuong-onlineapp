@@ -1324,11 +1324,11 @@
       });
 
       // Lọc và hiển thị dropdown theo bộ lọc trạng thái
-      locVaRenderDropdownChuyenXe(isAutoSync);
+      await locVaRenderDropdownChuyenXe(isAutoSync);
     }
 
     // Lọc và render dropdown chọn chuyến xe: Hỗ trợ lọc Chưa thu / Đã thu & Giữ sắp xếp chưa thu nằm trên
-    function locVaRenderDropdownChuyenXe(isAutoSync = false) {
+    async function locVaRenderDropdownChuyenXe(isAutoSync = false) {
       const sel = document.getElementById('selChuyenXe');
       const locTT = document.getElementById('locTrangThaiChuyenXe')?.value || 'tat_ca';
       if (!sel) return;
@@ -1368,7 +1368,7 @@
 
       sel.value = maDotChon;
       if (!isAutoSync || !dotHienTai || dotHienTai.maDot !== maDotChon) {
-        chonChuyenXeTuDropdown(maDotChon);
+        await chonChuyenXeTuDropdown(maDotChon);
       }
     }
 
@@ -1403,9 +1403,49 @@
     }
 
     // Khi người dùng chọn chuyến xe
-    function chonChuyenXeTuDropdown(maDot) {
+    // Bổ sung lại số liệu quyết toán (chi phí, thu nợ cũ, tiền thối, đếm tiền...)
+    // từ Supabase khi máy này chưa từng có đủ dữ liệu cục bộ cho đợt này — xảy ra
+    // khi 1 máy khác đã quyết toán chuyến xe, còn máy đang mở chỉ dựng lại đợt này
+    // từ bảng luu_tru (không có các số liệu quyết toán riêng đó).
+    async function napBoSungPhieuNopTuCloud(dot) {
+      if (!dot || dot.tienChi !== undefined || typeof sb === 'undefined') return;
+      try {
+        const { data, error } = await sb.from('phieu_nop_tien').select('*').eq('ma_phieu', `PNP_${dot.maDot}`).maybeSingle();
+        if (error || !data) return;
+        dot.tienChi = parseFloat(data.tien_chi || 0);
+        dot.noiDungChi = data.noi_dung_chi || '';
+        dot.thuNoCu = parseFloat(data.thu_no_cu || 0);
+        dot.ghiChuThuNoCu = data.ghi_chu_thu_no_cu || '';
+        dot.tienThoi = parseFloat(data.tien_thoi || 0);
+        dot.nguoiNop = data.nguoi_nop || dot.taiXe || '';
+        dot.nguoiNhan = data.thu_quy || 'Thủ quỹ';
+        dot.ghiChuPhieu = data.ghi_chu_phieu || '';
+        dot.soToDemTien = {
+          500000: data.sl_500k || 0, 200000: data.sl_200k || 0, 100000: data.sl_100k || 0,
+          50000: data.sl_50k || 0, 20000: data.sl_20k || 0, 10000: data.sl_10k || 0,
+          5000: data.sl_5k || 0, 2000: data.sl_2k || 0, 1000: data.sl_1k || 0
+        };
+        if (Array.isArray(data.danh_sach_don_no_dang_thu)) {
+          dot.danhSachDonNoDangThu = data.danh_sach_don_no_dang_thu;
+        }
+        // Lưu lại vào localStorage của máy này để những lần mở sau không cần tải lại
+        const idx = danhSachTatCaDot.findIndex(d => d.maDot === dot.maDot);
+        if (idx >= 0) danhSachTatCaDot[idx] = dot;
+        localStorage.setItem("tmh_lich_su_dot", JSON.stringify(danhSachTatCaDot));
+      } catch (e) {
+        console.warn('Không tải được phiếu nộp tiền từ Supabase cho đợt', dot.maDot, e);
+      }
+    }
+
+    async function chonChuyenXeTuDropdown(maDot) {
       dotHienTai = danhSachTatCaDot.find(d => d.maDot === maDot);
       if (!dotHienTai) return;
+
+      // Nếu đợt đã quyết toán nhưng máy này chưa có đủ số liệu (đợt được dựng lại
+      // từ luu_tru trên máy khác) thì bổ sung lại từ phiếu nộp tiền trên Supabase
+      if (dotHienTai.daQuyetToan) {
+        await napBoSungPhieuNopTuCloud(dotHienTai);
+      }
 
       // Cập nhật thanh thông tin chuyến xe
       document.getElementById('tagXe').textContent = `🚚 Xe: ${dotHienTai.xe || 'Chưa gán'}`;
@@ -2836,7 +2876,16 @@
             sl_2k: SO_TO_DEM[2000] || 0,
             sl_1k: SO_TO_DEM[1000] || 0,
             chenh_lech: (MENH_GIA_TIEN.reduce((s, m) => s + m * (SO_TO_DEM[m] || 0), 0)) - soTienPhaiThu,
-            ghi_chu: `Chi: ${formatTien(tienChi)} (${noiDungChi}) | Thu nợ cũ: ${formatTien(thuNoCu)} (${ghiChuThuNoCu}) | ${ghiChuPhieu}`
+            ghi_chu: `Chi: ${formatTien(tienChi)} (${noiDungChi}) | Thu nợ cũ: ${formatTien(thuNoCu)} (${ghiChuThuNoCu}) | ${ghiChuPhieu}`,
+            // Các cột số liệu riêng để máy khác đọc lại đúng khi mở lại đợt này
+            // (trước đây chỉ gộp chung vào ghi_chu dạng chữ nên không đọc lại được)
+            tien_chi: tienChi,
+            noi_dung_chi: noiDungChi,
+            thu_no_cu: thuNoCu,
+            ghi_chu_thu_no_cu: ghiChuThuNoCu,
+            tien_thoi: tienThoi,
+            ghi_chu_phieu: ghiChuPhieu,
+            danh_sach_don_no_dang_thu: danhSachDonNoDangThu
           };
           await upsertSupabaseTuTu('phieu_nop_tien', [phieuNopData], { onConflict: 'ma_phieu' });
         } catch (e) {

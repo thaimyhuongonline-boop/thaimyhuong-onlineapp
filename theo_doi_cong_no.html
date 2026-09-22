@@ -1003,6 +1003,14 @@
       return err.code === 'PGRST205' || /Could not find the table/i.test(msg) || /public\.thu_no/i.test(msg);
     }
 
+    // Kiểm tra chung: lỗi do THIẾU BẢNG bất kỳ trên Supabase (chưa chạy SQL migrate)
+    // — dùng để các tính năng khác tự rớt về lưu cục bộ thay vì báo lỗi/chặn hẳn.
+    function laLoiThieuBangSupabase(err) {
+      if (!err) return false;
+      const msg = (err.message || err.details || err.hint || '').toString();
+      return err.code === 'PGRST205' || /Could not find the table/i.test(msg);
+    }
+
     async function taiTongHopThuNoCloud() {
       thuNoCloudMap = new Map();
       thuNoNgayCloudMap = new Map();
@@ -1166,6 +1174,49 @@
         }
       }
 
+      // 2b. Đồng bộ các đơn nợ nhập thủ công "Ngoài Bảng Kê" từ Supabase — trước đây
+      // loại đơn nợ này chỉ lưu cục bộ nên máy khác không bao giờ thấy được.
+      if (typeof sb !== 'undefined') {
+        try {
+          const { data, error } = await sb.from('cong_no_ngoai_bang_ke').select('*');
+          if (error) {
+            if (laLoiThieuBangSupabase(error)) {
+              console.warn('Bảng cong_no_ngoai_bang_ke chưa được tạo trên Supabase (đơn nợ ngoài bảng kê chỉ hiện trên máy đã tạo). Hãy chạy sql/09_dong_bo_bo_sung.sql.', error);
+            } else {
+              console.warn('Lỗi đọc cong_no_ngoai_bang_ke:', error);
+            }
+          } else {
+            (data || []).forEach(r => {
+              const idNo = r.id || `NO_${r.ma_hd}`;
+              if (docDsIdDaXoa().includes(idNo)) return;
+              if (danhSachCongNo.some(d => d.id === idNo)) return;
+              danhSachCongNo.push({
+                id: idNo,
+                maHD: r.ma_hd || '',
+                maKH: r.ma_kh || '',
+                tenKH: r.ten_kh || 'Khách Hàng',
+                nguoiBan: r.nguoi_ban || '',
+                maDot: 'NGOAI_BANG_KE',
+                xe: r.xe || 'Ngoài bảng kê',
+                taiXe: r.tai_xe || '--',
+                ngayGiao: r.ngay_giao || '',
+                tienHD: parseFloat(r.tien_hd || 0),
+                soTienNo: parseFloat(r.so_tien_no || 0),
+                daThu: 0,
+                conLai: parseFloat(r.so_tien_no || 0),
+                trangThai: 'chua_thu',
+                ngayGhiNo: r.ngay_giao || '',
+                ngoaiBangKe: true,
+                ghiChu: r.ghi_chu || ''
+              });
+              coThayDoi = true;
+            });
+          }
+        } catch (e) {
+          console.warn('Lỗi đồng bộ đơn nợ ngoài bảng kê:', e);
+        }
+      }
+
       // 3. Đối chiếu số tiền đã thu với bảng thu_no trên Supabase (chống thu trùng)
       danhSachCongNo.forEach(d => {
         if (doiChieuDaThuTuCloud(d)) coThayDoi = true;
@@ -1205,6 +1256,7 @@
         sb.channel('tmh_realtime_cong_no')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'thu_no' }, () => taiLaiDuLieuCongNoDebounce())
           .on('postgres_changes', { event: '*', schema: 'public', table: 'cong_no_da_xoa' }, () => taiLaiDuLieuCongNoDebounce())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'cong_no_ngoai_bang_ke' }, () => taiLaiDuLieuCongNoDebounce())
           .subscribe();
       } catch (e) {
         console.warn('Không bật được Realtime cho sổ công nợ:', e);
@@ -1907,7 +1959,7 @@
       }
     }
 
-    function luuDonNoThuCong() {
+    async function luuDonNoThuCong() {
       if (chanNeuChiXem()) return;
       const tenKH = (document.getElementById('themTenKH')?.value || '').trim();
       if (!tenKH) {
@@ -1967,6 +2019,28 @@
         ghiChu: ghiChu
       };
 
+      // Đồng bộ lên Supabase TRƯỚC — để mọi máy khác đều thấy được đơn nợ này ngay,
+      // tránh lỗi trước đây: đơn nợ ngoài bảng kê chỉ nằm trên máy vừa tạo.
+      let canhBaoChuaDongBo = '';
+      if (typeof sb !== 'undefined') {
+        const { error } = await sb.from('cong_no_ngoai_bang_ke').insert([{
+          id: donMoi.id, ma_hd: donMoi.maHD, ma_kh: donMoi.maKH, ten_kh: donMoi.tenKH,
+          nguoi_ban: donMoi.nguoiBan, xe: donMoi.xe, tai_xe: donMoi.taiXe,
+          ngay_giao: donMoi.ngayGiao, tien_hd: donMoi.tienHD, so_tien_no: donMoi.soTienNo,
+          ghi_chu: donMoi.ghiChu, nguoi_tao: layNguoiThaoTac()
+        }]);
+        if (error) {
+          if (laLoiThieuBangSupabase(error)) {
+            console.warn('⚠️ Bảng cong_no_ngoai_bang_ke chưa được tạo trên Supabase — đơn nợ này chỉ lưu cục bộ. Hãy chạy sql/09_dong_bo_bo_sung.sql để bật đồng bộ.', error);
+            canhBaoChuaDongBo = '\n\n⚠️ LƯU Ý: Hệ thống đồng bộ đơn nợ ngoài bảng kê CHƯA được thiết lập trên máy chủ, nên đơn nợ này mới chỉ lưu trên máy này. Vui lòng nhờ quản trị viên chạy file sql/09_dong_bo_bo_sung.sql trên Supabase càng sớm càng tốt.';
+          } else {
+            console.error('Lỗi lưu đơn nợ ngoài bảng kê lên Supabase:', error);
+            alert('❌ KHÔNG lưu được đơn nợ này lên máy chủ, vui lòng thử lại.\n\nChi tiết: ' + (error.message || JSON.stringify(error)));
+            return;
+          }
+        }
+      }
+
       // Đưa lên đầu danh sách để kế toán nhìn thấy ngay lập tức
       danhSachCongNo.unshift(donMoi);
       ghiSoCongNo(danhSachCongNo);
@@ -1976,7 +2050,8 @@
       capNhatDropdownKhachHang();
       veBangCongNo();
 
-      alert(`✅ Đã thêm thành công đơn nợ ngoài bảng kê "${maHD}" cho khách hàng "${tenKH}" với số tiền ${formatTien(soTienNo)} đ!`);
+      alert(`✅ Đã thêm thành công đơn nợ ngoài bảng kê "${maHD}" cho khách hàng "${tenKH}" với số tiền ${formatTien(soTienNo)} đ!` +
+        (canhBaoChuaDongBo || '\n\nĐơn nợ này đã được đồng bộ lên hệ thống, mọi máy khác sẽ thấy ngay.'));
     }
 
     // ========================================================
