@@ -465,6 +465,9 @@
         <p class="tmh-page-header-sub">Kéo thả file Excel KiotViet, tự động cập nhật danh mục, chia đơn theo chuyến xe và tạo Phiếu Xuất Kho, Bảng Kê Thu Tiền.</p>
       </div>
       <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <button type="button" class="btn btn-outline" onclick="moModalTraCuuHoaDon()" style="font-weight:700; color:#7c3aed; border-color:#d8b4fe; background:#faf5ff;" title="Tìm lại hóa đơn hoặc khách hàng đã từng nạp lên hệ thống để xem lại đơn hàng và hàng hóa liên quan">
+          <span>🔍</span> Tra Cứu Hóa Đơn / Khách Hàng
+        </button>
         <label class="btn btn-primary" style="cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:6px;" title="Nạp hoặc ghép bổ sung file Excel KiotViet">
           <span>📂</span> Nạp / Ghép File Excel
           <input type="file" id="fileExcelNhanhBuoc2" accept=".xlsx,.xls" multiple style="display:none;" onchange="napNhanhFileExcelBuoc2(this)">
@@ -812,6 +815,36 @@
         </div>
         <div style="padding:10px 18px; border-top:1px solid var(--border-color); background:#f8fafc; display:flex; justify-content:flex-end;">
           <button type="button" class="btn btn-outline btn-sm" onclick="dongModalXemLaiChuyenXe()">Đóng</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL TRA CỨU HÓA ĐƠN / KHÁCH HÀNG ĐÃ TỪNG NẠP LÊN -->
+    <div id="modalTraCuuHoaDon" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:99999; align-items:center; justify-content:center; backdrop-filter:blur(2px);">
+      <div style="background:#ffffff; border-radius:var(--radius-md); width:920px; max-width:96vw; box-shadow:var(--shadow-lg); border:1px solid var(--border-color); overflow:hidden; display:flex; flex-direction:column; max-height:88vh;">
+        <div style="padding:14px 18px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:#f8fafc;">
+          <h4 style="margin:0; font-size:14.5px; font-weight:800; color:var(--text-main); display:flex; align-items:center; gap:6px;">
+            <span>🔍</span> Tra Cứu Hóa Đơn / Khách Hàng Đã Nạp
+          </h4>
+          <button type="button" onclick="dongModalTraCuuHoaDon()" style="border:none; background:transparent; font-size:20px; cursor:pointer; color:var(--text-muted);">&times;</button>
+        </div>
+        <div style="padding:12px 18px; border-bottom:1px solid var(--border-subtle); display:flex; gap:8px; align-items:center; background:#fff;">
+          <input type="text" id="inputTraCuuHD" class="input-table" style="flex:1; height:38px; font-size:13.5px;"
+            placeholder="Nhập Mã hóa đơn hoặc Tên khách hàng cần tìm (VD: HD284758 hoặc Full Mart)..."
+            onkeydown="if(event.key==='Enter') timKiemHoaDonKhachHang()">
+          <button type="button" class="btn btn-primary" style="height:38px; padding:0 16px; font-weight:700;" onclick="timKiemHoaDonKhachHang()">
+            <span>🔍</span> Tìm Kiếm
+          </button>
+        </div>
+        <div id="traCuuNoiDung" style="padding:14px 18px; overflow-y:auto; flex:1;">
+          <div style="padding:40px 20px; text-align:center; color:var(--text-muted);">
+            <div style="font-size:32px; margin-bottom:8px;">📇</div>
+            <div style="font-weight:700; font-size:14px; color:var(--text-main);">Tìm lại hóa đơn hoặc khách hàng đã từng nạp lên hệ thống.</div>
+            <div style="font-size:12px; margin-top:4px;">Nhập Mã hóa đơn (VD: HD284758) hoặc Tên khách hàng rồi bấm "Tìm Kiếm" để xem lại đơn hàng và hàng hóa liên quan.</div>
+          </div>
+        </div>
+        <div style="padding:10px 18px; border-top:1px solid var(--border-color); background:#f8fafc; display:flex; justify-content:flex-end;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="dongModalTraCuuHoaDon()">Đóng</button>
         </div>
       </div>
     </div>
@@ -1578,6 +1611,199 @@
 
     function dongModalXemLaiChuyenXe() {
       document.getElementById('modalXemLaiBieuMau').style.display = 'none';
+    }
+
+    // ========================================================
+    // TRA CỨU HÓA ĐƠN / KHÁCH HÀNG ĐÃ TỪNG NẠP LÊN (Supabase: luu_tru + chi_tiet_hoa_don)
+    // ========================================================
+    function moModalTraCuuHoaDon() {
+      document.getElementById('modalTraCuuHoaDon').style.display = 'flex';
+      const input = document.getElementById('inputTraCuuHD');
+      setTimeout(() => input.focus(), 50);
+    }
+
+    function dongModalTraCuuHoaDon() {
+      document.getElementById('modalTraCuuHoaDon').style.display = 'none';
+    }
+
+    function hienNoiDungTraCuu(html) {
+      document.getElementById('traCuuNoiDung').innerHTML = html;
+    }
+
+    async function timKiemHoaDonKhachHang() {
+      const tuKhoa = (document.getElementById('inputTraCuuHD').value || '').trim();
+      if (!tuKhoa) {
+        alert('⚠️ Vui lòng nhập Mã hóa đơn hoặc Tên khách hàng cần tìm.');
+        return;
+      }
+      if (typeof sb === 'undefined') {
+        hienNoiDungTraCuu(`<div style="padding:30px; text-align:center; color:#b91c1c;">❌ Chưa kết nối được Supabase, không thể tra cứu lúc này.</div>`);
+        return;
+      }
+
+      hienNoiDungTraCuu(`<div style="padding:30px; text-align:center; color:var(--text-muted);">⏳ Đang tìm kiếm "${escapeHtml(tuKhoa)}"…</div>`);
+
+      try {
+        // Tìm theo 2 truy vấn riêng (an toàn, không ghép chuỗi lọc) rồi gộp kết quả, loại trùng theo mã HĐ
+        const [resMaHD, resTenKH] = await Promise.all([
+          sb.from('luu_tru').select('*').ilike('ma_hd', `%${tuKhoa}%`).order('tao_luc', { ascending: false }).limit(100),
+          sb.from('luu_tru').select('*').ilike('ten_kh', `%${tuKhoa}%`).order('tao_luc', { ascending: false }).limit(100)
+        ]);
+
+        if (resMaHD.error && resTenKH.error) throw (resMaHD.error || resTenKH.error);
+
+        const gopKQ = [...(resMaHD.data || []), ...(resTenKH.data || [])];
+        const mapDuyNhat = new Map();
+        gopKQ.forEach(r => { if (r.ma_hd && !mapDuyNhat.has(r.ma_hd)) mapDuyNhat.set(r.ma_hd, r); });
+        const ketQua = Array.from(mapDuyNhat.values()).sort((a, b) => new Date(b.tao_luc || 0) - new Date(a.tao_luc || 0));
+
+        veDanhSachTraCuu(ketQua, tuKhoa);
+      } catch (e) {
+        console.error('Lỗi tra cứu hóa đơn/khách hàng:', e);
+        hienNoiDungTraCuu(`<div style="padding:30px; text-align:center; color:#b91c1c;">❌ Lỗi khi tra cứu: ${escapeHtml(e.message || String(e))}</div>`);
+      }
+    }
+
+    function veDanhSachTraCuu(ketQua, tuKhoa) {
+      if (!ketQua || ketQua.length === 0) {
+        hienNoiDungTraCuu(`
+          <div style="padding:40px 20px; text-align:center; color:var(--text-muted);">
+            <div style="font-size:32px; margin-bottom:8px;">🤷</div>
+            <div style="font-weight:700; font-size:14px; color:var(--text-main);">Không tìm thấy hóa đơn hoặc khách hàng nào khớp với "${escapeHtml(tuKhoa)}".</div>
+            <div style="font-size:12px; margin-top:4px;">Vui lòng kiểm tra lại Mã hóa đơn hoặc thử tìm bằng một phần tên khách hàng.</div>
+          </div>
+        `);
+        return;
+      }
+
+      const hangHtml = ketQua.map(r => {
+        const daKiemDon = r.da_kiem_don
+          ? `<span style="color:#16a34a; font-weight:700;">✅ Đã kiểm đơn</span>`
+          : `<span style="color:#ea580c; font-weight:700;">⏳ Chưa kiểm đơn</span>`;
+        return `
+          <div class="tc-row" style="background:#ffffff; border:1px solid var(--border-color); border-radius:6px; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; gap:12px; cursor:pointer; transition:all 0.15s;"
+               onmouseenter="this.style.borderColor='var(--primary)'" onmouseleave="this.style.borderColor='var(--border-color)'"
+               onclick="xemChiTietTraCuu('${escapeHtml(JSON.stringify(r.ma_hd))}')">
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:3px;">
+                <span style="font-size:13.5px; font-weight:800; color:var(--text-main);">${escapeHtml(r.ma_hd)}</span>
+                <span style="background:#f1f5f9; padding:1px 6px; border-radius:4px; font-size:11px; font-weight:700; color:#475569;">📅 ${escapeHtml(r.ngay_giao || '--')}</span>
+                <span style="font-size:11px;">${daKiemDon}</span>
+              </div>
+              <div style="font-size:12px; color:var(--text-muted); display:flex; gap:12px; flex-wrap:wrap;">
+                <span>👤 ${escapeHtml(r.ten_kh || 'Khách lẻ')}</span>
+                <span>🚚 Xe: <b>${escapeHtml(r.xe || '--')}</b></span>
+                ${r.tai_xe ? `<span>Tài xế: <b>${escapeHtml(r.tai_xe)}</b></span>` : ''}
+              </div>
+            </div>
+            <div style="text-align:right; flex-shrink:0;">
+              <div style="font-size:15px; font-weight:900; color:#15803d;">${formatTien(r.thanh_tien)} đ</div>
+              <div style="font-size:11px; color:var(--text-muted);">Xem chi tiết →</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      hienNoiDungTraCuu(`
+        <div style="font-size:12px; color:var(--text-muted); margin-bottom:10px;">Tìm thấy <b>${ketQua.length}</b> hóa đơn khớp với "${escapeHtml(tuKhoa)}" — bấm vào một dòng để xem chi tiết đơn hàng và hàng hóa:</div>
+        <div style="display:flex; flex-direction:column; gap:8px;">${hangHtml}</div>
+      `);
+    }
+
+    async function xemChiTietTraCuu(maHD) {
+      hienNoiDungTraCuu(`<div style="padding:30px; text-align:center; color:var(--text-muted);">⏳ Đang tải chi tiết hóa đơn ${escapeHtml(maHD)}…</div>`);
+      try {
+        const [resHD, resHang] = await Promise.all([
+          sb.from('luu_tru').select('*').eq('ma_hd', maHD).maybeSingle(),
+          sb.from('chi_tiet_hoa_don').select('*').eq('ma_hd', maHD).order('id', { ascending: true })
+        ]);
+        if (resHD.error) throw resHD.error;
+        const hd = resHD.data;
+        if (!hd) {
+          hienNoiDungTraCuu(`<div style="padding:30px; text-align:center; color:#b91c1c;">❌ Không tìm thấy hóa đơn "${escapeHtml(maHD)}".</div>`);
+          return;
+        }
+        const dsHang = resHang.error ? [] : (resHang.data || []);
+        veChiTietTraCuu(hd, dsHang, resHang.error);
+      } catch (e) {
+        console.error('Lỗi xem chi tiết tra cứu:', e);
+        hienNoiDungTraCuu(`<div style="padding:30px; text-align:center; color:#b91c1c;">❌ Lỗi khi tải chi tiết: ${escapeHtml(e.message || String(e))}</div>`);
+      }
+    }
+
+    function veChiTietTraCuu(hd, dsHang, loiHang) {
+      const daKiemDon = hd.da_kiem_don
+        ? `<span style="color:#16a34a; font-weight:700;">✅ Đã kiểm đơn</span>`
+        : `<span style="color:#ea580c; font-weight:700;">⏳ Chưa kiểm đơn</span>`;
+      const daQuyetToan = hd.da_quyet_toan
+        ? `<span style="color:#16a34a; font-weight:700;">✅ Đã quyết toán Bước 2</span>`
+        : `<span style="color:#94a3b8; font-weight:700;">— Chưa quyết toán</span>`;
+
+      const thongTinHang = loiHang
+        ? `<div style="padding:16px; text-align:center; color:#b91c1c; font-size:12.5px;">❌ Không tải được danh sách hàng hóa chi tiết.</div>`
+        : (dsHang.length === 0
+          ? `<div style="padding:16px; text-align:center; color:var(--text-muted); font-size:12.5px;">Chưa có dữ liệu hàng hóa chi tiết được lưu cho hóa đơn này.</div>`
+          : `
+            <table style="width:100%; border-collapse:collapse; font-size:12px;">
+              <thead>
+                <tr style="background:#f8fafc;">
+                  <th style="text-align:left; padding:6px 8px; border-bottom:1px solid var(--border-color);">Mã hàng</th>
+                  <th style="text-align:left; padding:6px 8px; border-bottom:1px solid var(--border-color);">Tên hàng</th>
+                  <th style="text-align:right; padding:6px 8px; border-bottom:1px solid var(--border-color);">SL</th>
+                  <th style="text-align:left; padding:6px 8px; border-bottom:1px solid var(--border-color);">ĐVT</th>
+                  <th style="text-align:right; padding:6px 8px; border-bottom:1px solid var(--border-color);">Đơn giá</th>
+                  <th style="text-align:right; padding:6px 8px; border-bottom:1px solid var(--border-color);">Thành tiền</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${dsHang.map(h => `
+                  <tr>
+                    <td style="padding:5px 8px; border-bottom:1px solid #f1f5f9;">${escapeHtml(h.ma_hang)}</td>
+                    <td style="padding:5px 8px; border-bottom:1px solid #f1f5f9;">${escapeHtml(h.ten_hang)}${h.la_khuyen_mai ? ' <span style="color:#c026d3; font-weight:700;">(KM)</span>' : ''}</td>
+                    <td style="padding:5px 8px; border-bottom:1px solid #f1f5f9; text-align:right;">${formatSoLuong(h.so_luong)}</td>
+                    <td style="padding:5px 8px; border-bottom:1px solid #f1f5f9;">${escapeHtml(h.dvt)}</td>
+                    <td style="padding:5px 8px; border-bottom:1px solid #f1f5f9; text-align:right;">${formatTien(h.don_gia)}</td>
+                    <td style="padding:5px 8px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:700;">${formatTien(h.thanh_tien)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `);
+
+      hienNoiDungTraCuu(`
+        <button type="button" class="btn btn-outline btn-sm" onclick="timKiemHoaDonKhachHang()" style="margin-bottom:12px;">← Quay lại danh sách</button>
+        <div style="background:#f8fafc; border:1px solid var(--border-color); border-radius:8px; padding:14px; margin-bottom:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+            <div>
+              <div style="font-size:16px; font-weight:900; color:var(--text-main);">${escapeHtml(hd.ma_hd)}</div>
+              <div style="font-size:13px; color:var(--text-muted); margin-top:2px;">👤 ${escapeHtml(hd.ten_kh || 'Khách lẻ')} ${hd.ma_kh ? `(${escapeHtml(hd.ma_kh)})` : ''}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:20px; font-weight:900; color:#15803d;">${formatTien(hd.thanh_tien)} đ</div>
+              <div style="font-size:11px; color:var(--text-muted);">Thành tiền hóa đơn</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--text-muted); margin-top:10px; border-top:1px solid var(--border-color); padding-top:10px;">
+            <span>📅 Ngày giao: <b style="color:var(--text-main);">${escapeHtml(hd.ngay_giao || '--')}</b></span>
+            <span>🚚 Xe: <b style="color:var(--text-main);">${escapeHtml(hd.xe || '--')}</b></span>
+            ${hd.tai_xe ? `<span>Tài xế: <b style="color:var(--text-main);">${escapeHtml(hd.tai_xe)}</b></span>` : ''}
+            ${hd.nguoi_ban ? `<span>NV bán: <b style="color:var(--text-main);">${escapeHtml(hd.nguoi_ban)}</b></span>` : ''}
+            <span>${daKiemDon}</span>
+            <span>${daQuyetToan}</span>
+          </div>
+          <div style="display:flex; gap:16px; flex-wrap:wrap; font-size:12px; margin-top:8px;">
+            <span>💵 Tiền mặt: <b>${formatTien(hd.tien_mat)} đ</b></span>
+            <span>🏦 Chuyển khoản: <b>${formatTien(hd.chuyen_khoan)} đ</b>${hd.tai_khoan_nhan ? ` (${escapeHtml(hd.tai_khoan_nhan)})` : ''}</span>
+            <span>↩️ Trả về: <b>${formatTien(hd.tra_ve)} đ</b></span>
+            <span>📒 Nợ: <b style="color:${(hd.no_phat_sinh || 0) > 0 ? '#b91c1c' : 'inherit'};">${formatTien(hd.no_phat_sinh)} đ</b></span>
+          </div>
+          ${hd.ghi_chu ? `<div style="font-size:12px; color:var(--text-muted); margin-top:8px;">📝 Ghi chú: ${escapeHtml(hd.ghi_chu)}</div>` : ''}
+        </div>
+        <div style="font-weight:700; font-size:13px; color:var(--text-main); margin-bottom:8px;">📦 Hàng hóa liên quan (${dsHang.length} mặt hàng):</div>
+        <div style="border:1px solid var(--border-color); border-radius:8px; overflow:hidden; max-height:320px; overflow-y:auto;">
+          ${thongTinHang}
+        </div>
+      `);
     }
 
     let duLieuTamTruocKhiXemLai = null;
