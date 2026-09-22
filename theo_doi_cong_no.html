@@ -703,6 +703,7 @@
                 <th style="width:100px; text-align:right;">Đã Thu</th>
                 <th style="width:100px; text-align:right;">Còn Lại</th>
                 <th style="width:90px; text-align:center;">Trạng Thái</th>
+                <th style="width:95px; text-align:center;">Ngày Thanh Toán</th>
                 <th style="min-width:130px;">Ghi Chú Thu</th>
                 <th style="width:85px; text-align:center;">Thao Tác</th>
               </tr>
@@ -749,14 +750,15 @@
       <table class="statement-table">
         <thead>
           <tr>
-            <th style="width: 6%;">STT</th>
-            <th style="width: 14%;">Ngày HĐ</th>
-            <th style="width: 15%;">Mã HĐ</th>
-            <th style="width: 15%;">Chuyến Xe</th>
-            <th style="width: 13%; text-align: right;">Tiền HĐ</th>
-            <th style="width: 12%; text-align: right;">Tiền Nợ</th>
-            <th style="width: 12%; text-align: right;">Đã Thu</th>
-            <th style="width: 13%; text-align: right;">Còn Nợ</th>
+            <th style="width: 5%;">STT</th>
+            <th style="width: 12%;">Ngày HĐ</th>
+            <th style="width: 13%;">Mã HĐ</th>
+            <th style="width: 13%;">Chuyến Xe</th>
+            <th style="width: 11%;">Ngày TT</th>
+            <th style="width: 12%; text-align: right;">Tiền HĐ</th>
+            <th style="width: 11%; text-align: right;">Tiền Nợ</th>
+            <th style="width: 11%; text-align: right;">Đã Thu</th>
+            <th style="width: 12%; text-align: right;">Còn Nợ</th>
           </tr>
         </thead>
         <tbody id="p_tbodyStatement">
@@ -764,7 +766,7 @@
         </tbody>
         <tfoot>
           <tr style="font-weight: bold; background: #f8fafc;">
-            <td colspan="4" style="text-align: right;">TỔNG CỘNG:</td>
+            <td colspan="5" style="text-align: right;">TỔNG CỘNG:</td>
             <td style="text-align: right;" id="p_sumTienHD">0</td>
             <td style="text-align: right;" id="p_sumTienNo">0</td>
             <td style="text-align: right;" id="p_sumDaThu">0</td>
@@ -981,14 +983,16 @@
     // dòng đó và cộng dồn theo từng đơn nợ, để MỌI máy đều biết chính xác
     // đơn nợ đã được thu bao nhiêu, dù ai thu ở máy nào.
     // ========================================================
-    let thuNoCloudMap = new Map();   // id đơn nợ -> tổng số tiền đã thu (từ Supabase)
+    let thuNoCloudMap = new Map();       // id đơn nợ -> tổng số tiền đã thu (từ Supabase)
+    let thuNoNgayCloudMap = new Map();   // id đơn nợ -> ngày thanh toán gần nhất (YYYY-MM-DD, từ Supabase)
     let dangTaiCongNo = false;
 
     async function taiTongHopThuNoCloud() {
       thuNoCloudMap = new Map();
+      thuNoNgayCloudMap = new Map();
       if (typeof sb === 'undefined') return;
       try {
-        const { data, error } = await sb.from('thu_no').select('id_don_no, so_tien').not('id_don_no', 'is', null);
+        const { data, error } = await sb.from('thu_no').select('id_don_no, so_tien, ngay_thu').not('id_don_no', 'is', null);
         if (error) {
           console.warn('Không đọc được bảng thu_no (đã chạy sql/07_thu_no_dong_bo.sql chưa?):', error);
           return;
@@ -996,6 +1000,11 @@
         (data || []).forEach(r => {
           if (!r.id_don_no) return;
           thuNoCloudMap.set(r.id_don_no, (thuNoCloudMap.get(r.id_don_no) || 0) + parseFloat(r.so_tien || 0));
+          // Ngày thanh toán gần nhất = ngày lớn nhất trong các lần thu (YYYY-MM-DD so sánh được trực tiếp)
+          if (r.ngay_thu) {
+            const hienTai = thuNoNgayCloudMap.get(r.id_don_no);
+            if (!hienTai || r.ngay_thu > hienTai) thuNoNgayCloudMap.set(r.id_don_no, r.ngay_thu);
+          }
         });
       } catch (e) {
         console.warn('Lỗi tải tổng hợp thu_no:', e);
@@ -1006,13 +1015,19 @@
     // giữa số đã biết trên máy này và số tổng hợp từ Cloud, để không bao giờ làm
     // "giảm" một khoản đã ghi nhận, đồng thời hiển thị được khoản người khác vừa thu.
     function doiChieuDaThuTuCloud(don) {
+      let thayDoi = false;
+      const ngayCloud = thuNoNgayCloudMap.get(don.id);
+      if (ngayCloud && ngayCloud !== don.ngayThanhToan) {
+        don.ngayThanhToan = ngayCloud;
+        thayDoi = true;
+      }
       const cloudSum = thuNoCloudMap.get(don.id) || 0;
       const daThuMoi = Math.max(don.daThu || 0, cloudSum);
       if (daThuMoi !== (don.daThu || 0)) {
         don.daThu = daThuMoi;
-        return true;
+        thayDoi = true;
       }
-      return false;
+      return thayDoi;
     }
 
     // Tải và tổng hợp dữ liệu công nợ từ mọi nguồn (Sổ công nợ, Lịch sử đợt giao xe, Supabase)
@@ -1316,6 +1331,7 @@
             <th style="width:115px; text-align:right;">Đã Thu</th>
             <th style="width:120px; text-align:right;">Tổng Còn Nợ</th>
             <th style="width:105px; text-align:center;">Trạng Thái</th>
+            <th style="width:100px; text-align:center;">Thanh Toán Gần Nhất</th>
             <th style="width:210px; text-align:center;">Thao Tác</th>
           </tr>
         `;
@@ -1332,6 +1348,7 @@
               soDon: 0,
               donGanNhat: d.maHD,
               ngayGanNhat: d.ngayGiao || d.ngayGhiNo,
+              ngayThanhToanGanNhat: '',
               tongTienHD: 0,
               tongNo: 0,
               tongDaThu: 0,
@@ -1349,6 +1366,7 @@
           group.danhSachDon.push(d);
           if (d.maKH && !group.maKH) group.maKH = d.maKH;
           if (d.nguoiBan && !group.nguoiBan) group.nguoiBan = d.nguoiBan;
+          if (d.ngayThanhToan && d.ngayThanhToan > group.ngayThanhToanGanNhat) group.ngayThanhToanGanNhat = d.ngayThanhToan;
         });
 
         const dsKH = Array.from(mapKH.values()).sort((a, b) => b.tongConLai - a.tongConLai);
@@ -1357,7 +1375,7 @@
         let sumHD = 0, sumNo = 0, sumThu = 0, sumCon = 0;
 
         if (dsKH.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:30px; color:var(--text-muted);">Không tìm thấy khách hàng nào phù hợp với bộ lọc.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:30px; color:var(--text-muted);">Không tìm thấy khách hàng nào phù hợp với bộ lọc.</td></tr>`;
         } else {
           tbody.innerHTML = dsKH.map((k, i) => {
             sumHD += k.tongTienHD;
@@ -1397,9 +1415,10 @@
                   ${formatTien(k.tongConLai)}
                 </td>
                 <td style="text-align:center;">${badge}</td>
+                <td style="text-align:center; white-space:nowrap; font-size:11.5px;">${k.ngayThanhToanGanNhat ? dinhDangNgayVN(k.ngayThanhToanGanNhat) : '--'}</td>
                 <td style="text-align:center;">
                   <div style="display:flex; gap:4px; justify-content:center;">
-                    <button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:11px;" 
+                    <button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:11px;"
                       onclick="moLichSuDonKhachHang(${escapeHtml(JSON.stringify(encodeURIComponent(k.tenKH)))})">
                       📜 Lịch sử
                     </button>
@@ -1427,10 +1446,10 @@
             <td class="num-cell" style="color:#b91c1c;">${formatTien(sumNo)}</td>
             <td class="num-cell" style="color:#16a34a;">${formatTien(sumThu)}</td>
             <td class="num-cell" style="color:#dc2626; font-size:14px;">${formatTien(sumCon)}</td>
-            <td colspan="2"></td>
+            <td colspan="3"></td>
           </tr>
         `;
-      } 
+      }
       // ----------------------------------------------------
       // CHẾ ĐỘ 2: CHI TIẾT TỪNG HÓA ĐƠN NỢ
       // ----------------------------------------------------
@@ -1449,6 +1468,7 @@
             <th style="width:105px; text-align:right;">Đã Thu</th>
             <th style="width:110px; text-align:right;">Còn Lại</th>
             <th style="width:100px; text-align:center;">Trạng Thái</th>
+            <th style="width:105px; text-align:center;">Ngày Thanh Toán</th>
             <th style="min-width:140px;">Ghi Chú Thu</th>
             <th style="width:100px; text-align:center;">Thao Tác</th>
           </tr>
@@ -1459,7 +1479,7 @@
         let sumHD = 0, sumNo = 0, sumThu = 0, sumCon = 0;
 
         if (dsLoc.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="14" style="text-align:center; padding:30px; color:var(--text-muted);">Không tìm thấy đơn nợ nào phù hợp với bộ lọc.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="15" style="text-align:center; padding:30px; color:var(--text-muted);">Không tìm thấy đơn nợ nào phù hợp với bộ lọc.</td></tr>`;
         } else {
           tbody.innerHTML = dsLoc.map((d, i) => {
             const conLai = (d.conLai !== undefined) ? d.conLai : Math.max(0, (d.soTienNo || 0) - (d.daThu || 0));
@@ -1496,6 +1516,7 @@
                 <td class="num-cell" style="color:#16a34a;">${formatTien(daThu)}</td>
                 <td class="num-cell" style="color:#dc2626; font-size:13px; font-weight:800;">${formatTien(conLai)}</td>
                 <td style="text-align:center;">${badge}</td>
+                <td style="text-align:center; white-space:nowrap; font-size:11.5px;">${d.ngayThanhToan ? dinhDangNgayVN(d.ngayThanhToan) : '--'}</td>
                 <td style="font-size:11.5px; color:var(--text-muted);">${escapeHtml(d.ghiChuThu || d.ghiChu || '--')}</td>
                 <td style="text-align:center;">
                   <div style="display:flex; gap:3px; justify-content:center; flex-wrap:wrap;">
@@ -1521,7 +1542,7 @@
             <td class="num-cell" style="color:#b91c1c;">${formatTien(sumNo)}</td>
             <td class="num-cell" style="color:#16a34a;">${formatTien(sumThu)}</td>
             <td class="num-cell" style="color:#dc2626; font-size:14px;">${formatTien(sumCon)}</td>
-            <td colspan="3"></td>
+            <td colspan="4"></td>
           </tr>
         `;
       }
@@ -1756,6 +1777,7 @@
             <td class="num-cell" style="color:#16a34a;">${formatTien(daThu)}</td>
             <td class="num-cell" style="color:#dc2626; font-weight:800;">${formatTien(cl)}</td>
             <td style="text-align:center;">${badge}</td>
+            <td style="text-align:center; white-space:nowrap; font-size:11px;">${d.ngayThanhToan ? dinhDangNgayVN(d.ngayThanhToan) : '--'}</td>
             <td style="font-size:11px; color:var(--text-muted);">${escapeHtml(d.ghiChuThu || d.ghiChu || '--')}</td>
             <td style="text-align:center;">
               <div style="display:flex; gap:3px; justify-content:center;">
@@ -2126,6 +2148,7 @@
       don.conLai = Math.max(0, clMoiNhat - soTienThu);
       don.trangThai = don.conLai <= 0 ? 'da_thu_du' : 'da_thu_mot_phan';
       don.taiKhoanNhan = nhNhan || don.taiKhoanNhan;
+      don.ngayThanhToan = ngayThu;
       don.ghiChuThu = `Đã thu ${formatTien(soTienThu)} đ (${phuongThucChiTiet}) ngày ${ngayThu}. ${ghiChu}`;
 
       ghiSoCongNo(danhSachCongNo);
@@ -2205,6 +2228,7 @@
             <td style="text-align: center;">${d.ngayGiao || d.ngayGhiNo || '--'}</td>
             <td style="text-align: center; font-weight: bold; font-family: monospace;">${escapeHtml(d.maHD)}</td>
             <td>${d.xe ? d.xe + (d.taiXe ? ' (' + d.taiXe + ')' : '') : '--'}</td>
+            <td style="text-align: center;">${d.ngayThanhToan ? dinhDangNgayVN(d.ngayThanhToan) : '--'}</td>
             <td style="text-align: right;">${formatTien(d.tienHD || 0)}</td>
             <td style="text-align: right; color: #b91c1c; font-weight: bold;">${formatTien(d.soTienNo || 0)}</td>
             <td style="text-align: right; color: #15803d;">${formatTien(daThu)}</td>
@@ -2276,6 +2300,7 @@
                 nguoiBan: d.nguoiBan || '',
                 soDon: 0,
                 donGanNhat: d.maHD,
+                ngayThanhToanGanNhat: '',
                 tongTienHD: 0,
                 tongNo: 0,
                 tongDaThu: 0,
@@ -2291,6 +2316,7 @@
             g.tongConLai += cl;
             if (d.maKH && !g.maKH) g.maKH = d.maKH;
             if (d.nguoiBan && !g.nguoiBan) g.nguoiBan = d.nguoiBan;
+            if (d.ngayThanhToan && d.ngayThanhToan > g.ngayThanhToanGanNhat) g.ngayThanhToanGanNhat = d.ngayThanhToan;
           });
 
           const dsKH = Array.from(mapKH.values()).sort((a, b) => b.tongConLai - a.tongConLai);
@@ -2306,7 +2332,7 @@
 
           const headersKH = [
             "STT", "Tên Khách Hàng", "Mã KH", "NV Bán Hàng", "Số Đơn Nợ", "Đơn Gần Nhất",
-            "Tổng Tiền HĐ", "Tổng Nợ Ghi Nhận", "Đã Thu Hồi", "Còn Phải Thu (Tồn)", "Trạng Thái"
+            "Tổng Tiền HĐ", "Tổng Nợ Ghi Nhận", "Đã Thu Hồi", "Còn Phải Thu (Tồn)", "Trạng Thái", "Thanh Toán Gần Nhất"
           ];
           wsKHData.push(headersKH.map(h => ({ v: h, s: headerStyle })));
 
@@ -2331,7 +2357,8 @@
               { v: k.tongNo, t: "n", z: "#,##0", s: { alignment: { horizontal: "right" }, border: borderThin } },
               { v: k.tongDaThu, t: "n", z: "#,##0", s: { alignment: { horizontal: "right" }, border: borderThin } },
               { v: k.tongConLai, t: "n", z: "#,##0", s: { font: { bold: true, color: { rgb: "DC2626" } }, alignment: { horizontal: "right" }, border: borderThin } },
-              { v: tt, s: { alignment: { horizontal: "center" }, border: borderThin } }
+              { v: tt, s: { alignment: { horizontal: "center" }, border: borderThin } },
+              { v: k.ngayThanhToanGanNhat ? dinhDangNgayVN(k.ngayThanhToanGanNhat) : "", s: { alignment: { horizontal: "center" }, border: borderThin } }
             ]);
           });
 
@@ -2347,6 +2374,7 @@
             { v: sumKHTongNo, t: "n", z: "#,##0", s: { ...totalRowStyle, alignment: { horizontal: "right" } } },
             { v: sumKHDaThu, t: "n", z: "#,##0", s: { ...totalRowStyle, alignment: { horizontal: "right" } } },
             { v: sumKHTongCon, t: "n", z: "#,##0", s: { ...totalRowStyle, alignment: { horizontal: "right" }, font: { bold: true, sz: 11.5, color: { rgb: "DC2626" } } } },
+            { v: "", s: totalRowStyle },
             { v: "", s: totalRowStyle }
           ]);
 
@@ -2362,7 +2390,8 @@
             { wch: 15 }, // Tổng nợ
             { wch: 15 }, // Đã thu
             { wch: 16 }, // Còn nợ
-            { wch: 15 }  // Trạng thái
+            { wch: 15 }, // Trạng thái
+            { wch: 15 }  // Thanh toán gần nhất
           ];
 
           XLSX.utils.book_append_sheet(wb, wsKH, "Tong_Hop_Theo_Khach");
@@ -2381,7 +2410,7 @@
 
           const headersHD = [
             "STT", "Ngày Nợ", "Mã HĐ", "Tên Khách Hàng", "Mã KH", "NV Bán Hàng",
-            "Chuyến Xe", "Tài Xế", "Tiền HĐ", "Tiền Nợ", "Đã Thu", "Còn Lại", "Trạng Thái", "Ghi Chú Thu"
+            "Chuyến Xe", "Tài Xế", "Tiền HĐ", "Tiền Nợ", "Đã Thu", "Còn Lại", "Trạng Thái", "Ngày Thanh Toán", "Ghi Chú Thu"
           ];
           wsHDData.push(headersHD.map(h => ({ v: h, s: headerStyle })));
 
@@ -2411,6 +2440,7 @@
               { v: daThu, t: "n", z: "#,##0", s: { alignment: { horizontal: "right" }, border: borderThin } },
               { v: cl, t: "n", z: "#,##0", s: { font: { bold: true, color: { rgb: "DC2626" } }, alignment: { horizontal: "right" }, border: borderThin } },
               { v: tt, s: { alignment: { horizontal: "center" }, border: borderThin } },
+              { v: d.ngayThanhToan ? dinhDangNgayVN(d.ngayThanhToan) : "", s: { alignment: { horizontal: "center" }, border: borderThin } },
               { v: d.ghiChuThu || d.ghiChu || "", s: { border: borderThin } }
             ]);
           });
@@ -2430,6 +2460,7 @@
             { v: sumHDDaThu, t: "n", z: "#,##0", s: { ...totalRowStyle, alignment: { horizontal: "right" } } },
             { v: sumHDTongCon, t: "n", z: "#,##0", s: { ...totalRowStyle, alignment: { horizontal: "right" }, font: { bold: true, sz: 11.5, color: { rgb: "DC2626" } } } },
             { v: "", s: totalRowStyle },
+            { v: "", s: totalRowStyle },
             { v: "", s: totalRowStyle }
           ]);
 
@@ -2448,6 +2479,7 @@
             { wch: 14 }, // Đã Thu
             { wch: 15 }, // Còn Lại
             { wch: 14 }, // Trạng Thái
+            { wch: 14 }, // Ngày Thanh Toán
             { wch: 30 }  // Ghi Chú
           ];
 
