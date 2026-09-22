@@ -1381,6 +1381,12 @@
               console.log("⚡ Nhận sự kiện Realtime luu_tru");
               taiLaiDanhSachDot(true);
             })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'thu_no' }, () => {
+              // Có người vừa thu nợ ở đâu đó — đồng bộ lại để không chọn nhầm đơn đã thu
+              dongBoConLaiCongNoTuCloud().then(() => {
+                if (document.getElementById('modalSoCongNo')?.style.display === 'flex') renderSoCongNo();
+              });
+            })
             .subscribe();
         } catch (e) {
           console.warn("Lỗi đăng ký realtime:", e);
@@ -2313,9 +2319,67 @@
       localStorage.setItem('tmh_theo_doi_cong_no', JSON.stringify(ds));
     }
 
+    // Đồng bộ số tiền đã thu từ bảng thu_no trên Supabase vào sổ công nợ trên máy này —
+    // CHỐNG THU TRÙNG: nếu ai đó đã thu 1 đơn nợ (ở đây hoặc ở trang Theo Dõi Công Nợ,
+    // trên bất kỳ máy nào), danh sách "Chọn Nợ Cũ" ở Bước 2 sẽ không còn hiển thị nhầm
+    // là "còn nợ" nữa. Chạy hàm này TRƯỚC khi mở danh sách chọn nợ cũ.
+    async function dongBoConLaiCongNoTuCloud() {
+      if (typeof sb === 'undefined') return;
+      try {
+        const { data, error } = await sb.from('thu_no').select('id_don_no, so_tien').not('id_don_no', 'is', null);
+        if (error) { console.warn('Không đọc được bảng thu_no (đã chạy sql/07_thu_no_dong_bo.sql chưa?):', error); return; }
+        const cloudMap = new Map();
+        (data || []).forEach(r => {
+          if (!r.id_don_no) return;
+          cloudMap.set(r.id_don_no, (cloudMap.get(r.id_don_no) || 0) + parseFloat(r.so_tien || 0));
+        });
+        const ds = docSoCongNo();
+        let coThayDoi = false;
+        ds.forEach(d => {
+          const cloudSum = cloudMap.get(d.id) || 0;
+          const daThuMoi = Math.max(d.daThu || 0, cloudSum);
+          if (daThuMoi !== (d.daThu || 0)) {
+            d.daThu = daThuMoi;
+            coThayDoi = true;
+          }
+          const clMoi = Math.max(0, (d.soTienNo || 0) - (d.daThu || 0));
+          if (clMoi !== d.conLai) { d.conLai = clMoi; coThayDoi = true; }
+          d.trangThai = clMoi <= 0 ? 'da_thu_du' : ((d.daThu || 0) > 0 ? 'da_thu_mot_phan' : 'chua_thu');
+        });
+        if (coThayDoi) ghiSoCongNo(ds);
+      } catch (e) {
+        console.warn('Lỗi đồng bộ công nợ từ thu_no:', e);
+      }
+    }
+
+    // Ghi nhận lên Supabase các khoản "Thu Nợ Cũ" vừa được thu hộ qua chuyến xe này,
+    // để đồng bộ với trang Theo Dõi Công Nợ và các máy khác (chống thu trùng)
+    async function dongBoThuNoCuLenCloud(danhSachDaThu, maDot, ngayThu) {
+      if (typeof sb === 'undefined' || !Array.isArray(danhSachDaThu) || danhSachDaThu.length === 0) return;
+      try {
+        const rows = danhSachDaThu.filter(it => (it.conLai || it.tienThu || 0) > 0).map(it => ({
+          id_don_no: it.id,
+          ma_hd: it.maHD || '',
+          ma_dot: maDot || '',
+          ma_kh: it.maKH || '',
+          ten_kh: it.tenKH || '',
+          so_tien: it.conLai || it.tienThu || 0,
+          hinh_thuc: 'Tiền mặt',
+          nguoi_thu: (typeof layNguoiThaoTac === 'function') ? layNguoiThaoTac() : (dotHienTai && dotHienTai.taiXe) || '',
+          ghi_chu: `Thu hộ nợ cũ qua chuyến xe ${maDot || ''}`,
+          ngay_thu: ngayThu || new Date().toISOString().slice(0, 10)
+        }));
+        if (rows.length === 0) return;
+        const { error } = await sb.from('thu_no').insert(rows);
+        if (error) console.warn('Lỗi đồng bộ thu nợ cũ lên Supabase (thu_no):', error);
+      } catch (e) {
+        console.warn('Lỗi đồng bộ thu nợ cũ lên Supabase:', e);
+      }
+    }
+
     let cheDoChonNoCuDangBat = false;
 
-    function moModalSoCongNo(cheDoChon = false) {
+    async function moModalSoCongNo(cheDoChon = false) {
       cheDoChonNoCuDangBat = cheDoChon;
       const modal = document.getElementById('modalSoCongNo');
       const title = document.getElementById('modalSoCongNoTitle');
@@ -2337,6 +2401,9 @@
         ` : `Thao Tác`;
       }
       modal.style.display = 'flex';
+      // Đồng bộ lại số đã thu từ Supabase trước khi hiển thị, tránh chọn nhầm đơn nợ
+      // mà người khác/máy khác vừa thu xong (thu trùng)
+      await dongBoConLaiCongNoTuCloud();
       renderSoCongNo();
       capNhatBarChonNhieu();
     }
@@ -2648,6 +2715,7 @@
       });
 
       // Nếu có thu nợ cũ (hỗ trợ nhiều đơn nợ cùng lúc)
+      const dsThuNoCuThucTe = []; // để đồng bộ lên Supabase (thu_no) ngay bên dưới, chống thu trùng
       if (danhSachDonNoDangThu && danhSachDonNoDangThu.length > 0) {
         danhSachDonNoDangThu.forEach(itemNo => {
           const idxThu = dsCongNoHienTai.findIndex(d => d.id === itemNo.id || d.maHD === itemNo.maHD);
@@ -2657,6 +2725,7 @@
             dsCongNoHienTai[idxThu].conLai = Math.max(0, (dsCongNoHienTai[idxThu].conLai || dsCongNoHienTai[idxThu].soTienNo) - tienThu);
             dsCongNoHienTai[idxThu].trangThai = dsCongNoHienTai[idxThu].conLai <= 0 ? 'da_thu_du' : 'da_thu_mot_phan';
             dsCongNoHienTai[idxThu].ghiChuThu = `Đã thu ${formatTien(tienThu)} đ qua xe ${dotHienTai.xe} (${dotHienTai.ngayGiao})`;
+            dsThuNoCuThucTe.push({ id: dsCongNoHienTai[idxThu].id, maHD: dsCongNoHienTai[idxThu].maHD, maKH: dsCongNoHienTai[idxThu].maKH, tenKH: dsCongNoHienTai[idxThu].tenKH, conLai: tienThu });
           }
         });
       } else if (thuNoCu > 0 && idDonNoDangThu) {
@@ -2666,9 +2735,12 @@
           dsCongNoHienTai[idxThu].conLai = Math.max(0, (dsCongNoHienTai[idxThu].conLai || dsCongNoHienTai[idxThu].soTienNo) - thuNoCu);
           dsCongNoHienTai[idxThu].trangThai = dsCongNoHienTai[idxThu].conLai <= 0 ? 'da_thu_du' : 'da_thu_mot_phan';
           dsCongNoHienTai[idxThu].ghiChuThu = `Đã thu ${formatTien(thuNoCu)} đ qua xe ${dotHienTai.xe} (${dotHienTai.ngayGiao})`;
+          dsThuNoCuThucTe.push({ id: dsCongNoHienTai[idxThu].id, maHD: dsCongNoHienTai[idxThu].maHD, maKH: dsCongNoHienTai[idxThu].maKH, tenKH: dsCongNoHienTai[idxThu].tenKH, conLai: thuNoCu });
         }
       }
       ghiSoCongNo(dsCongNoHienTai);
+      // Đồng bộ lên Supabase để Theo Dõi Công Nợ và các máy khác thấy ngay (chống thu trùng)
+      dongBoThuNoCuLenCloud(dsThuNoCuThucTe, dotHienTai.maDot, dotHienTai.ngayGiao);
 
       // 3. Lưu vào danh sách đợt trong localStorage
       const idx = danhSachTatCaDot.findIndex(d => d.maDot === dotHienTai.maDot);

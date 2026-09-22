@@ -909,6 +909,9 @@
 
       // 4. Tải và tổng hợp dữ liệu công nợ từ các nguồn
       await taiLaiDuLieuCongNo();
+
+      // 5. Lắng nghe Realtime để tự động cập nhật khi người khác thu nợ / xoá đơn ở máy khác
+      khoiTaoRealtimeCongNo();
     }
 
     // Tải danh mục tài khoản ngân hàng từ Danh mục hệ thống
@@ -970,9 +973,55 @@
       localStorage.setItem('tmh_theo_doi_cong_no', JSON.stringify(ds));
     }
 
+    // ========================================================
+    // ĐỒNG BỘ SỐ TIỀN ĐÃ THU TỪ SUPABASE (bảng thu_no) — CHỐNG THU TRÙNG
+    // --------------------------------------------------------
+    // Mỗi lần "Thu Nợ Tại Quỹ" (kể cả thu nợ cũ khi quyết toán chuyến xe ở
+    // Bước 2) đều được ghi 1 dòng lên bảng thu_no. Hàm này tải toàn bộ các
+    // dòng đó và cộng dồn theo từng đơn nợ, để MỌI máy đều biết chính xác
+    // đơn nợ đã được thu bao nhiêu, dù ai thu ở máy nào.
+    // ========================================================
+    let thuNoCloudMap = new Map();   // id đơn nợ -> tổng số tiền đã thu (từ Supabase)
+    let dangTaiCongNo = false;
+
+    async function taiTongHopThuNoCloud() {
+      thuNoCloudMap = new Map();
+      if (typeof sb === 'undefined') return;
+      try {
+        const { data, error } = await sb.from('thu_no').select('id_don_no, so_tien').not('id_don_no', 'is', null);
+        if (error) {
+          console.warn('Không đọc được bảng thu_no (đã chạy sql/07_thu_no_dong_bo.sql chưa?):', error);
+          return;
+        }
+        (data || []).forEach(r => {
+          if (!r.id_don_no) return;
+          thuNoCloudMap.set(r.id_don_no, (thuNoCloudMap.get(r.id_don_no) || 0) + parseFloat(r.so_tien || 0));
+        });
+      } catch (e) {
+        console.warn('Lỗi tải tổng hợp thu_no:', e);
+      }
+    }
+
+    // Đối chiếu 1 đơn nợ với dữ liệu đã thu trên Supabase — LUÔN lấy số LỚN HƠN
+    // giữa số đã biết trên máy này và số tổng hợp từ Cloud, để không bao giờ làm
+    // "giảm" một khoản đã ghi nhận, đồng thời hiển thị được khoản người khác vừa thu.
+    function doiChieuDaThuTuCloud(don) {
+      const cloudSum = thuNoCloudMap.get(don.id) || 0;
+      const daThuMoi = Math.max(don.daThu || 0, cloudSum);
+      if (daThuMoi !== (don.daThu || 0)) {
+        don.daThu = daThuMoi;
+        return true;
+      }
+      return false;
+    }
+
     // Tải và tổng hợp dữ liệu công nợ từ mọi nguồn (Sổ công nợ, Lịch sử đợt giao xe, Supabase)
     async function taiLaiDuLieuCongNo() {
+      if (dangTaiCongNo) return;
+      dangTaiCongNo = true;
+      try {
       await taiNhatKyXoaCloud();
+      await taiTongHopThuNoCloud();
       danhSachCongNo = docSoCongNo();
       // Ẩn các đơn đã bị xoá mềm ở bất kỳ máy nào (kể cả bản còn nằm trong sổ trên máy này)
       const truocLoc = danhSachCongNo.length;
@@ -1085,6 +1134,14 @@
         }
       }
 
+      // 3. Đối chiếu số tiền đã thu với bảng thu_no trên Supabase (chống thu trùng)
+      danhSachCongNo.forEach(d => {
+        if (doiChieuDaThuTuCloud(d)) coThayDoi = true;
+        const cl = Math.max(0, (d.soTienNo || 0) - (d.daThu || 0));
+        d.conLai = cl;
+        d.trangThai = cl <= 0 ? 'da_thu_du' : ((d.daThu || 0) > 0 ? 'da_thu_mot_phan' : 'chua_thu');
+      });
+
       if (coThayDoi) {
         ghiSoCongNo(danhSachCongNo);
       }
@@ -1092,6 +1149,34 @@
       capNhatKPI();
       capNhatDropdownKhachHang();
       veBangCongNo();
+      // Nếu đang mở modal lịch sử của 1 khách hàng, vẽ lại luôn để hiển thị số mới nhất
+      if (khachHangDangXemLichSu) {
+        moLichSuDonKhachHang(encodeURIComponent(khachHangDangXemLichSu));
+      }
+      } finally {
+        dangTaiCongNo = false;
+      }
+    }
+
+    // Nạp lại dữ liệu công nợ có debounce — dùng cho sự kiện Realtime để tránh gọi dồn dập
+    let henTaiLaiCongNo = null;
+    function taiLaiDuLieuCongNoDebounce(delay = 1200) {
+      clearTimeout(henTaiLaiCongNo);
+      henTaiLaiCongNo = setTimeout(() => { taiLaiDuLieuCongNo(); }, delay);
+    }
+
+    // Lắng nghe Realtime: khi có người thu nợ (thu_no), xoá đơn (cong_no_da_xoa)
+    // hoặc phát sinh nợ mới (luu_tru) ở bất kỳ máy nào, tự động cập nhật lại sổ
+    function khoiTaoRealtimeCongNo() {
+      if (typeof sb === 'undefined' || typeof sb.channel !== 'function') return;
+      try {
+        sb.channel('tmh_realtime_cong_no')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'thu_no' }, () => taiLaiDuLieuCongNoDebounce())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'cong_no_da_xoa' }, () => taiLaiDuLieuCongNoDebounce())
+          .subscribe();
+      } catch (e) {
+        console.warn('Không bật được Realtime cho sổ công nợ:', e);
+      }
     }
 
     // Cập nhật danh sách khách hàng vào bộ lọc
@@ -1858,9 +1943,16 @@
     // ========================================================
     // MODAL THU NỢ TẠI QUỸ (HỖ TRỢ CHỌN TÀI KHOẢN NGÂN HÀNG)
     // ========================================================
-    function moModalThuNoTaiQuy() {
+    async function moModalThuNoTaiQuy() {
       const modal = document.getElementById('modalThuNoTaiQuy');
       const sel = document.getElementById('modalSelDonNo');
+      modal.style.display = 'flex';
+      sel.innerHTML = '<option value="">⏳ Đang cập nhật số dư mới nhất từ máy chủ (tránh thu trùng)…</option>';
+      sel.disabled = true;
+
+      // Luôn đồng bộ lại trước khi mở, để không hiển thị đơn nợ mà người khác vừa thu xong ở máy khác
+      await taiLaiDuLieuCongNo();
+      sel.disabled = false;
       sel.innerHTML = '<option value="">-- Chọn đơn nợ cần thu --</option>';
 
       const dsChuaXong = danhSachCongNo.filter(d => {
@@ -1883,8 +1975,6 @@
       thayDoiHinhThucThuModal('Tiền mặt');
       document.getElementById('modalNgayThu').value = new Date().toISOString().slice(0, 10);
       document.getElementById('modalGhiChu').value = '';
-
-      modal.style.display = 'flex';
     }
 
     function thayDoiHinhThucThuModal(val) {
@@ -1896,19 +1986,25 @@
       }
     }
 
-    function moThuNoChoDon(id) {
-      moModalThuNoTaiQuy();
+    async function moThuNoChoDon(id) {
+      await moModalThuNoTaiQuy();
+      const donMoi = danhSachCongNo.find(d => d.id === id);
+      const clMoi = donMoi ? Math.max(0, (donMoi.soTienNo || 0) - (donMoi.daThu || 0)) : 0;
+      if (!donMoi || clMoi <= 0) {
+        alert('ℹ️ Đơn nợ này vừa được thu đủ (có thể do người khác vừa thu ở máy khác). Danh sách đã được cập nhật mới nhất.');
+        return;
+      }
       document.getElementById('modalSelDonNo').value = id;
       chonDonNoTrenModal(id);
     }
 
-    function moThuNoChoKhachHang(tenKHRaw) {
+    async function moThuNoChoKhachHang(tenKHRaw) {
       const tenKH = decodeURIComponent(tenKHRaw);
-      const donDauTien = danhSachCongNo.find(d => (d.tenKH || '').trim() === tenKH && ((d.conLai !== undefined ? d.conLai : (d.soTienNo || 0)) > 0));
+      await moModalThuNoTaiQuy();
+      const donDauTien = danhSachCongNo.find(d => (d.tenKH || '').trim() === tenKH && Math.max(0, (d.soTienNo || 0) - (d.daThu || 0)) > 0);
       if (donDauTien) {
-        moThuNoChoDon(donDauTien.id);
-      } else {
-        moModalThuNoTaiQuy();
+        document.getElementById('modalSelDonNo').value = donDauTien.id;
+        chonDonNoTrenModal(donDauTien.id);
       }
     }
 
@@ -1936,7 +2032,7 @@
       el.value = formatTien(val);
     }
 
-    function luuThuNoTaiQuy() {
+    async function luuThuNoTaiQuy() {
       if (chanNeuChiXem()) return;
       const id = document.getElementById('modalSelDonNo').value;
       if (!id) {
@@ -1946,16 +2042,10 @@
       const don = danhSachCongNo.find(d => d.id === id);
       if (!don) return;
 
-      const clHienTai = (don.conLai !== undefined) ? don.conLai : Math.max(0, (don.soTienNo || 0) - (don.daThu || 0));
       const soTienThu = parseVNNumber_(document.getElementById('modalSoTienThu').value);
       if (soTienThu <= 0) {
         alert("⚠️ Số tiền thu phải lớn hơn 0!");
         return;
-      }
-      if (soTienThu > clHienTai) {
-        if (!confirm(`Số tiền thu (${formatTien(soTienThu)} đ) lớn hơn số nợ còn lại (${formatTien(clHienTai)} đ). Bạn vẫn muốn tiếp tục?`)) {
-          return;
-        }
       }
 
       const hinhThuc = document.getElementById('modalHinhThuc').value;
@@ -1968,8 +2058,72 @@
         phuongThucChiTiet = `CK qua ${nhNhan}`;
       }
 
+      // CHỐNG THU TRÙNG: kiểm tra lại số dư MỚI NHẤT trên Supabase ngay trước khi lưu,
+      // đề phòng người khác vừa thu đơn nợ này ở máy khác trong lúc form đang mở
+      const btnLuu = document.querySelector('#modalThuNoTaiQuy .btn-primary');
+      if (btnLuu) btnLuu.disabled = true;
+      let clMoiNhat;
+      try {
+        if (typeof sb !== 'undefined') {
+          const { data, error } = await sb.from('thu_no').select('so_tien').eq('id_don_no', id);
+          if (error) throw error;
+          const daThuCloudMoiNhat = (data || []).reduce((s, r) => s + parseFloat(r.so_tien || 0), 0);
+          const daThuMoiNhat = Math.max(don.daThu || 0, daThuCloudMoiNhat);
+          clMoiNhat = Math.max(0, (don.soTienNo || 0) - daThuMoiNhat);
+          don.daThu = daThuMoiNhat; // cập nhật ngay để hiển thị đúng nếu phải dừng lại
+        } else {
+          clMoiNhat = (don.conLai !== undefined) ? don.conLai : Math.max(0, (don.soTienNo || 0) - (don.daThu || 0));
+        }
+      } catch (e) {
+        console.error('Lỗi kiểm tra số dư mới nhất trước khi thu nợ:', e);
+        alert('❌ Không kiểm tra được số dư mới nhất từ máy chủ, vui lòng thử lại: ' + (e.message || String(e)));
+        if (btnLuu) btnLuu.disabled = false;
+        return;
+      }
+
+      if (clMoiNhat <= 0) {
+        alert(`ℹ️ Đơn nợ "${don.maHD}" đã được thu ĐỦ (có thể vừa được thu ở máy khác). Đang cập nhật lại sổ công nợ...`);
+        if (btnLuu) btnLuu.disabled = false;
+        dongModalThuNoTaiQuy();
+        await taiLaiDuLieuCongNo();
+        return;
+      }
+      if (soTienThu > clMoiNhat) {
+        if (!confirm(`Số tiền thu (${formatTien(soTienThu)} đ) lớn hơn số nợ còn lại thực tế (${formatTien(clMoiNhat)} đ). Bạn vẫn muốn tiếp tục?`)) {
+          if (btnLuu) btnLuu.disabled = false;
+          return;
+        }
+      }
+
+      // Ghi nhận lên Supabase TRƯỚC — thành công mới cập nhật sổ trên máy này,
+      // để mọi máy khác đều thấy được khoản vừa thu (tránh thu trùng)
+      let resInsert = { error: { message: 'Chưa kết nối Supabase' } };
+      if (typeof sb !== 'undefined') {
+        resInsert = await sb.from('thu_no').insert([{
+          id_don_no: id,
+          ma_hd: don.maHD || '',
+          ma_dot: don.maDot || '',
+          ma_kh: don.maKH || '',
+          ten_kh: don.tenKH || '',
+          so_tien: soTienThu,
+          hinh_thuc: hinhThuc,
+          tai_khoan_nhan: nhNhan || '',
+          nguoi_thu: layNguoiThaoTac(),
+          ghi_chu: ghiChu || '',
+          ngay_thu: ngayThu
+        }]);
+      }
+      if (btnLuu) btnLuu.disabled = false;
+
+      if (resInsert.error) {
+        console.error('Lỗi ghi nhận thu nợ lên Supabase:', resInsert.error);
+        alert('❌ KHÔNG ghi nhận được khoản thu này (chưa lưu lên máy chủ).\n\nChi tiết: ' + (resInsert.error.message || JSON.stringify(resInsert.error)) +
+          '\n\nNếu báo thiếu cột "id_don_no", hãy chạy file sql/07_thu_no_dong_bo.sql trong Supabase SQL Editor.');
+        return;
+      }
+
       don.daThu = (don.daThu || 0) + soTienThu;
-      don.conLai = Math.max(0, clHienTai - soTienThu);
+      don.conLai = Math.max(0, clMoiNhat - soTienThu);
       don.trangThai = don.conLai <= 0 ? 'da_thu_du' : 'da_thu_mot_phan';
       don.taiKhoanNhan = nhNhan || don.taiKhoanNhan;
       don.ghiChuThu = `Đã thu ${formatTien(soTienThu)} đ (${phuongThucChiTiet}) ngày ${ngayThu}. ${ghiChu}`;
@@ -1979,7 +2133,7 @@
       capNhatKPI();
       veBangCongNo();
 
-      alert(`✅ Đã ghi nhận thu thành công ${formatTien(soTienThu)} đ (${phuongThucChiTiet}) cho đơn "${don.maHD}" của khách "${don.tenKH}"!`);
+      alert(`✅ Đã ghi nhận thu thành công ${formatTien(soTienThu)} đ (${phuongThucChiTiet}) cho đơn "${don.maHD}" của khách "${don.tenKH}"!\n\nKhoản thu này đã được đồng bộ lên hệ thống, mọi máy khác sẽ thấy ngay.`);
     }
 
     // ========================================================
