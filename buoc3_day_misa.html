@@ -292,6 +292,110 @@
         </table>
       </div>
 
+      <!-- ================================================================ -->
+      <!-- CẤN TRỪ CÔNG NỢ (THU NỢ KHÁCH HÀNG) — độc lập với chuyến xe chọn ở trên -->
+      <!-- Khi khách trả nợ cũ ở "Theo Dõi Công Nợ" (hoặc thu hộ qua xe ở Bước 2) -->
+      <!-- bằng Tiền mặt/Chuyển khoản, khu vực này sinh đúng bút toán            -->
+      <!-- Nợ 1111/1121 - Có 131 để cấn trừ đúng số công nợ tương ứng.          -->
+      <!-- ================================================================ -->
+      <div class="guide-box" style="background:#eff6ff; border-color:#bfdbfe;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="font-size:24px;">🧾</div>
+          <div>
+            <div style="font-weight:800; color:#1e40af; font-size:13.5px;">Cấn Trừ Công Nợ (Thu Nợ Khách Hàng):</div>
+            <div style="font-size:12px; color:#1d4ed8; margin-top:2px;">
+              Mỗi khoản khách trả nợ cũ bằng Tiền mặt hoặc Chuyển khoản (ghi nhận ở trang "Theo Dõi Công Nợ") sẽ tự sinh bút toán <b>Nợ 1111/1121 — Có 131</b> tại đây, độc lập với chuyến xe đang chọn ở phía trên. <b>Lưu ý thứ tự:</b> nên xuất MISA cho chuyến xe phát sinh công nợ gốc trước, rồi mới xuất phần cấn trừ công nợ này sau.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-meta-bar">
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+          <div style="display:flex; flex-direction:column; gap:3px;">
+            <label style="font-size:11.5px; font-weight:700; color:var(--text-muted);">📅 Lọc theo ngày thu nợ (để trống = xem tất cả):</label>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <input type="date" id="locTuNgayThuNo" class="form-control" style="height:34px;" onchange="taiDuLieuThuNoMisa()">
+              <span>—</span>
+              <input type="date" id="locDenNgayThuNo" class="form-control" style="height:34px;" onchange="taiDuLieuThuNoMisa()">
+            </div>
+          </div>
+          <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; color:var(--text-muted); align-self:flex-end; padding-bottom:6px;">
+            <input type="checkbox" id="chkChiChuaDayThuNo" checked onchange="taiDuLieuThuNoMisa()">
+            Chỉ hiện khoản chưa đẩy MISA
+          </label>
+          <button type="button" class="btn btn-outline" style="align-self:flex-end; height:34px; padding:0 10px;" onclick="taiDuLieuThuNoMisa()">
+            <span>🔄</span> Làm mới
+          </button>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" class="btn btn-outline" onclick="xuatFileExcelThuNoMisa()">
+            <span>📥</span> Tải Excel Cấn Trừ Công Nợ
+          </button>
+          <button type="button" class="btn btn-success" onclick="danhDauDaDayMisaThuNo()">
+            <span>✅</span> Đánh Dấu Đã Đẩy MISA
+          </button>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-card" style="border-left: 4px solid #16a34a;">
+          <div class="kpi-title" style="color:#16a34a;"><span>💵</span> Thu Nợ Tiền Mặt (TK 1111)</div>
+          <div class="kpi-value" style="color:#16a34a;" id="kpiThuNo1111">0 đ</div>
+          <div class="kpi-sub">Nợ TK 1111 / Có TK 131</div>
+        </div>
+        <div class="kpi-card" style="border-left: 4px solid #2563eb;">
+          <div class="kpi-title" style="color:#2563eb;"><span>🏦</span> Thu Nợ Chuyển Khoản (TK 1121)</div>
+          <div class="kpi-value" style="color:#2563eb;" id="kpiThuNo1121">0 đ</div>
+          <div class="kpi-sub">Nợ TK 1121 / Có TK 131</div>
+        </div>
+        <div class="kpi-card" style="border-left: 4px solid #7c3aed;">
+          <div class="kpi-title" style="color:#7c3aed;"><span>🧾</span> Tổng Cấn Trừ Công Nợ</div>
+          <div class="kpi-value" style="color:#7c3aed;" id="kpiThuNoTong">0 đ</div>
+          <div class="kpi-sub" id="kpiThuNoSoDong">0 khoản thu nợ</div>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <div style="padding:12px 16px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div style="font-weight:800; color:var(--text-main); font-size:13.5px; display:flex; align-items:center; gap:6px;">
+            <span>📑</span> Bảng Cấn Trừ Công Nợ Chuẩn MISA
+          </div>
+        </div>
+
+        <table class="table-misa" id="tableThuNoMisa">
+          <thead>
+            <tr>
+              <th style="width:35px; text-align:center;">STT</th>
+              <th style="width:85px;">Ngày Thu</th>
+              <th style="width:105px;">Số CT (Mã HĐ)</th>
+              <th style="width:100px;">Mã KH</th>
+              <th style="min-width:160px;">Tên Khách Hàng</th>
+              <th style="min-width:220px;">Diễn Giải</th>
+              <th style="width:110px; text-align:right;">Số Tiền</th>
+              <th style="width:65px; text-align:center;">TK Nợ</th>
+              <th style="width:65px; text-align:center;">TK Có</th>
+              <th style="width:100px;">TK Ngân Hàng</th>
+              <th style="width:150px; text-align:center;">Trạng Thái</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyThuNoMisa">
+            <tr>
+              <td colspan="11" style="text-align:center; padding:30px; color:var(--text-muted);">
+                Đang nạp dữ liệu thu nợ...
+              </td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr style="background:#f8fafc; font-weight:800; border-top:2px solid var(--border-color);">
+              <td colspan="6" style="text-align:right;">TỔNG CỘNG:</td>
+              <td style="text-align:right;" id="footThuNoTien">0</td>
+              <td colspan="4"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
     </div>
   </main>
 
@@ -314,6 +418,9 @@
       }
 
       await taiLaiDuLieuMisa();
+
+      // Tải khu vực Cấn Trừ Công Nợ (độc lập với chuyến xe đang chọn ở trên)
+      await taiDuLieuThuNoMisa();
 
       // Kích hoạt tự động đồng bộ Realtime cho Kế toán
       khoiTaoRealtimeDongBoB3();
@@ -442,6 +549,10 @@
             .on('postgres_changes', { event: '*', schema: 'public', table: 'luu_tru' }, () => {
               console.log("⚡ Nhận sự kiện Realtime luu_tru ở Bước 3");
               taiLaiDuLieuMisa(true);
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'thu_no' }, () => {
+              console.log("⚡ Nhận sự kiện Realtime thu_no ở Bước 3 (Cấn Trừ Công Nợ)");
+              taiDuLieuThuNoMisa();
             })
             .subscribe();
         } catch (e) {
@@ -656,6 +767,199 @@
       } else {
         badgeLoi.className = "badge-status badge-done";
         badgeLoi.innerHTML = "✅ 100% dòng hợp lệ sẵn sàng xuất MISA";
+      }
+    }
+
+    // ========================================================
+    // CẤN TRỪ CÔNG NỢ (THU NỢ KHÁCH HÀNG) — đọc từ bảng thu_no trên Supabase
+    // Sinh bút toán Nợ 1111 (Tiền mặt) / Nợ 1121 (Chuyển khoản) - Có 131,
+    // độc lập với chuyến xe đang chọn ở khu vực phía trên.
+    // ========================================================
+    let danhSachThuNoMisa = [];
+
+    function laLoiThieuBangThuNo_B3(err) {
+      if (!err) return false;
+      const msg = (err.message || err.details || err.hint || '').toString();
+      return err.code === 'PGRST205' || /Could not find the table/i.test(msg) || /public\.thu_no/i.test(msg) || /da_day_misa/i.test(msg) || /column .* does not exist/i.test(msg);
+    }
+
+    function dinhDangNgayVN_B3(strDate) {
+      if (!strDate) return '--';
+      const parts = String(strDate).split('-');
+      if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      return strDate;
+    }
+
+    async function taiDuLieuThuNoMisa() {
+      const tbody = document.getElementById('tbodyThuNoMisa');
+      if (typeof sb === 'undefined') {
+        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:30px; color:#b91c1c;">❌ Chưa kết nối được Supabase.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:30px; color:var(--text-muted);">⏳ Đang tải dữ liệu thu nợ...</td></tr>`;
+
+      const tuNgay = document.getElementById('locTuNgayThuNo')?.value || '';
+      const denNgay = document.getElementById('locDenNgayThuNo')?.value || '';
+      const chiChuaDay = document.getElementById('chkChiChuaDayThuNo')?.checked;
+
+      try {
+        let q = sb.from('thu_no').select('*').not('id_don_no', 'is', null).order('ngay_thu', { ascending: true });
+        if (tuNgay) q = q.gte('ngay_thu', tuNgay);
+        if (denNgay) q = q.lte('ngay_thu', denNgay);
+        const { data, error } = await q;
+
+        if (error) {
+          if (laLoiThieuBangThuNo_B3(error)) {
+            tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:30px; color:#b91c1c;">❌ Chưa có đủ bảng thu_no trên Supabase. Hãy chạy <b>sql/07_thu_no_dong_bo.sql</b> và <b>sql/08_thu_no_day_misa.sql</b> trong Supabase SQL Editor.</td></tr>`;
+          } else {
+            console.warn('Lỗi tải dữ liệu thu_no ở Bước 3:', error);
+            tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:30px; color:#b91c1c;">❌ Lỗi tải dữ liệu: ${escapeHtml(error.message || '')}</td></tr>`;
+          }
+          danhSachThuNoMisa = [];
+          tinhToanTongTheThuNoMisa();
+          return;
+        }
+
+        let ds = data || [];
+        if (chiChuaDay) ds = ds.filter(r => !r.da_day_misa);
+
+        danhSachThuNoMisa = ds.map(r => {
+          const tkNo = r.hinh_thuc === 'Chuyển khoản' ? '1121' : '1111';
+          // Kiểm tra logic trước-sau: chuyến xe phát sinh công nợ gốc đã đẩy MISA chưa
+          // (null = không xác định được đợt gốc, ví dụ đơn nợ ghi thủ công ngoài bảng kê)
+          const dotGoc = danhSachTatCaDot.find(d => d.maDot === r.ma_dot);
+          const dotGocDaDay = dotGoc ? !!dotGoc.daDayMisa : null;
+          return {
+            id: r.id,
+            ngayThu: dinhDangNgayVN_B3(r.ngay_thu),
+            soCT: r.ma_hd || '',
+            maKH: r.ma_kh || 'KH_LE',
+            tenKH: r.ten_kh || 'Khách Lẻ',
+            dienGiai: `Thu nợ khách hàng - HĐ ${r.ma_hd || ''}${r.ghi_chu ? ' - ' + r.ghi_chu : ''}`,
+            soTien: parseFloat(r.so_tien || 0),
+            tkNo: tkNo,
+            tkCo: '131',
+            tkNganHang: tkNo === '1121' ? (r.tai_khoan_nhan || '') : '',
+            daDayMisa: !!r.da_day_misa,
+            dotGocDaDay: dotGocDaDay
+          };
+        });
+
+        veBangThuNoMisa();
+        tinhToanTongTheThuNoMisa();
+      } catch (e) {
+        console.error('Lỗi tải dữ liệu thu nợ MISA:', e);
+        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:30px; color:#b91c1c;">❌ Lỗi: ${escapeHtml(e.message || String(e))}</td></tr>`;
+      }
+    }
+
+    function veBangThuNoMisa() {
+      const tbody = document.getElementById('tbodyThuNoMisa');
+      if (danhSachThuNoMisa.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:30px; color:var(--text-muted);">Không có khoản thu nợ nào trong khoảng lọc hiện tại.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = danhSachThuNoMisa.map((r, i) => {
+        let trangThai;
+        if (r.daDayMisa) {
+          trangThai = `<span class="badge-status badge-done">✅ Đã đẩy MISA</span>`;
+        } else if (r.dotGocDaDay === false) {
+          trangThai = `<span class="badge-status badge-pending" title="Chuyến xe phát sinh công nợ gốc chưa được đẩy MISA — nên xuất chuyến xe gốc trước để đúng thứ tự trước-sau">⚠️ Đợt gốc chưa xuất</span>`;
+        } else {
+          trangThai = `<span class="badge-status badge-pending">⏳ Chờ xuất MISA</span>`;
+        }
+        return `
+          <tr>
+            <td style="text-align:center; font-weight:700; color:var(--text-muted);">${i + 1}</td>
+            <td>${escapeHtml(r.ngayThu)}</td>
+            <td><b>${escapeHtml(r.soCT)}</b></td>
+            <td><b>${escapeHtml(r.maKH)}</b></td>
+            <td>${escapeHtml(r.tenKH)}</td>
+            <td style="font-size:11px; color:var(--text-muted); white-space:normal;">${escapeHtml(r.dienGiai)}</td>
+            <td style="text-align:right; font-weight:800; color:var(--text-main);">${formatTien(r.soTien)}</td>
+            <td style="text-align:center;"><span class="badge-tk tk-no">${r.tkNo}</span></td>
+            <td style="text-align:center;"><span class="badge-tk tk-co">${r.tkCo}</span></td>
+            <td style="color:#2563eb; font-weight:700;">${escapeHtml(r.tkNganHang || '')}</td>
+            <td style="text-align:center;">${trangThai}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function tinhToanTongTheThuNoMisa() {
+      let tong1111 = 0, tong1121 = 0, tong = 0;
+      danhSachThuNoMisa.forEach(r => {
+        tong += r.soTien;
+        if (r.tkNo === '1111') tong1111 += r.soTien;
+        else if (r.tkNo === '1121') tong1121 += r.soTien;
+      });
+      document.getElementById('kpiThuNo1111').textContent = formatTien(tong1111) + ' đ';
+      document.getElementById('kpiThuNo1121').textContent = formatTien(tong1121) + ' đ';
+      document.getElementById('kpiThuNoTong').textContent = formatTien(tong) + ' đ';
+      document.getElementById('kpiThuNoSoDong').textContent = `${danhSachThuNoMisa.length} khoản thu nợ`;
+      document.getElementById('footThuNoTien').textContent = formatTien(tong);
+    }
+
+    function xuatFileExcelThuNoMisa() {
+      if (danhSachThuNoMisa.length === 0) {
+        alert("⚠️ Không có khoản thu nợ nào để xuất file!");
+        return;
+      }
+      try {
+        const headers = [
+          "Ngày hạch toán (*)", "Ngày chứng từ (*)", "Số chứng từ (*)", "Mã khách hàng (*)",
+          "Tên khách hàng", "Địa chỉ", "Mã số thuế", "Diễn giải", "Mã hàng (*)", "Tên hàng",
+          "ĐVT", "Số lượng (*)", "Đơn giá", "Thành tiền (*)", "TK Nợ (*)", "TK Có (*)",
+          "Tài khoản ngân hàng", "Nhân viên bán hàng"
+        ];
+        const rowsData = [headers];
+        danhSachThuNoMisa.forEach(r => {
+          rowsData.push([
+            r.ngayThu, r.ngayThu, r.soCT, r.maKH, r.tenKH, "", "", r.dienGiai,
+            "THU_NO", "Thu nợ khách hàng (cấn trừ công nợ)", "Lần", 1, r.soTien, r.soTien,
+            r.tkNo, r.tkCo, r.tkNganHang || "", ""
+          ]);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(rowsData);
+        ws['!cols'] = [
+          { wch: 13 }, { wch: 13 }, { wch: 16 }, { wch: 15 }, { wch: 28 }, { wch: 15 },
+          { wch: 14 }, { wch: 36 }, { wch: 12 }, { wch: 30 }, { wch: 8 }, { wch: 10 },
+          { wch: 14 }, { wch: 16 }, { wch: 10 }, { wch: 10 }, { wch: 20 }, { wch: 18 }
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "CanTruCongNoMISA");
+
+        const tenFile = `MISA_ThuNo_CanTruCongNo_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        XLSX.writeFile(wb, tenFile);
+
+        hienThiToast("📥 Đã xuất file Excel cấn trừ công nợ thành công!");
+        alert(`✅ ĐÃ XUẤT FILE CẤN TRỪ CÔNG NỢ THÀNH CÔNG!\n\n• Tên file: ${tenFile}\n• Tổng số dòng: ${danhSachThuNoMisa.length} dòng\n\n📌 Vào MISA ➡ Bán hàng (hoặc Thu tiền) ➡ Tiện ích ➡ Nhập khẩu từ Excel để nạp file này!`);
+      } catch (err) {
+        alert("Lỗi xuất file Excel: " + err.message);
+      }
+    }
+
+    async function danhDauDaDayMisaThuNo() {
+      const dsChuaDay = danhSachThuNoMisa.filter(r => !r.daDayMisa);
+      if (dsChuaDay.length === 0) {
+        alert("ℹ️ Không có khoản thu nợ nào đang chờ đánh dấu (tất cả đã đẩy MISA hoặc danh sách đang trống).");
+        return;
+      }
+      if (!confirm(`Đánh dấu ${dsChuaDay.length} khoản thu nợ là ĐÃ ĐẨY MISA?`)) return;
+
+      try {
+        const ids = dsChuaDay.map(r => r.id);
+        const { error } = await sb.from('thu_no').update({ da_day_misa: true, thoi_gian_day_misa: new Date().toISOString() }).in('id', ids);
+        if (error) {
+          alert('❌ Không đánh dấu được: ' + (error.message || JSON.stringify(error)));
+          return;
+        }
+        alert(`✅ Đã đánh dấu ${dsChuaDay.length} khoản thu nợ là đã đẩy MISA!`);
+        await taiDuLieuThuNoMisa();
+      } catch (e) {
+        alert('❌ Lỗi: ' + (e.message || String(e)));
       }
     }
 

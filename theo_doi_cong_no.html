@@ -513,19 +513,25 @@
           </div>
         </div>
 
-        <div class="form-group">
-          <label>Số Tiền Thu Đợt Này (đ):</label>
-          <input type="text" id="modalSoTienThu" class="form-control" style="font-size:15px; font-weight:800; color:#16a34a;" 
-            oninput="formatInputTienModal(this)">
+        <!-- KHÁCH CÓ THỂ TRẢ NỢ CÙNG LÚC BẰNG CẢ TIỀN MẶT VÀ CHUYỂN KHOẢN -->
+        <!-- Mỗi khoản sẽ tự cấn trừ đúng phần tương ứng vào công nợ và sinh đúng bút toán Nợ 1111/1121 - Có 131 ở Bước 3 -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div class="form-group">
+            <label>💵 Tiền Mặt Thu (đ):</label>
+            <input type="text" id="modalTienMatThu" class="form-control" style="font-size:15px; font-weight:800; color:#16a34a;"
+              oninput="formatInputTienModal(this); capNhatTongTienThuModal();">
+          </div>
+          <div class="form-group">
+            <label>🏦 Chuyển Khoản Thu (đ):</label>
+            <input type="text" id="modalChuyenKhoanThu" class="form-control" style="font-size:15px; font-weight:800; color:#2563eb;"
+              value="0" oninput="formatInputTienModal(this); capNhatTongTienThuModal();">
+          </div>
         </div>
 
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
           <div class="form-group">
-            <label>Hình Thức Thu:</label>
-            <select id="modalHinhThuc" class="form-control" style="font-weight:700;" onchange="thayDoiHinhThucThuModal(this.value)">
-              <option value="Tiền mặt">💵 Tiền mặt</option>
-              <option value="Chuyển khoản">🏦 Chuyển khoản ngân hàng</option>
-            </select>
+            <label>Tổng Thu Đợt Này:</label>
+            <input type="text" id="modalTongThu" class="form-control" style="background:#f0fdf4; color:#15803d; font-weight:800;" readonly>
           </div>
           <div class="form-group">
             <label>Ngày Thu Tiền:</label>
@@ -533,7 +539,7 @@
           </div>
         </div>
 
-        <!-- Ô CHỌN NGÂN HÀNG THỤ HƯỞNG (TƯƠNG TỰ BƯỚC 2) -->
+        <!-- Ô CHỌN NGÂN HÀNG THỤ HƯỞNG (TƯƠNG TỰ BƯỚC 2) — hiện khi có Chuyển Khoản Thu -->
         <div class="form-group" id="boxChonNganHangThu" style="display:none; background:#eff6ff; padding:10px; border-radius:var(--radius-sm); border:1px solid #bfdbfe;">
           <label style="color:#1d4ed8; font-weight:800;">🏦 Ngân Hàng Nhận (Tài khoản thụ hưởng của công ty):</label>
           <select id="modalNganHangNhan" class="form-control" style="font-weight:700; color:#1d4ed8;">
@@ -2003,20 +2009,26 @@
 
       document.getElementById('modalTienNo').value = '';
       document.getElementById('modalConLai').value = '';
-      document.getElementById('modalSoTienThu').value = '';
-      document.getElementById('modalHinhThuc').value = 'Tiền mặt';
-      thayDoiHinhThucThuModal('Tiền mặt');
+      document.getElementById('modalTienMatThu').value = '';
+      document.getElementById('modalChuyenKhoanThu').value = '0';
+      capNhatTongTienThuModal();
       document.getElementById('modalNgayThu').value = new Date().toISOString().slice(0, 10);
       document.getElementById('modalGhiChu').value = '';
     }
 
-    function thayDoiHinhThucThuModal(val) {
+    // Hiện ô chọn ngân hàng nhận khi có phần thu bằng Chuyển khoản
+    function capNhatHienThiNganHangThuNo() {
       const boxNH = document.getElementById('boxChonNganHangThu');
-      if (val === 'Chuyển khoản') {
-        boxNH.style.display = 'flex';
-      } else {
-        boxNH.style.display = 'none';
-      }
+      const chuyenKhoan = parseVNNumber_(document.getElementById('modalChuyenKhoanThu').value);
+      boxNH.style.display = chuyenKhoan > 0 ? 'flex' : 'none';
+    }
+
+    // Cộng dồn Tiền mặt + Chuyển khoản = Tổng thu đợt này (khách có thể trả cùng lúc cả 2 hình thức)
+    function capNhatTongTienThuModal() {
+      const tienMat = parseVNNumber_(document.getElementById('modalTienMatThu').value);
+      const chuyenKhoan = parseVNNumber_(document.getElementById('modalChuyenKhoanThu').value);
+      document.getElementById('modalTongThu').value = formatTien(tienMat + chuyenKhoan) + ' đ';
+      capNhatHienThiNganHangThuNo();
     }
 
     async function moThuNoChoDon(id) {
@@ -2050,13 +2062,19 @@
       if (!don) {
         document.getElementById('modalTienNo').value = '';
         document.getElementById('modalConLai').value = '';
-        document.getElementById('modalSoTienThu').value = '';
+        document.getElementById('modalTienMatThu').value = '';
+        document.getElementById('modalChuyenKhoanThu').value = '0';
+        capNhatTongTienThuModal();
         return;
       }
       const cl = (don.conLai !== undefined) ? don.conLai : Math.max(0, (don.soTienNo || 0) - (don.daThu || 0));
       document.getElementById('modalTienNo').value = formatTien(don.soTienNo || 0) + ' đ';
       document.getElementById('modalConLai').value = formatTien(cl) + ' đ';
-      document.getElementById('modalSoTienThu').value = formatTien(cl);
+      // Mặc định giả định khách trả hết bằng tiền mặt — kế toán có thể sửa lại, ví dụ
+      // tách bớt 1 phần sang ô Chuyển Khoản nếu khách trả cùng lúc cả 2 hình thức
+      document.getElementById('modalTienMatThu').value = formatTien(cl);
+      document.getElementById('modalChuyenKhoanThu').value = '0';
+      capNhatTongTienThuModal();
       document.getElementById('modalGhiChu').value = `${don.tenKH} nộp nợ HĐ ${don.maHD}`;
     }
 
@@ -2075,21 +2093,28 @@
       const don = danhSachCongNo.find(d => d.id === id);
       if (!don) return;
 
-      const soTienThu = parseVNNumber_(document.getElementById('modalSoTienThu').value);
+      // Khách có thể trả nợ cùng lúc bằng cả Tiền mặt và Chuyển khoản — mỗi phần sẽ
+      // tự cấn trừ đúng số tiền tương ứng vào công nợ và sinh đúng bút toán riêng
+      // (Nợ 1111 / Nợ 1121 - đều Có 131) khi xuất MISA ở Bước 3.
+      const tienMatThu = parseVNNumber_(document.getElementById('modalTienMatThu').value);
+      const chuyenKhoanThu = parseVNNumber_(document.getElementById('modalChuyenKhoanThu').value);
+      const soTienThu = tienMatThu + chuyenKhoanThu;
       if (soTienThu <= 0) {
-        alert("⚠️ Số tiền thu phải lớn hơn 0!");
+        alert("⚠️ Vui lòng nhập số tiền Tiền mặt và/hoặc Chuyển khoản lớn hơn 0!");
         return;
       }
-
-      const hinhThuc = document.getElementById('modalHinhThuc').value;
-      const nhNhan = (hinhThuc === 'Chuyển khoản') ? document.getElementById('modalNganHangNhan').value : '';
+      const nhNhan = chuyenKhoanThu > 0 ? document.getElementById('modalNganHangNhan').value : '';
+      if (chuyenKhoanThu > 0 && !nhNhan) {
+        alert("⚠️ Vui lòng chọn Ngân hàng nhận cho phần thu Chuyển khoản!");
+        return;
+      }
       const ngayThu = document.getElementById('modalNgayThu').value || new Date().toISOString().slice(0, 10);
       const ghiChu = document.getElementById('modalGhiChu').value;
 
-      let phuongThucChiTiet = hinhThuc;
-      if (hinhThuc === 'Chuyển khoản' && nhNhan) {
-        phuongThucChiTiet = `CK qua ${nhNhan}`;
-      }
+      const cacPhanThu = [];
+      if (tienMatThu > 0) cacPhanThu.push(`${formatTien(tienMatThu)} đ tiền mặt`);
+      if (chuyenKhoanThu > 0) cacPhanThu.push(`${formatTien(chuyenKhoanThu)} đ chuyển khoản${nhNhan ? ' qua ' + nhNhan : ''}`);
+      const phuongThucChiTiet = cacPhanThu.join(' + ');
 
       // CHỐNG THU TRÙNG: kiểm tra lại số dư MỚI NHẤT trên Supabase ngay trước khi lưu,
       // đề phòng người khác vừa thu đơn nợ này ở máy khác trong lúc form đang mở.
@@ -2142,21 +2167,28 @@
       // Ghi nhận lên Supabase TRƯỚC — thành công mới cập nhật sổ trên máy này,
       // để mọi máy khác đều thấy được khoản vừa thu (tránh thu trùng). Nếu bảng
       // thu_no chưa tồn tại thì bỏ qua bước này, lưu cục bộ như trước đây.
+      // Mỗi hình thức thu (Tiền mặt / Chuyển khoản) được ghi thành 1 dòng riêng
+      // để Bước 3 xuất đúng bút toán Nợ 1111 hoặc Nợ 1121 - Có 131 tương ứng.
       let resInsert = { error: null };
       if (dongBoDuocCloud && typeof sb !== 'undefined') {
-        resInsert = await sb.from('thu_no').insert([{
-          id_don_no: id,
-          ma_hd: don.maHD || '',
-          ma_dot: don.maDot || '',
-          ma_kh: don.maKH || '',
-          ten_kh: don.tenKH || '',
-          so_tien: soTienThu,
-          hinh_thuc: hinhThuc,
-          tai_khoan_nhan: nhNhan || '',
-          nguoi_thu: layNguoiThaoTac(),
-          ghi_chu: ghiChu || '',
-          ngay_thu: ngayThu
-        }]);
+        const dongThuNo = [];
+        if (tienMatThu > 0) {
+          dongThuNo.push({
+            id_don_no: id, ma_hd: don.maHD || '', ma_dot: don.maDot || '',
+            ma_kh: don.maKH || '', ten_kh: don.tenKH || '',
+            so_tien: tienMatThu, hinh_thuc: 'Tiền mặt', tai_khoan_nhan: '',
+            nguoi_thu: layNguoiThaoTac(), ghi_chu: ghiChu || '', ngay_thu: ngayThu
+          });
+        }
+        if (chuyenKhoanThu > 0) {
+          dongThuNo.push({
+            id_don_no: id, ma_hd: don.maHD || '', ma_dot: don.maDot || '',
+            ma_kh: don.maKH || '', ten_kh: don.tenKH || '',
+            so_tien: chuyenKhoanThu, hinh_thuc: 'Chuyển khoản', tai_khoan_nhan: nhNhan || '',
+            nguoi_thu: layNguoiThaoTac(), ghi_chu: ghiChu || '', ngay_thu: ngayThu
+          });
+        }
+        resInsert = await sb.from('thu_no').insert(dongThuNo);
         if (resInsert.error && laLoiThieuBangThuNo(resInsert.error)) {
           banThuNoChuaSanSang = true;
           console.warn('⚠️ Bảng thu_no chưa được tạo trên Supabase — khoản thu này chỉ lưu cục bộ. Hãy chạy sql/07_thu_no_dong_bo.sql trên Supabase để bật đồng bộ.', resInsert.error);
