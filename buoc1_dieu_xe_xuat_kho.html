@@ -19,6 +19,7 @@
   <script src="phan_quyen.js"></script>
   <script src="pwa.js"></script>
   <script src="searchable-select.js"></script>
+  <script src="danh_muc_dieu_xe.js"></script>
   <link rel="stylesheet" href="layout.css">
   <style>
     /* Bố cục 2 cột Google System */
@@ -525,8 +526,12 @@
         </div>
 
         <div class="form-group">
-          <label>Ngày giao hàng:</label>
-          <input type="date" id="ngayGiaoHang" class="form-control">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label>Ngày giao hàng:</label>
+            <a href="javascript:void(0)" onclick="datNgayGiaoHomNay()" style="font-size:11px; font-weight:700; color:var(--primary); text-decoration:none;" title="Đặt lại ngày giao là hôm nay">📅 Hôm nay</a>
+          </div>
+          <input type="date" id="ngayGiaoHang" class="form-control" onchange="ghiNhoNgayGiaoDaChon()">
+          <div id="ghiChuNgayGiao" style="display:none; font-size:11px; color:#b45309; margin-top:3px;"></div>
         </div>
 
         <div class="form-group">
@@ -1353,8 +1358,9 @@
         if (loai === 'giaohang') viTri = 'Giao hàng';
         if (loai === 'thutien') viTri = 'Thu tiền';
 
-        const tim = dsNV.find(n => (n.ten_nv || n.ten || '').toUpperCase() === tenChuan);
+        const tim = dsNV.find(n => (n.ten_nv || n.ten || n.ho_ten || '').toUpperCase() === tenChuan);
         if (tim) {
+          if (!tim.vi_tri && tim.vai_tro) tim.vi_tri = tim.vai_tro; // dòng từ trang Danh Mục
           if (!tim.vi_tri || !tim.vi_tri.toLowerCase().includes(viTri.toLowerCase())) {
             tim.vi_tri = (tim.vi_tri ? tim.vi_tri + ', ' : '') + viTri;
           }
@@ -1368,6 +1374,9 @@
         if (loai === 'thutien') document.getElementById('nvThuTien').value = tenChuan;
       }
       hienThiToast(`✅ Đã thêm mới thành công: <b>${tenChuan}</b>!`);
+      capNhatThongTinDieuDongTrenBieuMau();
+      // Lưu lên hệ thống (bảng danh mục trên Supabase) để lần đăng nhập sau / máy khác vẫn còn
+      dongBoDanhMucDieuXe(true);
     }
 
     function moQuanLyDanhMuc(loai) {
@@ -1425,14 +1434,14 @@
       } else {
         let dsNV = JSON.parse(localStorage.getItem('tmh_danh_muc_nv_giao_hang_tai_xe') || '[]');
         let viTriLoc = (loaiDangQuanLy === 'taixe') ? 'tài xế' : (loaiDangQuanLy === 'giaohang' ? 'giao hàng' : 'thu tiền');
-        let ds = dsNV.filter(n => (n.vi_tri || '').toLowerCase().includes(viTriLoc));
+        let ds = dsNV.filter(n => (n.vi_tri || n.vai_tro || '').toLowerCase().includes(viTriLoc));
 
         if (ds.length === 0) {
           container.innerHTML = '<div style="color:var(--text-muted); font-size:12px; text-align:center;">Danh sách trống.</div>';
           return;
         }
         ds.forEach((item, idx) => {
-          const ten = item.ten_nv || item.ten || '';
+          const ten = item.ten_nv || item.ten || item.ho_ten || '';
           const d = document.createElement('div');
           d.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; font-size:12.5px;';
           d.innerHTML = `
@@ -1460,8 +1469,9 @@
       } else {
         let dsNV = JSON.parse(localStorage.getItem('tmh_danh_muc_nv_giao_hang_tai_xe') || '[]');
         let viTri = (loaiDangQuanLy === 'taixe') ? 'Tài xế' : (loaiDangQuanLy === 'giaohang' ? 'Giao hàng' : 'Thu tiền');
-        let tim = dsNV.find(n => (n.ten_nv || n.ten || '').toUpperCase() === ten);
+        let tim = dsNV.find(n => (n.ten_nv || n.ten || n.ho_ten || '').toUpperCase() === ten);
         if (tim) {
+          if (!tim.vi_tri && tim.vai_tro) tim.vi_tri = tim.vai_tro; // dòng từ trang Danh Mục
           if (!tim.vi_tri || !tim.vi_tri.toLowerCase().includes(viTri.toLowerCase())) {
             tim.vi_tri = (tim.vi_tri ? tim.vi_tri + ', ' : '') + viTri;
           }
@@ -1474,6 +1484,7 @@
       txt.value = '';
       veDanhSachTrongModalDM();
       hienThiToast(`✅ Đã thêm: <b>${ten}</b>`);
+      dongBoDanhMucDieuXe(true);
     }
 
     function suaMucDanhMuc(key) {
@@ -1482,11 +1493,13 @@
         const idx = parseInt(key);
         const moi = prompt('Nhập tên xe mới:', ds[idx] || '');
         if (moi && moi.trim()) {
+          const tenXeCu = ds[idx] || '';
           ds[idx] = moi.trim().toUpperCase();
           localStorage.setItem('tmh_danh_muc_xe', JSON.stringify(ds));
           napDropdownXe();
           veDanhSachTrongModalDM();
           hienThiToast(`✅ Đã đổi tên xe thành: <b>${ds[idx]}</b>`);
+          dongBoDanhMucDieuXe(true, { doiTenXe: { cu: tenXeCu, moi: ds[idx] } });
         }
       } else {
         const tenCu = String(key).trim();
@@ -1495,7 +1508,7 @@
           const tenMoi = moi.trim().toUpperCase();
           let dsNV = JSON.parse(localStorage.getItem('tmh_danh_muc_nv_giao_hang_tai_xe') || '[]');
           dsNV.forEach(n => {
-            if ((n.ten_nv || n.ten || '').toUpperCase() === tenCu.toUpperCase()) {
+            if ((n.ten_nv || n.ten || n.ho_ten || '').toUpperCase() === tenCu.toUpperCase()) {
               n.ten_nv = tenMoi;
               n.ten = tenMoi;
             }
@@ -1504,6 +1517,7 @@
           napDropdownNhanSu();
           veDanhSachTrongModalDM();
           hienThiToast(`✅ Đã cập nhật tên: <b>${tenMoi}</b>`);
+          dongBoDanhMucDieuXe(true);
         }
       }
     }
@@ -1521,12 +1535,24 @@
       } else {
         const tenXoa = String(key).trim().toUpperCase();
         let dsNV = JSON.parse(localStorage.getItem('tmh_danh_muc_nv_giao_hang_tai_xe') || '[]');
-        dsNV = dsNV.filter(n => (n.ten_nv || n.ten || '').toUpperCase() !== tenXoa);
+        // Chỉ bỏ người này khỏi DANH SÁCH ĐANG QUẢN LÝ (vd. NV giao hàng); người kiêm nhiều việc vẫn còn
+        // ở các danh sách khác. Không còn vai trò nào thì mới xoá hẳn khỏi danh mục.
+        const vaiTroBo = loaiDangQuanLy === 'taixe' ? 'tx' : (loaiDangQuanLy === 'giaohang' ? 'gh' : 'tt');
+        dsNV = dsNV.filter(n => {
+          if ((n.ten_nv || n.ten || n.ho_ten || '').toUpperCase() !== tenXoa) return true;
+          if (!window.DMDX) return false;
+          const f = DMDX.vaiTroTuChu(n.vi_tri || n.chuc_vu || n.vai_tro || '');
+          f[vaiTroBo] = false;
+          if (!f.tx && !f.gh && !f.tt) return false;
+          n.vi_tri = DMDX.chuVaiTro(f);
+          return true;
+        });
         localStorage.setItem('tmh_danh_muc_nv_giao_hang_tai_xe', JSON.stringify(dsNV));
         napDropdownNhanSu();
         veDanhSachTrongModalDM();
       }
       hienThiToast(`🗑️ Đã xóa mục thành công!`);
+      dongBoDanhMucDieuXe(true);
     }
 
     // ========================================================
@@ -1847,7 +1873,7 @@
       if (dot.taiXe) document.getElementById('taiXe').value = dot.taiXe;
       if (dot.nvGiao) document.getElementById('nvGiaoHang').value = dot.nvGiao;
       if (dot.nvThu) document.getElementById('nvThuTien').value = dot.nvThu;
-      if (dot.ngayRaw) document.getElementById('ngayGiaoHang').value = dot.ngayRaw;
+      if (chuanHoaNgayISO_(dot.ngayRaw || dot.ngayGiao)) document.getElementById('ngayGiaoHang').value = chuanHoaNgayISO_(dot.ngayRaw || dot.ngayGiao);
 
       // Nạp chi tiết hàng hóa KiotViet của đợt này (nếu chưa có thì nạp từ chi_tiet_hoa_don)
       if (Array.isArray(dot.cacDongChiTietKiotViet) && dot.cacDongChiTietKiotViet.length > 0) {
@@ -2036,7 +2062,8 @@
 
       khoiTaoDragAndDrop();
 
-      document.getElementById('ngayGiaoHang').value = new Date().toISOString().slice(0, 10);
+      // Ngày giao: giữ ngày đã chọn trong ngày làm việc (không tự nhảy về hôm nay sau khi lưu / tải lại trang)
+      khoiTaoNgayGiao();
 
       napDropdownXe();
       napDropdownNhanSu();
@@ -2044,6 +2071,11 @@
       if (window.TMHSearchSelect) {
         ['xeVanChuyen', 'taiXe', 'nvGiaoHang', 'nvThuTien'].forEach(id => TMHSearchSelect.enhance(document.getElementById(id)));
       }
+      // Đổi xe / nhân sự / ngày sau khi đã tạo biểu mẫu → cập nhật ngay trên Bảng kê & Phiếu xuất kho
+      ['xeVanChuyen', 'taiXe', 'nvGiaoHang', 'nvThuTien', 'ngayGiaoHang'].forEach(id =>
+        document.getElementById(id).addEventListener('change', capNhatThongTinDieuDongTrenBieuMau));
+      // Danh mục xe & nhân sự: đồng bộ với máy chủ (thêm ở máy nào / lần đăng nhập nào cũng còn)
+      dongBoDanhMucDieuXe(false);
       await napQuyCachHangHoa();
 
       // 1. Đồng bộ lịch sử chuyến xe từ Supabase luu_tru (để xem lại biểu mẫu có ngay trên mọi máy)
@@ -2167,7 +2199,7 @@
           if (dot.taiXe) document.getElementById('taiXe').value = dot.taiXe;
           if (dot.nvGiao) document.getElementById('nvGiaoHang').value = dot.nvGiao;
           if (dot.nvThu) document.getElementById('nvThuTien').value = dot.nvThu;
-          if (dot.ngayRaw) document.getElementById('ngayGiaoHang').value = dot.ngayRaw;
+          if (chuanHoaNgayISO_(dot.ngayRaw || dot.ngayGiao)) document.getElementById('ngayGiaoHang').value = chuanHoaNgayISO_(dot.ngayRaw || dot.ngayGiao);
 
           if (Array.isArray(dot.cacDongChiTietKiotViet) && dot.cacDongChiTietKiotViet.length > 0) {
             duLieuKiotViet = dot.cacDongChiTietKiotViet;
@@ -2278,6 +2310,12 @@
               console.log("⚡ [Realtime Bước 1] Phát hiện cập nhật chuyến xe luu_tru từ máy khác");
               await dongBoLichSuDotVeTrang();
             })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'danh_sach_xe' }, () => {
+              dongBoDanhMucDieuXe(false); // máy khác / trang Danh Mục vừa thêm, sửa, xoá xe
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'nv_giao_hang_tai_xe' }, () => {
+              dongBoDanhMucDieuXe(false);
+            })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'don_giao_lai' }, async () => {
               console.log("⚡ [Realtime Bước 1] Phát hiện cập nhật đơn giao lại từ máy khác");
               if (typeof taiDonGiaoLaiTuSupabase === 'function') {
@@ -2306,6 +2344,8 @@
       const selTaiXe = document.getElementById('taiXe');
       const selGiaoHang = document.getElementById('nvGiaoHang');
       const selThuTien = document.getElementById('nvThuTien');
+      // Giữ nguyên người đang chọn khi nạp lại danh sách (ví dụ vừa thêm 1 người ở ô khác)
+      const giaTriCu = { tx: selTaiXe.value, gh: selGiaoHang.value, tt: selThuTien.value };
 
       selTaiXe.innerHTML = '';
       selGiaoHang.innerHTML = '';
@@ -2314,8 +2354,10 @@
       let listTaiXe = [], listGiaoHang = [], listThuTien = [];
 
       dsNV.forEach(n => {
-        const ten = n.ten_nv || n.ten || '';
-        const viTri = (n.vi_tri || n.chuc_vu || '').toLowerCase();
+        // Hỗ trợ cả dữ liệu của trang Danh Mục (ho_ten, vai_tro) lẫn dữ liệu cũ (ten_nv, vi_tri)
+        const ten = n.ten_nv || n.ten || n.ho_ten || '';
+        const viTri = (n.vi_tri || n.chuc_vu || n.vai_tro || '').toLowerCase();
+        if (!ten) return;
         if (viTri.includes('tài xế')) listTaiXe.push(ten);
         if (viTri.includes('giao hàng') || viTri.includes('lơ xe')) listGiaoHang.push(ten);
         if (viTri.includes('thu tiền') || viTri.includes('kế toán')) listThuTien.push(ten);
@@ -2326,9 +2368,117 @@
       if (listGiaoHang.length === 0) listGiaoHang = ["ĐẠT", "BẢO", "ĐỨC", "VIỆT", "MINH"];
       if (listThuTien.length === 0) listThuTien = ["ĐẠT", "HƯƠNG", "THU", "NHUNG", "THẢO"];
 
-      listTaiXe.forEach(t => selTaiXe.add(new Option(t, t)));
-      listGiaoHang.forEach(g => selGiaoHang.add(new Option(g, g)));
-      listThuTien.forEach(th => selThuTien.add(new Option(th, th)));
+      // Dòng đầu "để trống": chuyến xe không có tài xế / NV giao hàng / NV thu tiền đi cùng
+      [selTaiXe, selGiaoHang, selThuTien].forEach(s => s.add(new Option(NHAN_DE_TRONG_NHAN_SU, '')));
+      const khongTrung = ds => ds.filter((t, i) => ds.indexOf(t) === i);
+      khongTrung(listTaiXe).forEach(t => selTaiXe.add(new Option(t, t)));
+      khongTrung(listGiaoHang).forEach(g => selGiaoHang.add(new Option(g, g)));
+      khongTrung(listThuTien).forEach(th => selThuTien.add(new Option(th, th)));
+
+      const chonLai = (s, v) => { if (v && Array.from(s.options).some(o => o.value === v)) s.value = v; };
+      chonLai(selTaiXe, giaTriCu.tx);
+      chonLai(selGiaoHang, giaTriCu.gh);
+      chonLai(selThuTien, giaTriCu.tt);
+    }
+
+    const NHAN_DE_TRONG_NHAN_SU = '— Để trống (không đi) —';
+
+    // ========================================================
+    // NGÀY GIAO HÀNG: GIỮ NGÀY ĐÃ CHỌN TRONG NGÀY LÀM VIỆC
+    // --------------------------------------------------------
+    // Trước đây mỗi lần mở / tải lại trang (sau khi lưu chuyến, quay lại từ Bước 2...) ô ngày
+    // luôn bị đặt lại về HÔM NAY → phải chọn lại ngày giao (ví dụ đang làm đơn ngày 15).
+    // Nay ngày đã chọn được giữ nguyên suốt ngày làm việc hôm đó; sang ngày mới mới về hôm nay.
+    // ========================================================
+    const KHOA_NGAY_GIAO_DA_CHON = 'tmh_b1_ngay_giao_da_chon';
+
+    function ngayHomNayLocal() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    // '15/09/2026' hoặc '2026-09-15' → '2026-09-15' (ô chọn ngày chỉ nhận dạng YYYY-MM-DD)
+    function chuanHoaNgayISO_(val) {
+      const s = String(val || '').trim();
+      let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+      m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+      if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+      return '';
+    }
+
+    function khoiTaoNgayGiao() {
+      const homNay = ngayHomNayLocal();
+      let ngay = homNay;
+      try {
+        const luu = JSON.parse(localStorage.getItem(KHOA_NGAY_GIAO_DA_CHON) || 'null');
+        if (luu && luu.chonNgay === homNay && chuanHoaNgayISO_(luu.ngay)) ngay = chuanHoaNgayISO_(luu.ngay);
+      } catch (e) {}
+      document.getElementById('ngayGiaoHang').value = ngay;
+      hienGhiChuNgayGiao();
+    }
+
+    function ghiNhoNgayGiaoDaChon() {
+      const ngay = document.getElementById('ngayGiaoHang').value;
+      try {
+        if (ngay) localStorage.setItem(KHOA_NGAY_GIAO_DA_CHON, JSON.stringify({ ngay: ngay, chonNgay: ngayHomNayLocal() }));
+        else localStorage.removeItem(KHOA_NGAY_GIAO_DA_CHON);
+      } catch (e) {}
+      hienGhiChuNgayGiao();
+    }
+
+    function datNgayGiaoHomNay() {
+      const o = document.getElementById('ngayGiaoHang');
+      o.value = ngayHomNayLocal();
+      ghiNhoNgayGiaoDaChon();
+      o.dispatchEvent(new Event('change'));
+    }
+
+    function hienGhiChuNgayGiao() {
+      const el = document.getElementById('ghiChuNgayGiao');
+      if (!el) return;
+      const ngay = document.getElementById('ngayGiaoHang').value;
+      if (ngay && ngay !== ngayHomNayLocal()) {
+        el.textContent = `⚠️ Đang giao cho ngày ${chuanHoaNgayVN_(ngay)} (khác hôm nay) — ngày này được giữ nguyên cho các chuyến tiếp theo trong hôm nay.`;
+        el.style.display = '';
+      } else {
+        el.style.display = 'none';
+      }
+    }
+
+    // Cập nhật xe / nhân sự / ngày trên Bảng kê & Phiếu xuất kho đang hiển thị (không tạo lại bảng)
+    function capNhatThongTinDieuDongTrenBieuMau() {
+      const xe = document.getElementById('xeVanChuyen').value;
+      const taiXe = document.getElementById('taiXe').value || '...............';
+      const ngayGiao = chuanHoaNgayVN_(document.getElementById('ngayGiaoHang').value);
+      const nvGiao = document.getElementById('nvGiaoHang').value || '...............';
+      const nvThu = document.getElementById('nvThuTien').value || '...............';
+      const dat = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      ['BangKe', 'XuatKho'].forEach(p => {
+        dat('lblXe' + p, xe);
+        dat('lblTaiXe' + p, taiXe);
+        dat('lblNgay' + p, ngayGiao);
+        dat('lblGiaoHang' + p, nvGiao);
+        dat('lblThuTien' + p, nvThu);
+      });
+    }
+
+    // ========================================================
+    // ĐỒNG BỘ DANH MỤC XE & NHÂN SỰ VỚI MÁY CHỦ (danh_muc_dieu_xe.js)
+    // ========================================================
+    async function dongBoDanhMucDieuXe(thongBao, goiY) {
+      if (!window.DMDX) return null;
+      const kq = await DMDX.dongBo(goiY);
+      napDropdownXe();
+      napDropdownNhanSu();
+      const modal = document.getElementById('modalQuanLyDM');
+      if (modal && modal.style.display === 'flex' && loaiDangQuanLy) veDanhSachTrongModalDM();
+      if (thongBao) {
+        if (kq && kq.ok) hienThiToast('☁️ Đã lưu lên hệ thống — đăng nhập lại hoặc dùng máy khác vẫn còn.');
+        else hienThiToast('⚠️ Mới lưu trên máy này, CHƯA lưu được lên hệ thống' + (kq && kq.loi ? ': ' + escapeHtml(String(kq.loi).split('\n')[0]) : '') + '. Sẽ tự thử lại lần sau.');
+      }
+      if (kq && !kq.ok) console.warn('Đồng bộ danh mục xe & nhân sự chưa hoàn tất:', kq.loi);
+      return kq;
     }
 
     // Nạp quy cách hàng hóa từ danh mục (hỗ trợ cả ma_hang và Supabase)
@@ -3381,6 +3531,15 @@
       const ngayGiao = chuanHoaNgayVN_(ngayRaw);
       const nvGiao = document.getElementById('nvGiaoHang').value;
       const nvThu = document.getElementById('nvThuTien').value;
+      // Tài xế / NV giao hàng / NV thu tiền được để trống (không đi); xe và ngày giao thì bắt buộc
+      if (!xe) {
+        alert("⚠️ Vui lòng chọn Xe vận chuyển!");
+        return;
+      }
+      if (!ngayRaw) {
+        alert("⚠️ Vui lòng chọn Ngày giao hàng!");
+        return;
+      }
 
       const maDot = `DOT_${xe.replace(/[^a-zA-Z0-9]/g, '')}_${ngayRaw.replace(/-/g, '')}_${Date.now().toString().slice(-4)}`;
 
