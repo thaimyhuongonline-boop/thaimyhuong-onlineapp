@@ -621,6 +621,7 @@
 
   <!-- Cấu hình chung Supabase: giữ nguyên 100% -->
   <script src="config.js"></script>
+  <script src="phan_quyen.js"></script>
   <script>
     function bao(text, loai) {
       var el = document.getElementById("thongBao");
@@ -680,6 +681,10 @@
                           .maybeSingle();
 
         var userData = res.data;
+        if (res.error && res.error.code === "PGRST116") {
+          bao("❌ Có nhiều tài khoản trùng thông tin đăng nhập này. Vui lòng liên hệ quản trị.", "loi");
+          return;
+        }
 
         // Nếu bảng nhan_su chưa chạy SQL hoặc không tìm thấy, hỗ trợ kiểm tra tài khoản quản trị cũ (ho_so)
         if (!userData) {
@@ -695,10 +700,27 @@
                 chuc_vu: "Giám đốc Điều hành",
                 phan_loai_tk: 1,
                 mat_khau_app: mk,
-                trang_thai: "hoat_dong"
+                trang_thai: "hoat_dong",
+                // Tài khoản Supabase chính thức: luôn toàn quyền, không chịu ma trận phân quyền
+                nguon_tai_khoan: "supabase_auth",
+                auth_uid: uid,
+                email: authRes.data.user.email || email
               };
             }
           } catch (e) {}
+        }
+
+        // Danh sách nhân sự trên máy chủ ĐÃ có dữ liệu mà không có số này → không cho dùng
+        // bản lưu tạm trên máy hay tài khoản mẫu cài sẵn (chống đăng nhập bằng tài khoản đã
+        // xoá hoặc tài khoản mẫu 123456). Chỉ dùng dự phòng khi mất mạng / bảng còn trống.
+        if (!userData && !res.error) {
+          var demNs = null;
+          try { demNs = await sb.from("nhan_su").select("so_dien_thoai", { count: "exact", head: true }); } catch (e) {}
+          if (demNs && !demNs.error && demNs.count > 0) {
+            if (typeof ghiNhatKy === "function") await ghiNhatKy("dang_nhap_loi", { sdt: tk, ho_ten: "", chuc_vu: "", cap: null, noi_dung: "Đăng nhập thất bại: số không có trong danh sách nhân sự" }, true);
+            bao("❌ Số điện thoại không tồn tại trong danh sách nhân sự công ty.", "loi");
+            return;
+          }
         }
 
         if (!userData) {
@@ -733,6 +755,7 @@
 
         // 2. So khớp mật khẩu
         if (userData.mat_khau_app && userData.mat_khau_app.trim() !== mk.trim()) {
+          if (typeof ghiNhatKy === "function") await ghiNhatKy("dang_nhap_loi", { sdt: userData.so_dien_thoai || tk, ho_ten: userData.ho_ten || "", chuc_vu: userData.chuc_vu || "", cap: parseInt(userData.phan_loai_tk) || null, noi_dung: "Đăng nhập thất bại: sai mật khẩu" }, true);
           bao("❌ Mật khẩu không chính xác. Vui lòng thử lại.", "loi");
           return;
         }
@@ -773,11 +796,19 @@
           console.warn("Không tải được ma trận phân quyền:", pqErr);
         }
 
-        // 6. Lưu phiên làm việc vào LocalStorage
+        // 6. Lưu phiên làm việc vào LocalStorage (không lưu mật khẩu trên máy)
+        var hoSoLuu = Object.assign({}, userData);
+        delete hoSoLuu.mat_khau_app;
         localStorage.setItem("userAccount", userData.so_dien_thoai || tk);
-        localStorage.setItem("nhan_su_profile", JSON.stringify(userData));
+        localStorage.setItem("nhan_su_profile", JSON.stringify(hoSoLuu));
         localStorage.setItem("userCapDo", cap);
         localStorage.setItem("userChucVu", userData.chuc_vu || "");
+        if (typeof ghiNhatKy === "function") {
+          await ghiNhatKy("dang_nhap", {
+            noi_dung: "Đăng nhập thành công" + (userData.nguon_tai_khoan === "supabase_auth" ? " (tài khoản Supabase chính thức)" : ""),
+            la_admin_supabase: userData.nguon_tai_khoan === "supabase_auth"
+          }, true);
+        }
 
         bao(`✅ Đăng nhập thành công! Chào ${userData.ho_ten} (${tenCap})...`, "ok");
         setTimeout(function () {

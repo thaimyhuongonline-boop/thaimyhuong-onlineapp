@@ -42,7 +42,7 @@ async function khoiTaoLayout(options = {}) {
   if (!nd) return null; // Chưa đăng nhập -> baoVeTrang() đã chuyển hướng về index.html
 
   // 2b. Làm mới ma trận quyền mới nhất từ Supabase rồi kiểm tra quyền truy cập trang
-  await lamMoiMaTranQuyen(nd.chuc_vu);
+  await lamMoiMaTranQuyen(nd.chuc_vu, nd);
   const moduleTrang = layModuleCuaTrang();
   const quyenTrang = moduleTrang ? layQuyenModule(moduleTrang) : "all";
   if (quyenTrang === "none") {
@@ -291,6 +291,9 @@ async function khoiTaoLayout(options = {}) {
 
   hienBannerCheDoXem();
 
+  // 8b. Chặn các chức năng con (nút thao tác) mà tài khoản không được phép — xem phan_quyen.js
+  if (typeof apDungQuyenChucNang === "function") apDungQuyenChucNang();
+
   // 9. Xử lý Toggle & Collapse Sidebar
   khoiTaoSidebarEvents();
 
@@ -402,6 +405,7 @@ function khoiTaoSidebarEvents() {
  */
 function chanTruyCapTrang(overlay) {
   if (overlay) overlay.style.display = "none";
+  if (typeof ghiNhatKy === "function") ghiNhatKy("tu_choi", { noi_dung: "Bị chặn truy cập trang (không có quyền vào mục này)" });
   const trangDuocPhep = ["trang_chu.html", "buoc1_dieu_xe_xuat_kho.html", "buoc2_quyet_toan_thu_tien.html", "buoc3_day_misa.html", "theo_doi_cong_no.html", "danh_muc.html"]
     .find(f => layQuyenModule(layModuleCuaTrang(f)) !== "none");
   const box = document.createElement("div");

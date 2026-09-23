@@ -15,6 +15,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
+  <script src="phan_quyen.js"></script>
   <script src="pwa.js"></script>
   <link rel="stylesheet" href="layout.css">
   <style>
@@ -422,6 +423,67 @@
       border-color: #e5e7eb;
     }
 
+    /* Ma trận tự mở rộng: mục × chức vụ, chức năng con, quyền riêng tài khoản */
+    .pq-badge-tu-mo-rong { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 9999px; font-size: 10.5px; font-weight: 800; background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; vertical-align: middle; }
+    .pq-toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; font-size: 12.5px; }
+    .pq-input { height: 36px; padding: 0 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 13px; min-width: 240px; outline: none; background: #fff; }
+    .pq-input:focus { border-color: var(--primary); }
+    .pq-check { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--text-main); cursor: pointer; }
+    .pq-tomtat { color: var(--text-muted); font-weight: 600; }
+    .pq-chua-luu { color: #b45309; font-weight: 800; }
+    .pq-legend { display: flex; gap: 16px; margin-bottom: 14px; font-size: 12px; font-weight: 600; flex-wrap: wrap; align-items: center; }
+    .pq-legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .pq-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid; }
+    .pq-matrix { min-width: 0 !important; }
+    .pq-matrix th { vertical-align: bottom; }
+    .pq-matrix th .pq-cv-ten { font-weight: 800; color: var(--text-main); white-space: normal; min-width: 110px; line-height: 1.25; }
+    .pq-matrix th .pq-cv-sub { font-size: 10.5px; font-weight: 600; color: var(--text-muted); margin-top: 3px; white-space: nowrap; }
+    .pq-matrix th.is-khong-tk .pq-cv-ten { color: #94a3b8; }
+    .pq-matrix td:first-child { min-width: 250px; max-width: 320px; white-space: normal; }
+    .pq-matrix tr.pq-row-module td { background: #f8fafc; }
+    .pq-matrix tr.pq-row-module td:first-child { background: #f1f5f9; }
+    .pq-matrix tr.pq-row-cn td:first-child { padding-left: 26px; font-weight: 600; color: #334155; font-size: 12px; }
+    .pq-muc-ten { font-weight: 800; color: var(--text-main); }
+    .pq-muc-trang { font-size: 10.5px; color: var(--text-muted); font-weight: 500; margin-top: 2px; word-break: break-all; }
+    .pq-badge-moi { display: inline-block; margin-left: 4px; padding: 1px 6px; border-radius: 4px; font-size: 9.5px; font-weight: 800; background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+    .pq-loai { display: inline-block; margin-left: 4px; padding: 0 5px; border-radius: 4px; font-size: 9.5px; font-weight: 800; }
+    .pq-loai-ghi { background: #fee2e2; color: #991b1b; }
+    .pq-loai-doc { background: #e0f2fe; color: #075985; }
+    .matrix-select.is-mac-dinh { border-style: dashed; border-color: #64748b; }
+    .matrix-select.val-allow { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
+    .matrix-select.val-deny { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+    .matrix-select.is-rieng { outline: 2px solid #8b5cf6; outline-offset: 1px; }
+    .matrix-select:disabled { cursor: not-allowed; opacity: .85; }
+    .pq-na { color: #94a3b8; font-weight: 800; }
+    .pq-note-admin { background: #f5f3ff; border: 1px solid #ddd6fe; color: #5b21b6; border-radius: var(--radius-md); padding: 10px 14px; font-size: 12.5px; line-height: 1.5; margin-bottom: 14px; }
+    .pq-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .pq-kpi { border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 10px 12px; background: #fff; }
+    .pq-kpi b { display: block; font-size: 20px; font-weight: 900; color: var(--text-main); line-height: 1.2; }
+    .pq-kpi span { font-size: 11.5px; color: var(--text-muted); font-weight: 600; }
+    .pq-kpi.is-canh-bao { border-color: #fca5a5; background: #fef2f2; }
+    .pq-kpi.is-canh-bao b { color: #b91c1c; }
+    .pq-tk-ten { font-weight: 800; color: var(--text-main); }
+    .pq-tk-sub { font-size: 11px; color: var(--text-muted); font-weight: 500; margin-top: 1px; }
+    .pq-co { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+    .pq-flag { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 800; border: 1px solid; white-space: nowrap; }
+    .pq-flag-khoa { background: #f3f4f6; color: #4b5563; border-color: #e5e7eb; }
+    .pq-flag-canh-bao { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+    .pq-flag-rieng { background: #ede9fe; color: #6d28d9; border-color: #ddd6fe; }
+    .pq-flag-info { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+    .pq-matrix-tk tr.is-khoa td { opacity: .55; }
+    .pq-qr-info { background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 10px 14px; margin-bottom: 12px; font-size: 12.5px; line-height: 1.6; }
+    .pq-qr-table td { padding: 8px 12px; }
+    .pq-qr-table tr.pq-row-module td { background: #f1f5f9; font-weight: 800; }
+    .pq-hl { font-weight: 800; white-space: nowrap; }
+    .pq-hl-duoc { color: #047857; }
+    .pq-hl-chan { color: #b91c1c; }
+    .nk-table td { font-size: 12.5px; vertical-align: top; }
+    .nk-loai { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 800; white-space: nowrap; border: 1px solid #e2e8f0; background: #f8fafc; }
+    .nk-loai-tu_choi, .nk-loai-dang_nhap_loi { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+    .nk-loai-phan_quyen, .nk-loai-tai_khoan { background: #ede9fe; color: #6d28d9; border-color: #ddd6fe; }
+    .nk-loai-dang_nhap, .nk-loai-dang_xuat { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
+    .nk-loai-trang_moi { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+
     /* Modal Hộp thoại */
     .acc-modal-overlay {
       position: fixed;
@@ -664,6 +726,14 @@
         <span>🛡️</span>
         <span>Ma Trận Phân Quyền Theo Chức Vụ</span>
       </button>
+      <button type="button" class="acc-tab-btn" id="tabBtnTaiKhoan" onclick="chuyenTab('taikhoan')">
+        <span>🧑‍💼</span>
+        <span>Quyền Theo Từng Tài Khoản</span>
+      </button>
+      <button type="button" class="acc-tab-btn" id="tabBtnNhatKy" onclick="chuyenTab('nhatky')">
+        <span>📜</span>
+        <span>Nhật Ký Kiểm Soát</span>
+      </button>
     </div>
 
     <!-- TAB 1: DANH SÁCH TÀI KHOẢN -->
@@ -735,13 +805,19 @@
       <div class="acc-card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
           <div>
-            <h3 style="font-size: 16px; font-weight: 800; color: var(--text-main);">Ma Trận Quyền Hạn Nghiệp Vụ</h3>
-            <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 2px;">
-              Cấu hình quyền hạn cho từng chức vụ đối với các tab thực tế của hệ thống: Tổng quan, 3 bước quy trình (Điều xe ➡ Quyết toán ➡ MISA), Công nợ, Danh mục và Quản trị hệ thống. Quyền "Không" sẽ chặn truy cập trang; "Chỉ xem" chặn mọi thao tác thêm/sửa/xoá.
+            <h3 style="font-size: 16px; font-weight: 800; color: var(--text-main);">Ma Trận Quyền Hạn Nghiệp Vụ <span class="pq-badge-tu-mo-rong">Tự mở rộng</span></h3>
+            <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 2px; max-width: 980px; line-height: 1.5;">
+              <b>Hàng</b> = các mục (trang) và chức năng thao tác của hệ thống — có tính năng / trang mới là tự thêm hàng. <b>Cột</b> = các chức vụ — tạo tài khoản với chức vụ mới là tự thêm cột.
+              Áp dụng cho <b>MỌI tài khoản nhân sự, kể cả Cấp 1</b>; riêng <b>tài khoản Supabase chính thức</b> luôn toàn quyền.
+              "Không" chặn vào trang; "Chỉ xem" chặn mọi thao tác thêm / sửa / xoá; chức năng "Chặn" khoá riêng thao tác đó.
             </p>
           </div>
-          <div style="display: flex; gap: 8px;">
-            <button type="button" class="acc-btn acc-btn-outline" onclick="taiMaTranPhanQuyen()">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="acc-btn acc-btn-outline" onclick="napMauGoiYMaTran()" title="Điền mẫu phân quyền gợi ý cho các chức vụ chưa từng lưu">
+              <span>📋</span>
+              <span>Nạp Mẫu Gợi Ý</span>
+            </button>
+            <button type="button" class="acc-btn acc-btn-outline" onclick="taiMaTranPhanQuyen()" title="Bỏ các thay đổi chưa lưu, tải lại ma trận đang áp dụng trên máy chủ">
               <span>🔄</span>
               <span>Khôi Phục Gốc</span>
             </button>
@@ -752,27 +828,30 @@
           </div>
         </div>
 
+        <div class="pq-toolbar">
+          <label class="pq-check">
+            <input type="checkbox" id="chkChiCvCoTk" checked onchange="veBangMaTran()">
+            <span>Chỉ hiện chức vụ đang có tài khoản</span>
+          </label>
+          <input type="text" id="inpLocChucNang" class="pq-input" placeholder="🔍 Lọc mục / chức năng..." oninput="veBangMaTran()">
+          <span class="pq-tomtat" id="pqTomTatMaTran"></span>
+          <span class="pq-chua-luu" id="pqChuaLuuMaTran" style="display:none;">● Có thay đổi chưa lưu</span>
+        </div>
+
         <!-- Chú thích mức quyền -->
-        <div style="display: flex; gap: 16px; margin-bottom: 14px; font-size: 12px; font-weight: 600; flex-wrap: wrap;">
-          <span style="display: inline-flex; align-items: center; gap: 6px;">
-            <span style="display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: #a7f3d0; border: 1px solid #059669;"></span>
-            <span>🟢 Toàn quyền (Thao tác & Duyệt)</span>
-          </span>
-          <span style="display: inline-flex; align-items: center; gap: 6px;">
-            <span style="display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: #fde68a; border: 1px solid #d97706;"></span>
-            <span>🟡 Chỉ xem (Tra cứu số liệu)</span>
-          </span>
-          <span style="display: inline-flex; align-items: center; gap: 6px;">
-            <span style="display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: #e5e7eb; border: 1px solid #9ca3af;"></span>
-            <span>🔴 Không truy cập</span>
-          </span>
+        <div class="pq-legend">
+          <span><i style="background:#a7f3d0; border-color:#059669;"></i>🟢 Toàn quyền (Thao tác &amp; Duyệt)</span>
+          <span><i style="background:#fde68a; border-color:#d97706;"></i>🟡 Chỉ xem (Tra cứu số liệu)</span>
+          <span><i style="background:#e5e7eb; border-color:#9ca3af;"></i>🔴 Không truy cập</span>
+          <span><i style="background:#fff; border-style:dashed; border-color:#64748b;"></i>Viền đứt = chưa cấu hình, mỗi tài khoản dùng mặc định theo Cấp của mình</span>
+          <span><b class="pq-na">—</b> Chức năng tự bị chặn vì mức của mục</span>
         </div>
 
         <div class="matrix-table-wrap">
-          <table class="matrix-table" id="bangMaTran">
+          <table class="matrix-table pq-matrix" id="bangMaTran">
             <thead>
               <tr id="bangMaTranHead">
-                <th>Chức Vụ / Vị Trí</th>
+                <th>Mục / Chức năng</th>
               </tr>
             </thead>
             <tbody id="bangMaTranBody">
@@ -783,6 +862,127 @@
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: QUYỀN HIỆU LỰC THEO TỪNG TÀI KHOẢN (KIỂM SOÁT HẬU KỲ) -->
+    <div id="tabContentTaiKhoan" style="display: none;">
+      <div class="acc-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <h3 style="font-size: 16px; font-weight: 800; color: var(--text-main);">Quyền Hiệu Lực Theo Từng Tài Khoản</h3>
+            <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 2px; max-width: 980px; line-height: 1.5;">
+              Mỗi tài khoản nhân sự là 1 hàng (tự thêm khi tạo tài khoản). Ô hiển thị quyền <b>thực tế đang áp dụng</b> = Quyền riêng của tài khoản › Quyền theo chức vụ › Mặc định theo Cấp.
+              Chọn một mức khác "Theo chức vụ" để đặt <b>quyền riêng</b> (ngoại lệ) cho đúng tài khoản đó.
+            </p>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="acc-btn acc-btn-outline" onclick="taiTabQuyenTaiKhoan(true)">
+              <span>🔄</span>
+              <span>Tải Lại</span>
+            </button>
+            <button type="button" class="acc-btn acc-btn-primary" onclick="luuQuyenRiengTaiKhoan()">
+              <span>💾</span>
+              <span>Lưu Quyền Riêng</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="pq-note-admin" id="pqNoteAdmin">
+          🛡️ <b>Tài khoản Supabase chính thức</b> (đăng nhập bằng email/tài khoản trên Supabase Auth) luôn <b>toàn quyền</b> và không chịu ma trận này — dùng để khắc phục khi các tài khoản nhân sự bị khoá quyền.
+        </div>
+
+        <div class="pq-kpi-grid" id="pqKpiTaiKhoan"></div>
+
+        <div class="pq-toolbar">
+          <input type="text" id="inpLocTaiKhoanPQ" class="pq-input" placeholder="🔍 Tìm theo tên, số điện thoại, chức vụ..." oninput="veBangQuyenTaiKhoan()">
+          <label class="pq-check">
+            <input type="checkbox" id="chkChiCanhBaoPQ" onchange="veBangQuyenTaiKhoan()">
+            <span>Chỉ hiện tài khoản cần chú ý (quyền riêng / cảnh báo)</span>
+          </label>
+          <span class="pq-chua-luu" id="pqChuaLuuTaiKhoan" style="display:none;">● Có quyền riêng chưa lưu</span>
+        </div>
+
+        <div class="matrix-table-wrap">
+          <table class="matrix-table pq-matrix pq-matrix-tk" id="bangQuyenTaiKhoan">
+            <thead>
+              <tr id="bangQuyenTaiKhoanHead">
+                <th>Tài Khoản</th>
+              </tr>
+            </thead>
+            <tbody id="bangQuyenTaiKhoanBody">
+              <tr>
+                <td colspan="9" style="text-align: center; padding: 28px; color: var(--text-muted);">⏳ Đang nạp quyền theo tài khoản...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: NHẬT KÝ KIỂM SOÁT HẬU KỲ -->
+    <div id="tabContentNhatKy" style="display: none;">
+      <div class="acc-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <h3 style="font-size: 16px; font-weight: 800; color: var(--text-main);">Nhật Ký Kiểm Soát Hậu Kỳ</h3>
+            <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 2px; max-width: 980px; line-height: 1.5;">
+              Ghi lại ai đã đăng nhập, đổi quyền, tạo / khoá / xoá tài khoản, bị chặn thao tác gì và đã ghi dữ liệu gì lên hệ thống — để đối chiếu, kiểm tra lại sau.
+              Nhật ký chỉ được thêm, không sửa / xoá được từ app.
+            </p>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="acc-btn acc-btn-outline" onclick="xuatNhatKyCSV()">
+              <span>📥</span>
+              <span>Xuất Excel (CSV)</span>
+            </button>
+            <button type="button" class="acc-btn acc-btn-primary" onclick="taiNhatKyKiemSoat()">
+              <span>🔄</span>
+              <span>Tải Nhật Ký</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="pq-toolbar">
+          <select id="selLoaiNhatKy" class="acc-select" onchange="taiNhatKyKiemSoat()">
+            <option value="">Tất cả loại sự kiện</option>
+            <option value="dang_nhap">🔑 Đăng nhập</option>
+            <option value="dang_nhap_loi">⛔ Đăng nhập thất bại</option>
+            <option value="dang_xuat">🚪 Đăng xuất</option>
+            <option value="phan_quyen">🛡️ Thay đổi phân quyền</option>
+            <option value="tai_khoan">👤 Thay đổi tài khoản</option>
+            <option value="tu_choi">🔒 Bị chặn / từ chối</option>
+            <option value="ghi_du_lieu">💾 Ghi dữ liệu</option>
+            <option value="trang_moi">🆕 Trang / tính năng mới</option>
+          </select>
+          <input type="date" id="inpTuNgayNhatKy" class="acc-select" onchange="taiNhatKyKiemSoat()" title="Từ ngày">
+          <input type="date" id="inpDenNgayNhatKy" class="acc-select" onchange="taiNhatKyKiemSoat()" title="Đến ngày">
+          <input type="text" id="inpLocNhatKy" class="pq-input" placeholder="🔍 Lọc theo người, số điện thoại, nội dung..." oninput="veNhatKy()">
+          <span class="pq-tomtat" id="pqTomTatNhatKy"></span>
+        </div>
+
+        <div class="acc-table-wrap">
+          <table class="acc-table nk-table">
+            <thead>
+              <tr>
+                <th style="width: 150px;">Thời Gian</th>
+                <th style="width: 210px;">Người Thực Hiện</th>
+                <th style="width: 150px;">Loại</th>
+                <th style="width: 170px;">Mục / Trang</th>
+                <th>Nội Dung</th>
+              </tr>
+            </thead>
+            <tbody id="bangNhatKyBody">
+              <tr><td colspan="5" style="text-align: center; padding: 28px; color: var(--text-muted);">Bấm "Tải Nhật Ký" để xem.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="display: flex; justify-content: center; margin-top: 12px;">
+          <button type="button" class="acc-btn acc-btn-outline" id="btnTaiThemNhatKy" style="display: none;" onclick="taiNhatKyKiemSoat(true)">
+            <span>⬇️</span>
+            <span>Tải thêm</span>
+          </button>
         </div>
       </div>
     </div>
@@ -899,6 +1099,39 @@
     </div>
   </div>
 
+  <!-- ========================================================================
+       MODAL: QUYỀN RIÊNG TỪNG CHỨC NĂNG CỦA 1 TÀI KHOẢN
+       ======================================================================== -->
+  <div class="acc-modal-overlay" id="modalQuyenRieng">
+    <div class="acc-modal" style="max-width: 820px;">
+      <div class="acc-modal-header">
+        <h3>🛡️ Quyền Riêng Của Tài Khoản</h3>
+        <button type="button" class="acc-modal-close" onclick="dongModalQuyenRieng()">✕</button>
+      </div>
+      <div class="acc-modal-body">
+        <div class="pq-qr-info" id="qrThongTin"></div>
+        <div class="acc-table-wrap">
+          <table class="acc-table pq-qr-table" style="min-width: 680px;">
+            <thead>
+              <tr>
+                <th>Mục / Chức năng</th>
+                <th style="width: 140px; text-align: center;">Theo chức vụ</th>
+                <th style="width: 190px; text-align: center;">Quyền riêng</th>
+                <th style="width: 120px; text-align: center;">Hiệu lực</th>
+              </tr>
+            </thead>
+            <tbody id="qrBangBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="acc-modal-footer">
+        <button type="button" class="acc-btn acc-btn-outline" onclick="xoaHetQuyenRiengDangMo()">↩ Bỏ hết quyền riêng</button>
+        <button type="button" class="acc-btn acc-btn-outline" onclick="dongModalQuyenRieng()">Đóng</button>
+        <button type="button" class="acc-btn acc-btn-primary" onclick="luuQuyenRiengTaiKhoan()">💾 Lưu Quyền Riêng</button>
+      </div>
+    </div>
+  </div>
+
   </main>
 
   <!-- SCRIPT XỬ LÝ DỮ LIỆU & GIAO DIỆN -->
@@ -915,7 +1148,9 @@
     ];
 
     // Danh sách các module tương ứng với các cột ma trận
-// Các cột ma trận = các tab/trang thực tế (định nghĩa dùng chung trong config.js)    const CAC_MODULE = MODULE_PHAN_QUYEN;
+    // Các cột ma trận = các tab/trang thực tế (định nghĩa dùng chung trong config.js)
+    // (trước đây dòng khai báo này bị dính vào dòng chú thích nên không chạy → ma trận kẹt "Đang nạp...")
+    const CAC_MODULE = MODULE_PHAN_QUYEN;
     let danhSachNhanSu = [];
     let maTranPhanQuyen = {};
     let currentUserProfile = null;
@@ -935,9 +1170,8 @@
         console.warn("Lỗi khởi tạo layout:", err);
       }
 
-      // 2. Gắn sự kiện nút thêm mới
-      const btnThem = document.getElementById("btnMoModalThem");
-      if (btnThem) btnThem.addEventListener("click", moModalThemMoi);
+      // 2. Nút thêm mới đã có onclick="moModalThemMoi()" — không gắn thêm sự kiện
+      //    (trước đây gắn 2 lần nên hộp thoại mở 2 lần / báo "không có quyền" 2 lần)
 
       // 3. Luôn tải danh sách nhân sự
       await taiDanhSachNhanSu();
@@ -954,23 +1188,36 @@
     }
 
     // Chuyển Tab
-    function chuyenTab(tab) {
-      const tabDanhSach = document.getElementById("tabContentDanhSach");
-      const tabMaTran = document.getElementById("tabContentMaTran");
-      const btnDs = document.getElementById("tabBtnDanhSach");
-      const btnMt = document.getElementById("tabBtnMaTran");
+    const CAC_TAB = {
+      danhsach: ["tabContentDanhSach", "tabBtnDanhSach"],
+      matran: ["tabContentMaTran", "tabBtnMaTran"],
+      taikhoan: ["tabContentTaiKhoan", "tabBtnTaiKhoan"],
+      nhatky: ["tabContentNhatKy", "tabBtnNhatKy"]
+    };
+    let tabDangMo = "danhsach";
 
-      if (tab === "danhsach") {
-        tabDanhSach.style.display = "block";
-        tabMaTran.style.display = "none";
-        btnDs.classList.add("active");
-        btnMt.classList.remove("active");
-      } else {
-        tabDanhSach.style.display = "none";
-        tabMaTran.style.display = "block";
-        btnDs.classList.remove("active");
-        btnMt.classList.add("active");
-        taiMaTranPhanQuyen();
+    async function chuyenTab(tab) {
+      tabDangMo = tab;
+      Object.keys(CAC_TAB).forEach(k => {
+        const noiDung = document.getElementById(CAC_TAB[k][0]);
+        const nut = document.getElementById(CAC_TAB[k][1]);
+        if (noiDung) noiDung.style.display = (k === tab) ? "block" : "none";
+        if (nut) nut.classList.toggle("active", k === tab);
+      });
+      // Dữ liệu phân quyền dùng chung cho 2 tab và chỉ tải 1 lần (không mất thay đổi chưa lưu khi đổi tab)
+      if (tab === "matran") {
+        await taiDuLieuPhanQuyen(false);
+        veBangMaTran();
+      } else if (tab === "taikhoan") {
+        await taiTabQuyenTaiKhoan(false);
+      } else if (tab === "nhatky") {
+        if (!nhatKyDaTai.length) {
+          const den = document.getElementById("inpDenNgayNhatKy");
+          const tu = document.getElementById("inpTuNgayNhatKy");
+          if (den && !den.value) den.value = ngayISO(new Date());
+          if (tu && !tu.value) tu.value = ngayISO(new Date(Date.now() - 6 * 86400000));
+        }
+        taiNhatKyKiemSoat();
       }
     }
 
@@ -1065,6 +1312,9 @@
               <div style="display: inline-flex; gap: 5px; flex-wrap: nowrap;">
                 <button type="button" class="btn-row-action" onclick="moModalSua(${escapeHtml(JSON.stringify(ns.so_dien_thoai))})" title="Chỉnh sửa thông tin">
                   <span>✏️</span> <span>Sửa</span>
+                </button>
+                <button type="button" class="btn-row-action" onclick="moQuyenTaiKhoan(${escapeHtml(JSON.stringify(ns.so_dien_thoai))})" title="Xem / đặt quyền riêng của tài khoản này">
+                  <span>🛡️</span>
                 </button>
                 <button type="button" class="btn-row-action" onclick="moModalDoiMk(${escapeHtml(JSON.stringify(ns.so_dien_thoai))})" title="Đổi mật khẩu">
                   <span>🔑</span>
@@ -1215,11 +1465,23 @@
       }
 
       // 1. Cập nhật vào Supabase
+      let loiLuu = null;
       try {
-        await sb.from("nhan_su").upsert(payload);
+        const resLuu = await sb.from("nhan_su").upsert(payload);
+        if (resLuu && resLuu.error) loiLuu = resLuu.error;
       } catch (err) {
+        loiLuu = err;
         console.warn("Lỗi lưu Supabase:", err);
       }
+      const truocKhiSua = isEdit ? danhSachNhanSu.find(x => x.so_dien_thoai === oldPhone) : null;
+      ghiNhatKy("tai_khoan", {
+        doi_tuong: sdt,
+        noi_dung: (isEdit ? "Sửa tài khoản " : "Tạo tài khoản ") + `${hoTen} (${sdt}) — ${chucVu}, Cấp ${cap}, ${trangThai === "khoa" ? "đang khoá" : "hoạt động"}` + (loiLuu ? " — LỖI lưu máy chủ: " + (loiLuu.message || loiLuu) : ""),
+        chi_tiet: {
+          truoc: truocKhiSua ? { ho_ten: truocKhiSua.ho_ten, chuc_vu: truocKhiSua.chuc_vu, phan_loai_tk: truocKhiSua.phan_loai_tk, trang_thai: truocKhiSua.trang_thai } : null,
+          sau: { ho_ten: hoTen, chuc_vu: chucVu, phan_loai_tk: cap, trang_thai: trangThai }
+        }
+      });
 
       // 2. Cập nhật vào bộ nhớ cục bộ & LocalStorage
       if (isEdit) {
@@ -1234,7 +1496,11 @@
       localStorage.setItem("danh_sach_nhan_su_local", JSON.stringify(danhSachNhanSu));
 
       dongModalThemSua();
-      showToast(isEdit ? "✅ Đã cập nhật tài khoản thành công!" : "✅ Đã tạo tài khoản nhân viên mới!", "success");
+      if (loiLuu) {
+        showToast(`⚠️ Máy chủ chưa nhận thay đổi (${loiLuu.message || loiLuu}). Tài khoản mới chỉ lưu tạm trên máy này, chưa đăng nhập được.`, "error");
+      } else {
+        showToast(isEdit ? "✅ Đã cập nhật tài khoản thành công!" : "✅ Đã tạo tài khoản nhân viên mới!", "success");
+      }
       capNhatThongKe();
       locDuLieu();
     }
@@ -1284,6 +1550,7 @@
         danhSachNhanSu[idx].mat_khau_app = mkMoi;
         localStorage.setItem("danh_sach_nhan_su_local", JSON.stringify(danhSachNhanSu));
       }
+      ghiNhatKy("tai_khoan", { doi_tuong: sdt, noi_dung: `Đặt lại mật khẩu cho ${idx !== -1 ? danhSachNhanSu[idx].ho_ten : ""} (${sdt})` });
 
       dongModalDoiMk();
       showToast("✅ Đã cập nhật mật khẩu mới thành công!", "success");
@@ -1307,6 +1574,7 @@
 
       ns.trang_thai = trangThaiMoi;
       localStorage.setItem("danh_sach_nhan_su_local", JSON.stringify(danhSachNhanSu));
+      ghiNhatKy("tai_khoan", { doi_tuong: sdt, noi_dung: `${tenHanhDong === "KHÓA" ? "Khoá" : "Mở khoá"} tài khoản ${ns.ho_ten} (${sdt})` });
       showToast(`✅ Đã ${tenHanhDong.toLowerCase()} tài khoản thành công!`, "success");
       locDuLieu();
     }
@@ -1327,7 +1595,16 @@
 
       try {
         await sb.from("nhan_su").delete().eq("so_dien_thoai", sdt);
+        // Xoá luôn quyền riêng của tài khoản này (nếu có) để ma trận không còn dòng thừa
+        await sb.from("phan_quyen_vi_tri").delete().eq("chuc_vu", TIEN_TO_QUYEN_TK + sdt);
       } catch (err) {}
+      if (quyenRiengTK[sdt]) {
+        delete quyenRiengTK[sdt];
+        const goc = JSON.parse(anhChupQuyenRieng || "{}");
+        delete goc[sdt];
+        anhChupQuyenRieng = JSON.stringify(goc);
+      }
+      ghiNhatKy("tai_khoan", { doi_tuong: sdt, noi_dung: `Xoá tài khoản ${ns.ho_ten} (${sdt}) — ${ns.chuc_vu || ""}` });
 
       danhSachNhanSu = danhSachNhanSu.filter(x => x.so_dien_thoai !== sdt);
       localStorage.setItem("danh_sach_nhan_su_local", JSON.stringify(danhSachNhanSu));
@@ -1352,129 +1629,700 @@
     }
 
     // =========================================================================
-    // MA TRẬN PHÂN QUYỀN (TAB 2)
+    // MA TRẬN PHÂN QUYỀN TỰ MỞ RỘNG (TAB 2, 3, 4) — bộ máy tính quyền nằm trong phan_quyen.js
+    // - Hàng = mục & chức năng của hệ thống (tự thêm khi có tính năng / trang mới)
+    // - Cột  = chức vụ (tự thêm khi tạo tài khoản với chức vụ mới)
+    // - Lưu ở bảng phan_quyen_vi_tri: mỗi chức vụ 1 dòng; quyền riêng của 1 tài khoản là dòng
+    //   "@TK:<số điện thoại>"; chức năng con lưu dạng "cn:<mã chức năng>": "deny" / "allow"
     // =========================================================================
-    async function taiMaTranPhanQuyen() {
-      const tbody = document.getElementById("bangMaTranBody");
-      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 24px; color: var(--text-muted);">⏳ Đang nạp ma trận quyền...</td></tr>`;
+    let quyenRiengTK = {};          // số điện thoại -> quyền riêng (ngoại lệ) của tài khoản
+    let anhChupMaTran = "{}";       // bản đang áp dụng trên máy chủ (để biết thay đổi & ghi nhật ký)
+    let anhChupQuyenRieng = "{}";
+    let daTaiPhanQuyen = false;
+    let henTaiPhanQuyen = null;
+    const TEN_MUC = { all: "🟢 Toàn quyền", view: "🟡 Chỉ xem", none: "🔴 Không" };
+    const TEN_NGUON = { rieng: "Quyền riêng của tài khoản", chuc_vu: "Theo ma trận chức vụ", mac_dinh: "Chưa cấu hình — mặc định theo Cấp", muc: "Theo mức của mục" };
 
-      // 1. Tập hợp các chức vụ duy nhất từ danh sách nhân sự
-      const setChucVu = new Set([
-        "Giám đốc Điều hành",
-        "Kế toán Bán hàng",
-        "Kế toán Công nợ",
-        "Kế toán Tổng hợp",
-        "Kiểm duyệt viên",
-        "Thủ kho",
-        "Tài xế"
-      ]);
-      danhSachNhanSu.forEach(x => {
-        if (x.chuc_vu && x.chuc_vu.trim()) setChucVu.add(x.chuc_vu.trim());
-      });
-      const cacChucVu = Array.from(setChucVu);
-
-      // 2. Lấy dữ liệu phân quyền từ Supabase hoặc LocalStorage
-      maTranPhanQuyen = {};
-      try {
-        const res = await sb.from("phan_quyen_vi_tri").select("*");
-        if (!res.error && res.data) {
-          res.data.forEach(row => {
-            maTranPhanQuyen[row.chuc_vu] = row.cac_quyen || {};
-          });
-        }
-      } catch (err) {}
-
-      // Fallback ma trận mẫu nếu Supabase chưa có dữ liệu (lấy từ bản lưu trên máy nếu có)
-      if (Object.keys(maTranPhanQuyen).length === 0) {
-        let local = null;
-        try { local = JSON.parse(localStorage.getItem("phan_quyen_vi_tri_local") || "null"); } catch (e) {}
-        maTranPhanQuyen = (local && Object.keys(local).length) ? local : JSON.parse(JSON.stringify(MA_TRAN_MAC_DINH));
-      }
-
-      veBangMaTran(cacChucVu);
+    function ngayISO(d) {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     }
 
-    function veBangMaTran(cacChucVu) {
-      // Vẽ tiêu đề cột theo đúng các tab thực tế
+    // Bỏ dấu tiếng Việt để lọc / tìm kiếm
+    function boDauPQ(s) {
+      return Array.from(String(s || "").normalize("NFD"))
+        .filter(ch => { const c = ch.charCodeAt(0); return c < 0x300 || c > 0x36f; })
+        .join("").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase().trim();
+    }
+
+    // JSON có thứ tự khoá cố định — để so sánh "có thay đổi chưa lưu" không bị nhầm do thứ tự khoá
+    function jsonOnDinh(v) {
+      if (Array.isArray(v)) return "[" + v.map(jsonOnDinh).join(",") + "]";
+      if (v && typeof v === "object") return "{" + Object.keys(v).sort().map(k => JSON.stringify(k) + ":" + jsonOnDinh(v[k])).join(",") + "}";
+      return JSON.stringify(v === undefined ? null : v);
+    }
+
+    function coQuyenSuaPhanQuyen() {
+      return layQuyenModule("taikhoan") === "all" && layQuyenChucNang("taikhoan.phan_quyen");
+    }
+
+    function coThayDoiMaTran() { return jsonOnDinh(maTranPhanQuyen) !== anhChupMaTran; }
+    function coThayDoiQuyenRieng() { return jsonOnDinh(quyenRiengTK) !== anhChupQuyenRieng; }
+
+    async function taiDuLieuPhanQuyen(batBuoc) {
+      if (daTaiPhanQuyen && !batBuoc) return;
+      if (henTaiPhanQuyen) return henTaiPhanQuyen;
+      henTaiPhanQuyen = (async () => {
+        const cv = {}, rieng = {};
+        let loi = null;
+        try {
+          const res = await sb.from("phan_quyen_vi_tri").select("*");
+          if (res.error) loi = res.error;
+          else (res.data || []).forEach(row => {
+            const k = String(row.chuc_vu || "").trim();
+            const q = _chuanHoaQuyen(row.cac_quyen);
+            if (!k) return;
+            if (k.indexOf(TIEN_TO_QUYEN_TK) === 0) rieng[k.slice(TIEN_TO_QUYEN_TK.length)] = q;
+            else if (k === KHOA_TRANG_TU_DANG_KY) {
+              try { localStorage.setItem("tmh_trang_tu_dang_ky", JSON.stringify(Array.isArray(q.trang) ? q.trang : [])); } catch (e) {}
+            }
+            else if (k.charAt(0) !== "@") cv[k] = q;
+          });
+        } catch (e) { loi = e; }
+        if (loi) {
+          let luuTam = {}, riengTam = {};
+          try { luuTam = JSON.parse(localStorage.getItem("phan_quyen_vi_tri_local") || "{}") || {}; } catch (e) {}
+          try { riengTam = JSON.parse(localStorage.getItem("tmh_quyen_rieng_local") || "{}") || {}; } catch (e) {}
+          Object.assign(cv, luuTam);
+          Object.assign(rieng, riengTam);
+          showToast("⚠️ Không đọc được phân quyền từ máy chủ — đang hiển thị bản lưu tạm trên máy này.", "error");
+        }
+        maTranPhanQuyen = cv;
+        quyenRiengTK = rieng;
+        anhChupMaTran = jsonOnDinh(maTranPhanQuyen);
+        anhChupQuyenRieng = jsonOnDinh(quyenRiengTK);
+        daTaiPhanQuyen = true;
+      })();
+      try { await henTaiPhanQuyen; } finally { henTaiPhanQuyen = null; }
+    }
+
+    // Nút "Khôi Phục Gốc": bỏ thay đổi chưa lưu, tải lại bản đang áp dụng trên máy chủ
+    async function taiMaTranPhanQuyen() {
+      if ((coThayDoiMaTran() || coThayDoiQuyenRieng()) && !confirm("Bỏ các thay đổi phân quyền chưa lưu (ma trận & quyền riêng) và tải lại bản đang áp dụng?")) return;
+      const tbody = document.getElementById("bangMaTranBody");
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 24px; color: var(--text-muted);">⏳ Đang nạp ma trận quyền...</td></tr>`;
+      await taiDuLieuPhanQuyen(true);
+      veBangMaTran();
+    }
+
+    // Danh sách chức vụ (cột) — tự mở rộng theo tài khoản nhân sự
+    function layDanhSachChucVu(chiCoTk) {
+      const thongKe = {};
+      danhSachNhanSu.forEach(ns => {
+        const cv = String(ns.chuc_vu || "").trim();
+        if (!cv) return;
+        const t = thongKe[cv] || (thongKe[cv] = { soTk: 0, soHoatDong: 0, cap: 3, cacCap: [] });
+        const capTk = parseInt(ns.phan_loai_tk) || 3;
+        t.soTk++;
+        if (ns.trang_thai !== "khoa") t.soHoatDong++;
+        t.cap = Math.min(t.cap, capTk);
+        if (t.cacCap.indexOf(capTk) === -1) t.cacCap.push(capTk);
+      });
+      const thuTuMau = Object.keys(MA_TRAN_MAC_DINH);
+      const daLuu = new Set(Object.keys(JSON.parse(anhChupMaTran || "{}")));
+      const tatCa = Array.from(new Set([...Object.keys(thongKe), ...thuTuMau, ...Object.keys(maTranPhanQuyen)]));
+      let ds = tatCa.map(ten => ({
+        ten,
+        soTk: thongKe[ten] ? thongKe[ten].soTk : 0,
+        soHoatDong: thongKe[ten] ? thongKe[ten].soHoatDong : 0,
+        cap: thongKe[ten] ? thongKe[ten].cap : (ten === "Giám đốc Điều hành" ? 1 : 3),
+        // Các Cấp của những tài khoản giữ chức vụ này — ô chưa cấu hình: mỗi tài khoản theo Cấp của mình
+        cacCap: thongKe[ten] ? thongKe[ten].cacCap.sort() : [ten === "Giám đốc Điều hành" ? 1 : 3],
+        daLuu: daLuu.has(ten)
+      }));
+      const viTri = ten => { const i = thuTuMau.indexOf(ten); return i === -1 ? 999 : i; };
+      ds.sort((a, b) => (Number(b.soTk > 0) - Number(a.soTk > 0)) || (viTri(a.ten) - viTri(b.ten)) || a.ten.localeCompare(b.ten, "vi"));
+      if (chiCoTk) ds = ds.filter(x => x.soTk > 0);
+      return ds;
+    }
+
+    function veBangMaTran() {
       const head = document.getElementById("bangMaTranHead");
-      if (head) {
-        head.innerHTML = `<th>Chức Vụ / Vị Trí</th>` + CAC_MODULE.map(m => `<th>${escapeHtml(m.label)}</th>`).join("");
+      const tbody = document.getElementById("bangMaTranBody");
+      if (!head || !tbody) return;
+      const chiCoTk = !!(document.getElementById("chkChiCvCoTk") || {}).checked;
+      const tuKhoa = boDauPQ((document.getElementById("inpLocChucNang") || {}).value);
+      const dsCV = layDanhSachChucVu(chiCoTk);
+      const dsMod = danhSachModuleDayDu();
+      const tatSua = coQuyenSuaPhanQuyen() ? "" : "disabled";
+
+      head.innerHTML = `<th>Mục / Chức năng</th>` + dsCV.map(cv => `
+        <th class="${cv.soTk ? "" : "is-khong-tk"}" title="${escapeHtml(cv.ten)} — ${cv.soTk} tài khoản (${cv.soHoatDong} đang hoạt động)${cv.daLuu ? "" : " — chưa lưu ma trận, đang dùng mặc định theo Cấp"}">
+          <div class="pq-cv-ten">${escapeHtml(cv.ten)}</div>
+          <div class="pq-cv-sub">${cv.soTk ? `👤 ${cv.soTk} TK` : "Chưa có TK"} · Cấp ${cv.cap}${cv.daLuu ? "" : " · chưa lưu"}</div>
+        </th>`).join("");
+
+      if (!dsCV.length) {
+        tbody.innerHTML = `<tr><td colspan="2" style="text-align:center; padding: 24px; color: var(--text-muted);">Chưa có chức vụ nào đang có tài khoản. Bỏ chọn "Chỉ hiện chức vụ đang có tài khoản" để cấu hình trước.</td></tr>`;
+        capNhatTomTatMaTran(dsCV, dsMod);
+        return;
       }
 
-      const tbody = document.getElementById("bangMaTranBody");
-      tbody.innerHTML = cacChucVu.map(cv => {
-        if (!maTranPhanQuyen[cv]) maTranPhanQuyen[cv] = {};
-        const qCuaCv = maTranPhanQuyen[cv];
-        const cvH = escapeHtml(cv);
-        // Cấp thấp nhất (số nhỏ nhất) của nhân sự giữ chức vụ này — dùng để suy ra mặc định cho mục chưa cấu hình (vd: Báo cáo)
-        const capCv = danhSachNhanSu.some(x => (x.chuc_vu || "").trim() === cv && (parseInt(x.phan_loai_tk) || 3) <= 2) ? 2 : 3;
+      const oMuc = (cv, mod) => {
+        const pq = maTranPhanQuyen[cv.ten] || {};
+        const daCauHinh = coCauHinhModule(pq, mod.id);
+        // Chưa cấu hình: mỗi tài khoản dùng mặc định theo Cấp của chính mình (có thể khác nhau)
+        const macDinh = cv.cacCap.map(c => ({ cap: c, muc: tinhQuyenModule(pq, mod.id, c) }));
+        const khacNhau = macDinh.some(x => x.muc !== macDinh[0].muc);
+        const nhanMacDinh = khacNhau
+          ? "↩ Theo Cấp (" + macDinh.map(x => "C" + x.cap + ": " + TEN_MUC[x.muc].split(" ")[0]).join(" · ") + ")"
+          : "↩ Mặc định: " + TEN_MUC[macDinh[0].muc];
+        const val = daCauHinh ? tinhQuyenModule(pq, mod.id, cv.cap) : "macdinh";
+        const lop = daCauHinh ? "val-" + val : "is-mac-dinh " + (khacNhau ? "val-view" : "val-" + macDinh[0].muc);
+        return `<td><select class="matrix-select ${lop}" data-chucvu="${escapeHtml(cv.ten)}" data-module="${escapeHtml(mod.id)}" onchange="doiQuyenMaTran(this)" ${tatSua}
+            title="${daCauHinh ? escapeHtml(cv.ten + " · " + mod.label) : "Chưa cấu hình — mỗi tài khoản dùng mặc định theo Cấp của mình" + (khacNhau ? " (các Cấp cho kết quả khác nhau)" : "")}">
+            <option value="macdinh" ${daCauHinh ? "" : "selected"}>${escapeHtml(nhanMacDinh)}</option>
+            ${["all", "view", "none"].map(v => `<option value="${v}" ${v === val ? "selected" : ""}>${TEN_MUC[v]}</option>`).join("")}
+          </select></td>`;
+      };
+      const oChucNang = (cv, cn) => {
+        const pq = maTranPhanQuyen[cv.ten] || {};
+        // Chức năng con cấu hình được khi ít nhất 1 tài khoản của chức vụ vào được mục (Cấp cao nhất)
+        const muc = tinhQuyenModule(pq, cn.module, cv.cap);
+        if (!tinhDuocChucNang(cn, muc, undefined)) {
+          return `<td><span class="pq-na" title="Mục đang ở mức ${escapeHtml(TEN_MUC[muc])} nên chức năng này tự bị chặn">—</span></td>`;
+        }
+        const chan = pq["cn:" + cn.id] === "deny";
+        return `<td><select class="matrix-select val-${chan ? "deny" : "allow"}" data-chucvu="${escapeHtml(cv.ten)}" data-cn="${escapeHtml(cn.id)}" onchange="doiQuyenMaTran(this)" ${tatSua}>
+            <option value="allow" ${chan ? "" : "selected"}>✔ Được dùng</option>
+            <option value="deny" ${chan ? "selected" : ""}>✖ Chặn</option>
+          </select></td>`;
+      };
 
-        const tdModules = CAC_MODULE.map(mod => {
-          // Giá trị hiển thị = đúng giá trị hệ thống sẽ áp dụng (kể cả quy đổi từ dữ liệu 7 bước cũ)
-          let val = tinhQuyenModule(qCuaCv, mod.id, capCv);
-          if (qCuaCv[mod.id] === undefined && cv === "Giám đốc Điều hành") val = "all";
-          qCuaCv[mod.id] = val;
-          return `
-            <td>
-              <select class="matrix-select val-${val}" data-chucvu="${cvH}" data-module="${mod.id}" onchange="doiQuyenMaTran(this)">
-                <option value="all" ${val === 'all' ? 'selected' : ''}>🟢 Toàn quyền</option>
-                <option value="view" ${val === 'view' ? 'selected' : ''}>🟡 Chỉ xem</option>
-                <option value="none" ${val === 'none' ? 'selected' : ''}>🔴 Không</option>
-              </select>
-            </td>
-          `;
-        }).join("");
+      let html = "";
+      dsMod.forEach(mod => {
+        const dsCn = DANH_MUC_CHUC_NANG.filter(c => c.module === mod.id);
+        const khopMuc = !tuKhoa || boDauPQ(mod.label + " " + mod.trang.join(" ")).includes(tuKhoa);
+        const cnHien = khopMuc ? dsCn : dsCn.filter(c => boDauPQ(c.label).includes(tuKhoa));
+        if (!khopMuc && !cnHien.length) return;
+        html += `<tr class="pq-row-module"><td>
+            <div class="pq-muc-ten">${escapeHtml(mod.label)}${mod.moi ? ` <span class="pq-badge-moi" title="Mục mới tự phát hiện — khi chưa cấu hình: Cấp 1 toàn quyền, Cấp 2 chỉ xem, Cấp 3 chưa được vào">MỚI</span>` : ""}</div>
+            <div class="pq-muc-trang">${escapeHtml(mod.trang.join(", "))}</div>
+          </td>${dsCV.map(cv => oMuc(cv, mod)).join("")}</tr>`;
+        cnHien.forEach(cn => {
+          html += `<tr class="pq-row-cn"><td>↳ ${escapeHtml(cn.label)} <span class="pq-loai pq-loai-${cn.loai}">${cn.loai === "ghi" ? "Ghi / sửa" : "Xem / xuất"}</span></td>${dsCV.map(cv => oChucNang(cv, cn)).join("")}</tr>`;
+        });
+      });
+      tbody.innerHTML = html || `<tr><td colspan="${dsCV.length + 1}" style="text-align:center; padding: 24px; color: var(--text-muted);">Không có mục / chức năng nào khớp từ khoá.</td></tr>`;
+      capNhatTomTatMaTran(dsCV, dsMod);
+    }
 
-        return `
-          <tr>
-            <td>${cvH}</td>
-            ${tdModules}
-          </tr>
-        `;
-      }).join("");
+    function capNhatTomTatMaTran(dsCV, dsMod) {
+      const el = document.getElementById("pqTomTatMaTran");
+      if (el) el.textContent = `${dsCV.length} chức vụ · ${danhSachNhanSu.length} tài khoản · ${dsMod.length} mục · ${DANH_MUC_CHUC_NANG.length} chức năng`;
+      const dau = document.getElementById("pqChuaLuuMaTran");
+      if (dau) dau.style.display = coThayDoiMaTran() ? "" : "none";
     }
 
     function doiQuyenMaTran(sel) {
       const cv = sel.getAttribute("data-chucvu");
       const mod = sel.getAttribute("data-module");
-      const val = sel.value;
-
-      sel.className = `matrix-select val-${val}`;
+      const cn = sel.getAttribute("data-cn");
       if (!maTranPhanQuyen[cv]) maTranPhanQuyen[cv] = {};
-      maTranPhanQuyen[cv][mod] = val;
+      if (cn) {
+        if (sel.value === "deny") maTranPhanQuyen[cv]["cn:" + cn] = "deny";
+        else delete maTranPhanQuyen[cv]["cn:" + cn];
+      } else if (sel.value === "macdinh") {
+        // Bỏ cấu hình → mỗi tài khoản theo mặc định Cấp của mình (bỏ luôn khoá cũ kiểu 7 bước của mục này)
+        const khoaCu = { dieuxe: ["buoc1", "buoc2", "buoc3"], quyettoan: ["buoc4", "buoc5", "buoc6"], misa: ["buoc7"] }[mod] || [];
+        [mod].concat(khoaCu).forEach(k => delete maTranPhanQuyen[cv][k]);
+      } else {
+        maTranPhanQuyen[cv][mod] = sel.value;
+      }
+      veBangMaTran(); // các chức năng con phụ thuộc mức của mục nên vẽ lại cả bảng
+    }
+
+    function napMauGoiYMaTran() {
+      if (!coQuyenSuaPhanQuyen()) {
+        showToast("🔒 Bạn không có quyền chỉnh sửa ma trận phân quyền.", "error");
+        return;
+      }
+      const daLuu = new Set(Object.keys(JSON.parse(anhChupMaTran || "{}")));
+      let dem = 0;
+      Object.keys(MA_TRAN_MAC_DINH).forEach(cv => {
+        if (daLuu.has(cv)) return;
+        maTranPhanQuyen[cv] = Object.assign({}, MA_TRAN_MAC_DINH[cv], maTranPhanQuyen[cv] || {});
+        dem++;
+      });
+      veBangMaTran();
+      showToast(dem ? `📋 Đã điền mẫu gợi ý cho ${dem} chức vụ chưa lưu — kiểm tra lại rồi bấm Lưu.` : "ℹ️ Các chức vụ mẫu đều đã được lưu, không cần nạp mẫu.", "success");
+    }
+
+    // Tên dễ đọc cho khoá quyền & giá trị (dùng trong nhật ký)
+    function tenKhoaQuyen(k) {
+      if (k.indexOf("cn:") === 0) { const cn = timChucNang(k.slice(3)); return cn ? "↳ " + cn.label : k; }
+      const m = danhSachModuleDayDu().find(x => x.id === k);
+      return m ? m.label : k;
+    }
+    function tenGiaTriQuyen(v) {
+      if (v === null || v === undefined) return "(mặc định)";
+      return ({ all: "Toàn quyền", view: "Chỉ xem", none: "Không", deny: "Chặn", allow: "Được dùng" })[v] || String(v);
+    }
+    function soSanhQuyen(cu, moi) {
+      const kq = [];
+      new Set([...Object.keys(cu || {}), ...Object.keys(moi || {})]).forEach(dt => {
+        const a = (cu || {})[dt] || {}, b = (moi || {})[dt] || {};
+        new Set([...Object.keys(a), ...Object.keys(b)]).forEach(k => {
+          if (jsonOnDinh(a[k]) !== jsonOnDinh(b[k])) kq.push({ doi_tuong: dt, quyen: k, tu: a[k] === undefined ? null : a[k], thanh: b[k] === undefined ? null : b[k] });
+        });
+      });
+      return kq;
+    }
+    function tomTatThayDoi(ds, donVi, tenDoiTuong) {
+      if (!ds.length) return "Lưu lại, không có thay đổi " + donVi;
+      const dau = ds.slice(0, 6).map(x => `${tenDoiTuong ? tenDoiTuong(x.doi_tuong) : x.doi_tuong} · ${tenKhoaQuyen(x.quyen)}: ${tenGiaTriQuyen(x.tu)} → ${tenGiaTriQuyen(x.thanh)}`).join("; ");
+      return `Sửa ${ds.length} ${donVi}: ${dau}${ds.length > 6 ? "; …" : ""}`;
+    }
+
+    function hieuLucTK(ns, maTran, rieng) {
+      const mt = maTran || maTranPhanQuyen;
+      const qr = rieng || quyenRiengTK;
+      return tinhQuyenHieuLucTaiKhoan(ns, mt[String(ns.chuc_vu || "").trim()], qr[ns.so_dien_thoai]);
+    }
+
+    // Không để tự khoá: phải còn tài khoản nhân sự sửa được phân quyền (tài khoản Supabase luôn sửa được)
+    function kiemTraConQuanTri(maTranMoi, riengMoi) {
+      const coQuyenQT = ns => {
+        const hl = hieuLucTK(ns, maTranMoi, riengMoi);
+        return hl.modules.taikhoan && hl.modules.taikhoan.muc === "all" && hl.chucNang["taikhoan.phan_quyen"].duoc;
+      };
+      const toi = currentUserProfile && danhSachNhanSu.find(ns => ns.so_dien_thoai === currentUserProfile.so_dien_thoai);
+      if (!laSupabaseAdmin() && toi && !coQuyenQT(toi)) {
+        return { ok: false, canhBao: "⚠️ Sau khi lưu, CHÍNH BẠN sẽ mất quyền sửa phân quyền (không vào sửa lại được).\nChỉ tài khoản Supabase chính thức hoặc người khác có quyền mới khôi phục được.\n\nVẫn lưu?" };
+      }
+      if (!danhSachNhanSu.some(ns => ns.trang_thai !== "khoa" && coQuyenQT(ns))) {
+        return { ok: false, canhBao: "⚠️ Sau khi lưu, KHÔNG còn tài khoản nhân sự nào sửa được phân quyền.\nChỉ tài khoản Supabase chính thức mới vào sửa lại được.\n\nVẫn lưu?" };
+      }
+      return { ok: true };
+    }
+
+    // Quyền của chính phiên đang đăng nhập đổi theo ngay (không cần đăng nhập lại)
+    function capNhatQuyenPhienHienTai() {
+      if (laSupabaseAdmin() || !currentUserProfile) return;
+      const sdt = currentUserProfile.so_dien_thoai;
+      const cv = String(currentUserProfile.chuc_vu || "").trim();
+      localStorage.setItem("userPermissions", JSON.stringify(gopQuyen(maTranPhanQuyen[cv] || {}, quyenRiengTK[sdt] || {})));
+      localStorage.setItem("tmh_quyen_rieng_tk", JSON.stringify(quyenRiengTK[sdt] || {}));
     }
 
     async function luuMaTranPhanQuyen() {
-      // Chỉ Cấp 1 (Toàn quyền) hoặc chức vụ có quyền 'all' ở mục này mới được lưu
-      if (layQuyenModule("taikhoan") !== "all") {
+      // Chỉ tài khoản có Toàn quyền ở mục Tài khoản & được phép "Sửa ma trận" (hoặc Supabase chính thức)
+      if (!coQuyenSuaPhanQuyen()) {
         showToast("🔒 Bạn không có quyền chỉnh sửa ma trận phân quyền.", "error");
         return;
       }
 
-      const cacChucVu = Object.keys(maTranPhanQuyen);
-      const ketQua = await Promise.all(cacChucVu.map(cv => {
-        return sb.from("phan_quyen_vi_tri").upsert({
-          chuc_vu: cv,
-          cac_quyen: maTranPhanQuyen[cv],
-          cap_nhat_luc: new Date().toISOString()
-        }).then(r => r, e => ({ error: e }));
-      }));
-
-      // Lưu cache LocalStorage
-      localStorage.setItem("phan_quyen_vi_tri_local", JSON.stringify(maTranPhanQuyen));
-
-      // Cập nhật session nếu chức vụ của người dùng hiện tại bị thay đổi quyền
-      if (currentUserProfile && currentUserProfile.chuc_vu && maTranPhanQuyen[currentUserProfile.chuc_vu]) {
-        localStorage.setItem("userPermissions", JSON.stringify(maTranPhanQuyen[currentUserProfile.chuc_vu]));
-      }
-
-      const loi = ketQua.filter(r => r && r.error);
-      if (loi.length > 0) {
-        console.warn("Lỗi lưu ma trận Supabase:", loi.map(r => r.error));
-        showToast(`⚠️ Lưu lên máy chủ thất bại (${loi.length}/${cacChucVu.length} chức vụ): ${loi[0].error.message || loi[0].error}. Chỉ lưu tạm trên máy này.`, "error");
+      // 1. Chỉ lưu ĐÚNG các chức vụ có thay đổi; ô chưa cấu hình vẫn để trống (mỗi tài khoản theo
+      //    mặc định Cấp của mình) — không tự "chốt" mặc định để tránh vô tình nâng / hạ quyền ai đó
+      const cu = JSON.parse(anhChupMaTran || "{}");
+      const maTranMoi = maTranPhanQuyen;
+      const cvThayDoi = Object.keys(maTranMoi).filter(cv => jsonOnDinh(cu[cv] || null) !== jsonOnDinh(maTranMoi[cv]));
+      if (!cvThayDoi.length) {
+        showToast("ℹ️ Ma trận không có thay đổi nào cần lưu.", "success");
         return;
       }
-      showToast("💾 Đã lưu ma trận phân quyền thành công!", "success");
+
+      // 2. Không để tự khoá
+      const kiemTra = kiemTraConQuanTri(maTranMoi, quyenRiengTK);
+      if (!kiemTra.ok && !confirm(kiemTra.canhBao)) return;
+
+      // 3. Lưu 1 lần cho các chức vụ thay đổi (tự bỏ cột máy chủ chưa có)
+      const thayDoi = soSanhQuyen(cu, maTranMoi);
+      const bayGio = new Date().toISOString();
+      const rows = cvThayDoi.map(cv => ({ chuc_vu: cv, cac_quyen: maTranMoi[cv], cap_nhat_luc: bayGio }));
+      const kq = await upsertSupabaseTuTu("phan_quyen_vi_tri", rows, { onConflict: "chuc_vu" });
+
+      localStorage.setItem("phan_quyen_vi_tri_local", JSON.stringify(maTranPhanQuyen));
+      if (!kq || !kq.success) {
+        const e = kq && kq.error;
+        console.warn("Lỗi lưu ma trận Supabase:", e);
+        showToast(`⚠️ Lưu lên máy chủ thất bại: ${(e && e.message) || e || "lỗi kết nối"}. Chỉ lưu tạm trên máy này — các máy khác CHƯA áp dụng.`, "error");
+        veBangMaTran();
+        return;
+      }
+      anhChupMaTran = jsonOnDinh(maTranPhanQuyen);
+      capNhatQuyenPhienHienTai();
+      ghiNhatKy("phan_quyen", {
+        doi_tuong: "Ma trận theo chức vụ",
+        noi_dung: tomTatThayDoi(thayDoi, "ô quyền theo chức vụ"),
+        chi_tiet: { so_thay_doi: thayDoi.length, thay_doi: thayDoi.slice(0, 300) }
+      });
+      veBangMaTran();
+      showToast(`💾 Đã lưu ma trận phân quyền (${thayDoi.length} thay đổi) — áp dụng từ lần mở trang tiếp theo trên mọi máy.`, "success");
+    }
+
+    // =========================================================================
+    // TAB 3: QUYỀN HIỆU LỰC & QUYỀN RIÊNG THEO TỪNG TÀI KHOẢN (KIỂM SOÁT HẬU KỲ)
+    // =========================================================================
+    let sdtDangMoQuyenRieng = null;
+
+    async function taiTabQuyenTaiKhoan(batBuoc) {
+      if (batBuoc && (coThayDoiMaTran() || coThayDoiQuyenRieng()) && !confirm("Bỏ các thay đổi phân quyền chưa lưu (ma trận & quyền riêng) và tải lại?")) return;
+      const tbody = document.getElementById("bangQuyenTaiKhoanBody");
+      if (batBuoc || !daTaiPhanQuyen) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 24px; color: var(--text-muted);">⏳ Đang nạp quyền theo tài khoản...</td></tr>`;
+      }
+      if (batBuoc) await taiDanhSachNhanSu();
+      await taiDuLieuPhanQuyen(!!batBuoc);
+      veBangQuyenTaiKhoan();
+    }
+
+    function canhBaoTaiKhoan(ns, hl) {
+      const cap = parseInt(ns.phan_loai_tk) || 3;
+      const ds = [];
+      if (ns.trang_thai === "khoa") ds.push({ loai: "khoa", text: "🔒 Đang khoá" });
+      const soRieng = Object.keys(quyenRiengTK[ns.so_dien_thoai] || {}).length;
+      if (soRieng) ds.push({ loai: "rieng", text: `⚙ ${soRieng} quyền riêng` });
+      if (cap === 3 && hl.modules.taikhoan && hl.modules.taikhoan.muc !== "none") ds.push({ loai: "canh-bao", text: "⚠ Cấp 3 vào được Tài khoản & Phân quyền" });
+      if (cap === 3 && hl.modules.misa && hl.modules.misa.muc === "all") ds.push({ loai: "canh-bao", text: "⚠ Cấp 3 thao tác được MISA" });
+      if (!maTranPhanQuyen[String(ns.chuc_vu || "").trim()]) ds.push({ loai: "info", text: "ℹ Chức vụ chưa lưu ma trận" });
+      const soMucMoi = danhSachModuleDayDu().filter(m => m.moi && hl.modules[m.id] && hl.modules[m.id].nguon === "mac_dinh").length;
+      if (soMucMoi) ds.push({ loai: "info", text: `🆕 ${soMucMoi} mục mới chưa cấu hình` });
+      return ds;
+    }
+
+    function veBangQuyenTaiKhoan() {
+      const head = document.getElementById("bangQuyenTaiKhoanHead");
+      const tbody = document.getElementById("bangQuyenTaiKhoanBody");
+      if (!head || !tbody) return;
+      const dsMod = danhSachModuleDayDu();
+      const tatSua = coQuyenSuaPhanQuyen() ? "" : "disabled";
+      const tuKhoa = boDauPQ((document.getElementById("inpLocTaiKhoanPQ") || {}).value);
+      const chiChuY = !!(document.getElementById("chkChiCanhBaoPQ") || {}).checked;
+
+      const note = document.getElementById("pqNoteAdmin");
+      if (note && !note.dataset.daGan) {
+        note.dataset.daGan = "1";
+        const hs = currentUserProfile || {};
+        note.innerHTML += `<br>👉 Bạn đang đăng nhập bằng: <b>${laSupabaseAdmin() ? "tài khoản Supabase chính thức (toàn quyền, không chịu ma trận)" : "tài khoản nhân sự " + escapeHtml(hs.ho_ten || "") + " — " + escapeHtml(hs.chuc_vu || "")}</b>.`;
+      }
+
+      const tatCa = danhSachNhanSu.map(ns => {
+        const hl = hieuLucTK(ns);
+        return { ns, hl, co: canhBaoTaiKhoan(ns, hl) };
+      });
+
+      // Thẻ tổng hợp kiểm soát
+      const hoatDong = tatCa.filter(x => x.ns.trang_thai !== "khoa");
+      const kpi = [
+        { so: tatCa.length, nhan: "Tài khoản nhân sự" },
+        { so: hoatDong.filter(x => x.hl.modules.taikhoan && x.hl.modules.taikhoan.muc === "all").length, nhan: "Quản trị được tài khoản & quyền" },
+        { so: hoatDong.filter(x => x.hl.modules.misa && x.hl.modules.misa.muc === "all").length, nhan: "Thao tác được Bước 3 MISA" },
+        { so: tatCa.filter(x => Object.keys(quyenRiengTK[x.ns.so_dien_thoai] || {}).length).length, nhan: "Có quyền riêng (ngoại lệ)" },
+        { so: tatCa.filter(x => x.co.some(f => f.loai === "canh-bao")).length, nhan: "Cần chú ý (cảnh báo)", canhBao: true },
+        { so: tatCa.length - hoatDong.length, nhan: "Đang khoá" }
+      ];
+      const kpiEl = document.getElementById("pqKpiTaiKhoan");
+      if (kpiEl) kpiEl.innerHTML = kpi.map(k => `<div class="pq-kpi${k.canhBao && k.so ? " is-canh-bao" : ""}"><b>${k.so}</b><span>${k.nhan}</span></div>`).join("");
+
+      head.innerHTML = `<th>Tài Khoản</th>` + dsMod.map(m => `<th title="${escapeHtml(m.trang.join(", "))}"><div class="pq-cv-ten">${escapeHtml(m.label)}${m.moi ? ` <span class="pq-badge-moi">MỚI</span>` : ""}</div></th>`).join("") +
+        `<th>Chức năng bị chặn</th><th>Chi tiết</th>`;
+
+      const ds = tatCa.filter(x => {
+        if (tuKhoa && !boDauPQ(`${x.ns.ho_ten} ${x.ns.so_dien_thoai} ${x.ns.chuc_vu}`).includes(tuKhoa)) return false;
+        if (chiChuY && !x.co.some(f => f.loai !== "info")) return false;
+        return true;
+      });
+      if (!ds.length) {
+        tbody.innerHTML = `<tr><td colspan="${dsMod.length + 3}" style="text-align:center; padding: 24px; color: var(--text-muted);">Không có tài khoản nào phù hợp.</td></tr>`;
+        capNhatDauChuaLuuTaiKhoan();
+        return;
+      }
+
+      tbody.innerHTML = ds.map(({ ns, hl, co }) => {
+        const sdt = ns.so_dien_thoai;
+        const cap = parseInt(ns.phan_loai_tk) || 3;
+        const pqCV = _chuanHoaQuyen(maTranPhanQuyen[String(ns.chuc_vu || "").trim()]);
+        const rieng = quyenRiengTK[sdt] || {};
+        const cacO = dsMod.map(m => {
+          const coRieng = !!MUC_QUYEN_HOP_LE[rieng[m.id]];
+          const theoCV = tinhQuyenModule(pqCV, m.id, cap);
+          const hlM = hl.modules[m.id];
+          return `<td><select class="matrix-select val-${hlM.muc}${coRieng ? " is-rieng" : ""}" data-sdt="${escapeHtml(sdt)}" data-module="${escapeHtml(m.id)}" onchange="doiQuyenRiengModule(this)" ${tatSua} title="${escapeHtml(TEN_NGUON[hlM.nguon] || "")}">
+              <option value="inherit" ${coRieng ? "" : "selected"}>↩ Theo CV: ${TEN_MUC[theoCV]}</option>
+              ${["all", "view", "none"].map(v => `<option value="${v}" ${coRieng && rieng[m.id] === v ? "selected" : ""}>${TEN_MUC[v]} (riêng)</option>`).join("")}
+            </select></td>`;
+        }).join("");
+        const cnApDung = DANH_MUC_CHUC_NANG.filter(c => hl.modules[c.module] && hl.modules[c.module].muc !== "none");
+        const soChan = cnApDung.filter(c => !hl.chucNang[c.id].duoc).length;
+        return `
+          <tr class="${ns.trang_thai === "khoa" ? "is-khoa" : ""}">
+            <td>
+              <div class="pq-tk-ten">${escapeHtml(ns.ho_ten || "Chưa đặt tên")}</div>
+              <div class="pq-tk-sub">📱 ${escapeHtml(sdt)} · ${escapeHtml(ns.chuc_vu || "—")} · Cấp ${cap}</div>
+              ${co.length ? `<div class="pq-co">${co.map(f => `<span class="pq-flag pq-flag-${f.loai}">${escapeHtml(f.text)}</span>`).join("")}</div>` : ""}
+            </td>
+            ${cacO}
+            <td style="text-align:center;">${soChan ? `<b style="color:#b91c1c;">${soChan}</b> / ${cnApDung.length}` : `<span style="color:#047857; font-weight:700;">0 / ${cnApDung.length}</span>`}</td>
+            <td style="text-align:center;"><button type="button" class="btn-row-action" onclick="moModalQuyenRieng(${escapeHtml(JSON.stringify(sdt))})">⚙ Chi tiết</button></td>
+          </tr>`;
+      }).join("");
+      capNhatDauChuaLuuTaiKhoan();
+    }
+
+    function capNhatDauChuaLuuTaiKhoan() {
+      const dau = document.getElementById("pqChuaLuuTaiKhoan");
+      if (dau) dau.style.display = coThayDoiQuyenRieng() ? "" : "none";
+    }
+
+    function datQuyenRieng(sdt, khoa, giaTri) {
+      const q = Object.assign({}, quyenRiengTK[sdt] || {});
+      if (giaTri === null) delete q[khoa];
+      else q[khoa] = giaTri;
+      if (Object.keys(q).length) quyenRiengTK[sdt] = q;
+      else delete quyenRiengTK[sdt];
+    }
+
+    function doiQuyenRiengModule(sel) {
+      datQuyenRieng(sel.getAttribute("data-sdt"), sel.getAttribute("data-module"), sel.value === "inherit" ? null : sel.value);
+      veBangQuyenTaiKhoan();
+    }
+
+    async function moQuyenTaiKhoan(sdt) {
+      await chuyenTab("taikhoan");
+      moModalQuyenRieng(sdt);
+    }
+
+    function moModalQuyenRieng(sdt) {
+      if (!danhSachNhanSu.some(x => x.so_dien_thoai === sdt)) return;
+      sdtDangMoQuyenRieng = sdt;
+      veModalQuyenRieng();
+      const modal = document.getElementById("modalQuyenRieng");
+      modal.classList.add("show");
+      modal.style.display = "flex";
+    }
+
+    function dongModalQuyenRieng() {
+      const modal = document.getElementById("modalQuyenRieng");
+      modal.classList.remove("show");
+      modal.style.display = "none";
+      sdtDangMoQuyenRieng = null;
+      veBangQuyenTaiKhoan();
+    }
+
+    function veModalQuyenRieng() {
+      const sdt = sdtDangMoQuyenRieng;
+      const ns = danhSachNhanSu.find(x => x.so_dien_thoai === sdt);
+      if (!ns) return;
+      const cap = parseInt(ns.phan_loai_tk) || 3;
+      const cv = String(ns.chuc_vu || "").trim();
+      const pqCV = _chuanHoaQuyen(maTranPhanQuyen[cv]);
+      const rieng = quyenRiengTK[sdt] || {};
+      const hl = hieuLucTK(ns);
+      const tatSua = coQuyenSuaPhanQuyen() ? "" : "disabled";
+
+      document.getElementById("qrThongTin").innerHTML =
+        `<b>${escapeHtml(ns.ho_ten || "")}</b> · 📱 ${escapeHtml(sdt)} · ${escapeHtml(cv || "—")} · Cấp ${cap}${ns.trang_thai === "khoa" ? " · 🔒 đang khoá" : ""}<br>` +
+        `Quyền riêng chỉ áp dụng cho <b>đúng tài khoản này</b> và được ưu tiên hơn quyền theo chức vụ. Chọn "↩ Theo chức vụ" để bỏ ngoại lệ. Nhớ bấm <b>Lưu Quyền Riêng</b>.`;
+
+      const hlChu = duoc => duoc ? `<span class="pq-hl pq-hl-duoc">✔ Được dùng</span>` : `<span class="pq-hl pq-hl-chan">✖ Bị chặn</span>`;
+      let html = "";
+      danhSachModuleDayDu().forEach(m => {
+        const theoCV = tinhQuyenModule(pqCV, m.id, cap);
+        const coRieng = !!MUC_QUYEN_HOP_LE[rieng[m.id]];
+        html += `<tr class="pq-row-module">
+            <td>${escapeHtml(m.label)}${m.moi ? ` <span class="pq-badge-moi">MỚI</span>` : ""}</td>
+            <td style="text-align:center;">${TEN_MUC[theoCV]}</td>
+            <td style="text-align:center;"><select class="matrix-select val-${hl.modules[m.id].muc}${coRieng ? " is-rieng" : ""}" data-khoa="${escapeHtml(m.id)}" onchange="doiQuyenRiengModal(this)" ${tatSua}>
+              <option value="inherit" ${coRieng ? "" : "selected"}>↩ Theo chức vụ</option>
+              ${["all", "view", "none"].map(v => `<option value="${v}" ${coRieng && rieng[m.id] === v ? "selected" : ""}>${TEN_MUC[v]}</option>`).join("")}
+            </select></td>
+            <td style="text-align:center;" class="pq-hl">${TEN_MUC[hl.modules[m.id].muc]}</td>
+          </tr>`;
+        DANH_MUC_CHUC_NANG.filter(c => c.module === m.id).forEach(c => {
+          const khoa = "cn:" + c.id;
+          const theoCVDuoc = tinhDuocChucNang(c, theoCV, pqCV[khoa]);
+          const giaTri = rieng[khoa] === "allow" || rieng[khoa] === "deny" ? rieng[khoa] : "inherit";
+          const hlC = hl.chucNang[c.id];
+          const doMuc = !tinhDuocChucNang(c, hl.modules[m.id].muc, undefined);
+          html += `<tr>
+              <td style="padding-left:26px;">↳ ${escapeHtml(c.label)} <span class="pq-loai pq-loai-${c.loai}">${c.loai === "ghi" ? "Ghi / sửa" : "Xem / xuất"}</span></td>
+              <td style="text-align:center;">${hlChu(theoCVDuoc)}</td>
+              <td style="text-align:center;"><select class="matrix-select ${giaTri === "deny" ? "val-deny" : (giaTri === "allow" ? "val-allow" : "")}${giaTri !== "inherit" ? " is-rieng" : ""}" data-khoa="${escapeHtml(khoa)}" onchange="doiQuyenRiengModal(this)" ${tatSua}>
+                <option value="inherit" ${giaTri === "inherit" ? "selected" : ""}>↩ Theo chức vụ</option>
+                <option value="allow" ${giaTri === "allow" ? "selected" : ""}>✔ Cho phép (riêng)</option>
+                <option value="deny" ${giaTri === "deny" ? "selected" : ""}>✖ Chặn (riêng)</option>
+              </select></td>
+              <td style="text-align:center;" title="${doMuc ? "Bị chặn do mức quyền của mục" : ""}">${hlChu(hlC.duoc)}${doMuc && hlC.duoc === false ? `<div class="pq-tk-sub">do mức của mục</div>` : ""}</td>
+            </tr>`;
+        });
+      });
+      document.getElementById("qrBangBody").innerHTML = html;
+    }
+
+    function doiQuyenRiengModal(sel) {
+      if (!sdtDangMoQuyenRieng) return;
+      datQuyenRieng(sdtDangMoQuyenRieng, sel.getAttribute("data-khoa"), sel.value === "inherit" ? null : sel.value);
+      veModalQuyenRieng();
+      capNhatDauChuaLuuTaiKhoan();
+    }
+
+    function xoaHetQuyenRiengDangMo() {
+      if (!sdtDangMoQuyenRieng) return;
+      if (!coQuyenSuaPhanQuyen()) {
+        showToast("🔒 Bạn không có quyền chỉnh sửa phân quyền.", "error");
+        return;
+      }
+      delete quyenRiengTK[sdtDangMoQuyenRieng];
+      veModalQuyenRieng();
+      capNhatDauChuaLuuTaiKhoan();
+    }
+
+    async function luuQuyenRiengTaiKhoan() {
+      if (!coQuyenSuaPhanQuyen()) {
+        showToast("🔒 Bạn không có quyền chỉnh sửa phân quyền.", "error");
+        return;
+      }
+      const cu = JSON.parse(anhChupQuyenRieng || "{}");
+      const bayGio = new Date().toISOString();
+      const canLuu = [], canXoa = [];
+      new Set([...Object.keys(cu), ...Object.keys(quyenRiengTK)]).forEach(sdt => {
+        if (jsonOnDinh(cu[sdt] || {}) === jsonOnDinh(quyenRiengTK[sdt] || {})) return;
+        if (quyenRiengTK[sdt] && Object.keys(quyenRiengTK[sdt]).length) {
+          canLuu.push({ chuc_vu: TIEN_TO_QUYEN_TK + sdt, cac_quyen: quyenRiengTK[sdt], cap_nhat_luc: bayGio });
+        } else {
+          canXoa.push(TIEN_TO_QUYEN_TK + sdt);
+        }
+      });
+      if (!canLuu.length && !canXoa.length) {
+        showToast("ℹ️ Không có quyền riêng nào thay đổi.", "success");
+        return;
+      }
+      const kiemTra = kiemTraConQuanTri(maTranPhanQuyen, quyenRiengTK);
+      if (!kiemTra.ok && !confirm(kiemTra.canhBao)) return;
+
+      let loi = null;
+      if (canLuu.length) {
+        const kq = await upsertSupabaseTuTu("phan_quyen_vi_tri", canLuu, { onConflict: "chuc_vu" });
+        if (!kq || !kq.success) loi = (kq && kq.error) || "lỗi kết nối";
+      }
+      if (!loi && canXoa.length) {
+        try {
+          const r = await sb.from("phan_quyen_vi_tri").delete().in("chuc_vu", canXoa);
+          if (r && r.error) loi = r.error;
+        } catch (e) { loi = e; }
+      }
+      localStorage.setItem("tmh_quyen_rieng_local", JSON.stringify(quyenRiengTK));
+      if (loi) {
+        showToast(`⚠️ Lưu quyền riêng lên máy chủ thất bại: ${loi.message || loi}. Các máy khác CHƯA áp dụng.`, "error");
+        return;
+      }
+      const thayDoi = soSanhQuyen(cu, quyenRiengTK);
+      const tenTK = sdt => { const ns = danhSachNhanSu.find(x => x.so_dien_thoai === sdt); return ns ? `${ns.ho_ten} (${sdt})` : sdt; };
+      anhChupQuyenRieng = jsonOnDinh(quyenRiengTK);
+      capNhatQuyenPhienHienTai();
+      ghiNhatKy("phan_quyen", {
+        doi_tuong: "Quyền riêng tài khoản",
+        noi_dung: tomTatThayDoi(thayDoi, "quyền riêng tài khoản", tenTK),
+        chi_tiet: { so_thay_doi: thayDoi.length, thay_doi: thayDoi.slice(0, 300) }
+      });
+      veBangQuyenTaiKhoan();
+      if (sdtDangMoQuyenRieng) veModalQuyenRieng();
+      showToast(`💾 Đã lưu quyền riêng (${thayDoi.length} thay đổi) — áp dụng từ lần mở trang tiếp theo của tài khoản đó.`, "success");
+    }
+
+    // =========================================================================
+    // TAB 4: NHẬT KÝ KIỂM SOÁT HẬU KỲ (bảng nhat_ky_he_thong — sql/11)
+    // =========================================================================
+    let nhatKyDaTai = [];
+    let soNhatKyToiDa = 300;
+    const TEN_LOAI_NK = {
+      dang_nhap: "🔑 Đăng nhập", dang_nhap_loi: "⛔ Đăng nhập lỗi", dang_xuat: "🚪 Đăng xuất",
+      phan_quyen: "🛡️ Phân quyền", tai_khoan: "👤 Tài khoản", tu_choi: "🔒 Bị chặn",
+      ghi_du_lieu: "💾 Ghi dữ liệu", trang_moi: "🆕 Trang mới"
+    };
+
+    async function taiNhatKyKiemSoat(taiThem) {
+      const tbody = document.getElementById("bangNhatKyBody");
+      soNhatKyToiDa = taiThem === true ? soNhatKyToiDa + 300 : 300;
+      if (taiThem !== true) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 24px; color: var(--text-muted);">⏳ Đang tải nhật ký...</td></tr>`;
+      const loai = document.getElementById("selLoaiNhatKy").value;
+      const tu = document.getElementById("inpTuNgayNhatKy").value;
+      const den = document.getElementById("inpDenNgayNhatKy").value;
+      try {
+        let q = sb.from(BANG_NHAT_KY).select("*").order("luc", { ascending: false }).limit(soNhatKyToiDa);
+        if (loai) q = q.eq("loai", loai);
+        if (tu) q = q.gte("luc", new Date(tu + "T00:00:00").toISOString());
+        if (den) q = q.lte("luc", new Date(den + "T23:59:59").toISOString());
+        const res = await q;
+        if (res.error) {
+          nhatKyDaTai = [];
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 24px; color: #b91c1c;">${_laLoiThieuBang(res.error)
+            ? "❌ Máy chủ chưa có bảng nhật ký. Nhờ quản trị chạy file <b>sql/11_phan_quyen_nhat_ky_kiem_soat.sql</b> trong Supabase SQL Editor để bật nhật ký kiểm soát."
+            : "❌ Lỗi tải nhật ký: " + escapeHtml(res.error.message || "")}</td></tr>`;
+          document.getElementById("btnTaiThemNhatKy").style.display = "none";
+          return;
+        }
+        nhatKyDaTai = res.data || [];
+        document.getElementById("btnTaiThemNhatKy").style.display = nhatKyDaTai.length >= soNhatKyToiDa ? "" : "none";
+        veNhatKy();
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 24px; color: #b91c1c;">❌ Lỗi tải nhật ký: ${escapeHtml(e.message || String(e))}</td></tr>`;
+      }
+    }
+
+    function tenMucTuId(id) {
+      if (!id) return "—";
+      const m = danhSachModuleDayDu().find(x => x.id === id);
+      return m ? m.label : id;
+    }
+
+    function locNhatKy() {
+      const tuKhoa = boDauPQ((document.getElementById("inpLocNhatKy") || {}).value);
+      return nhatKyDaTai.filter(r => !tuKhoa || boDauPQ([r.ho_ten, r.sdt, r.chuc_vu, r.noi_dung, r.doi_tuong, r.trang].join(" ")).includes(tuKhoa));
+    }
+
+    function veNhatKy() {
+      const tbody = document.getElementById("bangNhatKyBody");
+      const ds = locNhatKy();
+      const tt = document.getElementById("pqTomTatNhatKy");
+      if (tt) tt.textContent = `${ds.length} / ${nhatKyDaTai.length} dòng`;
+      if (!ds.length) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 24px; color: var(--text-muted);">Không có sự kiện nào trong khoảng lọc.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = ds.map(r => `
+        <tr>
+          <td style="white-space:nowrap;">${escapeHtml(new Date(r.luc).toLocaleString("vi-VN"))}</td>
+          <td>
+            <div style="font-weight:700;">${escapeHtml(r.ho_ten || "(chưa rõ)")}</div>
+            <div class="pq-tk-sub">📱 ${escapeHtml(r.sdt || "")}${r.chuc_vu ? " · " + escapeHtml(r.chuc_vu) : ""}${r.la_admin_supabase ? " · 🛡️ Supabase" : ""}</div>
+          </td>
+          <td><span class="nk-loai nk-loai-${escapeHtml(r.loai || "")}">${TEN_LOAI_NK[r.loai] || escapeHtml(r.loai || "")}</span></td>
+          <td>${escapeHtml(tenMucTuId(r.module))}<div class="pq-tk-sub">${escapeHtml(r.trang || "")}</div></td>
+          <td>${escapeHtml(r.noi_dung || "")}</td>
+        </tr>
+      `).join("");
+    }
+
+    function xuatNhatKyCSV() {
+      const ds = locNhatKy();
+      if (!ds.length) {
+        showToast("ℹ️ Chưa có dòng nhật ký nào để xuất.", "error");
+        return;
+      }
+      const o = v => `"${String(v === null || v === undefined ? "" : v).replace(/"/g, '""')}"`;
+      const dong = [["Thời gian", "Số điện thoại / Email", "Họ tên", "Chức vụ", "Cấp", "Supabase chính thức", "Loại", "Mục", "Trang", "Đối tượng", "Nội dung"].map(o).join(",")];
+      ds.forEach(r => dong.push([
+        new Date(r.luc).toLocaleString("vi-VN"), r.sdt, r.ho_ten, r.chuc_vu, r.cap, r.la_admin_supabase ? "Có" : "",
+        TEN_LOAI_NK[r.loai] || r.loai, tenMucTuId(r.module), r.trang, r.doi_tuong, r.noi_dung
+      ].map(o).join(",")));
+      const blob = new Blob([String.fromCharCode(0xFEFF) + dong.join("\r\n")], { type: "text/csv;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `NhatKyKiemSoat_${ngayISO(new Date())}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
     }
   </script>
 </body>
