@@ -17,6 +17,7 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <script src="config.js"></script>
   <script src="pwa.js"></script>
+  <script src="searchable-select.js"></script>
   <link rel="stylesheet" href="layout.css">
   <style>
     /* Bố cục 2 cột Google System */
@@ -2038,6 +2039,10 @@
 
       napDropdownXe();
       napDropdownNhanSu();
+      // Ô chọn Xe / Tài xế / NV giao hàng / NV thu tiền: cho phép GÕ ĐỂ TÌM khi danh sách dài
+      if (window.TMHSearchSelect) {
+        ['xeVanChuyen', 'taiXe', 'nvGiaoHang', 'nvThuTien'].forEach(id => TMHSearchSelect.enhance(document.getElementById(id)));
+      }
       await napQuyCachHangHoa();
 
       // 1. Đồng bộ lịch sử chuyến xe từ Supabase luu_tru (để xem lại biểu mẫu có ngay trên mọi máy)

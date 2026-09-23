@@ -314,6 +314,43 @@
       font-weight: 800;
     }
 
+    /* Danh sách nhiều dòng: Chi phí xe & Thu nợ cũ */
+    .ct-grid-chi, .ct-row-chi { display: grid; grid-template-columns: minmax(0, 1fr) 118px 26px; gap: 5px; align-items: center; }
+    .ct-grid-no, .ct-row-no { display: grid; grid-template-columns: minmax(0, 1fr) 118px 26px; gap: 5px; align-items: center; }
+    .ct-head { font-size: 10.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; padding: 2px 0; }
+    .ct-list { display: flex; flex-direction: column; gap: 5px; }
+    .ct-list:empty { display: none; }
+    .ct-row-no { background: #ffffff; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 6px 6px 6px 8px; }
+    .ct-row-no.is-ngoai-so { border-style: dashed; border-color: #fdba74; background: #fffbeb; }
+    .ct-row-no.is-vuot { border-color: #fca5a5; }
+    .ct-kh-name { font-weight: 800; font-size: 12px; color: var(--text-main); line-height: 1.25; overflow-wrap: anywhere; }
+    .ct-kh-sub { font-size: 10.5px; color: var(--text-muted); margin-top: 1px; }
+    .ct-alloc { grid-column: 1 / -1; font-size: 10.5px; color: #15803d; line-height: 1.35; overflow-wrap: anywhere; }
+    .ct-alloc.is-warn { color: #b91c1c; font-weight: 700; }
+    .ct-del { width: 26px; height: 26px; border: 1px solid #fecaca; background: #fff; color: #dc2626; border-radius: 4px; cursor: pointer; font-weight: 800; font-size: 12px; line-height: 1; padding: 0; }
+    .ct-del:hover { background: #fee2e2; }
+    .ct-quick { display: flex; flex-wrap: wrap; gap: 4px; }
+    .ct-chip { border: 1px solid #e2e8f0; background: #ffffff; color: #475569; font-size: 10.5px; font-weight: 700; border-radius: 9999px; padding: 3px 8px; cursor: pointer; white-space: nowrap; }
+    .ct-chip:hover { border-color: #fca5a5; color: #b91c1c; background: #fef2f2; }
+    .ct-chip-add { border-color: #fca5a5; color: #b91c1c; background: #fef2f2; font-weight: 800; }
+    .ct-total { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 2px; padding: 7px 10px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 700; }
+    .ct-total b.input-tien { font-size: 15px; font-weight: 900; }
+    .ct-total-chi { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+    .ct-total-no { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .ct-hint { font-size: 10.5px; color: var(--text-muted); line-height: 1.4; }
+    .kh-no-picker { position: relative; flex: 1; min-width: 0; }
+    .kh-no-picker .input-table { height: 30px; }
+    .kh-no-suggest { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 500; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16); max-height: 300px; overflow-y: auto; padding: 4px; }
+    .kh-no-suggest[hidden] { display: none; }
+    .kh-no-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+    .kh-no-item.is-active { background: #f0fdf4; }
+    .kh-no-item .kh-ten { font-weight: 800; color: var(--text-main); overflow-wrap: anywhere; }
+    .kh-no-item .kh-phu { font-size: 10.5px; color: var(--text-muted); }
+    .kh-no-item .kh-tien { font-weight: 900; color: #dc2626; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .kh-no-item.is-ngoai-so .kh-ten { color: #c2410c; }
+    .kh-no-head { padding: 4px 9px 6px; font-size: 10.5px; color: var(--text-muted); border-bottom: 1px dashed #e2e8f0; margin-bottom: 4px; }
+    .kh-no-empty { padding: 10px; font-size: 12px; color: var(--text-muted); text-align: center; }
+
     /* 3 Bảng Thống Kê Chi Tiết (CK, Trả về, Nợ) */
     .stat-tables-grid {
       display: grid;
@@ -629,36 +666,60 @@
         </div>
 
         <div class="finance-adjust-grid">
-          <!-- 1. CHI PHÍ XE -->
+          <!-- 1. CHI PHÍ XE — nhập nhiều khoản (nội dung + số tiền), có tổng để tập hợp chi phí -->
           <div class="finance-field-box">
             <div class="field-label-group">
               <label style="color:#b91c1c; font-weight:800; font-size:12px;">💸 Chi phí phát sinh xe (Chi):</label>
               <span class="finance-badge-minus">- Trừ vào tiền nộp</span>
             </div>
-            <div style="display:flex; gap:6px;">
-              <input type="text" id="inputTienChi" class="input-table input-tien finance-input" style="color:#b91c1c;" placeholder="0" 
-                value="0" onfocus="onFocusTienInput(this)" onblur="onBlurTienChi(this)" oninput="nhapTienChi(this.value)">
+            <!-- Ô cũ giữ lại (ẩn): luôn chứa TỔNG chi & nội dung gộp để các đoạn code sẵn có vẫn dùng được -->
+            <input type="hidden" id="inputTienChi" value="0">
+            <input type="hidden" id="inputNoiDungChi" value="">
+            <div class="ct-head ct-grid-chi" id="tieuDeDsChiPhi" style="display:none;">
+              <span>Nội dung / hạng mục chi</span><span style="text-align:right;">Số tiền (đ)</span><span></span>
             </div>
-            <input type="text" id="inputNoiDungChi" class="input-table" style="margin-top:4px; font-size:11.5px;" 
-              placeholder="Lý do chi (xăng xe, bến bãi, sửa xe dọc đường...)" oninput="nhapNoiDungChi(this.value)">
+            <div class="ct-list" id="dsChiPhiXe"></div>
+            <div class="ct-quick">
+              <button type="button" class="ct-chip ct-chip-add" onclick="themKhoanChiPhi('')">+ Thêm khoản chi</button>
+              <span id="nutNhanhChiPhi" style="display:contents;"></span>
+            </div>
+            <datalist id="dmHangMucChiPhi"></datalist>
+            <div class="ct-total ct-total-chi">
+              <span>Tổng chi phí xe (<b id="soKhoanChiPhi">0</b> khoản):</span>
+              <b id="tongChiPhiXe" class="input-tien">0 đ</b>
+            </div>
           </div>
 
-          <!-- 2. THU NỢ CŨ KH -->
+          <!-- 2. THU NỢ CŨ KH — thu nợ khách nào bao nhiêu, lưu quyết toán sẽ tự cấn trừ vào Sổ Theo Dõi Công Nợ -->
           <div class="finance-field-box">
             <div class="field-label-group">
               <label style="color:#15803d; font-weight:800; font-size:12px;">💰 Thu nợ cũ khách hàng (Xe thu hộ):</label>
               <span class="finance-badge-plus">+ Cộng vào tiền nộp</span>
             </div>
+            <!-- Ô cũ giữ lại (ẩn): luôn chứa TỔNG thu nợ & ghi chú gộp để các đoạn code sẵn có vẫn dùng được -->
+            <input type="hidden" id="inputThuNoCu" value="0">
+            <input type="hidden" id="inputGhiChuThuNoCu" value="">
             <div style="display:flex; gap:6px;">
-              <input type="text" id="inputThuNoCu" class="input-table input-tien finance-input" style="color:#15803d;" placeholder="0" 
-                value="0" onfocus="onFocusTienInput(this)" onblur="onBlurThuNoCu(this)" oninput="nhapThuNoCu(this.value)">
-              <button type="button" class="btn btn-outline" style="height:32px; font-size:11px; padding:0 8px; white-space:nowrap;" 
-                onclick="moModalSoCongNo(true)" title="Chọn khách hàng từ sổ công nợ cũ để xe thu nợ hộ">
-                🔍 Chọn nợ cũ
+              <div class="kh-no-picker">
+                <input type="text" id="timKhachNoCu" class="input-table" autocomplete="off" spellcheck="false"
+                  placeholder="🔍 Gõ tên khách / mã HĐ đang nợ để thu..."
+                  onfocus="moGoiYKhachNo()" oninput="veGoiYKhachNo()" onkeydown="phimGoiYKhachNo(event)" onblur="dongGoiYKhachNo()">
+                <div class="kh-no-suggest" id="goiYKhachNoCu" hidden></div>
+              </div>
+              <button type="button" class="btn btn-outline" style="height:30px; font-size:11px; padding:0 8px; white-space:nowrap;"
+                onclick="moModalSoCongNo(true)" title="Chọn từng hóa đơn nợ cụ thể trong sổ công nợ để xe thu hộ">
+                📋 Chọn theo HĐ
               </button>
             </div>
-            <input type="text" id="inputGhiChuThuNoCu" class="input-table" style="margin-top:4px; font-size:11.5px;" 
-              placeholder="Khách hàng trả nợ cũ (hoặc mã HĐ nợ cũ...)" oninput="nhapGhiChuThuNoCu(this.value)">
+            <div class="ct-head ct-grid-no" id="tieuDeDsThuNo" style="display:none;">
+              <span>Khách hàng trả nợ</span><span style="text-align:right;">Số tiền thu (đ)</span><span></span>
+            </div>
+            <div class="ct-list" id="dsThuNoCu"></div>
+            <div class="ct-total ct-total-no">
+              <span>Tổng thu nợ cũ (<b id="soKhachThuNo">0</b> khách):</span>
+              <b id="tongThuNoCuBox" class="input-tien">0 đ</b>
+            </div>
+            <div class="ct-hint">💾 Khi <b>Lưu Quyết Toán</b>, số tiền thu nợ sẽ <b>tự động cấn trừ</b> vào Sổ Theo Dõi Công Nợ (ưu tiên hóa đơn nợ cũ nhất trước).</div>
           </div>
 
           <!-- 3. TIỀN THỐI & SỐ TIỀN PHẢI THU -->
@@ -1070,6 +1131,37 @@
         <tbody id="p_tbodyNo">
         </tbody>
       </table>
+
+      <!-- 4. CHI TIẾT CHI PHÍ XE (chỉ in khi có phát sinh) -->
+      <table class="print-detail-table" id="p_bangChiPhi" style="margin-top: 10px;">
+        <thead>
+          <tr class="row-header-blue">
+            <th colspan="2" style="text-align: center;">CHI TIẾT CHI PHÍ XE</th>
+          </tr>
+          <tr style="background: #f8fafc;">
+            <th style="width: 75%;">Nội dung chi</th>
+            <th style="width: 25%; text-align: right;">Số tiền</th>
+          </tr>
+        </thead>
+        <tbody id="p_tbodyChiPhi">
+        </tbody>
+      </table>
+
+      <!-- 5. CHI TIẾT THU NỢ CŨ KHÁCH HÀNG (chỉ in khi có phát sinh) -->
+      <table class="print-detail-table" id="p_bangThuNo" style="margin-top: 10px;">
+        <thead>
+          <tr class="row-header-blue">
+            <th colspan="3" style="text-align: center;">CHI TIẾT THU NỢ CŨ KHÁCH HÀNG (XE THU HỘ)</th>
+          </tr>
+          <tr style="background: #f8fafc;">
+            <th style="width: 40%;">Tên KH</th>
+            <th style="width: 35%;">Cấn trừ hóa đơn nợ</th>
+            <th style="width: 25%; text-align: right;">Số tiền thu</th>
+          </tr>
+        </thead>
+        <tbody id="p_tbodyThuNo">
+        </tbody>
+      </table>
     </div>
   </div>
 
@@ -1086,7 +1178,10 @@
             <div style="font-size:11.5px; color:var(--text-muted);">Tổng hợp tất cả các đơn hàng nợ từ các chuyến xe để theo dõi thu hồi</div>
           </div>
         </div>
-        <button type="button" class="btn btn-outline" style="height:28px; padding:0 8px; font-weight:800;" onclick="dongModalSoCongNo()">✕ Đóng</button>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <a href="theo_doi_cong_no.html" target="_blank" rel="noopener" class="btn btn-outline" style="height:28px; padding:0 8px; font-size:11.5px; text-decoration:none;" title="Mở trang Theo Dõi Công Nợ đầy đủ ở tab mới (không mất dữ liệu đang nhập ở đây)">↗ Mở trang Công Nợ</a>
+          <button type="button" class="btn btn-outline" style="height:28px; padding:0 8px; font-weight:800;" onclick="dongModalSoCongNo()">✕ Đóng</button>
+        </div>
       </div>
       <div class="modal-body">
         <!-- Thanh điều khiển khi chọn nhiều đơn nợ để xe thu hộ -->
@@ -1127,7 +1222,7 @@
                 <th style="width:105px; text-align:right;">Đã Thu</th>
                 <th style="width:105px; text-align:right;">Còn Lại</th>
                 <th style="width:100px; text-align:center;">Trạng Thái</th>
-                <th style="width:130px; text-align:center;" id="thThaoTacCongNo">Thao Tác</th>
+                <th style="width:180px; text-align:center;" id="thThaoTacCongNo">Thao Tác</th>
               </tr>
             </thead>
             <tbody id="tbodySoCongNo">
@@ -1168,6 +1263,11 @@
     let nguoiNhan = '';
     let ghiChuPhieu = '';
 
+    // Chi tiết nhiều dòng (tổng của các danh sách này chính là tienChi / thuNoCu ở trên)
+    let danhSachChiPhi = [];              // [{ noiDung, soTien }]
+    let danhSachThuNo = [];               // [{ tenKH, maKH, soTien, uuTienIds: [id đơn nợ chọn trước], ngoaiSo }]
+    let thuNoDaApDungChoDot = new Map();  // id đơn nợ -> số tiền CHUYẾN XE ĐANG MỞ đã cấn trừ vào sổ ở lần lưu trước
+
     // ========================================================
     // KHỞI TẠO TRANG
     // ========================================================
@@ -1185,9 +1285,13 @@
 
       // 3. Khởi tạo bảng đếm tiền
       veBangDemTien();
+      khoiTaoNutNhanhChiPhi();
 
       // 4. Tải danh sách đợt và tự động chọn chuyến xe
       await taiLaiDanhSachDot();
+
+      // 4b. Kéo đầy đủ sổ công nợ về máy (chạy nền) để ô Thu nợ cũ tìm được mọi khách đang nợ
+      dongBoSoCongNoDayDuTuCloud();
 
       // 5. Khởi tạo cơ chế tự động đồng bộ Realtime từ Supabase
       khoiTaoRealtimeDongBoB2();
@@ -1385,6 +1489,9 @@
               // Có người vừa thu nợ ở đâu đó — đồng bộ lại để không chọn nhầm đơn đã thu
               dongBoConLaiCongNoTuCloud().then(() => {
                 if (document.getElementById('modalSoCongNo')?.style.display === 'flex') renderSoCongNo();
+                // Cập nhật số "còn nợ" của các khách đang ghi thu nợ ở chuyến xe này
+                phanBoThuNoCu();
+                capNhatHienThiThuNo();
               });
             })
             .subscribe();
@@ -1428,6 +1535,8 @@
         if (Array.isArray(data.danh_sach_don_no_dang_thu)) {
           dot.danhSachDonNoDangThu = data.danh_sach_don_no_dang_thu;
         }
+        if (Array.isArray(data.danh_sach_chi_phi)) dot.danhSachChiPhi = data.danh_sach_chi_phi;
+        if (Array.isArray(data.danh_sach_thu_no)) dot.danhSachThuNo = data.danh_sach_thu_no;
         // Lưu lại vào localStorage của máy này để những lần mở sau không cần tải lại
         const idx = danhSachTatCaDot.findIndex(d => d.maDot === dot.maDot);
         if (idx >= 0) danhSachTatCaDot[idx] = dot;
@@ -1481,6 +1590,9 @@
       document.getElementById('inputNguoiNop').value = nguoiNop;
       document.getElementById('inputNguoiNhan').value = nguoiNhan;
       document.getElementById('inputGhiChuPhieu').value = ghiChuPhieu;
+
+      // Nạp danh sách chi tiết Chi phí xe & Thu nợ cũ (nhiều dòng) của chuyến xe
+      napChiTietChiPhiVaThuNo(dotHienTai);
 
       // Khôi phục số tờ đếm tiền nếu có
       if (dotHienTai.soToDemTien) {
@@ -2345,6 +2457,679 @@
     }
 
     // ========================================================
+    // CHI PHÍ XE & THU NỢ CŨ — NHẬP NHIỀU DÒNG, CÓ TỔNG
+    // --------------------------------------------------------
+    // - Chi phí: mỗi dòng = nội dung/hạng mục + số tiền → tổng chi = tienChi.
+    // - Thu nợ: mỗi dòng = 1 khách hàng + số tiền khách trả → tổng = thuNoCu.
+    //   Số tiền của từng khách được tự phân bổ vào các hóa đơn nợ của khách đó
+    //   (ưu tiên HĐ đã chọn riêng, sau đó HĐ cũ nhất trước) → danhSachDonNoDangThu,
+    //   và khi Lưu Quyết Toán sẽ tự cấn trừ vào Sổ Theo Dõi Công Nợ + bảng thu_no.
+    // ========================================================
+    const HANG_MUC_CHI_PHI = [
+      { ic: '⛽', ten: 'Xăng dầu' },
+      { ic: '🅿️', ten: 'Bến bãi' },
+      { ic: '🛣️', ten: 'Cầu đường / BOT' },
+      { ic: '🔧', ten: 'Sửa xe' },
+      { ic: '💪', ten: 'Bốc xếp' },
+      { ic: '🍱', ten: 'Ăn uống' }
+    ];
+    const TIEN_TO_GHI_CHU_THU_NO_XE = 'Thu hộ nợ cũ qua chuyến xe';
+    let dangLuuQuyetToan = false;
+
+    function boDauTV(s) {
+      return String(s || '')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd').replace(/Đ/g, 'D')
+        .toLowerCase().replace(/\s+/g, ' ').trim();
+    }
+
+    // Khoá gom nhóm khách hàng — giống trang Theo Dõi Công Nợ (theo tên khách hàng)
+    function khoaKhachHang(ten) {
+      return String(ten || '').trim().replace(/\s+/g, ' ').toUpperCase();
+    }
+
+    function chuanHoaNgayISO(s) {
+      const str = String(s || '').trim();
+      let m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+      m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+      return '';
+    }
+
+    // Số tiền của 1 đơn nợ mà chuyến xe này CÒN ĐƯỢC PHÉP thu = số nợ - phần đã thu ở nơi khác
+    // (phần chính chuyến này đã cấn trừ ở lần lưu trước vẫn tính là "được thu" để mở lại không bị mất)
+    function khaDungCuaDonNo(d) {
+      const daThuNoiKhac = Math.max(0, (d.daThu || 0) - (thuNoDaApDungChoDot.get(d.id) || 0));
+      return Math.max(0, (d.soTienNo || 0) - daThuNoiKhac);
+    }
+
+    // ---------- CHI PHÍ XE ----------
+    function khoiTaoNutNhanhChiPhi() {
+      const box = document.getElementById('nutNhanhChiPhi');
+      if (box) {
+        box.innerHTML = HANG_MUC_CHI_PHI.map(h =>
+          `<button type="button" class="ct-chip" onclick="themKhoanChiPhi(${escapeHtml(JSON.stringify(h.ten))})" title="Thêm khoản chi ${escapeHtml(h.ten)}">${h.ic} ${escapeHtml(h.ten)}</button>`
+        ).join('');
+      }
+      capNhatGoiYHangMucChi();
+    }
+
+    // Gợi ý nội dung chi: hạng mục chuẩn + các nội dung đã từng nhập ở các chuyến xe trước
+    function capNhatGoiYHangMucChi() {
+      const dl = document.getElementById('dmHangMucChiPhi');
+      if (!dl) return;
+      const set = new Set(HANG_MUC_CHI_PHI.map(h => h.ten));
+      (danhSachTatCaDot || []).forEach(d => (d.danhSachChiPhi || []).forEach(c => {
+        const t = String((c && c.noiDung) || '').trim();
+        if (t) set.add(t);
+      }));
+      dl.innerHTML = Array.from(set).slice(0, 80).map(t => `<option value="${escapeHtml(t)}"></option>`).join('');
+    }
+
+    function tinhLaiTongChiPhi(tinhLaiTongThe = true) {
+      tienChi = danhSachChiPhi.reduce((s, c) => s + (parseFloat(c.soTien) || 0), 0);
+      noiDungChi = danhSachChiPhi
+        .filter(c => (c.soTien || 0) > 0 || (c.noiDung || '').trim())
+        .map(c => `${(c.noiDung || '').trim() || 'Chi khác'}: ${formatTien(c.soTien || 0)}`)
+        .join('; ');
+      document.getElementById('inputTienChi').value = formatTien(tienChi);
+      document.getElementById('inputNoiDungChi').value = noiDungChi;
+      document.getElementById('tongChiPhiXe').textContent = formatTien(tienChi) + ' đ';
+      document.getElementById('soKhoanChiPhi').textContent = danhSachChiPhi.filter(c => (c.soTien || 0) > 0).length;
+      if (tinhLaiTongThe) tinhToanTongThe();
+    }
+
+    function veDanhSachChiPhi() {
+      const box = document.getElementById('dsChiPhiXe');
+      if (!box) return;
+      box.innerHTML = danhSachChiPhi.map((c, i) => `
+        <div class="ct-row-chi">
+          <input type="text" id="ctChiNoiDung_${i}" class="input-table" list="dmHangMucChiPhi" placeholder="Nội dung chi (xăng dầu, bến bãi...)"
+            value="${escapeHtml(c.noiDung || '')}" oninput="suaKhoanChiPhi(${i}, 'noiDung', this.value)">
+          <input type="text" id="ctChiTien_${i}" inputmode="numeric" class="input-table input-tien" style="color:#b91c1c;" placeholder="0"
+            value="${c.soTien ? formatTien(c.soTien) : ''}" onfocus="onFocusTienInput(this)" oninput="suaKhoanChiPhi(${i}, 'soTien', this.value)"
+            onblur="this.value = (danhSachChiPhi[${i}] && danhSachChiPhi[${i}].soTien) ? formatTien(danhSachChiPhi[${i}].soTien) : ''"
+            onkeydown="if (event.key === 'Enter') { event.preventDefault(); themKhoanChiPhi(''); }" title="Nhập số tiền, bấm Enter để thêm khoản chi tiếp theo">
+          <button type="button" class="ct-del" title="Xoá khoản chi này" onclick="xoaKhoanChiPhi(${i})">✕</button>
+        </div>
+      `).join('');
+      document.getElementById('tieuDeDsChiPhi').style.display = danhSachChiPhi.length ? '' : 'none';
+    }
+
+    function suaKhoanChiPhi(i, truong, val) {
+      const c = danhSachChiPhi[i];
+      if (!c) return;
+      if (truong === 'soTien') c.soTien = Math.max(0, parseVNNumber_(val));
+      else c.noiDung = val;
+      tinhLaiTongChiPhi();
+    }
+
+    function themKhoanChiPhi(noiDung) {
+      // Dùng lại dòng còn trống (chưa nhập gì) thay vì thêm dòng thừa
+      let i = danhSachChiPhi.findIndex(c => !((c.soTien || 0) > 0) && !(c.noiDung || '').trim());
+      if (i === -1) {
+        danhSachChiPhi.push({ noiDung: noiDung || '', soTien: 0 });
+        i = danhSachChiPhi.length - 1;
+      } else if (noiDung) {
+        danhSachChiPhi[i].noiDung = noiDung;
+      }
+      veDanhSachChiPhi();
+      tinhLaiTongChiPhi();
+      const el = document.getElementById(noiDung ? `ctChiTien_${i}` : `ctChiNoiDung_${i}`);
+      if (el) el.focus();
+    }
+
+    function xoaKhoanChiPhi(i) {
+      danhSachChiPhi.splice(i, 1);
+      veDanhSachChiPhi();
+      tinhLaiTongChiPhi();
+    }
+
+    // ---------- THU NỢ CŨ ----------
+    // Gom danh sách đơn nợ đang thu (kiểu cũ / chọn từ sổ) thành mỗi khách 1 dòng thu nợ
+    function gomDonNoThanhDongThuNo(dsDon) {
+      const so = docSoCongNo();
+      const map = new Map();
+      (dsDon || []).forEach(it => {
+        if (!it || !it.id) return;
+        const don = so.find(d => d.id === it.id) || {};
+        const tenKH = it.tenKH || don.tenKH || 'Khách hàng';
+        const k = khoaKhachHang(tenKH);
+        if (!map.has(k)) map.set(k, { tenKH: String(tenKH).trim(), maKH: it.maKH || don.maKH || '', soTien: 0, uuTienIds: [], ngoaiSo: false });
+        const r = map.get(k);
+        r.soTien += parseFloat(it.conLai || it.tienThu || 0) || 0;
+        if (!r.uuTienIds.includes(it.id)) r.uuTienIds.push(it.id);
+      });
+      return Array.from(map.values());
+    }
+
+    // Nạp danh sách Chi phí & Thu nợ của chuyến xe vừa chọn (tương thích chuyến lưu theo kiểu cũ 1 ô tổng)
+    function napChiTietChiPhiVaThuNo(dot) {
+      // 1. Chi phí
+      if (Array.isArray(dot.danhSachChiPhi) && dot.danhSachChiPhi.length) {
+        danhSachChiPhi = dot.danhSachChiPhi.map(c => ({ noiDung: c.noiDung || '', soTien: parseFloat(c.soTien || 0) || 0 }));
+      } else if (tienChi > 0 || (noiDungChi || '').trim()) {
+        danhSachChiPhi = [{ noiDung: noiDungChi || 'Chi phí xe', soTien: tienChi }];
+      } else {
+        danhSachChiPhi = [];
+      }
+
+      // 2. Số tiền chuyến này đã cấn trừ vào sổ ở lần lưu trước (để sửa/lưu lại không bị trừ trùng)
+      thuNoDaApDungChoDot = new Map();
+      if (dot.thuNoDaGhiNhan && typeof dot.thuNoDaGhiNhan === 'object') {
+        Object.entries(dot.thuNoDaGhiNhan).forEach(([id, v]) => thuNoDaApDungChoDot.set(id, parseFloat(v) || 0));
+      } else if (dot.daQuyetToan) {
+        // Chuyến đã lưu bằng phiên bản cũ: các đơn nợ đang thu đã được cấn trừ đúng bằng số này
+        danhSachDonNoDangThu.forEach(it => {
+          if (it && it.id) thuNoDaApDungChoDot.set(it.id, (thuNoDaApDungChoDot.get(it.id) || 0) + (parseFloat(it.conLai) || 0));
+        });
+      }
+
+      // 3. Thu nợ
+      if (Array.isArray(dot.danhSachThuNo) && dot.danhSachThuNo.length) {
+        danhSachThuNo = dot.danhSachThuNo.map(r => ({
+          tenKH: r.tenKH || '', maKH: r.maKH || '', soTien: parseFloat(r.soTien || 0) || 0,
+          uuTienIds: Array.isArray(r.uuTienIds) ? [...r.uuTienIds] : [], ngoaiSo: !!r.ngoaiSo
+        }));
+      } else {
+        danhSachThuNo = gomDonNoThanhDongThuNo(danhSachDonNoDangThu);
+        const tongGom = danhSachThuNo.reduce((s, r) => s + r.soTien, 0);
+        if (thuNoCu > tongGom + 0.5) {
+          // Số tiền nhập tay kiểu cũ, không gắn với đơn nợ nào trong sổ
+          danhSachThuNo.push({ tenKH: ghiChuThuNoCu || 'Thu nợ cũ (nhập tay)', maKH: '', soTien: thuNoCu - tongGom, uuTienIds: [], ngoaiSo: true });
+        }
+      }
+
+      capNhatGoiYHangMucChi();
+      veDanhSachChiPhi();
+      tinhLaiTongChiPhi(false);
+      phanBoThuNoCu();
+      veDanhSachThuNo();
+
+      // 4. Lấy chính xác số đã cấn trừ của chuyến này từ máy chủ (đúng cho mọi máy) — chạy nền
+      const maDot = dot.maDot;
+      layThuNoDaApDungCuaDotTuCloud(maDot).then(kq => {
+        if (!kq || kq.cheDo !== 'cloud' || !dotHienTai || dotHienTai.maDot !== maDot || dangLuuQuyetToan) return;
+        thuNoDaApDungChoDot = kq.daApDung;
+        phanBoThuNoCu();
+        capNhatHienThiThuNo();
+      });
+    }
+
+    // Phân bổ số tiền thu của từng khách vào các hóa đơn nợ trong sổ: ưu tiên HĐ đã chọn riêng,
+    // sau đó HĐ nợ CŨ NHẤT trước. Kết quả ghi vào danhSachDonNoDangThu (dùng khi lưu quyết toán).
+    function phanBoThuNoCu() {
+      // Đang mở bảng chọn nợ theo HĐ (đang tick chọn) hoặc đang lưu thì không phân bổ lại
+      if (dangLuuQuyetToan || cheDoChonNoCuDangBat) return;
+      const so = docSoCongNo();
+      const khaDung = new Map();
+      so.forEach(d => khaDung.set(d.id, khaDungCuaDonNo(d)));
+
+      const theoKhach = new Map();
+      so.forEach(d => {
+        if ((khaDung.get(d.id) || 0) <= 0) return;
+        const k = khoaKhachHang(d.tenKH);
+        if (!theoKhach.has(k)) theoKhach.set(k, []);
+        theoKhach.get(k).push(d);
+      });
+      theoKhach.forEach(arr => arr.sort((a, b) =>
+        (chuanHoaNgayISO(a.ngayGiao || a.ngayGhiNo) || '9999').localeCompare(chuanHoaNgayISO(b.ngayGiao || b.ngayGhiNo) || '9999') ||
+        String(a.maHD || '').localeCompare(String(b.maHD || ''))
+      ));
+
+      danhSachThuNo.forEach(r => {
+        r.phanBo = [];
+        r.vuot = 0;
+        r.conNo = 0;
+        r.soDon = 0;
+        if (r.ngoaiSo) return;
+        const uuTien = (r.uuTienIds || []).map(id => so.find(d => d.id === id)).filter(Boolean);
+        const thuTu = [...uuTien, ...(theoKhach.get(khoaKhachHang(r.tenKH)) || []).filter(d => !uuTien.includes(d))];
+        r.conNo = thuTu.reduce((s, d) => s + (khaDung.get(d.id) || 0), 0);
+        r.soDon = thuTu.filter(d => (khaDung.get(d.id) || 0) > 0).length;
+        if (!r.maKH) r.maKH = (thuTu.find(d => d.maKH) || {}).maKH || '';
+        let conPhaiPhanBo = Math.max(0, parseFloat(r.soTien) || 0);
+        for (const d of thuTu) {
+          if (conPhaiPhanBo <= 0) break;
+          const kd = khaDung.get(d.id) || 0;
+          if (kd <= 0) continue;
+          const lay = Math.min(kd, conPhaiPhanBo);
+          r.phanBo.push({ id: d.id, maHD: d.maHD, maKH: d.maKH || '', tenKH: d.tenKH, soTienNo: d.soTienNo, soTien: lay });
+          khaDung.set(d.id, kd - lay);
+          conPhaiPhanBo -= lay;
+        }
+        r.vuot = conPhaiPhanBo;
+      });
+
+      danhSachDonNoDangThu = [];
+      danhSachThuNo.forEach(r => (r.phanBo || []).forEach(p => danhSachDonNoDangThu.push({
+        id: p.id, maHD: p.maHD, maKH: p.maKH, tenKH: p.tenKH, soTienNo: p.soTienNo, conLai: p.soTien
+      })));
+      idDonNoDangThu = null;
+      thuNoCu = danhSachThuNo.reduce((s, r) => s + (parseFloat(r.soTien) || 0), 0);
+      ghiChuThuNoCu = danhSachThuNo.filter(r => (r.soTien || 0) > 0).map(r =>
+        `${r.tenKH}: ${formatTien(r.soTien)}` +
+        ((r.phanBo && r.phanBo.length) ? ` (HĐ ${r.phanBo.map(p => p.maHD).join(', ')})` : (r.ngoaiSo ? ' (ngoài sổ)' : ''))
+      ).join('; ');
+      document.getElementById('inputThuNoCu').value = formatTien(thuNoCu);
+      document.getElementById('inputGhiChuThuNoCu').value = ghiChuThuNoCu;
+    }
+
+    function veDanhSachThuNo() {
+      const box = document.getElementById('dsThuNoCu');
+      if (!box) return;
+      box.innerHTML = danhSachThuNo.map((r, i) => `
+        <div class="ct-row-no${r.ngoaiSo ? ' is-ngoai-so' : ''}" id="ctNoRow_${i}">
+          <div style="min-width:0;">
+            <div class="ct-kh-name">${escapeHtml(r.tenKH)}</div>
+            <div class="ct-kh-sub" id="ctNoSub_${i}"></div>
+          </div>
+          <input type="text" id="ctNoTien_${i}" inputmode="numeric" class="input-table input-tien" style="color:#15803d;" placeholder="0"
+            value="${r.soTien ? formatTien(r.soTien) : ''}" onfocus="onFocusTienInput(this)" oninput="suaTienThuNo(${i}, this.value)"
+            onblur="this.value = (danhSachThuNo[${i}] && danhSachThuNo[${i}].soTien) ? formatTien(danhSachThuNo[${i}].soTien) : ''"
+            title="Số tiền khách trả nợ (sửa lại nếu khách chỉ trả 1 phần)">
+          <button type="button" class="ct-del" title="Bỏ khoản thu nợ này" onclick="xoaDongThuNo(${i})">✕</button>
+          <div class="ct-alloc" id="ctNoAlloc_${i}"></div>
+        </div>
+      `).join('');
+      capNhatHienThiThuNo();
+    }
+
+    // Cập nhật phần chữ (còn nợ, cấn trừ HĐ, tổng) mà KHÔNG vẽ lại ô nhập đang gõ
+    function capNhatHienThiThuNo() {
+      danhSachThuNo.forEach((r, i) => {
+        const sub = document.getElementById(`ctNoSub_${i}`);
+        const alloc = document.getElementById(`ctNoAlloc_${i}`);
+        const row = document.getElementById(`ctNoRow_${i}`);
+        if (!sub || !alloc || !row) return;
+        if (r.ngoaiSo) {
+          sub.textContent = 'Ngoài sổ công nợ — chỉ cộng vào tiền nộp';
+          alloc.textContent = '';
+          alloc.className = 'ct-alloc';
+          row.classList.remove('is-vuot');
+          return;
+        }
+        sub.textContent = r.soDon > 0 ? `Còn nợ ${formatTien(r.conNo)} đ · ${r.soDon} HĐ` : 'Không còn nợ trong sổ';
+        let html = '';
+        if (r.phanBo && r.phanBo.length) {
+          html = '↳ Cấn trừ: ' + r.phanBo.map(p => `${escapeHtml(p.maHD)} (${formatTien(p.soTien)})`).join(', ');
+        } else if (!(r.soTien > 0)) {
+          html = 'Nhập số tiền khách trả nợ';
+        }
+        if (r.vuot > 0.5) {
+          html += `${html ? '<br>' : ''}⚠️ Vượt số nợ còn lại ${formatTien(r.vuot)} đ — phần vượt không được cấn trừ công nợ`;
+        }
+        alloc.innerHTML = html;
+        alloc.className = 'ct-alloc' + (r.vuot > 0.5 ? ' is-warn' : '');
+        row.classList.toggle('is-vuot', r.vuot > 0.5);
+      });
+      document.getElementById('tieuDeDsThuNo').style.display = danhSachThuNo.length ? '' : 'none';
+      document.getElementById('tongThuNoCuBox').textContent = formatTien(thuNoCu) + ' đ';
+      document.getElementById('soKhachThuNo').textContent = danhSachThuNo.filter(r => (r.soTien || 0) > 0).length;
+    }
+
+    function suaTienThuNo(i, val) {
+      const r = danhSachThuNo[i];
+      if (!r) return;
+      r.soTien = Math.max(0, parseVNNumber_(val));
+      phanBoThuNoCu();
+      capNhatHienThiThuNo();
+      tinhToanTongThe();
+    }
+
+    function xoaDongThuNo(i) {
+      danhSachThuNo.splice(i, 1);
+      phanBoThuNoCu();
+      veDanhSachThuNo();
+      tinhToanTongThe();
+    }
+
+    // Thêm 1 khách vào danh sách thu nợ (mặc định thu hết số còn nợ, sửa lại được nếu trả 1 phần)
+    function themDongThuNoKhach(tenKH, tuyChon = {}) {
+      if (!dotHienTai) {
+        alert("⚠️ Vui lòng chọn chuyến xe trước khi ghi thu nợ!");
+        return;
+      }
+      const ngoaiSo = !!tuyChon.ngoaiSo;
+      const k = khoaKhachHang(tenKH);
+      let i = danhSachThuNo.findIndex(r => !!r.ngoaiSo === ngoaiSo && khoaKhachHang(r.tenKH) === k);
+      if (i >= 0) {
+        hienThiToast(`ℹ️ Khách "${danhSachThuNo[i].tenKH}" đã có trong danh sách thu nợ — sửa số tiền ở dòng này.`);
+      } else {
+        danhSachThuNo.push({ tenKH: String(tenKH).trim(), maKH: tuyChon.maKH || '', soTien: 0, uuTienIds: [], ngoaiSo: ngoaiSo });
+        i = danhSachThuNo.length - 1;
+        if (!ngoaiSo) {
+          phanBoThuNoCu();
+          danhSachThuNo[i].soTien = danhSachThuNo[i].conNo || 0;
+        }
+      }
+      phanBoThuNoCu();
+      veDanhSachThuNo();
+      tinhToanTongThe();
+      const el = document.getElementById(`ctNoTien_${i}`);
+      if (el) el.focus();
+    }
+
+    // Thêm đúng 1 hóa đơn nợ trong sổ vào danh sách thu nợ (nút "Thu qua xe" trong Sổ Công Nợ)
+    function themThuNoTheoDonNo(id) {
+      const don = docSoCongNo().find(d => d.id === id);
+      if (!don) return false;
+      const k = khoaKhachHang(don.tenKH);
+      let i = danhSachThuNo.findIndex(r => !r.ngoaiSo && khoaKhachHang(r.tenKH) === k);
+      if (i === -1) {
+        danhSachThuNo.push({ tenKH: String(don.tenKH || '').trim(), maKH: don.maKH || '', soTien: 0, uuTienIds: [], ngoaiSo: false });
+        i = danhSachThuNo.length - 1;
+      }
+      const r = danhSachThuNo[i];
+      // Phần của HĐ này chưa nằm trong số tiền đang thu của khách → cộng thêm vào
+      phanBoThuNoCu();
+      const daPhanBo = (r.phanBo || []).filter(p => p.id === id).reduce((s, p) => s + p.soTien, 0);
+      const conThieu = Math.max(0, khaDungCuaDonNo(don) - daPhanBo);
+      if (!r.uuTienIds.includes(id)) r.uuTienIds.push(id);
+      r.soTien = (r.soTien || 0) + conThieu;
+      phanBoThuNoCu();
+      veDanhSachThuNo();
+      tinhToanTongThe();
+      return { don, conThieu };
+    }
+
+    // ---------- Ô TÌM KHÁCH ĐANG NỢ ----------
+    let goiYKhachNo = [];
+    let chiSoGoiYKhachNo = -1;
+
+    function danhSachKhachDangNo() {
+      const map = new Map();
+      docSoCongNo().forEach(d => {
+        const kd = khaDungCuaDonNo(d);
+        if (kd <= 0) return;
+        const k = khoaKhachHang(d.tenKH);
+        if (!map.has(k)) map.set(k, { key: k, tenKH: String(d.tenKH || '').trim(), maKH: d.maKH || '', conNo: 0, dsHD: [] });
+        const g = map.get(k);
+        g.conNo += kd;
+        g.dsHD.push(d.maHD);
+        if (!g.maKH && d.maKH) g.maKH = d.maKH;
+      });
+      return Array.from(map.values());
+    }
+
+    function moGoiYKhachNo() {
+      veGoiYKhachNo();
+      // Làm mới sổ công nợ từ máy chủ nếu lần đồng bộ trước đã lâu (> 1 phút)
+      if (Date.now() - lanDongBoSoCongNoCuoi > 60000) {
+        dongBoSoCongNoDayDuTuCloud().then(() => {
+          if (document.activeElement === document.getElementById('timKhachNoCu')) veGoiYKhachNo();
+        });
+      }
+    }
+
+    function dongGoiYKhachNo() {
+      const box = document.getElementById('goiYKhachNoCu');
+      if (box) box.hidden = true;
+    }
+
+    function veGoiYKhachNo() {
+      const input = document.getElementById('timKhachNoCu');
+      const box = document.getElementById('goiYKhachNoCu');
+      if (!input || !box) return;
+      const tuKhoaRaw = input.value.trim();
+      const tuKhoa = boDauTV(tuKhoaRaw);
+      let ds = danhSachKhachDangNo();
+      if (tuKhoa) {
+        const cacTu = tuKhoa.split(' ');
+        ds = ds.filter(g => {
+          const t = boDauTV(`${g.tenKH} ${g.maKH} ${g.dsHD.join(' ')}`);
+          return cacTu.every(w => t.includes(w));
+        });
+        ds.sort((a, b) => (Number(boDauTV(b.tenKH).startsWith(tuKhoa)) - Number(boDauTV(a.tenKH).startsWith(tuKhoa))) || a.tenKH.localeCompare(b.tenKH, 'vi'));
+      } else {
+        ds.sort((a, b) => a.tenKH.localeCompare(b.tenKH, 'vi'));
+      }
+      const tongKhop = ds.length;
+      goiYKhachNo = ds.slice(0, 50).map(g => ({ loai: 'kh', ...g }));
+      if (tuKhoaRaw) goiYKhachNo.push({ loai: 'ngoai_so', tenKH: tuKhoaRaw });
+
+      const dangThu = new Set(danhSachThuNo.filter(r => !r.ngoaiSo).map(r => khoaKhachHang(r.tenKH)));
+      let html = `<div class="kh-no-head">${tuKhoa ? `${tongKhop} khách khớp` : `${tongKhop} khách đang còn nợ`}${tongKhop > 50 ? ' (hiện 50, gõ thêm để lọc)' : ''} · bấm để thêm vào chuyến xe</div>`;
+      if (!tongKhop) {
+        html += `<div class="kh-no-empty">${tuKhoa ? 'Không có khách đang nợ nào khớp' : 'Sổ công nợ chưa có khách nào còn nợ'}</div>`;
+      }
+      html += goiYKhachNo.map((g, i) => g.loai === 'kh' ? `
+        <div class="kh-no-item" data-i="${i}" onmousedown="event.preventDefault(); chonGoiYKhachNo(${i})">
+          <div style="min-width:0;">
+            <div class="kh-ten">${escapeHtml(g.tenKH)}${dangThu.has(g.key) ? ' <span style="color:#16a34a; font-size:10.5px;">✓ đang thu</span>' : ''}</div>
+            <div class="kh-phu">${g.dsHD.length} HĐ nợ${g.maKH ? ' · ' + escapeHtml(g.maKH) : ''} · ${escapeHtml(g.dsHD.slice(0, 3).join(', '))}${g.dsHD.length > 3 ? '…' : ''}</div>
+          </div>
+          <div class="kh-tien">${formatTien(g.conNo)} đ</div>
+        </div>` : `
+        <div class="kh-no-item is-ngoai-so" data-i="${i}" onmousedown="event.preventDefault(); chonGoiYKhachNo(${i})">
+          <div style="min-width:0;">
+            <div class="kh-ten">➕ Thu nợ khách ngoài sổ: “${escapeHtml(g.tenKH)}”</div>
+            <div class="kh-phu">Khách không có trong Sổ Công Nợ — chỉ cộng vào tiền nộp, không tự cấn trừ</div>
+          </div>
+        </div>`
+      ).join('');
+      box.innerHTML = html;
+      box.hidden = false;
+      chiSoGoiYKhachNo = goiYKhachNo.length ? 0 : -1;
+      danhDauGoiYKhachNo();
+    }
+
+    function danhDauGoiYKhachNo() {
+      const box = document.getElementById('goiYKhachNoCu');
+      box.querySelectorAll('.kh-no-item').forEach(el => {
+        const on = Number(el.dataset.i) === chiSoGoiYKhachNo;
+        el.classList.toggle('is-active', on);
+        if (!on) return;
+        // Chỉ cuộn trong khung gợi ý (không kéo cả trang theo)
+        const top = el.offsetTop, bottom = top + el.offsetHeight;
+        if (top < box.scrollTop) box.scrollTop = top - 4;
+        else if (bottom > box.scrollTop + box.clientHeight) box.scrollTop = bottom - box.clientHeight + 4;
+      });
+    }
+
+    function phimGoiYKhachNo(e) {
+      const box = document.getElementById('goiYKhachNoCu');
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (box.hidden) { veGoiYKhachNo(); return; }
+        if (!goiYKhachNo.length) return;
+        chiSoGoiYKhachNo = (chiSoGoiYKhachNo + (e.key === 'ArrowDown' ? 1 : -1) + goiYKhachNo.length) % goiYKhachNo.length;
+        danhDauGoiYKhachNo();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (!box.hidden && goiYKhachNo[chiSoGoiYKhachNo]) chonGoiYKhachNo(chiSoGoiYKhachNo);
+      } else if (e.key === 'Escape') {
+        dongGoiYKhachNo();
+      }
+    }
+
+    function chonGoiYKhachNo(i) {
+      const g = goiYKhachNo[i];
+      if (!g) return;
+      document.getElementById('timKhachNoCu').value = '';
+      dongGoiYKhachNo();
+      themDongThuNoKhach(g.tenKH, { maKH: g.maKH || '', ngoaiSo: g.loai === 'ngoai_so' });
+    }
+
+    // ---------- CẤN TRỪ CÔNG NỢ KHI LƯU QUYẾT TOÁN ----------
+    function laLoiThieuBangThuNoB2(err) {
+      if (!err) return false;
+      const msg = (err.message || err.details || err.hint || '').toString();
+      return err.code === 'PGRST205' || err.code === '42P01' || err.code === '42703' ||
+        /Could not find the table/i.test(msg) || /public\.thu_no/i.test(msg) || /does not exist/i.test(msg);
+    }
+
+    // Các khoản thu nợ mà CHÍNH chuyến xe này đã ghi lên bảng thu_no ở những lần lưu trước
+    async function layThuNoDaApDungCuaDotTuCloud(maDot) {
+      if (typeof sb === 'undefined' || !maDot) return { cheDo: 'cuc_bo' };
+      try {
+        const { data, error } = await sb.from('thu_no').select('*')
+          .eq('ma_dot', maDot).like('ghi_chu', TIEN_TO_GHI_CHU_THU_NO_XE + '%');
+        if (error) {
+          if (laLoiThieuBangThuNoB2(error)) return { cheDo: 'cuc_bo' };
+          return { cheDo: 'loi', error };
+        }
+        const daApDung = new Map();
+        (data || []).forEach(r => {
+          if (!r.id_don_no) return;
+          daApDung.set(r.id_don_no, (daApDung.get(r.id_don_no) || 0) + (parseFloat(r.so_tien) || 0));
+        });
+        return { cheDo: 'cloud', daApDung, dong: data || [] };
+      } catch (e) {
+        return { cheDo: 'loi', error: e };
+      }
+    }
+
+    // Trước khi lưu: lấy số liệu MỚI NHẤT trên máy chủ, phân bổ lại và cảnh báo nếu thu vượt nợ.
+    // Trả về null nếu phải dừng lưu.
+    async function chuanBiCanTruThuNoCu() {
+      if (henDongBoSoCongNo) await henDongBoSoCongNo;
+      const kq = await layThuNoDaApDungCuaDotTuCloud(dotHienTai.maDot);
+      if (kq.cheDo === 'loi') {
+        const coThuNo = danhSachThuNo.some(r => !r.ngoaiSo && (r.soTien || 0) > 0) || thuNoDaApDungChoDot.size > 0;
+        if (coThuNo) {
+          alert('❌ Không kết nối được máy chủ để ghi nhận THU NỢ CŨ (chống thu trùng) nên CHƯA lưu quyết toán.\n\n' +
+            'Vui lòng kiểm tra mạng rồi bấm Lưu lại.\n\nChi tiết: ' + ((kq.error && kq.error.message) || String(kq.error)));
+          return null;
+        }
+        return { cheDo: 'bo_qua' };
+      }
+      if (kq.cheDo === 'cloud') {
+        thuNoDaApDungChoDot = kq.daApDung;
+        await dongBoConLaiCongNoTuCloud();
+      }
+      phanBoThuNoCu();
+      capNhatHienThiThuNo();
+      tinhToanTongThe();
+
+      const dsVuot = danhSachThuNo.filter(r => !r.ngoaiSo && r.vuot > 0.5);
+      if (dsVuot.length) {
+        const dongY = confirm(`⚠️ Có ${dsVuot.length} khách thu nợ VƯỢT số nợ còn lại trong sổ (có thể vừa được thu ở nơi khác):\n\n` +
+          dsVuot.map(r => `• ${r.tenKH}: thu ${formatTien(r.soTien)} đ, còn nợ ${formatTien(r.conNo)} đ → vượt ${formatTien(r.vuot)} đ`).join('\n') +
+          `\n\nPhần vượt vẫn tính vào tiền tài xế nộp nhưng KHÔNG được cấn trừ vào công nợ.\nBấm [OK] để vẫn lưu, [Hủy / Cancel] để sửa lại.`);
+        if (!dongY) return null;
+      }
+      return kq;
+    }
+
+    // Cấn trừ thu nợ cũ vào sổ công nợ + bảng thu_no. Chỉ ghi PHẦN CHÊNH so với những gì chính
+    // chuyến xe này đã ghi ở lần lưu trước → bấm Lưu nhiều lần hay sửa lại số tiền đều không bị
+    // trừ nợ trùng; sửa giảm/bỏ khách thì tự hoàn lại công nợ (nếu khoản đó chưa đẩy MISA).
+    async function canTruThuNoCuVaoSoCongNo(dsCongNo, chuanBi) {
+      const ketQua = { daCanTru: 0, canhBao: [] };
+      if (!chuanBi || chuanBi.cheDo === 'bo_qua') return ketQua;
+      const laCloud = chuanBi.cheDo === 'cloud';
+      const maDot = dotHienTai.maDot;
+      const ngayThu = chuanHoaNgayISO(dotHienTai.ngayRaw) || chuanHoaNgayISO(dotHienTai.ngayGiao) || new Date().toISOString().slice(0, 10);
+
+      const mongMuon = new Map();
+      danhSachDonNoDangThu.forEach(it => {
+        if (!it || !it.id) return;
+        const cu = mongMuon.get(it.id) || { soTien: 0, maHD: it.maHD, maKH: it.maKH, tenKH: it.tenKH };
+        cu.soTien += parseFloat(it.conLai) || 0;
+        mongMuon.set(it.id, cu);
+      });
+      const daApDung = new Map(thuNoDaApDungChoDot);
+      const dongCloud = chuanBi.dong || [];
+
+      for (const id of new Set([...mongMuon.keys(), ...daApDung.keys()])) {
+        const muon = Math.round((mongMuon.get(id) || {}).soTien || 0);
+        const da = Math.round(daApDung.get(id) || 0);
+        const chenh = muon - da;
+        if (chenh === 0) continue;
+        const don = dsCongNo.find(d => d.id === id);
+        const info = mongMuon.get(id) || { maHD: (don && don.maHD) || '', maKH: (don && don.maKH) || '', tenKH: (don && don.tenKH) || '' };
+        let thucTe = chenh;
+
+        if (laCloud) {
+          if (chenh > 0) {
+            const { error } = await sb.from('thu_no').insert([{
+              id_don_no: id, ma_hd: info.maHD || '', ma_dot: maDot, ma_kh: info.maKH || '', ten_kh: info.tenKH || '',
+              so_tien: chenh, hinh_thuc: 'Tiền mặt', nguoi_thu: dotHienTai.taiXe || nguoiNop || '',
+              ghi_chu: `${TIEN_TO_GHI_CHU_THU_NO_XE} ${maDot}`, ngay_thu: ngayThu
+            }]);
+            if (error) {
+              ketQua.canhBao.push(`HĐ ${info.maHD}: chưa ghi được ${formatTien(chenh)} đ lên máy chủ (${error.message || 'lỗi kết nối'}) — bấm Lưu lại để thử lần nữa.`);
+              thucTe = 0;
+            }
+          } else {
+            // Giảm lại các dòng thu nợ của chuyến này chưa đẩy MISA (mới nhất trước)
+            let canGiam = -chenh;
+            const dsDong = dongCloud
+              .filter(r => r.id_don_no === id && !r.da_day_misa && (parseFloat(r.so_tien) || 0) > 0)
+              .sort((a, b) => (b.id || 0) - (a.id || 0));
+            for (const r of dsDong) {
+              if (canGiam <= 0) break;
+              const hienTai = parseFloat(r.so_tien) || 0;
+              const giam = Math.min(canGiam, hienTai);
+              const { data, error } = await sb.from('thu_no').update({ so_tien: hienTai - giam }).eq('id', r.id).select('id');
+              if (error || !data || !data.length) break;
+              r.so_tien = hienTai - giam;
+              canGiam -= giam;
+            }
+            if (canGiam > 0) {
+              ketQua.canhBao.push(`HĐ ${info.maHD}: ${formatTien(canGiam)} đ đã thu trước đó KHÔNG tự giảm được (đã đẩy MISA hoặc chưa có quyền sửa bảng thu_no) — vui lòng điều chỉnh thủ công.`);
+            }
+            thucTe = chenh + canGiam;
+          }
+        }
+        if (thucTe === 0) continue;
+
+        daApDung.set(id, da + thucTe);
+        ketQua.daCanTru += thucTe;
+        if (don) {
+          don.daThu = Math.max(0, (don.daThu || 0) + thucTe);
+          // Khoản này đã nằm trên Cloud → dời mốc đối chiếu theo để lần đồng bộ sau không cộng trùng
+          if (laCloud && typeof don.daThuCloudDaDongBo === 'number') don.daThuCloudDaDongBo = Math.max(0, don.daThuCloudDaDongBo + thucTe);
+          don.conLai = Math.max(0, (don.soTienNo || 0) - don.daThu);
+          don.trangThai = don.conLai <= 0 ? 'da_thu_du' : (don.daThu > 0 ? 'da_thu_mot_phan' : 'chua_thu');
+          if (muon > 0) {
+            don.ngayThanhToan = ngayThu;
+            don.ghiChuThu = `Đã thu ${formatTien(muon)} đ qua xe ${dotHienTai.xe} (${dotHienTai.ngayGiao || ngayThu})`;
+          }
+        }
+      }
+
+      // Lưu vết để lần lưu sau chỉ ghi phần chênh lệch
+      const vet = {};
+      daApDung.forEach((v, id) => { if (v > 0) vet[id] = v; });
+      dotHienTai.thuNoDaGhiNhan = vet;
+      thuNoDaApDungChoDot = new Map(Object.entries(vet));
+      return ketQua;
+    }
+
+    // In A4: bảng chi tiết chi phí xe & thu nợ cũ (ẩn bảng nếu không phát sinh)
+    function veBangInChiPhiVaThuNo() {
+      const dsChi = danhSachChiPhi.filter(c => (c.soTien || 0) > 0);
+      document.getElementById('p_bangChiPhi').style.display = dsChi.length ? '' : 'none';
+      document.getElementById('p_tbodyChiPhi').innerHTML = dsChi.map(c => `
+        <tr>
+          <td>${escapeHtml((c.noiDung || '').trim() || 'Chi khác')}</td>
+          <td class="t-right">${formatTien(c.soTien)}</td>
+        </tr>
+      `).join('') + (dsChi.length ? `
+        <tr style="font-weight:bold;">
+          <td class="t-right">TỔNG CHI</td>
+          <td class="t-right">${formatTien(tienChi)}</td>
+        </tr>` : '');
+
+      const dsThu = danhSachThuNo.filter(r => (r.soTien || 0) > 0);
+      document.getElementById('p_bangThuNo').style.display = dsThu.length ? '' : 'none';
+      document.getElementById('p_tbodyThuNo').innerHTML = dsThu.map(r => `
+        <tr>
+          <td>${escapeHtml(r.tenKH)}</td>
+          <td>${r.ngoaiSo ? 'Ngoài sổ công nợ' : escapeHtml((r.phanBo || []).map(p => p.maHD).join(', ') || '--')}</td>
+          <td class="t-right">${formatTien(r.soTien)}</td>
+        </tr>
+      `).join('') + (dsThu.length ? `
+        <tr style="font-weight:bold;">
+          <td colspan="2" class="t-right">TỔNG THU NỢ CŨ</td>
+          <td class="t-right">${formatTien(thuNoCu)}</td>
+        </tr>` : '');
+    }
+
+    // ========================================================
     // SỔ THEO DÕI CÔNG NỢ KHÁCH HÀNG
     // ========================================================
     function docSoCongNo() {
@@ -2357,6 +3142,100 @@
 
     function ghiSoCongNo(ds) {
       localStorage.setItem('tmh_theo_doi_cong_no', JSON.stringify(ds));
+    }
+
+    // Đối chiếu số ĐÃ THU của 1 đơn nợ trên máy này với tổng đã thu trên Supabase (thu_no) —
+    // giống hệt trang Theo Dõi Công Nợ: lần đầu lấy số lớn hơn; từ lần sau phần chỉ ghi trên máy
+    // này được giữ nguyên, phần trên Cloud luôn lấy số mới nhất (để sửa GIẢM cũng đồng bộ được).
+    function doiChieuDaThuVoiCloud(don, tongCloud) {
+      const cu = don.daThu || 0;
+      const moi = (typeof don.daThuCloudDaDongBo === 'number')
+        ? Math.max(0, cu - don.daThuCloudDaDongBo) + tongCloud
+        : Math.max(cu, tongCloud);
+      const thayDoi = moi !== cu || don.daThuCloudDaDongBo !== tongCloud;
+      don.daThu = moi;
+      don.daThuCloudDaDongBo = tongCloud;
+      return thayDoi;
+    }
+
+    // Kéo ĐẦY ĐỦ sổ công nợ về máy này giống trang Theo Dõi Công Nợ (đơn nợ phát sinh từ mọi
+    // chuyến xe trên Supabase, đơn nợ ghi ngoài bảng kê, bỏ các đơn đã xoá mềm) rồi đối chiếu số
+    // đã thu — để ô "Thu nợ cũ" ở đây luôn thấy đúng và đủ khách đang nợ, kể cả khi máy này
+    // chưa từng mở trang Theo Dõi Công Nợ.
+    let henDongBoSoCongNo = null;
+    let lanDongBoSoCongNoCuoi = 0;
+    function dongBoSoCongNoDayDuTuCloud() {
+      if (henDongBoSoCongNo) return henDongBoSoCongNo;
+      henDongBoSoCongNo = (async () => {
+        if (typeof sb === 'undefined') return;
+        try {
+          // Tải hết dữ liệu trên máy chủ trước, rồi mới đọc - ghi sổ trên máy 1 lần ở cuối
+          // (tránh ghi đè những thay đổi khác vừa xảy ra trong lúc đang chờ mạng)
+          const [resXoa, resLT, resNBK] = await Promise.all([
+            sb.from('cong_no_da_xoa').select('id, da_hoan_tac'),
+            sb.from('luu_tru').select('*').gt('no_phat_sinh', 0),
+            sb.from('cong_no_ngoai_bang_ke').select('*')
+          ]);
+
+          let ds = docSoCongNo();
+          let coThayDoi = false;
+          const idTrongSo = new Set(ds.map(d => d.id));
+
+          // 1. Đơn đã xoá mềm (ở bất kỳ máy nào) thì ẩn khỏi sổ
+          let idDaXoaCu = [];
+          try { idDaXoaCu = JSON.parse(localStorage.getItem('tmh_cong_no_da_xoa') || '[]'); } catch (e) {}
+          const idDaXoa = new Set(idDaXoaCu);
+          if (!resXoa.error) {
+            const idXoaCloud = new Set((resXoa.data || []).filter(r => !r.da_hoan_tac).map(r => r.id));
+            idXoaCloud.forEach(id => idDaXoa.add(id));
+            const truoc = ds.length;
+            ds = ds.filter(d => !idXoaCloud.has(d.id));
+            if (ds.length !== truoc) coThayDoi = true;
+          }
+
+          const themDon = (don) => {
+            if (!don.id || idDaXoa.has(don.id) || idTrongSo.has(don.id)) return;
+            if (don.maHD && ds.some(d => d.maHD === don.maHD)) return;
+            ds.push(don);
+            idTrongSo.add(don.id);
+            coThayDoi = true;
+          };
+
+          // 2. Đơn nợ phát sinh từ các chuyến xe đã quyết toán (bảng luu_tru)
+          if (!resLT.error) {
+            (resLT.data || []).forEach(r => themDon({
+              id: `NO_${r.ma_hd}`, maHD: r.ma_hd, maKH: r.ma_kh || '', tenKH: r.ten_kh || 'Khách Hàng',
+              nguoiBan: r.nguoi_ban || '', maDot: r.ma_dot || '', xe: r.xe || '', taiXe: r.tai_xe || '',
+              ngayGiao: r.ngay_giao || '', tienHD: r.thanh_tien || 0, soTienNo: r.no_phat_sinh || 0,
+              daThu: 0, conLai: r.no_phat_sinh || 0, trangThai: 'chua_thu', ngayGhiNo: r.ngay_giao || '', ghiChu: r.ghi_chu || ''
+            }));
+          }
+
+          // 3. Đơn nợ nhập thủ công "Ngoài Bảng Kê" (trang Theo Dõi Công Nợ)
+          if (!resNBK.error) {
+            (resNBK.data || []).forEach(r => themDon({
+              id: r.id || `NO_${r.ma_hd}`, maHD: r.ma_hd || '', maKH: r.ma_kh || '', tenKH: r.ten_kh || 'Khách Hàng',
+              nguoiBan: r.nguoi_ban || '', maDot: 'NGOAI_BANG_KE', xe: r.xe || 'Ngoài bảng kê', taiXe: r.tai_xe || '--',
+              ngayGiao: r.ngay_giao || '', tienHD: parseFloat(r.tien_hd || 0), soTienNo: parseFloat(r.so_tien_no || 0),
+              daThu: 0, conLai: parseFloat(r.so_tien_no || 0), trangThai: 'chua_thu', ngayGhiNo: r.ngay_giao || '',
+              ngoaiBangKe: true, ghiChu: r.ghi_chu || ''
+            }));
+          }
+
+          if (coThayDoi) ghiSoCongNo(ds);
+          // 4. Đối chiếu số đã thu với bảng thu_no (chống thu trùng)
+          await dongBoConLaiCongNoTuCloud();
+          lanDongBoSoCongNoCuoi = Date.now();
+        } catch (e) {
+          console.warn('Lỗi đồng bộ đầy đủ sổ công nợ về Bước 2:', e);
+        }
+      })().finally(() => {
+        henDongBoSoCongNo = null;
+        // Cập nhật lại số "còn nợ" đang hiển thị ở ô Thu nợ cũ (không vẽ lại ô nhập đang gõ)
+        phanBoThuNoCu();
+        capNhatHienThiThuNo();
+      });
+      return henDongBoSoCongNo;
     }
 
     // Đồng bộ số tiền đã thu từ bảng thu_no trên Supabase vào sổ công nợ trên máy này —
@@ -2376,12 +3255,7 @@
         const ds = docSoCongNo();
         let coThayDoi = false;
         ds.forEach(d => {
-          const cloudSum = cloudMap.get(d.id) || 0;
-          const daThuMoi = Math.max(d.daThu || 0, cloudSum);
-          if (daThuMoi !== (d.daThu || 0)) {
-            d.daThu = daThuMoi;
-            coThayDoi = true;
-          }
+          if (doiChieuDaThuVoiCloud(d, cloudMap.get(d.id) || 0)) coThayDoi = true;
           const clMoi = Math.max(0, (d.soTienNo || 0) - (d.daThu || 0));
           if (clMoi !== d.conLai) { d.conLai = clMoi; coThayDoi = true; }
           d.trangThai = clMoi <= 0 ? 'da_thu_du' : ((d.daThu || 0) > 0 ? 'da_thu_mot_phan' : 'chua_thu');
@@ -2441,9 +3315,11 @@
         ` : `Thao Tác`;
       }
       modal.style.display = 'flex';
-      // Đồng bộ lại số đã thu từ Supabase trước khi hiển thị, tránh chọn nhầm đơn nợ
-      // mà người khác/máy khác vừa thu xong (thu trùng)
-      await dongBoConLaiCongNoTuCloud();
+      renderSoCongNo();
+      capNhatBarChonNhieu();
+      // Kéo đầy đủ sổ công nợ + đồng bộ lại số đã thu từ Supabase trước khi chọn, tránh chọn
+      // nhầm đơn nợ mà người khác/máy khác vừa thu xong (thu trùng)
+      await dongBoSoCongNoDayDuTuCloud();
       renderSoCongNo();
       capNhatBarChonNhieu();
     }
@@ -2451,6 +3327,9 @@
     function dongModalSoCongNo() {
       document.getElementById('modalSoCongNo').style.display = 'none';
       cheDoChonNoCuDangBat = false;
+      // Đóng mà không bấm Xác nhận thì bỏ các lựa chọn dở dang, trở về đúng danh sách thu nợ đang ghi
+      phanBoThuNoCu();
+      capNhatHienThiThuNo();
     }
 
     function locSoCongNo() {
@@ -2517,7 +3396,12 @@
           }
         } else {
           if (conLai > 0) {
-            nutThaoTac = `<button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:11px; color:#16a34a;" onclick="danhDauDaThuXong(${escapeHtml(JSON.stringify(d.id))})">Đã thu quỹ</button>`;
+            nutThaoTac = `
+              <div style="display:flex; gap:4px; justify-content:center; flex-wrap:wrap;">
+                <button type="button" class="btn btn-primary" style="height:26px; padding:0 6px; font-size:11px;" onclick="chonThuNoDonNay(${escapeHtml(JSON.stringify(d.id))})" title="Đưa đơn nợ này vào mục Thu nợ cũ của chuyến xe đang quyết toán">🚚 Thu qua xe</button>
+                <button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:11px; color:#16a34a;" onclick="danhDauDaThuXong(${escapeHtml(JSON.stringify(d.id))})">Đã thu quỹ</button>
+              </div>
+            `;
           } else {
             nutThaoTac = `✅ Khớp`;
           }
@@ -2608,54 +3492,40 @@
     }
 
     function xacNhanThuCacDonNoDaChon() {
-      if (danhSachDonNoDangThu.length === 0) {
+      if (danhSachDonNoDangThu.length === 0 && !danhSachThuNo.some(r => !r.ngoaiSo)) {
         alert("⚠️ Bạn chưa chọn đơn nợ nào để thu hộ!");
         return;
       }
 
-      thuNoCu = danhSachDonNoDangThu.reduce((s, it) => s + (it.conLai || 0), 0);
-      if (danhSachDonNoDangThu.length === 1) {
-        const it = danhSachDonNoDangThu[0];
-        ghiChuThuNoCu = `${it.tenKH} (HĐ ${it.maHD})`;
-      } else {
-        ghiChuThuNoCu = `Thu ${danhSachDonNoDangThu.length} đơn nợ: ` + danhSachDonNoDangThu.map(d => `${d.maHD} (${d.tenKH}: ${formatTien(d.conLai)}đ)`).join(', ');
-      }
-
-      document.getElementById('inputThuNoCu').value = formatTien(thuNoCu);
-      document.getElementById('inputGhiChuThuNoCu').value = ghiChuThuNoCu;
+      // Gom các HĐ nợ đã tick theo khách hàng → mỗi khách 1 dòng thu nợ (số tiền = tổng còn nợ của
+      // các HĐ đã chọn, sửa lại được nếu khách chỉ trả 1 phần). Giữ lại các dòng "ngoài sổ" nhập tay.
+      const soDonDaChon = danhSachDonNoDangThu.length;
+      danhSachThuNo = [...gomDonNoThanhDongThuNo(danhSachDonNoDangThu), ...danhSachThuNo.filter(r => r.ngoaiSo)];
 
       dongModalSoCongNo();
+      veDanhSachThuNo();
       tinhToanTongThe();
       tinhTongBangDemTien();
 
-      hienThiToast(`💰 Đã chọn xe thu hộ ${danhSachDonNoDangThu.length} đơn nợ (Tổng: ${formatTien(thuNoCu)} đ)!`);
+      hienThiToast(`💰 Đã chọn xe thu hộ ${soDonDaChon} đơn nợ (Tổng: ${formatTien(thuNoCu)} đ)!`);
     }
 
+    // Thêm 1 đơn nợ trong sổ vào mục Thu nợ cũ của chuyến xe đang quyết toán
     function chonThuNoDonNay(id) {
-      const ds = docSoCongNo();
-      const don = ds.find(d => d.id === id);
-      if (!don) return;
-
-      const conLai = (don.conLai !== undefined) ? don.conLai : don.soTienNo;
-      danhSachDonNoDangThu = [{
-        id: don.id,
-        maHD: don.maHD,
-        tenKH: don.tenKH,
-        soTienNo: don.soTienNo,
-        conLai: conLai
-      }];
-      thuNoCu = conLai;
-      ghiChuThuNoCu = `${don.tenKH} (HĐ ${don.maHD})`;
-      idDonNoDangThu = don.id;
-
-      document.getElementById('inputThuNoCu').value = formatTien(thuNoCu);
-      document.getElementById('inputGhiChuThuNoCu').value = ghiChuThuNoCu;
-
+      if (!dotHienTai) {
+        alert("⚠️ Vui lòng chọn chuyến xe trước khi ghi thu nợ!");
+        return;
+      }
       dongModalSoCongNo();
-      tinhToanTongThe();
+      const kq = themThuNoTheoDonNo(id);
+      if (!kq) return;
       tinhTongBangDemTien();
-
-      hienThiToast(`💰 Đã chọn thu nợ đơn "${don.maHD}" của khách "${don.tenKH}" (${formatTien(conLai)} đ)!`);
+      hienThiToast(kq.conThieu > 0
+        ? `💰 Đã thêm thu nợ HĐ "${kq.don.maHD}" của khách "${kq.don.tenKH}" (${formatTien(kq.conThieu)} đ) vào chuyến xe!`
+        : `ℹ️ HĐ "${kq.don.maHD}" đã nằm trong số tiền đang thu của khách "${kq.don.tenKH}".`);
+      const i = danhSachThuNo.findIndex(r => !r.ngoaiSo && khoaKhachHang(r.tenKH) === khoaKhachHang(kq.don.tenKH));
+      const el = document.getElementById(`ctNoTien_${i}`);
+      if (el) el.focus();
     }
 
     function danhDauDaThuXong(id) {
@@ -2677,6 +3547,24 @@
     // LƯU KẾT QUẢ QUYẾT TOÁN & ĐỒNG BỘ CÔNG NỢ
     // ========================================================
     async function luuKetQuaQuyetToan() {
+      if (!dotHienTai) {
+        alert("⚠️ Vui lòng chọn một chuyến xe để quyết toán!");
+        return;
+      }
+      // Lấy số liệu công nợ mới nhất & kiểm tra thu nợ trước khi lưu (chống thu trùng)
+      const chuanBiThuNo = await chuanBiCanTruThuNoCu();
+      if (!chuanBiThuNo) return;
+      dangLuuQuyetToan = true;
+      try {
+        await luuKetQuaQuyetToanChiTiet(chuanBiThuNo);
+      } finally {
+        dangLuuQuyetToan = false;
+        phanBoThuNoCu();
+        veDanhSachThuNo();
+      }
+    }
+
+    async function luuKetQuaQuyetToanChiTiet(chuanBiThuNo) {
       if (!dotHienTai) {
         alert("⚠️ Vui lòng chọn một chuyến xe để quyết toán!");
         return;
@@ -2711,6 +3599,13 @@
       dotHienTai.nguoiNhan = nguoiNhan;
       dotHienTai.ghiChuPhieu = ghiChuPhieu;
       dotHienTai.soToDemTien = { ...SO_TO_DEM };
+      // Danh sách chi tiết nhiều dòng của Chi phí xe & Thu nợ cũ
+      dotHienTai.danhSachChiPhi = danhSachChiPhi
+        .filter(c => (c.soTien || 0) > 0 || (c.noiDung || '').trim())
+        .map(c => ({ noiDung: (c.noiDung || '').trim(), soTien: c.soTien || 0 }));
+      dotHienTai.danhSachThuNo = danhSachThuNo
+        .filter(r => (r.soTien || 0) > 0)
+        .map(r => ({ tenKH: r.tenKH, maKH: r.maKH || '', soTien: r.soTien || 0, uuTienIds: [...(r.uuTienIds || [])], ngoaiSo: !!r.ngoaiSo }));
 
       dotHienTai.danhSachChiTiet = danhSachHoaDonQuyetToan.map(h => ({
         ...h,
@@ -2754,33 +3649,11 @@
         }
       });
 
-      // Nếu có thu nợ cũ (hỗ trợ nhiều đơn nợ cùng lúc)
-      const dsThuNoCuThucTe = []; // để đồng bộ lên Supabase (thu_no) ngay bên dưới, chống thu trùng
-      if (danhSachDonNoDangThu && danhSachDonNoDangThu.length > 0) {
-        danhSachDonNoDangThu.forEach(itemNo => {
-          const idxThu = dsCongNoHienTai.findIndex(d => d.id === itemNo.id || d.maHD === itemNo.maHD);
-          if (idxThu >= 0) {
-            const tienThu = itemNo.conLai || itemNo.tienThu || dsCongNoHienTai[idxThu].conLai || dsCongNoHienTai[idxThu].soTienNo;
-            dsCongNoHienTai[idxThu].daThu = (dsCongNoHienTai[idxThu].daThu || 0) + tienThu;
-            dsCongNoHienTai[idxThu].conLai = Math.max(0, (dsCongNoHienTai[idxThu].conLai || dsCongNoHienTai[idxThu].soTienNo) - tienThu);
-            dsCongNoHienTai[idxThu].trangThai = dsCongNoHienTai[idxThu].conLai <= 0 ? 'da_thu_du' : 'da_thu_mot_phan';
-            dsCongNoHienTai[idxThu].ghiChuThu = `Đã thu ${formatTien(tienThu)} đ qua xe ${dotHienTai.xe} (${dotHienTai.ngayGiao})`;
-            dsThuNoCuThucTe.push({ id: dsCongNoHienTai[idxThu].id, maHD: dsCongNoHienTai[idxThu].maHD, maKH: dsCongNoHienTai[idxThu].maKH, tenKH: dsCongNoHienTai[idxThu].tenKH, conLai: tienThu });
-          }
-        });
-      } else if (thuNoCu > 0 && idDonNoDangThu) {
-        const idxThu = dsCongNoHienTai.findIndex(d => d.id === idDonNoDangThu);
-        if (idxThu >= 0) {
-          dsCongNoHienTai[idxThu].daThu = (dsCongNoHienTai[idxThu].daThu || 0) + thuNoCu;
-          dsCongNoHienTai[idxThu].conLai = Math.max(0, (dsCongNoHienTai[idxThu].conLai || dsCongNoHienTai[idxThu].soTienNo) - thuNoCu);
-          dsCongNoHienTai[idxThu].trangThai = dsCongNoHienTai[idxThu].conLai <= 0 ? 'da_thu_du' : 'da_thu_mot_phan';
-          dsCongNoHienTai[idxThu].ghiChuThu = `Đã thu ${formatTien(thuNoCu)} đ qua xe ${dotHienTai.xe} (${dotHienTai.ngayGiao})`;
-          dsThuNoCuThucTe.push({ id: dsCongNoHienTai[idxThu].id, maHD: dsCongNoHienTai[idxThu].maHD, maKH: dsCongNoHienTai[idxThu].maKH, tenKH: dsCongNoHienTai[idxThu].tenKH, conLai: thuNoCu });
-        }
-      }
+      // Thu nợ cũ: TỰ ĐỘNG CẤN TRỪ vào Sổ Theo Dõi Công Nợ + bảng thu_no trên Supabase
+      // (chỉ ghi phần chênh so với lần lưu trước của chính chuyến xe này → lưu lại nhiều lần
+      // không bị trừ nợ trùng; mọi máy & trang Theo Dõi Công Nợ thấy ngay, chống thu trùng)
+      const ketQuaCanTru = await canTruThuNoCuVaoSoCongNo(dsCongNoHienTai, chuanBiThuNo);
       ghiSoCongNo(dsCongNoHienTai);
-      // Đồng bộ lên Supabase để Theo Dõi Công Nợ và các máy khác thấy ngay (chống thu trùng)
-      dongBoThuNoCuLenCloud(dsThuNoCuThucTe, dotHienTai.maDot, dotHienTai.ngayGiao);
 
       // 3. Lưu vào danh sách đợt trong localStorage
       const idx = danhSachTatCaDot.findIndex(d => d.maDot === dotHienTai.maDot);
@@ -2885,7 +3758,10 @@
             ghi_chu_thu_no_cu: ghiChuThuNoCu,
             tien_thoi: tienThoi,
             ghi_chu_phieu: ghiChuPhieu,
-            danh_sach_don_no_dang_thu: danhSachDonNoDangThu
+            danh_sach_don_no_dang_thu: danhSachDonNoDangThu,
+            // Chi tiết nhiều dòng (cần chạy sql/10_chi_tiet_chi_phi_thu_no.sql; thiếu cột thì tự bỏ qua)
+            danh_sach_chi_phi: dotHienTai.danhSachChiPhi,
+            danh_sach_thu_no: dotHienTai.danhSachThuNo
           };
           await upsertSupabaseTuTu('phieu_nop_tien', [phieuNopData], { onConflict: 'ma_phieu' });
         } catch (e) {
@@ -2910,6 +3786,14 @@
       if (thuNoCu > 0) {
         thongBaoExtra += `\n💰 Đã ghi nhận xe thu hộ ${formatTien(thuNoCu)} đ công nợ cũ!`;
       }
+      if (ketQuaCanTru.daCanTru !== 0) {
+        thongBaoExtra += ketQuaCanTru.daCanTru > 0
+          ? `\n📒 Đã tự động cấn trừ ${formatTien(ketQuaCanTru.daCanTru)} đ vào SỔ THEO DÕI CÔNG NỢ.`
+          : `\n📒 Đã hoàn lại ${formatTien(-ketQuaCanTru.daCanTru)} đ công nợ trong SỔ THEO DÕI CÔNG NỢ (điều chỉnh đúng theo số thu nợ hiện tại của chuyến xe).`;
+      }
+      if (ketQuaCanTru.canhBao.length > 0) {
+        thongBaoExtra += `\n\n⚠️ LƯU Ý CẤN TRỪ CÔNG NỢ:\n` + ketQuaCanTru.canhBao.map(c => `• ${c}`).join('\n');
+      }
       if (donGiaoLaiMoi.length > 0) {
         thongBaoExtra += `\n🔄 Đã lưu ${donGiaoLaiMoi.length} đơn [HẸN GIAO LẠI] vào hàng đợi!`;
       }
@@ -2921,7 +3805,9 @@
         `• Hàng trả về: ${formatTien(tongTraVe)} đ\n` +
         `• Khách còn nợ: ${formatTien(tongNo)} đ\n` +
         `• Chi phí xe: ${formatTien(tienChi)} đ\n` +
+        dotHienTai.danhSachChiPhi.filter(c => c.soTien > 0).map(c => `     - ${c.noiDung || 'Chi khác'}: ${formatTien(c.soTien)} đ\n`).join('') +
         `• Thu nợ cũ KH: ${formatTien(thuNoCu)} đ\n` +
+        dotHienTai.danhSachThuNo.map(r => `     - ${r.tenKH}: ${formatTien(r.soTien)} đ\n`).join('') +
         `• Tiền thối (hoàn tạm ứng): ${formatTien(tienThoi)} đ\n` +
         `-----------------------------------------\n` +
         `🎯 SỐ TIỀN PHẢI THU (TÀI XẾ NỘP QUỸ): ${formatTien(soTienPhaiThu)} đ` +
@@ -3045,6 +3931,9 @@
           </tr>
         `).join('');
       }
+
+      // 4d. Chi tiết chi phí xe & thu nợ cũ (từng khoản)
+      veBangInChiPhiVaThuNo();
 
       // 5. Kích hoạt in trình duyệt
       window.print();

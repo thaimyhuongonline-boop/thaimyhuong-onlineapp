@@ -991,6 +991,7 @@
     // ========================================================
     let thuNoCloudMap = new Map();       // id đơn nợ -> tổng số tiền đã thu (từ Supabase)
     let thuNoNgayCloudMap = new Map();   // id đơn nợ -> ngày thanh toán gần nhất (YYYY-MM-DD, từ Supabase)
+    let thuNoCloudDaTai = false;         // đã đọc được bảng thu_no ở lần tải gần nhất chưa
     let dangTaiCongNo = false;
 
     // Bảng thu_no chưa được tạo trên Supabase (chưa chạy sql/07_thu_no_dong_bo.sql)?
@@ -1014,6 +1015,7 @@
     async function taiTongHopThuNoCloud() {
       thuNoCloudMap = new Map();
       thuNoNgayCloudMap = new Map();
+      thuNoCloudDaTai = false;
       if (typeof sb === 'undefined') return;
       try {
         const { data, error } = await sb.from('thu_no').select('id_don_no, so_tien, ngay_thu').not('id_don_no', 'is', null);
@@ -1022,11 +1024,13 @@
           console.warn('Không đọc được bảng thu_no (đã chạy sql/07_thu_no_dong_bo.sql chưa?):', error);
           return;
         }
+        thuNoCloudDaTai = true;
         (data || []).forEach(r => {
           if (!r.id_don_no) return;
           thuNoCloudMap.set(r.id_don_no, (thuNoCloudMap.get(r.id_don_no) || 0) + parseFloat(r.so_tien || 0));
           // Ngày thanh toán gần nhất = ngày lớn nhất trong các lần thu (YYYY-MM-DD so sánh được trực tiếp)
-          if (r.ngay_thu) {
+          // (bỏ qua dòng đã được Bước 2 điều chỉnh giảm về 0 đ)
+          if (r.ngay_thu && parseFloat(r.so_tien || 0) > 0) {
             const hienTai = thuNoNgayCloudMap.get(r.id_don_no);
             if (!hienTai || r.ngay_thu > hienTai) thuNoNgayCloudMap.set(r.id_don_no, r.ngay_thu);
           }
@@ -1036,9 +1040,24 @@
       }
     }
 
-    // Đối chiếu 1 đơn nợ với dữ liệu đã thu trên Supabase — LUÔN lấy số LỚN HƠN
-    // giữa số đã biết trên máy này và số tổng hợp từ Cloud, để không bao giờ làm
-    // "giảm" một khoản đã ghi nhận, đồng thời hiển thị được khoản người khác vừa thu.
+    // Đối chiếu số ĐÃ THU của 1 đơn nợ trên máy này với tổng đã thu trên Supabase (thu_no).
+    // - Lần đầu đối chiếu: lấy số LỚN HƠN như trước đây (giữ các khoản cũ chỉ ghi trên máy này).
+    // - Từ lần sau: nhớ mốc "tổng Cloud lần trước" (daThuCloudDaDongBo) → phần chỉ ghi trên máy
+    //   này được giữ nguyên, còn phần trên Cloud luôn lấy số MỚI NHẤT. Nhờ vậy khi Bước 2 sửa GIẢM
+    //   khoản thu nợ của 1 chuyến xe đã lưu, mọi máy khác cũng giảm theo (không bị kẹt số cũ).
+    function doiChieuDaThuVoiCloud(don, tongCloud) {
+      const cu = don.daThu || 0;
+      const moi = (typeof don.daThuCloudDaDongBo === 'number')
+        ? Math.max(0, cu - don.daThuCloudDaDongBo) + tongCloud
+        : Math.max(cu, tongCloud);
+      const thayDoi = moi !== cu || don.daThuCloudDaDongBo !== tongCloud;
+      don.daThu = moi;
+      don.daThuCloudDaDongBo = tongCloud;
+      return thayDoi;
+    }
+
+    // Đối chiếu 1 đơn nợ với dữ liệu đã thu trên Supabase, đồng thời hiển thị được
+    // khoản người khác vừa thu (xem doiChieuDaThuVoiCloud ở trên).
     function doiChieuDaThuTuCloud(don) {
       let thayDoi = false;
       const ngayCloud = thuNoNgayCloudMap.get(don.id);
@@ -1046,10 +1065,8 @@
         don.ngayThanhToan = ngayCloud;
         thayDoi = true;
       }
-      const cloudSum = thuNoCloudMap.get(don.id) || 0;
-      const daThuMoi = Math.max(don.daThu || 0, cloudSum);
-      if (daThuMoi !== (don.daThu || 0)) {
-        don.daThu = daThuMoi;
+      // Chỉ đối chiếu khi đã đọc được bảng thu_no (lỗi mạng thì giữ nguyên số trên máy)
+      if (thuNoCloudDaTai && doiChieuDaThuVoiCloud(don, thuNoCloudMap.get(don.id) || 0)) {
         thayDoi = true;
       }
       return thayDoi;
@@ -2204,9 +2221,8 @@
           const { data, error } = await sb.from('thu_no').select('so_tien').eq('id_don_no', id);
           if (error) throw error;
           const daThuCloudMoiNhat = (data || []).reduce((s, r) => s + parseFloat(r.so_tien || 0), 0);
-          const daThuMoiNhat = Math.max(don.daThu || 0, daThuCloudMoiNhat);
-          clMoiNhat = Math.max(0, (don.soTienNo || 0) - daThuMoiNhat);
-          don.daThu = daThuMoiNhat; // cập nhật ngay để hiển thị đúng nếu phải dừng lại
+          doiChieuDaThuVoiCloud(don, daThuCloudMoiNhat); // cập nhật ngay để hiển thị đúng nếu phải dừng lại
+          clMoiNhat = Math.max(0, (don.soTienNo || 0) - (don.daThu || 0));
         } else {
           clMoiNhat = (don.conLai !== undefined) ? don.conLai : Math.max(0, (don.soTienNo || 0) - (don.daThu || 0));
           dongBoDuocCloud = false;
@@ -2281,6 +2297,8 @@
       }
 
       don.daThu = (don.daThu || 0) + soTienThu;
+      // Khoản vừa thu đã nằm trên Cloud → dời mốc đối chiếu theo, để lần đồng bộ sau không cộng trùng
+      if (dongBoDuocCloud && typeof don.daThuCloudDaDongBo === 'number') don.daThuCloudDaDongBo += soTienThu;
       don.conLai = Math.max(0, clMoiNhat - soTienThu);
       don.trangThai = don.conLai <= 0 ? 'da_thu_du' : 'da_thu_mot_phan';
       don.taiKhoanNhan = nhNhan || don.taiKhoanNhan;

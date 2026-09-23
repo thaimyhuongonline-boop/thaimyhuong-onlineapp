@@ -820,7 +820,8 @@
           return;
         }
 
-        let ds = data || [];
+        // Bỏ các dòng đã được Bước 2 điều chỉnh về 0 đ (sửa giảm / bỏ khoản thu nợ trước khi đẩy MISA)
+        let ds = (data || []).filter(r => (parseFloat(r.so_tien) || 0) > 0);
         if (chiChuaDay) ds = ds.filter(r => !r.da_day_misa);
 
         danhSachThuNoMisa = ds.map(r => {
