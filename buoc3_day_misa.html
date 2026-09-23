@@ -17,6 +17,7 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <script src="config.js"></script>
   <script src="phan_quyen.js"></script>
+  <script src="khach_tra_truoc.js"></script>
   <script src="pwa.js"></script>
   <link rel="stylesheet" href="layout.css">
   <style>
@@ -306,6 +307,7 @@
             <div style="font-weight:800; color:#1e40af; font-size:13.5px;">Cấn Trừ Công Nợ (Thu Nợ Khách Hàng):</div>
             <div style="font-size:12px; color:#1d4ed8; margin-top:2px;">
               Mỗi khoản khách trả nợ cũ bằng Tiền mặt hoặc Chuyển khoản (ghi nhận ở trang "Theo Dõi Công Nợ") sẽ tự sinh bút toán <b>Nợ 1111/1121 — Có 131</b> tại đây, độc lập với chuyến xe đang chọn ở phía trên. <b>Lưu ý thứ tự:</b> nên xuất MISA cho chuyến xe phát sinh công nợ gốc trước, rồi mới xuất phần cấn trừ công nợ này sau.
+              <br>💚 <b>Tiền khách trả trước / trả dư</b> cũng hiện ở đây: nhận tiền <b>Nợ 1111/1121 — Có 131</b>, hoàn tiền <b>Nợ 131 — Có 1111/1121</b>. Các lần <b>cấn trừ tiền trả trước vào đơn nợ</b> không có tiền mới vào quỹ nên <b>không</b> xuất (MISA tự bù trừ trong TK 131 của khách).
             </div>
           </div>
         </div>
@@ -553,6 +555,9 @@
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'thu_no' }, () => {
               console.log("⚡ Nhận sự kiện Realtime thu_no ở Bước 3 (Cấn Trừ Công Nợ)");
+              taiDuLieuThuNoMisa();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'khach_tra_truoc' }, () => {
               taiDuLieuThuNoMisa();
             })
             .subscribe();
@@ -822,7 +827,9 @@
         }
 
         // Bỏ các dòng đã được Bước 2 điều chỉnh về 0 đ (sửa giảm / bỏ khoản thu nợ trước khi đẩy MISA)
-        let ds = (data || []).filter(r => (parseFloat(r.so_tien) || 0) > 0);
+        // và các dòng CẤN TRỪ TIỀN TRẢ TRƯỚC (không có tiền mới vào quỹ — MISA tự bù trừ trong TK 131;
+        // tiền đã được hạch toán lúc nhận trả trước ở phần "Tiền khách trả trước" bên dưới)
+        let ds = (data || []).filter(r => (parseFloat(r.so_tien) || 0) > 0 && !(typeof laDongCanTruTT === 'function' && laDongCanTruTT(r)));
         if (chiChuaDay) ds = ds.filter(r => !r.da_day_misa);
 
         danhSachThuNoMisa = ds.map(r => {
@@ -843,9 +850,53 @@
             tkCo: '131',
             tkNganHang: tkNo === '1121' ? (r.tai_khoan_nhan || '') : '',
             daDayMisa: !!r.da_day_misa,
-            dotGocDaDay: dotGocDaDay
+            dotGocDaDay: dotGocDaDay,
+            nguon: 'thu_no',
+            maHangMisa: 'THU_NO',
+            tenHangMisa: 'Thu nợ khách hàng (cấn trừ công nợ)'
           };
         });
+
+        // TIỀN KHÁCH TRẢ TRƯỚC / TRẢ DƯ (sql/12): nhận tiền Nợ 1111/1121 – Có 131;
+        // hoàn tiền (hoặc điều chỉnh giảm khoản đã nhận) Nợ 131 – Có 1111/1121
+        try {
+          let qTT = sb.from(typeof BANG_TRA_TRUOC !== 'undefined' ? BANG_TRA_TRUOC : 'khach_tra_truoc').select('*').order('id', { ascending: true });
+          if (tuNgay) qTT = qTT.gte('ngay', tuNgay);
+          if (denNgay) qTT = qTT.lte('ngay', denNgay);
+          const resTT = await qTT;
+          if (!resTT.error) {
+            (resTT.data || []).forEach(r => {
+              const st = parseFloat(r.so_tien || 0) || 0;
+              if (!st || (chiChuaDay && r.da_day_misa)) return;
+              const tkTien = r.hinh_thuc === 'Chuyển khoản' ? '1121' : '1111';
+              const chiRa = r.loai === 'hoan' || st < 0; // hoàn tiền / điều chỉnh giảm: tiền đi ra
+              const nhanNguon = (typeof TEN_NGUON_TT !== 'undefined' && TEN_NGUON_TT[r.nguon]) || r.nguon || '';
+              danhSachThuNoMisa.push({
+                id: r.id,
+                ngayThu: dinhDangNgayVN_B3(r.ngay),
+                // Số chứng từ riêng (TT = nhận trả trước, HT = hoàn tiền) để MISA không gộp với phiếu thu nợ của cùng HĐ
+                soCT: (r.loai === 'hoan' ? 'HT' : 'TT') + r.id,
+                maKH: r.ma_kh || 'KH_LE',
+                tenKH: r.ten_kh || 'Khách Lẻ',
+                dienGiai: `${r.loai === 'hoan' ? 'Hoàn tiền trả trước cho khách' : (st < 0 ? 'Điều chỉnh giảm tiền khách trả trước' : 'Khách trả trước / trả dư')} - ${nhanNguon}${r.ma_hd ? ' - HĐ ' + r.ma_hd : ''}${r.ghi_chu ? ' - ' + r.ghi_chu : ''}`,
+                soTien: Math.abs(st),
+                tkNo: chiRa ? '131' : tkTien,
+                tkCo: chiRa ? tkTien : '131',
+                tkNganHang: tkTien === '1121' ? (r.tai_khoan_nhan || '') : '',
+                daDayMisa: !!r.da_day_misa,
+                dotGocDaDay: null,
+                nguon: 'tra_truoc',
+                chiRa: chiRa,
+                maHangMisa: r.loai === 'hoan' ? 'HOAN_TIEN' : 'TRA_TRUOC',
+                tenHangMisa: r.loai === 'hoan' ? 'Hoàn tiền trả trước cho khách' : 'Khách trả trước / trả dư tiền hàng'
+              });
+            });
+          } else if (!(typeof laLoiThieuBangTT === 'function' && laLoiThieuBangTT(resTT.error))) {
+            console.warn('Lỗi tải sổ tiền khách trả trước ở Bước 3:', resTT.error);
+          }
+        } catch (e) {
+          console.warn('Không tải được sổ tiền khách trả trước:', e);
+        }
 
         veBangThuNoMisa();
         tinhToanTongTheThuNoMisa();
@@ -891,9 +942,12 @@
     function tinhToanTongTheThuNoMisa() {
       let tong1111 = 0, tong1121 = 0, tong = 0;
       danhSachThuNoMisa.forEach(r => {
-        tong += r.soTien;
-        if (r.tkNo === '1111') tong1111 += r.soTien;
-        else if (r.tkNo === '1121') tong1121 += r.soTien;
+        // Hoàn tiền trả trước (Nợ 131 – Có 1111/1121) là tiền đi ra → trừ bớt
+        const dau = r.chiRa ? -1 : 1;
+        tong += dau * r.soTien;
+        const tkTien = r.chiRa ? r.tkCo : r.tkNo;
+        if (tkTien === '1111') tong1111 += dau * r.soTien;
+        else if (tkTien === '1121') tong1121 += dau * r.soTien;
       });
       document.getElementById('kpiThuNo1111').textContent = formatTien(tong1111) + ' đ';
       document.getElementById('kpiThuNo1121').textContent = formatTien(tong1121) + ' đ';
@@ -918,7 +972,7 @@
         danhSachThuNoMisa.forEach(r => {
           rowsData.push([
             r.ngayThu, r.ngayThu, r.soCT, r.maKH, r.tenKH, "", "", r.dienGiai,
-            "THU_NO", "Thu nợ khách hàng (cấn trừ công nợ)", "Lần", 1, r.soTien, r.soTien,
+            r.maHangMisa || "THU_NO", r.tenHangMisa || "Thu nợ khách hàng (cấn trừ công nợ)", "Lần", 1, r.soTien, r.soTien,
             r.tkNo, r.tkCo, r.tkNganHang || "", ""
           ]);
         });
@@ -952,11 +1006,23 @@
       if (!confirm(`Đánh dấu ${dsChuaDay.length} khoản thu nợ là ĐÃ ĐẨY MISA?`)) return;
 
       try {
-        const ids = dsChuaDay.map(r => r.id);
-        const { error } = await sb.from('thu_no').update({ da_day_misa: true, thoi_gian_day_misa: new Date().toISOString() }).in('id', ids);
-        if (error) {
-          alert('❌ Không đánh dấu được: ' + (error.message || JSON.stringify(error)));
-          return;
+        const bayGio = new Date().toISOString();
+        // Khoản thu nợ (bảng thu_no) và khoản tiền khách trả trước / hoàn tiền (bảng khach_tra_truoc)
+        const ids = dsChuaDay.filter(r => r.nguon !== 'tra_truoc').map(r => r.id);
+        const idsTT = dsChuaDay.filter(r => r.nguon === 'tra_truoc').map(r => r.id);
+        if (ids.length) {
+          const { error } = await sb.from('thu_no').update({ da_day_misa: true, thoi_gian_day_misa: bayGio }).in('id', ids);
+          if (error) {
+            alert('❌ Không đánh dấu được: ' + (error.message || JSON.stringify(error)));
+            return;
+          }
+        }
+        if (idsTT.length) {
+          const { error } = await sb.from(typeof BANG_TRA_TRUOC !== 'undefined' ? BANG_TRA_TRUOC : 'khach_tra_truoc').update({ da_day_misa: true, thoi_gian_day_misa: bayGio }).in('id', idsTT);
+          if (error) {
+            alert('❌ Không đánh dấu được các khoản tiền khách trả trước: ' + (error.message || JSON.stringify(error)));
+            return;
+          }
         }
         alert(`✅ Đã đánh dấu ${dsChuaDay.length} khoản thu nợ là đã đẩy MISA!`);
         await taiDuLieuThuNoMisa();

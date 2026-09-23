@@ -16,6 +16,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script src="phan_quyen.js"></script>
+  <script src="khach_tra_truoc.js"></script>
   <script src="pwa.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <link rel="stylesheet" href="layout.css">
@@ -108,6 +109,7 @@
     .bc-trong { text-align: center; padding: 24px; color: var(--text-muted); }
     .bc-nut-mo { border: 1px solid #cbd5e1; background: #fff; border-radius: 4px; font-size: 11px; font-weight: 700; padding: 2px 6px; cursor: pointer; color: #334155; white-space: nowrap; }
     .bc-nut-mo:hover { background: #f1f5f9; }
+    .badge-tra-truoc { display: inline-block; margin-top: 3px; padding: 1px 8px; border-radius: 9999px; font-size: 11px; font-weight: 800; background: #ecfdf5; color: #047857; border: 1px solid #6ee7b7; }
 
     /* Tabs Chế độ xem: Theo Khách Hàng / Theo Hóa Đơn */
     .view-tabs-bar {
@@ -420,6 +422,9 @@
         <button type="button" class="btn btn-primary" onclick="moModalThuNoTaiQuy()">
           <span>💰</span> Thu Nợ Tại Quỹ
         </button>
+        <button type="button" class="btn btn-outline" style="border-color:#86efac; color:#15803d; font-weight:800;" onclick="moSoTraTruoc()" title="Sổ tiền khách trả trước / trả dư: ghi nhận, cấn trừ (có hỏi trước), hoàn tiền">
+          <span>💚</span> Khách Trả Trước
+        </button>
       </div>
     </div>
 
@@ -462,6 +467,15 @@
           <div class="kpi-value" style="color:#d97706;" id="kpiSoDonChuaXong">0 đơn</div>
           <div class="kpi-sub" id="kpiSubSoDonChuaXong">Bao gồm chưa thu & thu 1 phần</div>
           <div class="kpi-hint">Bấm để xem chi tiết →</div>
+        </div>
+
+        <div class="kpi-card kpi-card-click" style="border-left-color:#10b981;" role="button" tabindex="0" onclick="moSoTraTruoc()" onkeydown="if(event.key==='Enter') moSoTraTruoc()" title="Tiền khách trả trước / trả dư chưa dùng hết (dư Có TK 131)">
+          <div class="kpi-title">
+            <span>💚</span> Khách Trả Trước (Dư Có)
+          </div>
+          <div class="kpi-value" style="color:#059669;" id="kpiTraTruoc">0 đ</div>
+          <div class="kpi-sub" id="kpiSubTraTruoc">Đang tải sổ trả trước...</div>
+          <div class="kpi-hint">Bấm để ghi nhận / cấn trừ / hoàn tiền →</div>
         </div>
       </div>
 
@@ -778,6 +792,182 @@
     </div>
   </div>
 
+  <!-- ======================================================== -->
+  <!-- SỔ TIỀN KHÁCH TRẢ TRƯỚC / TRẢ DƯ (DƯ CÓ TK 131)          -->
+  <!-- ======================================================== -->
+  <div id="modalSoTraTruoc" class="modal-overlay no-print" style="display:none;" onclick="if(event.target===this) dongSoTraTruoc()">
+    <div class="modal-card modal-card-bao-cao">
+      <div class="modal-header">
+        <div>
+          <div style="font-weight:800; font-size:14.5px; color:var(--text-main);">💚 Sổ Tiền Khách Trả Trước / Trả Dư</div>
+          <div style="font-size:11.5px; color:var(--text-muted);">Tiền khách đưa thừa hoặc trả trước — trừ vào đơn sau (luôn hỏi trước) hoặc hoàn lại cho khách</div>
+        </div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button type="button" class="btn btn-primary" style="height:28px; padding:0 10px; font-size:11.5px;" onclick="moModalNhanTraTruoc('')">➕ Ghi nhận khách trả trước</button>
+          <button type="button" class="btn btn-outline" style="height:28px; padding:0 8px; font-weight:800;" onclick="dongSoTraTruoc()">✕</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div id="ttThongBao" style="display:none; padding:10px 12px; border-radius:var(--radius-sm); font-size:12.5px; font-weight:700;"></div>
+        <div class="bc-chips" id="ttChips"></div>
+        <div class="bc-cong-cu">
+          <input type="text" id="ttTimKiem" class="form-control" style="width:260px; height:32px; font-size:12px;" placeholder="🔍 Tìm khách hàng..." oninput="veSoTraTruoc()">
+          <label style="font-size:12px; font-weight:700; display:flex; align-items:center; gap:6px; cursor:pointer;">
+            <input type="checkbox" id="ttHienTatCa" onchange="veSoTraTruoc()"> Hiện cả khách đã dùng hết số dư
+          </label>
+        </div>
+        <div class="table-container" style="max-height:50vh; overflow:auto;">
+          <table class="table-cong-no">
+            <thead>
+              <tr>
+                <th style="width:35px; text-align:center;">STT</th>
+                <th>Khách hàng</th>
+                <th style="width:115px; text-align:right;">Đã nhận</th>
+                <th style="width:115px; text-align:right;">Đã cấn trừ</th>
+                <th style="width:110px; text-align:right;">Đã hoàn</th>
+                <th style="width:120px; text-align:right;">Số dư trả trước</th>
+                <th style="width:115px; text-align:right;">Còn nợ trong sổ</th>
+                <th style="width:270px; text-align:center;">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="ttBody"></tbody>
+          </table>
+        </div>
+        <div id="ttLichSu" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GHI NHẬN KHÁCH TRẢ TRƯỚC -->
+  <div id="modalNhanTraTruoc" class="modal-overlay no-print" style="display:none; z-index:10001;" onclick="if(event.target===this) dongModalTT('modalNhanTraTruoc')">
+    <div class="modal-card" style="max-width:540px;">
+      <div class="modal-header">
+        <div style="font-weight:800; font-size:14px; color:var(--text-main);">➕ Ghi Nhận Tiền Khách Trả Trước</div>
+        <button type="button" class="btn btn-outline" style="height:26px; padding:0 8px; font-weight:800;" onclick="dongModalTT('modalNhanTraTruoc')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label><span style="color:#dc2626;">*</span> Tên khách hàng:</label>
+          <input type="text" id="ttNhanTenKH" class="form-control" list="listKhachHangGoiY" placeholder="Nhập hoặc chọn khách hàng..." onchange="tuDienMaKhTT(this.value, 'ttNhanMaKH')">
+        </div>
+        <div class="form-group">
+          <label>Mã khách hàng (nếu có):</label>
+          <input type="text" id="ttNhanMaKH" class="form-control" placeholder="VD: KH009411">
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div class="form-group">
+            <label>💵 Tiền mặt (đ):</label>
+            <input type="text" id="ttNhanTM" class="form-control" style="font-size:15px; font-weight:800; color:#16a34a;" placeholder="0" oninput="formatInputTienModal(this); hienNganHangTT('ttNhanCK', 'ttNhanBoxNH')">
+          </div>
+          <div class="form-group">
+            <label>🏦 Chuyển khoản (đ):</label>
+            <input type="text" id="ttNhanCK" class="form-control" style="font-size:15px; font-weight:800; color:#2563eb;" placeholder="0" oninput="formatInputTienModal(this); hienNganHangTT('ttNhanCK', 'ttNhanBoxNH')">
+          </div>
+        </div>
+        <div class="form-group" id="ttNhanBoxNH" style="display:none;">
+          <label style="color:#1d4ed8;">🏦 Tài khoản nhận:</label>
+          <select id="ttNhanNH" class="form-control" style="font-weight:700; color:#1d4ed8;"></select>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div class="form-group">
+            <label>Ngày nhận:</label>
+            <input type="date" id="ttNhanNgay" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Ghi chú:</label>
+            <input type="text" id="ttNhanGhiChu" class="form-control" placeholder="VD: Khách đặt cọc đơn tuần sau...">
+          </div>
+        </div>
+        <div style="font-size:11.5px; color:var(--text-muted);">Bước 3 sẽ xuất bút toán <b>Nợ 1111/1121 — Có 131</b> cho khoản này. Khi khách có đơn nợ, hệ thống sẽ <b>hỏi trước</b> rồi mới cấn trừ.</div>
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+          <button type="button" class="btn btn-outline" onclick="dongModalTT('modalNhanTraTruoc')">Hủy</button>
+          <button type="button" class="btn btn-primary" onclick="luuNhanTraTruoc()">💾 Ghi nhận</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CẤN TRỪ TIỀN TRẢ TRƯỚC VÀO ĐƠN NỢ (NGƯỜI DÙNG XÁC NHẬN) -->
+  <div id="modalCanTruTraTruoc" class="modal-overlay no-print" style="display:none; z-index:10001;" onclick="if(event.target===this) dongModalTT('modalCanTruTraTruoc')">
+    <div class="modal-card" style="max-width:760px;">
+      <div class="modal-header">
+        <div>
+          <div style="font-weight:800; font-size:14px; color:var(--text-main);">🔁 Cấn Trừ Tiền Trả Trước Vào Đơn Nợ</div>
+          <div style="font-size:11.5px; color:var(--text-muted);" id="ttCtMoTa"></div>
+        </div>
+        <button type="button" class="btn btn-outline" style="height:26px; padding:0 8px; font-weight:800;" onclick="dongModalTT('modalCanTruTraTruoc')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="bc-chips" id="ttCtChips"></div>
+        <div class="table-container" style="max-height:44vh; overflow:auto;">
+          <table class="table-cong-no">
+            <thead>
+              <tr>
+                <th style="width:34px; text-align:center;">Trừ</th>
+                <th style="width:95px;">Ngày nợ</th>
+                <th style="width:100px;">Mã HĐ</th>
+                <th>Khách hàng</th>
+                <th style="width:115px; text-align:right;">Còn nợ</th>
+                <th style="width:140px; text-align:right;">Số tiền cấn trừ</th>
+              </tr>
+            </thead>
+            <tbody id="ttCtBody"></tbody>
+          </table>
+        </div>
+        <div style="font-size:11.5px; color:var(--text-muted);">Mặc định trừ vào đơn nợ <b>cũ nhất trước</b>. Cấn trừ không có tiền mới vào quỹ nên Bước 3 <b>không</b> đẩy MISA (MISA tự bù trừ trong TK 131 của khách).</div>
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+          <button type="button" class="btn btn-outline" onclick="dongModalTT('modalCanTruTraTruoc')">Không cấn trừ</button>
+          <button type="button" class="btn btn-primary" id="ttCtNutXacNhan" onclick="xacNhanCanTruTraTruoc()">✅ Xác nhận cấn trừ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOÀN TIỀN TRẢ TRƯỚC CHO KHÁCH -->
+  <div id="modalHoanTienTraTruoc" class="modal-overlay no-print" style="display:none; z-index:10001;" onclick="if(event.target===this) dongModalTT('modalHoanTienTraTruoc')">
+    <div class="modal-card" style="max-width:520px;">
+      <div class="modal-header">
+        <div style="font-weight:800; font-size:14px; color:var(--text-main);">↩ Hoàn Tiền Trả Trước Cho Khách</div>
+        <button type="button" class="btn btn-outline" style="height:26px; padding:0 8px; font-weight:800;" onclick="dongModalTT('modalHoanTienTraTruoc')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="bc-chips" id="ttHtChips"></div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div class="form-group">
+            <label><span style="color:#dc2626;">*</span> Số tiền hoàn (đ):</label>
+            <input type="text" id="ttHtSoTien" class="form-control" style="font-size:15px; font-weight:800; color:#b91c1c;" oninput="formatInputTienModal(this)">
+          </div>
+          <div class="form-group">
+            <label>Hình thức chi:</label>
+            <select id="ttHtHinhThuc" class="form-control" style="font-weight:700;" onchange="document.getElementById('ttHtBoxNH').style.display = this.value === 'Chuyển khoản' ? '' : 'none'">
+              <option value="Tiền mặt">💵 Tiền mặt (chi quỹ)</option>
+              <option value="Chuyển khoản">🏦 Chuyển khoản</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group" id="ttHtBoxNH" style="display:none;">
+          <label style="color:#1d4ed8;">🏦 Chuyển từ tài khoản:</label>
+          <select id="ttHtNH" class="form-control" style="font-weight:700; color:#1d4ed8;"></select>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div class="form-group">
+            <label>Ngày hoàn:</label>
+            <input type="date" id="ttHtNgay" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Lý do:</label>
+            <input type="text" id="ttHtGhiChu" class="form-control" placeholder="VD: Khách ngưng lấy hàng...">
+          </div>
+        </div>
+        <div style="font-size:11.5px; color:var(--text-muted);">Bước 3 sẽ xuất bút toán <b>Nợ 131 — Có 1111/1121</b> cho khoản hoàn này.</div>
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+          <button type="button" class="btn btn-outline" onclick="dongModalTT('modalHoanTienTraTruoc')">Hủy</button>
+          <button type="button" class="btn btn-primary" style="background:#b91c1c; border-color:#991b1b;" onclick="luuHoanTienTraTruoc()">↩ Xác nhận hoàn tiền</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL XEM LỊCH SỬ ĐƠN NỢ CỦA KHÁCH HÀNG -->
   <div id="modalLichSuKhachHang" class="modal-overlay no-print" style="display:none;" onclick="if(event.target===this) dongModalLichSu()">
     <div class="modal-card modal-card-large">
@@ -897,6 +1087,7 @@
         <div style="font-style: italic; margin-top: 2px;">
           (Bằng chữ: <span id="p_soTienBangChu">Không đồng</span>)
         </div>
+        <div id="p_traTruocBox" style="display: none; margin-top: 4px;"></div>
         <div style="margin-top: 6px; font-size: 10pt; color: #333333;">
           💳 <i>Thông tin thanh toán chuyển khoản:</i> <b>Techcombank</b> — STK: <b>20166789</b> — Chủ TK: <b>THÁI MỸ HƯƠNG</b><br>
           hoặc <b>Vietcombank</b> — STK: <b>0041000266096</b> — Chủ TK: <b>CÔNG TY TNHH THÁI MỸ HƯƠNG</b>
@@ -1385,6 +1576,7 @@
           .on('postgres_changes', { event: '*', schema: 'public', table: 'thu_no' }, () => taiLaiDuLieuCongNoDebounce())
           .on('postgres_changes', { event: '*', schema: 'public', table: 'cong_no_da_xoa' }, () => taiLaiDuLieuCongNoDebounce())
           .on('postgres_changes', { event: '*', schema: 'public', table: 'cong_no_ngoai_bang_ke' }, () => taiLaiDuLieuCongNoDebounce())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'khach_tra_truoc' }, () => napSoDuTraTruoc())
           .subscribe();
       } catch (e) {
         console.warn('Không bật được Realtime cho sổ công nợ:', e);
@@ -1440,6 +1632,9 @@
 
       // Số đã thu vừa thay đổi → lần mở báo cáo sau tải lại các khoản thu mới nhất
       thuNoTheoDon.clear();
+
+      // Số dư tiền khách trả trước (cấn trừ / nhận / hoàn có thể vừa thay đổi) — chạy nền
+      napSoDuTraTruoc();
     }
 
     // Chuyển tab chế độ xem
@@ -1601,6 +1796,7 @@
                 <td>
                   <b style="color:var(--text-main); font-size:13px;">${escapeHtml(k.tenKH)}</b>
                   ${k.maKH ? `<div style="font-size:11px; color:var(--text-muted);">${escapeHtml(k.maKH)}</div>` : ''}
+                  ${htmlBadgeTraTruoc(k.tenKH)}
                 </td>
                 <td>${escapeHtml(k.nguoiBan || '--')}</td>
                 <td style="text-align:center;">
@@ -1620,7 +1816,7 @@
                 <td style="text-align:center;">${badge}</td>
                 <td style="text-align:center; white-space:nowrap; font-size:11.5px;">${k.ngayThanhToanGanNhat ? dinhDangNgayVN(k.ngayThanhToanGanNhat) : '--'}</td>
                 <td style="text-align:center;">
-                  <div style="display:flex; gap:4px; justify-content:center;">
+                  <div style="display:flex; gap:4px; justify-content:center; flex-wrap:wrap;">
                     <button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:11px;"
                       onclick="moLichSuDonKhachHang(${escapeHtml(JSON.stringify(encodeURIComponent(k.tenKH)))})">
                       📜 Lịch sử
@@ -1631,7 +1827,8 @@
                         💰 Thu nợ
                       </button>
                     ` : ''}
-                    <button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:11px; color:#2563eb;" 
+                    ${nutCanTruTraTruoc(k.tenKH, k.tongConLai)}
+                    <button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:11px; color:#2563eb;"
                       onclick="inDoiChieuChoKhach(${escapeHtml(JSON.stringify(encodeURIComponent(k.tenKH)))})">
                       🖨️ In
                     </button>
@@ -2036,11 +2233,12 @@
           const soTien = parseFloat(r.so_tien || 0) || 0;
           if (soTien <= 0) return;
           tongCloud += soTien;
-          const ck = laChuyenKhoan(r.hinh_thuc);
+          const canTru = typeof laDongCanTruTT === 'function' && laDongCanTruTT(r);
+          const ck = !canTru && laChuyenKhoan(r.hinh_thuc);
           kq.push({
             don: d, ngay: chuanHoaNgayYYYYMMDD(r.ngay_thu || ''), soTien: soTien,
-            hinhThuc: ck ? 'ck' : 'tm', taiKhoan: ck ? (r.tai_khoan_nhan || 'Chưa ghi tài khoản') : '',
-            nguon: /^Thu hộ nợ cũ qua chuyến xe/i.test(r.ghi_chu || '') ? 'Thu hộ qua xe (Bước 2)' : 'Thu tại quỹ',
+            hinhThuc: canTru ? 'cantru' : (ck ? 'ck' : 'tm'), taiKhoan: ck ? (r.tai_khoan_nhan || 'Chưa ghi tài khoản') : '',
+            nguon: canTru ? 'Cấn trừ tiền khách trả trước' : (/^Thu hộ nợ cũ qua chuyến xe/i.test(r.ghi_chu || '') ? 'Thu hộ qua xe (Bước 2)' : 'Thu tại quỹ'),
             nguoiThu: r.nguoi_thu || '', ghiChu: r.ghi_chu || '', daDayMisa: !!r.da_day_misa
           });
         });
@@ -2341,9 +2539,11 @@
         const tm = dsThu.filter(x => x.hinhThuc === 'tm');
         const ck = dsThu.filter(x => x.hinhThuc === 'ck');
         const khac = dsThu.filter(x => x.hinhThuc === 'khac');
+        const canTru = dsThu.filter(x => x.hinhThuc === 'cantru');
         const cong = arr => arr.reduce((s, x) => s + x.soTien, 0);
         chips = chip('💰 Tổng đã thu', formatTien(cong(dsThu)) + ' đ', 'xanh') + chip('Số khoản thu', dsThu.length) +
           chip('💵 Tiền mặt', `${formatTien(cong(tm))} đ (${tm.length})`, 'xanh') + chip('🏦 Chuyển khoản', `${formatTien(cong(ck))} đ (${ck.length})`, 'lam');
+        if (canTru.length) chips += chip('🔁 Cấn trừ tiền trả trước', `${formatTien(cong(canTru))} đ (${canTru.length})`);
         const theoTK = {};
         ck.forEach(x => { theoTK[x.taiKhoan] = (theoTK[x.taiKhoan] || 0) + x.soTien; });
         Object.keys(theoTK).forEach(tk => { chips += chip('🏦 ' + escapeHtml(tk), formatTien(theoTK[tk]) + ' đ', 'lam'); });
@@ -2360,11 +2560,13 @@
             <td><b>${escapeHtml(x.don.tenKH)}</b>${x.ghiChu ? `<div style="font-size:11px; color:var(--text-muted);">${escapeHtml(x.ghiChu)}</div>` : ''}</td>
             <td class="num-cell" style="color:#16a34a; font-weight:900;">${formatTien(x.soTien)}</td>
             <td style="text-align:center;">${x.hinhThuc === 'ck' ? '<span class="badge-status" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe;">🏦 Chuyển khoản</span>'
-              : (x.hinhThuc === 'tm' ? '<span class="badge-status badge-da-thu">💵 Tiền mặt</span>' : '<span class="badge-status" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;">❔ Chưa rõ</span>')}</td>
+              : (x.hinhThuc === 'tm' ? '<span class="badge-status badge-da-thu">💵 Tiền mặt</span>'
+              : (x.hinhThuc === 'cantru' ? '<span class="badge-status" style="background:#ecfdf5; color:#047857; border:1px solid #6ee7b7;">🔁 Cấn trừ trả trước</span>'
+              : '<span class="badge-status" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;">❔ Chưa rõ</span>'))}</td>
             <td style="font-size:11.5px; color:#1d4ed8; font-weight:700;">${escapeHtml(x.taiKhoan || (x.hinhThuc === 'tm' ? 'Quỹ tiền mặt' : '--'))}</td>
             <td style="font-size:11.5px;">${escapeHtml(x.nguon)}</td>
             <td style="font-size:11.5px;">${escapeHtml(x.nguoiThu || '--')}</td>
-            <td style="text-align:center; font-size:11px;">${x.hinhThuc === 'khac' ? '--' : (x.daDayMisa ? '✅ Đã đẩy' : '⏳ Chưa')}</td></tr>`).join('')
+            <td style="text-align:center; font-size:11px;">${x.hinhThuc === 'khac' ? '--' : (x.hinhThuc === 'cantru' ? 'Không cần' : (x.daDayMisa ? '✅ Đã đẩy' : '⏳ Chưa'))}</td></tr>`).join('')
           : `<tr><td colspan="10" class="bc-trong">${bcDangNapThu ? '⏳ Đang tải các khoản thu...' : 'Chưa có khoản thu nào.'}</td></tr>`;
         tfoot.innerHTML = dsThu.length ? `<tr style="background:#f8fafc; font-weight:800;">
           <td colspan="4" style="text-align:right;">TỔNG ĐÃ THU (${dsThu.length} khoản):</td><td class="num-cell" style="color:#16a34a;">${formatTien(cong(dsThu))}</td><td colspan="5"></td></tr>` : '';
@@ -2396,7 +2598,8 @@
       }
       return { ten: 'Đã thu tiền', cot: ['STT', 'Ngày thu', 'Mã HĐ', 'Khách hàng', 'Số tiền', 'Hình thức', 'Tài khoản nhận', 'Nguồn', 'Người thu', 'Ghi chú', 'Đã đẩy MISA'], cotSo: [4],
         dong: dsKhoanThu(ds).map((x, i) => [i + 1, x.ngay ? dinhDangNgayVN(x.ngay) : '', x.don.maHD, x.don.tenKH, x.soTien,
-          x.hinhThuc === 'ck' ? 'Chuyển khoản' : (x.hinhThuc === 'tm' ? 'Tiền mặt' : 'Chưa rõ'), x.taiKhoan || (x.hinhThuc === 'tm' ? 'Quỹ tiền mặt' : ''), x.nguon, x.nguoiThu, x.ghiChu, x.daDayMisa ? 'Có' : '']) };
+          x.hinhThuc === 'ck' ? 'Chuyển khoản' : (x.hinhThuc === 'tm' ? 'Tiền mặt' : (x.hinhThuc === 'cantru' ? 'Cấn trừ trả trước' : 'Chưa rõ')),
+          x.taiKhoan || (x.hinhThuc === 'tm' ? 'Quỹ tiền mặt' : ''), x.nguon, x.nguoiThu, x.ghiChu, x.hinhThuc === 'cantru' ? 'Không cần' : (x.daDayMisa ? 'Có' : '')]) };
     }
 
     function xuatExcelBaoCaoCongNo() {
@@ -2437,6 +2640,380 @@
       window.addEventListener('afterprint', boLop);
       window.print();
       setTimeout(boLop, 1500);
+    }
+
+    // ========================================================
+    // SỔ TIỀN KHÁCH TRẢ TRƯỚC / TRẢ DƯ (DƯ CÓ TK 131)
+    // Ghi nhận · Cấn trừ vào đơn nợ (LUÔN HỎI TRƯỚC) · Hoàn tiền — bộ máy dùng chung: khach_tra_truoc.js
+    // ========================================================
+    let soTraTruoc = new Map();       // khoá khách -> { tenKH, maKH, nhan, hoan, canTru, soDu, lichSu }
+    let soTraTruocSanSang = null;     // null: chưa biết · true: có bảng · false: máy chủ chưa chạy sql/12
+    let henNapTraTruoc = null;
+    let ttKhachDangCanTru = null;
+    let ttKhachDangHoan = null;
+    let ttCtPhanBo = [];              // [{ don, chon, soTien }] trong hộp cấn trừ
+
+    function soDuTraTruocCua(tenKH) {
+      const g = soTraTruoc.get(khoaKhachTT(tenKH));
+      return g ? g.soDu : 0;
+    }
+
+    function conNoCuaKhachTT(tenKH) {
+      const k = khoaKhachTT(tenKH);
+      return danhSachCongNo.filter(d => khoaKhachTT(d.tenKH) === k).reduce((s, d) => s + conLaiCuaDon(d), 0);
+    }
+
+    let henNapLaiTT = null;
+    function napSoDuTraTruoc() {
+      if (typeof taiSoTraTruoc !== 'function') return Promise.resolve();
+      if (henNapTraTruoc) {
+        // Đang tải dở (có thể đã bắt đầu TRƯỚC khi vừa ghi sổ) → tải lại thêm 1 lần ngay sau đó để có số mới nhất
+        if (!henNapLaiTT) henNapLaiTT = henNapTraTruoc.then(() => { henNapLaiTT = null; return napSoDuTraTruoc(); });
+        return henNapLaiTT;
+      }
+      henNapTraTruoc = (async () => {
+        const kq = await taiSoTraTruoc();
+        if (kq.ok) { soTraTruoc = kq.theoKhach; soTraTruocSanSang = true; }
+        else if (kq.thieuBang) { soTraTruoc = new Map(); soTraTruocSanSang = false; }
+        capNhatKpiTraTruoc();
+        if (cheDoXemHienTai === 'khach_hang') veBangCongNo();
+        if (document.getElementById('modalSoTraTruoc').style.display === 'flex') veSoTraTruoc();
+      })().finally(() => { henNapTraTruoc = null; });
+      return henNapTraTruoc;
+    }
+
+    function capNhatKpiTraTruoc() {
+      const el = document.getElementById('kpiTraTruoc');
+      const sub = document.getElementById('kpiSubTraTruoc');
+      if (!el || !sub) return;
+      if (soTraTruocSanSang === false) {
+        el.textContent = '--';
+        sub.textContent = 'Chưa bật — cần chạy sql/12 trên máy chủ';
+        return;
+      }
+      const ds = Array.from(soTraTruoc.values()).filter(g => g.soDu > 0);
+      const tong = ds.reduce((s, g) => s + g.soDu, 0);
+      const coTheTru = ds.filter(g => conNoCuaKhachTT(g.tenKH) > 0).length;
+      el.textContent = formatTien(tong) + ' đ';
+      sub.textContent = `${ds.length} khách đang có tiền trả trước` + (coTheTru ? ` · ${coTheTru} khách có thể cấn trừ` : '');
+    }
+
+    function htmlBadgeTraTruoc(tenKH) {
+      const soDu = soDuTraTruocCua(tenKH);
+      return soDu > 0 ? `<div class="badge-tra-truoc" title="Tiền khách trả trước / trả dư chưa dùng">💚 Trả trước: ${formatTien(soDu)} đ</div>` : '';
+    }
+
+    function nutCanTruTraTruoc(tenKH, conLai) {
+      if (!(soDuTraTruocCua(tenKH) > 0) || !(conLai > 0)) return '';
+      return `<button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:11px; color:#047857; border-color:#6ee7b7;"
+        onclick="moModalCanTruTraTruoc(${escapeHtml(JSON.stringify(encodeURIComponent(tenKH)))})" title="Dùng tiền trả trước của khách để trừ nợ (sẽ hỏi xác nhận)">🔁 Cấn trừ</button>`;
+    }
+
+    function dongModalTT(id) {
+      document.getElementById(id).style.display = 'none';
+    }
+
+    function dienNganHangTT(idSelect) {
+      const sel = document.getElementById(idSelect);
+      if (sel) sel.innerHTML = danhMucNganHang.map(n => `<option value="${escapeHtml(n.tenHienThi)}" ${n.macDinh ? 'selected' : ''}>${escapeHtml(n.tenHienThi)}</option>`).join('');
+    }
+
+    function hienNganHangTT(idCK, idBox) {
+      document.getElementById(idBox).style.display = parseVNNumber_(document.getElementById(idCK).value) > 0 ? '' : 'none';
+    }
+
+    function tuDienMaKhTT(ten, idMa) {
+      const k = khoaKhachTT(ten);
+      const don = danhSachCongNo.find(d => khoaKhachTT(d.tenKH) === k && d.maKH);
+      const g = soTraTruoc.get(k);
+      const ma = (don && don.maKH) || (g && g.maKH) || '';
+      if (ma) document.getElementById(idMa).value = ma;
+    }
+
+    // ---------- Sổ trả trước ----------
+    async function moSoTraTruoc() {
+      document.getElementById('modalSoTraTruoc').style.display = 'flex';
+      document.getElementById('ttLichSu').style.display = 'none';
+      veSoTraTruoc();
+      await napSoDuTraTruoc();
+      veSoTraTruoc();
+    }
+
+    function dongSoTraTruoc() {
+      document.getElementById('modalSoTraTruoc').style.display = 'none';
+    }
+
+    function veSoTraTruoc() {
+      const tb = document.getElementById('ttThongBao');
+      if (soTraTruocSanSang === false) {
+        tb.style.display = '';
+        tb.style.background = '#fef2f2';
+        tb.style.color = '#b91c1c';
+        tb.innerHTML = '❌ Máy chủ chưa có bảng Sổ tiền khách trả trước. Nhờ quản trị chạy file <b>sql/12_khach_tra_truoc.sql</b> trong Supabase SQL Editor để bật tính năng này.';
+      } else {
+        tb.style.display = 'none';
+      }
+      const tuKhoa = chuanHoaChuoiVN(document.getElementById('ttTimKiem').value || '');
+      const hienTatCa = document.getElementById('ttHienTatCa').checked;
+      const tatCa = Array.from(soTraTruoc.values());
+      const ds = tatCa
+        .filter(g => hienTatCa || g.soDu !== 0)
+        .filter(g => !tuKhoa || chuanHoaChuoiVN(g.tenKH).includes(tuKhoa) || chuanHoaChuoiVN(g.maKH).includes(tuKhoa))
+        .sort((a, b) => b.soDu - a.soDu);
+      const cong = f => tatCa.reduce((s, g) => s + g[f], 0);
+      const chip = (nhan, giaTri, lop) => `<div class="bc-chip ${lop || ''}">${nhan}: <b>${giaTri}</b></div>`;
+      document.getElementById('ttChips').innerHTML =
+        chip('💚 Tổng số dư trả trước', formatTien(tatCa.filter(g => g.soDu > 0).reduce((s, g) => s + g.soDu, 0)) + ' đ', 'xanh') +
+        chip('Khách đang có số dư', tatCa.filter(g => g.soDu > 0).length) +
+        chip('Tổng đã nhận', formatTien(cong('nhan')) + ' đ') + chip('Đã cấn trừ vào nợ', formatTien(cong('canTru')) + ' đ', 'lam') +
+        chip('Đã hoàn cho khách', formatTien(cong('hoan')) + ' đ', 'do');
+
+      document.getElementById('ttBody').innerHTML = ds.length ? ds.map((g, i) => {
+        const ma = escapeHtml(JSON.stringify(encodeURIComponent(g.tenKH)));
+        const conNo = conNoCuaKhachTT(g.tenKH);
+        return `<tr>
+          <td style="text-align:center; color:var(--text-muted); font-weight:700;">${i + 1}</td>
+          <td><b>${escapeHtml(g.tenKH)}</b>${g.maKH ? `<div style="font-size:11px; color:var(--text-muted);">${escapeHtml(g.maKH)}</div>` : ''}</td>
+          <td class="num-cell">${formatTien(g.nhan)}</td>
+          <td class="num-cell" style="color:#1d4ed8;">${formatTien(g.canTru)}</td>
+          <td class="num-cell" style="color:#b91c1c;">${formatTien(g.hoan)}</td>
+          <td class="num-cell" style="color:${g.soDu > 0 ? '#047857' : (g.soDu < 0 ? '#b91c1c' : 'var(--text-muted)')}; font-weight:900; font-size:13px;">${formatTien(g.soDu)}</td>
+          <td class="num-cell" style="color:#dc2626;">${formatTien(conNo)}</td>
+          <td style="text-align:center;">
+            <div style="display:flex; gap:4px; justify-content:center; flex-wrap:wrap;">
+              ${g.soDu > 0 && conNo > 0 ? `<button type="button" class="btn btn-primary" style="height:26px; padding:0 6px; font-size:11px;" onclick="moModalCanTruTraTruoc(${ma})">🔁 Cấn trừ</button>` : ''}
+              ${g.soDu > 0 ? `<button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:11px; color:#b91c1c; border-color:#fca5a5;" onclick="moModalHoanTienTraTruoc(${ma})">↩ Hoàn tiền</button>` : ''}
+              <button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:11px;" onclick="moModalNhanTraTruoc(${ma})">➕ Nhận thêm</button>
+              <button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:11px;" onclick="xemLichSuTraTruoc(${ma})">📜 Lịch sử</button>
+            </div>
+          </td></tr>`;
+      }).join('') : `<tr><td colspan="8" style="text-align:center; padding:24px; color:var(--text-muted);">${soTraTruocSanSang === false ? 'Chưa bật sổ trả trước.' : 'Chưa có khách nào có tiền trả trước.'}</td></tr>`;
+    }
+
+    function xemLichSuTraTruoc(tenMa) {
+      const ten = decodeURIComponent(tenMa);
+      const g = soTraTruoc.get(khoaKhachTT(ten));
+      const box = document.getElementById('ttLichSu');
+      if (!g) { box.style.display = 'none'; return; }
+      let luyKe = 0;
+      const dong = g.lichSu.map((x, i) => {
+        const tang = x.loai === 'nhan';
+        luyKe += tang ? x.soTien : -x.soTien;
+        const loai = x.loai === 'nhan' ? (x.soTien < 0 ? '✏️ Điều chỉnh giảm' : '➕ Nhận tiền')
+          : (x.loai === 'hoan' ? '↩ Hoàn tiền' : '🔁 Cấn trừ nợ');
+        const chiTiet = x.loai === 'can_tru' ? `HĐ ${escapeHtml(x.maHD)}`
+          : `${escapeHtml(x.hinhThuc || '')}${x.taiKhoan ? ' — ' + escapeHtml(x.taiKhoan) : ''}<div style="font-size:10.5px; color:var(--text-muted);">${escapeHtml(TEN_NGUON_TT[x.nguon] || x.nguon || '')}${x.maHD ? ' · HĐ ' + escapeHtml(x.maHD) : ''}</div>`;
+        return `<tr>
+          <td style="text-align:center; color:var(--text-muted);">${i + 1}</td>
+          <td style="white-space:nowrap;">${x.ngay ? dinhDangNgayVN(chuanHoaNgayYYYYMMDD(x.ngay)) : '--'}</td>
+          <td style="white-space:nowrap; font-weight:700;">${loai}</td>
+          <td class="num-cell" style="color:${tang && x.soTien > 0 ? '#047857' : '#b91c1c'};">${tang && x.soTien > 0 ? '+' : '−'}${formatTien(Math.abs(x.soTien))}</td>
+          <td style="font-size:11.5px;">${chiTiet}</td>
+          <td style="font-size:11.5px;">${escapeHtml(x.nguoi || '--')}</td>
+          <td style="font-size:11.5px; color:var(--text-muted);">${escapeHtml(x.ghiChu || '')}</td>
+          <td class="num-cell" style="font-weight:900;">${formatTien(luyKe)}</td></tr>`;
+      }).join('');
+      box.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin:6px 0;">
+          <b>📜 Lịch sử tiền trả trước — ${escapeHtml(g.tenKH)}</b>
+          <button type="button" class="btn btn-outline" style="height:26px; padding:0 8px; font-size:11px;" onclick="document.getElementById('ttLichSu').style.display='none'">Đóng lịch sử</button>
+        </div>
+        <div class="table-container" style="max-height:34vh; overflow:auto;">
+          <table class="table-cong-no">
+            <thead><tr><th style="width:35px;">STT</th><th style="width:90px;">Ngày</th><th style="width:130px;">Loại</th><th style="width:110px; text-align:right;">Số tiền</th>
+              <th>Hình thức / Nguồn</th><th style="width:140px;">Người thực hiện</th><th>Ghi chú</th><th style="width:110px; text-align:right;">Số dư</th></tr></thead>
+            <tbody>${dong || '<tr><td colspan="8" style="text-align:center; padding:16px;">Chưa có giao dịch.</td></tr>'}</tbody>
+          </table>
+        </div>`;
+      box.style.display = '';
+      box.scrollIntoView({ block: 'nearest' });
+    }
+
+    // ---------- Ghi nhận tiền khách trả trước ----------
+    function moModalNhanTraTruoc(tenMa) {
+      const ten = tenMa ? decodeURIComponent(tenMa) : '';
+      const dl = document.getElementById('listKhachHangGoiY');
+      if (dl) {
+        const ten_ = new Set(danhSachCongNo.map(d => (d.tenKH || '').trim()).filter(Boolean));
+        soTraTruoc.forEach(g => ten_.add(g.tenKH));
+        dl.innerHTML = Array.from(ten_).sort((a, b) => a.localeCompare(b, 'vi')).map(t => `<option value="${escapeHtml(t)}">`).join('');
+      }
+      document.getElementById('ttNhanTenKH').value = ten;
+      document.getElementById('ttNhanMaKH').value = '';
+      if (ten) tuDienMaKhTT(ten, 'ttNhanMaKH');
+      document.getElementById('ttNhanTM').value = '';
+      document.getElementById('ttNhanCK').value = '';
+      document.getElementById('ttNhanGhiChu').value = '';
+      document.getElementById('ttNhanNgay').value = layNgayLocalYYYYMMDD(new Date());
+      document.getElementById('ttNhanBoxNH').style.display = 'none';
+      dienNganHangTT('ttNhanNH');
+      document.getElementById('modalNhanTraTruoc').style.display = 'flex';
+    }
+
+    async function luuNhanTraTruoc() {
+      if (chanNeuChiXem()) return;
+      const ten = document.getElementById('ttNhanTenKH').value.trim();
+      const maKH = document.getElementById('ttNhanMaKH').value.trim();
+      const tm = parseVNNumber_(document.getElementById('ttNhanTM').value);
+      const ck = parseVNNumber_(document.getElementById('ttNhanCK').value);
+      const nh = ck > 0 ? document.getElementById('ttNhanNH').value : '';
+      const ngay = document.getElementById('ttNhanNgay').value || layNgayLocalYYYYMMDD(new Date());
+      const ghiChu = document.getElementById('ttNhanGhiChu').value.trim();
+      if (!ten) { alert('⚠️ Vui lòng nhập tên khách hàng!'); return; }
+      if (tm + ck <= 0) { alert('⚠️ Vui lòng nhập số tiền tiền mặt và/hoặc chuyển khoản lớn hơn 0!'); return; }
+      if (ck > 0 && !nh) { alert('⚠️ Vui lòng chọn tài khoản nhận cho phần chuyển khoản!'); return; }
+      if (!confirm(`Ghi nhận ${formatTien(tm + ck)} đ tiền TRẢ TRƯỚC của khách "${ten}"?` +
+        `${tm ? `\n• Tiền mặt: ${formatTien(tm)} đ` : ''}${ck ? `\n• Chuyển khoản: ${formatTien(ck)} đ → ${nh}` : ''}`)) return;
+      const dong = [];
+      if (tm > 0) dong.push({ ngay, ma_kh: maKH, ten_kh: ten, loai: 'nhan', so_tien: tm, hinh_thuc: 'Tiền mặt', nguon: 'tra_truoc', ghi_chu: ghiChu });
+      if (ck > 0) dong.push({ ngay, ma_kh: maKH, ten_kh: ten, loai: 'nhan', so_tien: ck, hinh_thuc: 'Chuyển khoản', tai_khoan_nhan: nh, nguon: 'tra_truoc', ghi_chu: ghiChu });
+      const kq = await ghiSoTraTruoc(dong);
+      if (!kq.ok) {
+        alert(kq.thieuBang ? '❌ Máy chủ chưa có bảng Sổ tiền khách trả trước. Nhờ quản trị chạy file sql/12_khach_tra_truoc.sql.' : '❌ Không ghi nhận được: ' + kq.loi);
+        return;
+      }
+      dongModalTT('modalNhanTraTruoc');
+      await napSoDuTraTruoc();
+      alert(`✅ Đã ghi nhận ${formatTien(tm + ck)} đ tiền trả trước của khách "${ten}". Số dư trả trước hiện tại: ${formatTien(soDuTraTruocCua(ten))} đ.`);
+      await hoiCanTruSauKhiCoTien(ten);
+    }
+
+    // Hỏi (không tự trừ): khách vừa có thêm tiền trả trước mà đang còn nợ
+    async function hoiCanTruSauKhiCoTien(ten) {
+      const conNo = conNoCuaKhachTT(ten);
+      const soDu = soDuTraTruocCua(ten);
+      if (conNo > 0 && soDu > 0 && confirm(`Khách "${ten}" đang còn nợ ${formatTien(conNo)} đ và có ${formatTien(soDu)} đ tiền trả trước.\n\nMở bảng CẤN TRỪ để trừ vào nợ? (Bạn sẽ xem lại và xác nhận trước khi trừ)`)) {
+        moModalCanTruTraTruoc(encodeURIComponent(ten));
+      }
+    }
+
+    // Hỏi (không tự trừ): khách vừa phát sinh đơn nợ mới mà đang có tiền trả trước
+    async function hoiCanTruSauKhiCoNo(ten, dsIdUuTien) {
+      await napSoDuTraTruoc();
+      const soDu = soDuTraTruocCua(ten);
+      if (soDu > 0 && confirm(`Khách "${ten}" đang có ${formatTien(soDu)} đ tiền trả trước chưa dùng.\n\nMở bảng CẤN TRỪ vào đơn nợ vừa tạo? (Bạn sẽ xem lại và xác nhận trước khi trừ)`)) {
+        moModalCanTruTraTruoc(encodeURIComponent(ten), dsIdUuTien);
+      }
+    }
+
+    // ---------- Cấn trừ vào đơn nợ (người dùng xem & xác nhận) ----------
+    async function moModalCanTruTraTruoc(tenMa, dsIdUuTien) {
+      const ten = decodeURIComponent(tenMa);
+      await napSoDuTraTruoc();
+      const soDu = soDuTraTruocCua(ten);
+      if (!(soDu > 0)) { alert(`ℹ️ Khách "${ten}" hiện không còn số dư tiền trả trước.`); return; }
+      const k = khoaKhachTT(ten);
+      const uuTien = new Set(dsIdUuTien || []);
+      const dsNo = danhSachCongNo.filter(d => khoaKhachTT(d.tenKH) === k && conLaiCuaDon(d) > 0)
+        .sort((a, b) => (Number(uuTien.has(b.id)) - Number(uuTien.has(a.id))) || ngayNoCuaDon(a).localeCompare(ngayNoCuaDon(b)));
+      if (!dsNo.length) { alert(`ℹ️ Khách "${ten}" không còn đơn nợ nào để cấn trừ. Có thể hoàn tiền cho khách nếu cần.`); return; }
+      let conDu = soDu;
+      ttCtPhanBo = dsNo.map(d => {
+        const lay = Math.min(conDu, conLaiCuaDon(d));
+        conDu -= lay;
+        return { don: d, chon: lay > 0, soTien: lay };
+      });
+      ttKhachDangCanTru = ten;
+      document.getElementById('ttCtMoTa').textContent = `Khách: ${ten} — chọn đơn và số tiền muốn trừ, rồi bấm Xác nhận`;
+      veCanTruTraTruoc();
+      document.getElementById('modalCanTruTraTruoc').style.display = 'flex';
+    }
+
+    function veCanTruTraTruoc() {
+      const soDu = soDuTraTruocCua(ttKhachDangCanTru);
+      const tong = ttCtPhanBo.filter(p => p.chon).reduce((s, p) => s + p.soTien, 0);
+      const vuot = tong > soDu + 0.5;
+      document.getElementById('ttCtChips').innerHTML =
+        `<div class="bc-chip xanh">💚 Số dư trả trước: <b>${formatTien(soDu)} đ</b></div>` +
+        `<div class="bc-chip ${vuot ? 'do' : 'lam'}">🔁 Đang chọn cấn trừ: <b>${formatTien(tong)} đ</b></div>` +
+        `<div class="bc-chip">Số dư còn lại sau cấn trừ: <b>${formatTien(Math.max(0, soDu - tong))} đ</b></div>` +
+        (vuot ? `<div class="bc-chip do">⚠️ Vượt số dư trả trước <b>${formatTien(tong - soDu)} đ</b></div>` : '');
+      document.getElementById('ttCtBody').innerHTML = ttCtPhanBo.map((p, i) => `<tr>
+        <td style="text-align:center;"><input type="checkbox" ${p.chon ? 'checked' : ''} onchange="chonDonCanTruTT(${i}, this.checked)" style="width:16px; height:16px; accent-color:#16a34a;"></td>
+        <td style="white-space:nowrap;">${escapeHtml(p.don.ngayGiao || p.don.ngayGhiNo || '--')}</td>
+        <td><b style="font-family:monospace;">${escapeHtml(p.don.maHD)}</b></td>
+        <td>${escapeHtml(p.don.tenKH)}</td>
+        <td class="num-cell" style="color:#dc2626;">${formatTien(conLaiCuaDon(p.don))}</td>
+        <td><input type="text" class="form-control" style="height:30px; text-align:right; font-weight:800; color:#047857;" value="${p.chon ? formatTien(p.soTien) : ''}" ${p.chon ? '' : 'disabled'}
+          onchange="suaTienCanTruTT(${i}, this.value)"></td></tr>`).join('');
+      const nut = document.getElementById('ttCtNutXacNhan');
+      nut.disabled = vuot || tong <= 0;
+    }
+
+    function chonDonCanTruTT(i, chon) {
+      const p = ttCtPhanBo[i];
+      p.chon = chon;
+      if (chon && !(p.soTien > 0)) {
+        const daChon = ttCtPhanBo.filter((x, j) => j !== i && x.chon).reduce((s, x) => s + x.soTien, 0);
+        p.soTien = Math.max(0, Math.min(conLaiCuaDon(p.don), soDuTraTruocCua(ttKhachDangCanTru) - daChon));
+      }
+      veCanTruTraTruoc();
+    }
+
+    function suaTienCanTruTT(i, giaTri) {
+      const p = ttCtPhanBo[i];
+      p.soTien = Math.max(0, Math.min(conLaiCuaDon(p.don), parseVNNumber_(giaTri)));
+      veCanTruTraTruoc();
+    }
+
+    async function xacNhanCanTruTraTruoc() {
+      if (chanNeuChiXem()) return;
+      const ten = ttKhachDangCanTru;
+      const ds = ttCtPhanBo.filter(p => p.chon && p.soTien > 0);
+      const tong = ds.reduce((s, p) => s + p.soTien, 0);
+      const soDu = soDuTraTruocCua(ten);
+      if (!ds.length) { alert('⚠️ Chưa chọn đơn nợ / số tiền cấn trừ.'); return; }
+      if (tong > soDu + 0.5) { alert('⚠️ Số tiền cấn trừ vượt số dư trả trước của khách.'); return; }
+      if (!confirm(`XÁC NHẬN CẤN TRỪ ${formatTien(tong)} đ tiền trả trước của khách "${ten}" vào ${ds.length} đơn nợ:\n\n` +
+        ds.map(p => `• ${p.don.maHD}: ${formatTien(p.soTien)} đ`).join('\n') +
+        `\n\nSố dư trả trước còn lại: ${formatTien(soDu - tong)} đ.`)) return;
+      const nut = document.getElementById('ttCtNutXacNhan');
+      nut.disabled = true;
+      const kq = await canTruTraTruoc(ten, ds.map(p => ({ don: p.don, soTien: p.soTien })));
+      nut.disabled = false;
+      if (!kq.ok) { alert('❌ Chưa cấn trừ được: ' + kq.loi); return; }
+      dongModalTT('modalCanTruTraTruoc');
+      await taiLaiDuLieuCongNo();
+      await napSoDuTraTruoc();
+      alert(`✅ Đã cấn trừ ${formatTien(tong)} đ tiền trả trước vào nợ của khách "${ten}". Số dư trả trước còn lại: ${formatTien(soDuTraTruocCua(ten))} đ.`);
+    }
+
+    // ---------- Hoàn tiền trả trước cho khách ----------
+    async function moModalHoanTienTraTruoc(tenMa) {
+      const ten = decodeURIComponent(tenMa);
+      await napSoDuTraTruoc();
+      const soDu = soDuTraTruocCua(ten);
+      if (!(soDu > 0)) { alert(`ℹ️ Khách "${ten}" không còn số dư trả trước để hoàn.`); return; }
+      ttKhachDangHoan = ten;
+      document.getElementById('ttHtChips').innerHTML = `<div class="bc-chip">Khách: <b>${escapeHtml(ten)}</b></div><div class="bc-chip xanh">💚 Số dư trả trước: <b>${formatTien(soDu)} đ</b></div>`;
+      document.getElementById('ttHtSoTien').value = formatTien(soDu);
+      document.getElementById('ttHtHinhThuc').value = 'Tiền mặt';
+      document.getElementById('ttHtBoxNH').style.display = 'none';
+      document.getElementById('ttHtNgay').value = layNgayLocalYYYYMMDD(new Date());
+      document.getElementById('ttHtGhiChu').value = '';
+      dienNganHangTT('ttHtNH');
+      document.getElementById('modalHoanTienTraTruoc').style.display = 'flex';
+    }
+
+    async function luuHoanTienTraTruoc() {
+      if (chanNeuChiXem()) return;
+      const ten = ttKhachDangHoan;
+      const soTien = parseVNNumber_(document.getElementById('ttHtSoTien').value);
+      const hinhThuc = document.getElementById('ttHtHinhThuc').value;
+      const taiKhoan = hinhThuc === 'Chuyển khoản' ? document.getElementById('ttHtNH').value : '';
+      const soDu = soDuTraTruocCua(ten);
+      if (soTien <= 0) { alert('⚠️ Vui lòng nhập số tiền hoàn lớn hơn 0!'); return; }
+      if (soTien > soDu + 0.5) { alert(`⚠️ Chỉ hoàn được tối đa ${formatTien(soDu)} đ (số dư trả trước hiện tại).`); return; }
+      if (hinhThuc === 'Chuyển khoản' && !taiKhoan) { alert('⚠️ Vui lòng chọn tài khoản chuyển tiền!'); return; }
+      if (!confirm(`XÁC NHẬN HOÀN ${formatTien(soTien)} đ cho khách "${ten}" bằng ${hinhThuc}${taiKhoan ? ' từ ' + taiKhoan : ''}?\n\nSố dư trả trước còn lại: ${formatTien(soDu - soTien)} đ.`)) return;
+      const kq = await hoanTienTraTruoc({
+        tenKH: ten, maKH: (soTraTruoc.get(khoaKhachTT(ten)) || {}).maKH || '', soTien: soTien, hinhThuc: hinhThuc, taiKhoan: taiKhoan,
+        ngay: document.getElementById('ttHtNgay').value || layNgayLocalYYYYMMDD(new Date()), ghiChu: document.getElementById('ttHtGhiChu').value.trim()
+      });
+      if (!kq.ok) { alert('❌ Chưa hoàn được: ' + kq.loi); return; }
+      dongModalTT('modalHoanTienTraTruoc');
+      await napSoDuTraTruoc();
+      alert(`✅ Đã ghi nhận hoàn ${formatTien(soTien)} đ cho khách "${ten}". Số dư trả trước còn lại: ${formatTien(soDuTraTruocCua(ten))} đ.`);
     }
 
     // ========================================================
@@ -2874,6 +3451,9 @@
 
       alert(`✅ Đã thêm thành công đơn nợ ngoài bảng kê "${maHD}" cho khách hàng "${tenKH}" với số tiền ${formatTien(soTienNo)} đ!` +
         (canhBaoChuaDongBo || '\n\nĐơn nợ này đã được đồng bộ lên hệ thống, mọi máy khác sẽ thấy ngay.'));
+
+      // Khách đang có tiền trả trước → HỎI có cấn trừ vào đơn vừa tạo không (không tự trừ)
+      hoiCanTruSauKhiCoNo(tenKH, [donMoi.id]);
     }
 
     // ========================================================
@@ -3053,12 +3633,30 @@
         await taiLaiDuLieuCongNo();
         return;
       }
+      // Khách đưa DƯ so với nợ còn lại: phần trừ nợ ghi vào thu_no như cũ, phần dư (sau khi hỏi)
+      // ghi vào SỔ TIỀN KHÁCH TRẢ TRƯỚC để trừ vào đơn sau (có hỏi) hoặc hoàn lại cho khách.
+      // Máy chủ chưa có sổ trả trước (chưa chạy sql/12) thì giữ cách làm cũ.
+      let phanDu = null;
       if (soTienThu > clMoiNhat) {
-        if (!confirm(`Số tiền thu (${formatTien(soTienThu)} đ) lớn hơn số nợ còn lại thực tế (${formatTien(clMoiNhat)} đ). Bạn vẫn muốn tiếp tục?`)) {
+        if (dongBoDuocCloud && soTraTruocSanSang !== false && typeof tachPhanDuTT === 'function') {
+          const tach = tachPhanDuTT(tienMatThu, chuyenKhoanThu, clMoiNhat);
+          if (!confirm(`Khách đưa ${formatTien(soTienThu)} đ nhưng đơn "${don.maHD}" chỉ còn nợ ${formatTien(clMoiNhat)} đ.\n\n` +
+            `• Trừ nợ đơn này: ${formatTien(clMoiNhat)} đ\n` +
+            `• Phần dư ${formatTien(tach.tmDu + tach.ckDu)} đ sẽ được GHI VÀO SỔ TIỀN KHÁCH TRẢ TRƯỚC của khách "${don.tenKH}" ` +
+            `(trừ vào đơn sau — luôn hỏi trước khi trừ — hoặc hoàn lại cho khách).\n\nBấm [OK] để ghi nhận, [Hủy] để sửa lại số tiền.`)) {
+            if (btnLuu) btnLuu.disabled = false;
+            return;
+          }
+          phanDu = tach;
+        } else if (!confirm(`Số tiền thu (${formatTien(soTienThu)} đ) lớn hơn số nợ còn lại thực tế (${formatTien(clMoiNhat)} đ). Bạn vẫn muốn tiếp tục?`)) {
           if (btnLuu) btnLuu.disabled = false;
           return;
         }
       }
+      // Phần thực sự trừ vào nợ của đơn này (khi có phần dư thì không tính phần dư)
+      const tmTruNo = phanDu ? phanDu.tmNo : tienMatThu;
+      const ckTruNo = phanDu ? phanDu.ckNo : chuyenKhoanThu;
+      const soTienTruNo = tmTruNo + ckTruNo;
 
       // Ghi nhận lên Supabase TRƯỚC — thành công mới cập nhật sổ trên máy này,
       // để mọi máy khác đều thấy được khoản vừa thu (tránh thu trùng). Nếu bảng
@@ -3068,19 +3666,19 @@
       let resInsert = { error: null };
       if (dongBoDuocCloud && typeof sb !== 'undefined') {
         const dongThuNo = [];
-        if (tienMatThu > 0) {
+        if (tmTruNo > 0) {
           dongThuNo.push({
             id_don_no: id, ma_hd: don.maHD || '', ma_dot: don.maDot || '',
             ma_kh: don.maKH || '', ten_kh: don.tenKH || '',
-            so_tien: tienMatThu, hinh_thuc: 'Tiền mặt', tai_khoan_nhan: '',
+            so_tien: tmTruNo, hinh_thuc: 'Tiền mặt', tai_khoan_nhan: '',
             nguoi_thu: layNguoiThaoTac(), ghi_chu: ghiChu || '', ngay_thu: ngayThu
           });
         }
-        if (chuyenKhoanThu > 0) {
+        if (ckTruNo > 0) {
           dongThuNo.push({
             id_don_no: id, ma_hd: don.maHD || '', ma_dot: don.maDot || '',
             ma_kh: don.maKH || '', ten_kh: don.tenKH || '',
-            so_tien: chuyenKhoanThu, hinh_thuc: 'Chuyển khoản', tai_khoan_nhan: nhNhan || '',
+            so_tien: ckTruNo, hinh_thuc: 'Chuyển khoản', tai_khoan_nhan: nhNhan || '',
             nguoi_thu: layNguoiThaoTac(), ghi_chu: ghiChu || '', ngay_thu: ngayThu
           });
         }
@@ -3101,24 +3699,39 @@
         return;
       }
 
-      don.daThu = (don.daThu || 0) + soTienThu;
+      don.daThu = (don.daThu || 0) + soTienTruNo;
       // Khoản vừa thu đã nằm trên Cloud → dời mốc đối chiếu theo, để lần đồng bộ sau không cộng trùng
-      if (dongBoDuocCloud && typeof don.daThuCloudDaDongBo === 'number') don.daThuCloudDaDongBo += soTienThu;
-      don.conLai = Math.max(0, clMoiNhat - soTienThu);
+      if (dongBoDuocCloud && typeof don.daThuCloudDaDongBo === 'number') don.daThuCloudDaDongBo += soTienTruNo;
+      don.conLai = Math.max(0, clMoiNhat - soTienTruNo);
       don.trangThai = don.conLai <= 0 ? 'da_thu_du' : 'da_thu_mot_phan';
       don.taiKhoanNhan = nhNhan || don.taiKhoanNhan;
       don.ngayThanhToan = ngayThu;
-      don.ghiChuThu = `Đã thu ${formatTien(soTienThu)} đ (${phuongThucChiTiet}) ngày ${ngayThu}. ${ghiChu}`;
+      don.ghiChuThu = `Đã thu ${formatTien(soTienTruNo)} đ (${phuongThucChiTiet}) ngày ${ngayThu}.${phanDu ? ` Dư ${formatTien(phanDu.tmDu + phanDu.ckDu)} đ ghi trả trước.` : ''} ${ghiChu}`;
 
       ghiSoCongNo(danhSachCongNo);
       dongModalThuNoTaiQuy();
       capNhatKPI();
       veBangCongNo();
 
+      // Ghi phần dư vào sổ tiền khách trả trước (người dùng đã đồng ý ở bước hỏi phía trên)
+      let thongBaoDu = '';
+      if (phanDu) {
+        const dongDu = [];
+        if (phanDu.tmDu > 0) dongDu.push({ ngay: ngayThu, ma_kh: don.maKH || '', ten_kh: don.tenKH || '', loai: 'nhan', so_tien: phanDu.tmDu, hinh_thuc: 'Tiền mặt', nguon: 'thu_tai_quy_du', ma_hd: don.maHD || '', ghi_chu: ghiChu || '' });
+        if (phanDu.ckDu > 0) dongDu.push({ ngay: ngayThu, ma_kh: don.maKH || '', ten_kh: don.tenKH || '', loai: 'nhan', so_tien: phanDu.ckDu, hinh_thuc: 'Chuyển khoản', tai_khoan_nhan: nhNhan || '', nguon: 'thu_tai_quy_du', ma_hd: don.maHD || '', ghi_chu: ghiChu || '' });
+        const kqDu = await ghiSoTraTruoc(dongDu);
+        thongBaoDu = kqDu.ok
+          ? `\n\n💚 Phần dư ${formatTien(phanDu.tmDu + phanDu.ckDu)} đ đã ghi vào SỔ TIỀN KHÁCH TRẢ TRƯỚC của khách.`
+          : `\n\n⚠️ CHƯA ghi được phần dư ${formatTien(phanDu.tmDu + phanDu.ckDu)} đ vào sổ trả trước (${kqDu.loi || 'lỗi'}). Vui lòng ghi tay bằng nút "💚 Khách Trả Trước".`;
+        await napSoDuTraTruoc();
+      }
+
       const canhBaoChuaDongBo = dongBoDuocCloud ? '' :
         '\n\n⚠️ LƯU Ý: Hệ thống chống thu trùng (bảng thu_no) CHƯA được thiết lập trên máy chủ, nên khoản thu này mới chỉ lưu trên máy này. Vui lòng nhờ quản trị viên chạy file sql/07_thu_no_dong_bo.sql trên Supabase càng sớm càng tốt.';
-      alert(`✅ Đã ghi nhận thu thành công ${formatTien(soTienThu)} đ (${phuongThucChiTiet}) cho đơn "${don.maHD}" của khách "${don.tenKH}"!` +
-        (dongBoDuocCloud ? '\n\nKhoản thu này đã được đồng bộ lên hệ thống, mọi máy khác sẽ thấy ngay.' : canhBaoChuaDongBo));
+      alert(`✅ Đã ghi nhận thu thành công ${formatTien(soTienTruNo)} đ trừ nợ đơn "${don.maHD}" của khách "${don.tenKH}" (khách đưa ${phuongThucChiTiet})!` +
+        (dongBoDuocCloud ? '\n\nKhoản thu này đã được đồng bộ lên hệ thống, mọi máy khác sẽ thấy ngay.' : canhBaoChuaDongBo) + thongBaoDu);
+      // Khách còn đơn nợ khác → HỎI có muốn dùng phần dư để trừ tiếp không (không tự trừ)
+      if (phanDu) await hoiCanTruSauKhiCoTien(don.tenKH);
     }
 
     // ========================================================
@@ -3208,6 +3821,16 @@
       document.getElementById('p_daThuBox').textContent = formatTien(sumThu) + ' đ';
       document.getElementById('p_conLaiBox').textContent = formatTien(sumCon) + ' đ';
       document.getElementById('p_soTienBangChu').textContent = docSoThanhChu(sumCon);
+
+      // Khách có tiền trả trước chưa dùng → ghi rõ trên biên bản đối chiếu
+      const elTT = document.getElementById('p_traTruocBox');
+      if (elTT) {
+        const soDuTT = soDuTraTruocCua(locKH);
+        elTT.style.display = soDuTT > 0 ? '' : 'none';
+        elTT.innerHTML = soDuTT > 0
+          ? `• Số dư tiền khách đã trả trước (chưa cấn trừ): <b>${formatTien(soDuTT)} đ</b> → Còn phải thanh toán sau khi trừ tiền trả trước: <b>${formatTien(Math.max(0, sumCon - soDuTT))} đ</b>${soDuTT > sumCon ? ` (công ty còn giữ của khách ${formatTien(soDuTT - sumCon)} đ)` : ''}`
+          : '';
+      }
 
       // Kích hoạt in trình duyệt
       window.print();

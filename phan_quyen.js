@@ -50,6 +50,9 @@ const DANH_MUC_CHUC_NANG = [
   { id: "congno.xoa_don", module: "congno", loai: "ghi", label: "Xoá đơn nợ / hoàn tác xoá", ham: ["xoaDonNo", "xoaDonNoTrongModal", "hoanTacXoaDonNo"] },
   { id: "congno.in_xuat", module: "congno", loai: "doc", label: "In đối chiếu & xuất Excel công nợ", ham: ["inDoiChieuCongNoTuBoLoc", "inDoiChieuChoKhach", "inDoiChieuChoKhachDangXem", "xuatExcelCongNo", "xuatExcelBaoCaoCongNo", "inBaoCaoCongNo"] },
   { id: "congno.bao_cao", module: "congno", loai: "doc", label: "Xem báo cáo chi tiết (khách đã chọn, 4 thẻ tổng hợp, hàng hoá, đã thu)", ham: ["moBaoCaoDaChon", "moBaoCaoKPI"] },
+  { id: "congno.xem_tra_truoc", module: "congno", loai: "doc", label: "Xem sổ tiền khách trả trước / trả dư", ham: ["moSoTraTruoc", "xemLichSuTraTruoc"] },
+  { id: "congno.tra_truoc", module: "congno", loai: "ghi", label: "Nhận tiền trả trước & cấn trừ vào nợ", ham: ["moModalNhanTraTruoc", "luuNhanTraTruoc", "moModalCanTruTraTruoc", "xacNhanCanTruTraTruoc"] },
+  { id: "congno.hoan_tien", module: "congno", loai: "ghi", label: "Hoàn tiền trả trước cho khách", ham: ["moModalHoanTienTraTruoc", "luuHoanTienTraTruoc"] },
   // Danh mục
   { id: "danhmuc.them_sua", module: "danhmuc", loai: "ghi", label: "Thêm / sửa bản ghi danh mục", ham: ["moModalThem", "moModalSua", "xuLyLuuBanGhi"] },
   { id: "danhmuc.xoa", module: "danhmuc", loai: "ghi", label: "Xoá bản ghi danh mục", ham: ["xoaBanGhi"] },

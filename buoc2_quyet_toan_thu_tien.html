@@ -17,6 +17,7 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <script src="config.js"></script>
   <script src="phan_quyen.js"></script>
+  <script src="khach_tra_truoc.js"></script>
   <script src="pwa.js"></script>
   <link rel="stylesheet" href="layout.css">
   <style>
@@ -3008,7 +3009,9 @@
       if (dsVuot.length) {
         const dongY = confirm(`⚠️ Có ${dsVuot.length} khách thu nợ VƯỢT số nợ còn lại trong sổ (có thể vừa được thu ở nơi khác):\n\n` +
           dsVuot.map(r => `• ${r.tenKH}: thu ${formatTien(r.soTien)} đ, còn nợ ${formatTien(r.conNo)} đ → vượt ${formatTien(r.vuot)} đ`).join('\n') +
-          `\n\nPhần vượt vẫn tính vào tiền tài xế nộp nhưng KHÔNG được cấn trừ vào công nợ.\nBấm [OK] để vẫn lưu, [Hủy / Cancel] để sửa lại.`);
+          `\n\nPhần vượt vẫn tính vào tiền tài xế nộp nhưng KHÔNG được cấn trừ vào công nợ` +
+          (typeof taiSoTraTruoc === 'function' ? ` (sau khi lưu sẽ hỏi có ghi phần vượt vào SỔ TIỀN KHÁCH TRẢ TRƯỚC không)` : '') +
+          `.\nBấm [OK] để vẫn lưu, [Hủy / Cancel] để sửa lại.`);
         if (!dongY) return null;
       }
       return kq;
@@ -3563,6 +3566,151 @@
         phanBoThuNoCu();
         veDanhSachThuNo();
       }
+      // Khách trả dư / thu nợ vượt → hỏi ghi vào Sổ tiền khách trả trước; khách có tiền trả trước
+      // mà phát sinh nợ mới → hỏi có cấn trừ không (không bao giờ tự trừ)
+      if (dotHienTai && dotHienTai.daQuyetToan) await xuLyTraTruocSauQuyetToan();
+    }
+
+    // ========================================================
+    // TIỀN KHÁCH TRẢ DƯ / TRẢ TRƯỚC SAU KHI QUYẾT TOÁN (dùng khach_tra_truoc.js)
+    // ========================================================
+    async function xuLyTraTruocSauQuyetToan() {
+      if (typeof taiSoTraTruoc !== 'function' || typeof sb === 'undefined') return;
+      const dot = dotHienTai;
+      const maDot = dot.maDot;
+      const ngay = chuanHoaNgayISO(dot.ngayRaw) || chuanHoaNgayISO(dot.ngayGiao) || new Date().toISOString().slice(0, 10);
+      const ghiChuChuyen = `Chuyến xe ${dot.xe || ''} ngày ${dot.ngayGiao || ngay}`;
+
+      // 1. Số tiền dư mong muốn của chuyến này (theo số liệu vừa lưu)
+      const mongMuon = new Map(); // khoá -> dòng sổ trả trước
+      const them = (khoa, dong) => {
+        const cu = mongMuon.get(khoa);
+        if (cu) cu.so_tien += dong.so_tien; else mongMuon.set(khoa, dong);
+      };
+      danhSachHoaDonQuyetToan.forEach(hd => {
+        const phaiTra = Math.max(0, (hd.tienHD || 0) - (hd.traVe || 0));
+        const du = (hd.tienMat || 0) + (hd.chuyenKhoan || 0) - phaiTra;
+        if (du <= 0.5) return;
+        const tach = tachPhanDuTT(hd.tienMat || 0, hd.chuyenKhoan || 0, phaiTra);
+        const goc = { ngay, ma_kh: hd.maKH || '', ten_kh: hd.tenKH || '', loai: 'nhan', nguon: 'buoc2_du_hoa_don', ma_dot: maDot, ma_hd: hd.maHD, ghi_chu: ghiChuChuyen };
+        if (tach.tmDu > 0) them(`buoc2_du_hoa_don|${hd.maHD}|Tiền mặt`, Object.assign({}, goc, { so_tien: tach.tmDu, hinh_thuc: 'Tiền mặt', tai_khoan_nhan: '' }));
+        if (tach.ckDu > 0) them(`buoc2_du_hoa_don|${hd.maHD}|Chuyển khoản`, Object.assign({}, goc, { so_tien: tach.ckDu, hinh_thuc: 'Chuyển khoản', tai_khoan_nhan: hd.taiKhoanNhan || '' }));
+      });
+      danhSachThuNo.forEach(r => {
+        if (r.ngoaiSo || !(r.vuot > 0.5)) return;
+        them(`buoc2_du_thu_no|${khoaKhachTT(r.tenKH)}|Tiền mặt`, {
+          ngay, ma_kh: r.maKH || '', ten_kh: r.tenKH, loai: 'nhan', so_tien: Math.round(r.vuot), hinh_thuc: 'Tiền mặt', tai_khoan_nhan: '',
+          nguon: 'buoc2_du_thu_no', ma_dot: maDot, ma_hd: '', ghi_chu: ghiChuChuyen + ' — thu nợ cũ vượt số nợ'
+        });
+      });
+
+      // 2. Đã ghi gì cho chuyến này trước đó → chỉ ghi PHẦN CHÊNH (lưu lại nhiều lần không bị ghi trùng)
+      let daGhi = [];
+      try {
+        const { data, error } = await sb.from(BANG_TRA_TRUOC).select('*').eq('ma_dot', maDot).in('nguon', ['buoc2_du_hoa_don', 'buoc2_du_thu_no']);
+        if (error) {
+          if (laLoiThieuBangTT(error)) {
+            if (mongMuon.size) alert('ℹ️ Chuyến xe có khách trả dư tiền nhưng máy chủ chưa có Sổ tiền khách trả trước — nhờ quản trị chạy sql/12_khach_tra_truoc.sql để ghi nhận phần dư này.');
+            return;
+          }
+          console.warn('Không đọc được sổ trả trước của chuyến:', error);
+          return;
+        }
+        daGhi = data || [];
+      } catch (e) { return; }
+      const khoaDong = r => r.nguon === 'buoc2_du_thu_no'
+        ? `buoc2_du_thu_no|${khoaKhachTT(r.ten_kh)}|${r.hinh_thuc || 'Tiền mặt'}`
+        : `buoc2_du_hoa_don|${r.ma_hd}|${r.hinh_thuc || 'Tiền mặt'}`;
+      const tongDaGhi = new Map();
+      const mauDaGhi = new Map();
+      daGhi.forEach(r => {
+        const k = khoaDong(r);
+        tongDaGhi.set(k, (tongDaGhi.get(k) || 0) + (parseFloat(r.so_tien) || 0));
+        if (!mauDaGhi.has(k)) mauDaGhi.set(k, r);
+      });
+      const canGhi = [];
+      new Set([...mongMuon.keys(), ...tongDaGhi.keys()]).forEach(k => {
+        const muon = Math.round((mongMuon.get(k) || {}).so_tien || 0);
+        const da = Math.round(tongDaGhi.get(k) || 0);
+        const chenh = muon - da;
+        if (!chenh) return;
+        const mau = mongMuon.get(k) || mauDaGhi.get(k);
+        canGhi.push({
+          ngay, ma_kh: mau.ma_kh || '', ten_kh: mau.ten_kh, loai: 'nhan', so_tien: chenh, hinh_thuc: mau.hinh_thuc || 'Tiền mặt',
+          tai_khoan_nhan: mau.tai_khoan_nhan || '', nguon: mau.nguon, ma_dot: maDot, ma_hd: mau.ma_hd || '',
+          ghi_chu: ghiChuChuyen + (chenh < 0 ? ' — điều chỉnh giảm do sửa quyết toán' : (mau.nguon === 'buoc2_du_thu_no' ? ' — thu nợ cũ vượt số nợ' : ''))
+        });
+      });
+
+      if (canGhi.length) {
+        const moTa = canGhi.map(r => `• ${r.ten_kh}${r.ma_hd ? ' (HĐ ' + r.ma_hd + ')' : ''}: ${r.so_tien > 0 ? '+' : '−'}${formatTien(Math.abs(r.so_tien))} đ ${r.hinh_thuc === 'Chuyển khoản' ? 'chuyển khoản' : 'tiền mặt'} — ${TEN_NGUON_TT[r.nguon] || r.nguon}`).join('\n');
+        const coGiam = canGhi.some(r => r.so_tien < 0);
+        // Điều chỉnh giảm mà khách đã dùng / đã được hoàn phần tiền đó → số dư trả trước sẽ bị âm
+        let canhBaoAm = '';
+        if (coGiam) {
+          const soHienTai = await taiSoTraTruoc();
+          if (soHienTai.ok) {
+            const chenhTheoKhach = new Map();
+            canGhi.forEach(r => { const k = khoaKhachTT(r.ten_kh); chenhTheoKhach.set(k, (chenhTheoKhach.get(k) || 0) + r.so_tien); });
+            const am = [];
+            chenhTheoKhach.forEach((chenh, k) => {
+              const g = soHienTai.theoKhach.get(k);
+              const sau = (g ? g.soDu : 0) + chenh;
+              if (sau < 0) am.push(`• ${g ? g.tenKH : k}: số dư sẽ còn ${formatTien(sau)} đ`);
+            });
+            if (am.length) canhBaoAm = `\n\n⚠️ Số tiền dư này khách đã được dùng / hoàn trước đó nên số dư trả trước sẽ bị ÂM:\n${am.join('\n')}\n(cần thu lại của khách hoặc kiểm tra lại số liệu)`;
+          }
+        }
+        if (confirm((coGiam
+          ? `💚 Tiền KHÁCH TRẢ DƯ của chuyến xe này đã THAY ĐỔI so với lần lưu trước:\n\n${moTa}${canhBaoAm}\n\n` +
+            `Cập nhật SỔ TIỀN KHÁCH TRẢ TRƯỚC theo số mới? (dòng âm = điều chỉnh giảm, Bước 3 hạch toán Nợ 131 – Có 1111/1121)`
+          : `💚 Chuyến xe này có tiền KHÁCH TRẢ DƯ (chưa có đơn nợ để trừ):\n\n${moTa}\n\n` +
+            `Ghi vào SỔ TIỀN KHÁCH TRẢ TRƯỚC? Số tiền này sẽ được trừ vào đơn sau của khách (luôn hỏi trước khi trừ) hoặc hoàn lại cho khách; Bước 3 sẽ hạch toán Nợ 1111/1121 – Có 131.`))) {
+          const kq = await ghiSoTraTruoc(canGhi);
+          alert(kq.ok ? `✅ Đã ghi ${canGhi.length} khoản vào Sổ tiền khách trả trước.` : '❌ Chưa ghi được vào Sổ tiền khách trả trước: ' + (kq.loi || 'lỗi'));
+        }
+      }
+
+      // 3. Khách có tiền trả trước mà phát sinh đơn nợ mới trong chuyến này → HỎI có cấn trừ không
+      if (typeof layQuyenChucNang === 'function' && !layQuyenChucNang('congno.tra_truoc')) return;
+      const so = await taiSoTraTruoc();
+      if (!so.ok) return;
+      const soCongNo = docSoCongNo();
+      const deXuat = [];
+      const soDuConLai = new Map();
+      danhSachHoaDonQuyetToan.filter(hd => hd.noPhatSinh > 0).forEach(hd => {
+        const k = khoaKhachTT(hd.tenKH);
+        const g = so.theoKhach.get(k);
+        if (!g || !(g.soDu > 0)) return;
+        const don = soCongNo.find(d => d.id === `NO_${hd.maHD}` || d.maHD === hd.maHD);
+        if (!don) return;
+        const conLai = Math.max(0, (don.soTienNo || 0) - (don.daThu || 0));
+        const du = soDuConLai.has(k) ? soDuConLai.get(k) : g.soDu;
+        const lay = Math.min(du, conLai);
+        if (lay <= 0) return;
+        soDuConLai.set(k, du - lay);
+        deXuat.push({ tenKH: hd.tenKH, don: don, soTien: lay, soDu: g.soDu });
+      });
+      if (!deXuat.length) return;
+      const moTa = deXuat.map(p => `• ${p.tenKH}: trừ ${formatTien(p.soTien)} đ vào HĐ ${p.don.maHD} (nợ ${formatTien(p.don.soTienNo)} đ) — đang có ${formatTien(p.soDu)} đ trả trước`).join('\n');
+      if (!confirm(`🔁 Có khách đang có TIỀN TRẢ TRƯỚC và vừa phát sinh nợ trong chuyến này:\n\n${moTa}\n\n` +
+        `CẤN TRỪ tiền trả trước vào các đơn nợ này? (Bấm Hủy để giữ nguyên — có thể cấn trừ sau ở trang Theo Dõi Công Nợ)`)) return;
+      const theoKhach = new Map();
+      deXuat.forEach(p => {
+        const k = khoaKhachTT(p.tenKH);
+        if (!theoKhach.has(k)) theoKhach.set(k, { tenKH: p.tenKH, ds: [] });
+        theoKhach.get(k).ds.push({ don: p.don, soTien: p.soTien });
+      });
+      const loi = [];
+      let tong = 0;
+      for (const [, nhom] of theoKhach) {
+        const kq = await canTruTraTruoc(nhom.tenKH, nhom.ds, ghiChuChuyen);
+        if (kq.ok) tong += kq.tong; else loi.push(`${nhom.tenKH}: ${kq.loi}`);
+      }
+      await dongBoConLaiCongNoTuCloud();
+      phanBoThuNoCu();
+      capNhatHienThiThuNo();
+      alert((tong ? `✅ Đã cấn trừ ${formatTien(tong)} đ tiền trả trước vào nợ của khách.` : '') + (loi.length ? `\n\n⚠️ Chưa cấn trừ được:\n${loi.join('\n')}` : ''));
     }
 
     async function luuKetQuaQuyetToanChiTiet(chuanBiThuNo) {
