@@ -432,6 +432,61 @@ function tinhThieuThuaNopTien(tienDem, phaiNop) {
 }
 
 /* ====================================================================
+ * LÀM MỚI CHUYẾN XE ĐÃ QUYẾT TOÁN (Bước 2 → về "Chờ tính tiền")
+ * Phiếu nộp tiền của chuyến được đưa về 0 và ghi_chu bắt đầu bằng GHI_CHU_LAM_MOI_CHUYEN,
+ * để mọi máy nhận biết chuyến đã được làm mới mà gỡ các đơn nợ của chuyến khỏi sổ trên máy mình.
+ * ==================================================================== */
+const GHI_CHU_LAM_MOI_CHUYEN = "[LÀM MỚI CHUYẾN]";
+
+/**
+ * Gỡ khỏi sổ công nợ trên máy này các đơn nợ phát sinh từ chuyến xe đã được "Làm mới" ở Bước 2.
+ * Chỉ gỡ khi chắc chắn: hoá đơn vẫn thuộc đúng chuyến đó trên luu_tru nhưng đã về chưa quyết toán
+ * và không còn nợ, phiếu nộp tiền của chuyến mang dấu làm mới, và đơn nợ không còn khoản thu nào
+ * (trên máy chủ lẫn chỉ ghi trên máy này). Lỗi mạng / thiếu bảng thì giữ nguyên sổ.
+ * @param {Array} ds  sổ công nợ (mảng đơn nợ) — không bị sửa
+ * @returns {Promise<{ds:Array, soGo:number}>}
+ */
+async function goDonNoCuaChuyenDaLamMoi(ds) {
+  const kq = { ds: ds, soGo: 0 };
+  if (typeof sb === "undefined" || !Array.isArray(ds)) return kq;
+  const ungVien = ds.filter(d => d && d.maHD && d.maDot && d.maDot !== "NGOAI_BANG_KE" && !d.ngoaiBangKe && d.id === "NO_" + d.maHD);
+  if (!ungVien.length) return kq;
+  try {
+    const dsMa = Array.from(new Set(ungVien.map(d => d.maHD)));
+    const lt = new Map();
+    for (let i = 0; i < dsMa.length; i += 150) {
+      const { data, error } = await sb.from("luu_tru").select("ma_hd, ma_dot, no_phat_sinh, da_quyet_toan, da_kiem_don").in("ma_hd", dsMa.slice(i, i + 150));
+      if (error) return kq;
+      (data || []).forEach(r => lt.set(r.ma_hd, r));
+    }
+    let nghi = ungVien.filter(d => {
+      const r = lt.get(d.maHD);
+      return r && r.ma_dot === d.maDot && !r.da_quyet_toan && !r.da_kiem_don && !(parseFloat(r.no_phat_sinh) > 0);
+    });
+    if (!nghi.length) return kq;
+    const dsPhieu = Array.from(new Set(nghi.map(d => "PNP_" + d.maDot)));
+    const { data: phieu, error: e1 } = await sb.from("phieu_nop_tien").select("ma_phieu, ghi_chu").in("ma_phieu", dsPhieu);
+    if (e1) return kq;
+    const daLamMoi = new Set((phieu || []).filter(p => String(p.ghi_chu || "").indexOf(GHI_CHU_LAM_MOI_CHUYEN) === 0).map(p => p.ma_phieu));
+    nghi = nghi.filter(d => daLamMoi.has("PNP_" + d.maDot));
+    if (!nghi.length) return kq;
+    const { data: thu, error: e2 } = await sb.from("thu_no").select("id_don_no, so_tien").in("id_don_no", nghi.map(d => d.id));
+    if (e2) return kq;
+    const tongThu = {};
+    (thu || []).forEach(r => { tongThu[r.id_don_no] = (tongThu[r.id_don_no] || 0) + (parseFloat(r.so_tien) || 0); });
+    const go = new Set(nghi.filter(d => {
+      const chiTrenMay = typeof d.daThuCloudDaDongBo === "number" ? Math.max(0, (d.daThu || 0) - d.daThuCloudDaDongBo) : (d.daThu || 0);
+      return !((tongThu[d.id] || 0) > 0.5) && !(chiTrenMay > 0.5);
+    }).map(d => d.id));
+    if (!go.size) return kq;
+    return { ds: ds.filter(d => !go.has(d.id)), soGo: go.size };
+  } catch (e) {
+    console.warn("Lỗi gỡ đơn nợ của chuyến đã làm mới:", e);
+    return kq;
+  }
+}
+
+/* ====================================================================
  * PHÂN QUYỀN THEO MODULE THỰC TẾ CỦA APP
  * Mỗi module tương ứng 1 tab/trang có thật trong menu.
  * Mức quyền: 'all' (toàn quyền) | 'view' (chỉ xem) | 'none' (không truy cập)

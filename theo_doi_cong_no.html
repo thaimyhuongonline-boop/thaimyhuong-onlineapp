@@ -1544,6 +1544,12 @@
         d.trangThai = cl <= 0 ? 'da_thu_du' : ((d.daThu || 0) > 0 ? 'da_thu_mot_phan' : 'chua_thu');
       });
 
+      // 3b. Chuyến xe đã được "Làm mới" ở Bước 2 (về Chờ tính tiền) → gỡ đơn nợ của chuyến khỏi sổ trên máy này
+      if (typeof goDonNoCuaChuyenDaLamMoi === 'function') {
+        const kqGo = await goDonNoCuaChuyenDaLamMoi(danhSachCongNo);
+        if (kqGo.soGo) { danhSachCongNo = kqGo.ds; coThayDoi = true; }
+      }
+
       if (coThayDoi) {
         ghiSoCongNo(danhSachCongNo);
       }

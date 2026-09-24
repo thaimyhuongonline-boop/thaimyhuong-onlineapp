@@ -35,6 +35,7 @@ const DANH_MUC_CHUC_NANG = [
   // B2: Quyết toán thu tiền
   { id: "quyettoan.luu", module: "quyettoan", loai: "ghi", label: "Lưu quyết toán chuyến xe", ham: ["luuKetQuaQuyetToan"] },
   { id: "quyettoan.xoa_chuyen", module: "quyettoan", loai: "ghi", label: "Xoá dữ liệu chuyến xe", ham: ["xoaDuLieuChuyenXe"] },
+  { id: "quyettoan.lam_moi", module: "quyettoan", loai: "ghi", label: "Làm mới chuyến đã quyết toán (về Chờ tính tiền, gỡ công nợ & phiếu nộp tiền)", ham: ["datLaiChuyenVeChoTinhTien"] },
   { id: "quyettoan.thu_no", module: "quyettoan", loai: "ghi", label: "Ghi thu nợ cũ qua xe", ham: ["themDongThuNoKhach", "chonThuNoDonNay", "xacNhanThuCacDonNoDaChon"] },
   { id: "quyettoan.danh_dau_thu_quy", module: "quyettoan", loai: "ghi", label: "Đánh dấu \"Đã thu quỹ\" trong sổ công nợ", ham: ["danhDauDaThuXong"] },
   { id: "quyettoan.in", module: "quyettoan", loai: "doc", label: "In bảng kê quyết toán", ham: ["inBangQuyetToan"] },

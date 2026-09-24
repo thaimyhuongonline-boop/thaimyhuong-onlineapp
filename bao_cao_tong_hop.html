@@ -506,12 +506,15 @@
     function dsDotCoNopTien() {
       const map = new Map();
       duLieuDaLoc().forEach(d => {
-        if (!map.has(d.maDot)) map.set(d.maDot, { maDot: d.maDot, ngay: d.ngay, xe: d.xe, taiXe: d.taiXe });
+        if (!map.has(d.maDot)) map.set(d.maDot, { maDot: d.maDot, ngay: d.ngay, xe: d.xe, taiXe: d.taiXe, coQT: false });
+        if (d.daQT) map.get(d.maDot).coQT = true;
       });
       const out = [];
       map.forEach(dt => {
         const nt = nopTien.get(dt.maDot);
-        if (!nt) return;
+        // Chuyến chưa quyết toán (hoặc đã "Làm mới" về Chờ tính tiền) thì chưa có tiền nộp
+        if (!nt || !dt.coQT) return;
+        delete dt.coQT;
         out.push(Object.assign({}, dt, nt, { nguoiNop: nt.nguoiNop || dt.taiXe || '(Chưa ghi người nộp)' }));
       });
       return out.sort((a, b) => (vnSangKhoa(b.ngay) + b.xe).localeCompare(vnSangKhoa(a.ngay) + a.xe));
@@ -816,7 +819,7 @@
         rows.forEach(d => { if (d.ck > 0) { const n = d.nganHang || 'Chưa rõ tài khoản'; mapNH[n] = (mapNH[n] || 0) + d.ck; } });
         Object.keys(mapNH).forEach(n => chips.push(`<div class="bc-chip">🏦 ${H(n)}: <b>${fmt(mapNH[n])} đ</b></div>`));
       }
-      const ntDot = k === 'dot' ? nopTien.get(chiTietHienTai.param) : null;
+      const ntDot = (k === 'dot' && chiTietHienTai.rows.some(r => r.daQT)) ? nopTien.get(chiTietHienTai.param) : null;
       if (ntDot) {
         const tenNop = ntDot.nguoiNop || (rows[0] && rows[0].taiXe) || '';
         if (tenNop) chips.push(`<div class="bc-chip">👤 Người nộp: <b>${H(tenNop)}</b></div>`);
@@ -914,7 +917,7 @@
       ds.forEach(d => { if (!map.has(d.maDot)) map.set(d.maDot, []); map.get(d.maDot).push(d); });
       map.forEach((rows, maDot) => {
         const s = tongHop(rows);
-        const nt = nopTien.get(maDot);
+        const nt = s.soQT ? nopTien.get(maDot) : null;
         const coDem = !!(nt && nt.daDem);
         aoa.push([rows[0].ngay, rows[0].xe, rows[0].taiXe, s.soHD, s.xuat, s.tm, s.ck, s.tra, s.no,
           nt ? (nt.nguoiNop || rows[0].taiXe) : '', coDem ? nt.thieu : (nt ? 'Chưa đếm tiền' : ''), coDem ? nt.thua : '', coDem ? nt.soNo : '']);
