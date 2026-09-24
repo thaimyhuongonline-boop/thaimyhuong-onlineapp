@@ -49,7 +49,7 @@ const DANH_MUC_CHUC_NANG = [
   { id: "congno.thu_no", module: "congno", loai: "ghi", label: "Thu nợ tại quỹ", ham: ["moModalThuNoTaiQuy", "moThuNoChoDon", "moThuNoChoKhachHang", "luuThuNoTaiQuy"] },
   { id: "congno.them_don", module: "congno", loai: "ghi", label: "Thêm đơn nợ ngoài bảng kê", ham: ["moModalThemDonThuCong", "luuDonNoThuCong"] },
   { id: "congno.xoa_don", module: "congno", loai: "ghi", label: "Xoá đơn nợ / hoàn tác xoá", ham: ["xoaDonNo", "xoaDonNoTrongModal", "hoanTacXoaDonNo"] },
-  { id: "congno.in_xuat", module: "congno", loai: "doc", label: "In đối chiếu & xuất Excel công nợ", ham: ["inDoiChieuCongNoTuBoLoc", "inDoiChieuChoKhach", "inDoiChieuChoKhachDangXem", "xuatExcelCongNo", "xuatExcelBaoCaoCongNo", "inBaoCaoCongNo"] },
+  { id: "congno.in_xuat", module: "congno", loai: "doc", label: "In đối chiếu & xuất Excel công nợ", ham: ["inDoiChieuCongNoTuBoLoc", "inDoiChieuChoKhach", "inDoiChieuChoKhachDangXem", "xuatExcelCongNo", "xuatExcelBaoCaoCongNo", "inBaoCaoCongNo", "xuatBaoCaoExcelTheoMau"] },
   { id: "congno.bao_cao", module: "congno", loai: "doc", label: "Xem báo cáo chi tiết (khách đã chọn, 4 thẻ tổng hợp, hàng hoá, đã thu)", ham: ["moBaoCaoDaChon", "moBaoCaoKPI"] },
   { id: "congno.xem_tra_truoc", module: "congno", loai: "doc", label: "Xem sổ tiền khách trả trước / trả dư", ham: ["moSoTraTruoc", "xemLichSuTraTruoc"] },
   { id: "congno.tra_truoc", module: "congno", loai: "ghi", label: "Nhận tiền trả trước & cấn trừ vào nợ", ham: ["moModalNhanTraTruoc", "luuNhanTraTruoc", "moModalCanTruTraTruoc", "xacNhanCanTruTraTruoc"] },

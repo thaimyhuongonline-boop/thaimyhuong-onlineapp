@@ -523,6 +523,11 @@
           <button type="button" class="btn btn-outline" style="height:32px; padding:0 12px; font-size:12px; font-weight:700; white-space:nowrap;" onclick="moModalDonDaXoa()" title="Xem nhật ký xoá đơn nợ và hoàn tác">
             <span>🗑️</span> Đơn Đã Xoá
           </button>
+
+          <!-- XUẤT BẢNG THEO DÕI CÔNG NỢ THEO MẪU (các khách / đơn nợ đã tích chọn) -->
+          <button type="button" class="btn btn-outline" style="height:32px; padding:0 12px; font-size:12px; font-weight:700; white-space:nowrap; color:#15803d; border-color:#86efac;" onclick="xuatBaoCaoExcelTheoMau()" title="Tích chọn khách hàng / đơn nợ rồi bấm để xuất Bảng theo dõi công nợ ra Excel theo mẫu (cột mặt hàng tự thêm / bớt)">
+            <span>📊</span> Xuất Báo Cáo
+          </button>
         </div>
 
         <div style="display:flex; align-items:center; gap:8px;">
@@ -540,6 +545,7 @@
         <div id="thanhChonNoiDung">Đã chọn 0 khách hàng</div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <button type="button" class="btn btn-sang" onclick="moBaoCaoDaChon()">📊 Xem báo cáo đã chọn</button>
+          <button type="button" class="btn btn-sang" onclick="xuatBaoCaoExcelTheoMau()" title="Xuất Bảng theo dõi công nợ các đơn đã chọn ra Excel theo mẫu">📥 Xuất Excel theo mẫu</button>
           <button type="button" class="btn btn-mo" onclick="boChonTatCaCongNo()">✕ Bỏ chọn</button>
         </div>
       </div>
@@ -2330,6 +2336,15 @@
       if (!canTai.length) return;
       bcDangNapHang = true;
       veBaoCaoCongNo();
+      await napHangHoaChoCacDon(cfg.dsDon);
+      bcDangNapHang = false;
+      if (baoCaoHienTai === cfg) veBaoCaoCongNo();
+    }
+
+    // Nạp dòng hàng hoá của các hoá đơn vào hangHoaTheoHD (chi_tiet_hoa_don trên máy chủ, dự phòng dữ liệu trên máy)
+    async function napHangHoaChoCacDon(dsDon) {
+      const canTai = Array.from(new Set(dsDon.map(d => chuanMaHD(d.maHD)).filter(ma => ma && !hangHoaTheoHD.has(ma))));
+      if (!canTai.length) return;
       const dsCloud = [];
       if (typeof sb !== 'undefined') {
         for (let i = 0; i < canTai.length; i += 150) {
@@ -2349,14 +2364,12 @@
       const dsTrenMay = docHangHoaTrenMay(new Set(canTai));
       const qcDanhMuc = layMapQuyCach();
       canTai.forEach(ma => {
-        const don = cfg.dsDon.find(d => chuanMaHD(d.maHD) === ma);
+        const don = dsDon.find(d => chuanMaHD(d.maHD) === ma);
         const cloud = dsCloud.filter(r => r.maHD === ma);
         const dong = chonBoDongHang(cloud.length ? cloud : dsTrenMay.filter(r => r.maHD === ma), don && don.maDot);
         dong.forEach(h => { if (!(h.quyCach > 1) && qcDanhMuc.has(h.maHang)) h.quyCach = qcDanhMuc.get(h.maHang); });
         hangHoaTheoHD.set(ma, dong);
       });
-      bcDangNapHang = false;
-      if (baoCaoHienTai === cfg) veBaoCaoCongNo();
     }
 
     async function napThuNoChoBaoCao() {
@@ -3845,6 +3858,261 @@
     // ========================================================
     // XUẤT FILE EXCEL CHUẨN ĐẸP DẠNG BẢNG (.XLSX)
     // ========================================================
+    // ========================================================
+    // XUẤT BẢNG THEO DÕI CÔNG NỢ THEO MẪU (các khách / đơn nợ đã tích chọn)
+    // --------------------------------------------------------
+    // Mỗi dòng = 1 hoá đơn nợ: Ngày · Khách hàng · số lượng từng mặt hàng · Thành tiền · Ghi chú (mã HĐ)
+    // · Số HĐ · Tổng tiền trên hoá đơn (2 cột cuối để kế toán điền số hoá đơn GTGT).
+    // Cột mặt hàng (tiêu đề = mã hàng) tự thêm / bớt theo hàng hoá thực có trong các đơn đã chọn.
+    // Dùng ExcelJS (tải khi bấm) để chèn logo công ty như mẫu.
+    // ========================================================
+    const HOTLINE_BAO_CAO_CONG_NO = 'HOTLINE 0905 761 377';
+    const EXCELJS_CDN = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+    function baoNhanhCongNo(msg) {
+      let t = document.getElementById('tmhToastCongNo');
+      if (!t) {
+        t = document.createElement('div');
+        t.id = 'tmhToastCongNo';
+        t.className = 'no-print';
+        t.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:2147483000;background:#166534;color:#fff;padding:11px 18px;border-radius:10px;font:700 13px/1.4 sans-serif;box-shadow:0 12px 28px rgba(0,0,0,.25);max-width:92vw;text-align:center;transition:opacity .25s;';
+        document.body.appendChild(t);
+      }
+      t.textContent = msg;
+      t.style.opacity = '1';
+      clearTimeout(t._hen);
+      t._hen = setTimeout(() => { t.style.opacity = '0'; }, 3500);
+    }
+
+    function taiThuVienExcelJS() {
+      if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
+      return new Promise((ok, loi) => {
+        const s = document.createElement('script');
+        s.src = EXCELJS_CDN;
+        s.onload = () => window.ExcelJS ? ok(window.ExcelJS) : loi(new Error('Thư viện ExcelJS chưa sẵn sàng'));
+        s.onerror = () => loi(new Error('Không tải được thư viện ExcelJS (kiểm tra kết nối mạng)'));
+        document.head.appendChild(s);
+      });
+    }
+
+    async function taiLogoCongTy() {
+      try {
+        const res = await fetch('logo.png');
+        if (!res.ok) return null;
+        return await res.arrayBuffer();
+      } catch (e) { return null; }
+    }
+
+    // Phần tên chung của các khách (vd. "FULL MART - 72 LÊ QUANG ĐẠO", "FULL MART - VÕ QUÝ HUÂN" → "FULL MART")
+    function tienToChungTenKhach(dsTen) {
+      if (dsTen.length < 2) return { ten: dsTen[0] || '', soTu: 0 };
+      const tach = dsTen.map(t => String(t).trim().split(/\s+/));
+      let n = 0;
+      while (n < tach[0].length && tach.every(w => w[n] && w[n].toUpperCase() === tach[0][n].toUpperCase())) n++;
+      const ten = tach[0].slice(0, n).join(' ').replace(/[\s\-–—:,.|/]+$/, '').trim();
+      return ten.length >= 3 ? { ten: ten, soTu: n } : { ten: '', soTu: 0 };
+    }
+
+    function tenKhachTrenBaoCao(ten, soTu) {
+      if (!soTu) return ten;
+      const phanSau = String(ten).trim().split(/\s+/).slice(soTu).join(' ').replace(/^[\s\-–—:,.|/]+/, '').trim();
+      return phanSau || ten;
+    }
+
+    async function xuatBaoCaoExcelTheoMau() {
+      const ds = layDonDaChon();
+      if (!ds.length) {
+        alert('⚠️ Chưa chọn đơn nợ nào.\n\nHãy tích ô đầu dòng các khách hàng (tab Phân loại theo khách hàng) hoặc từng hoá đơn (tab Chi tiết từng hoá đơn nợ) cần đưa vào báo cáo, rồi bấm Xuất Báo Cáo.');
+        return;
+      }
+      const dsDon = ds.slice().sort((a, b) => ngayNoCuaDon(a).localeCompare(ngayNoCuaDon(b)) || String(a.maHD).localeCompare(String(b.maHD), 'vi', { numeric: true }));
+
+      // Tiêu đề (cho sửa trước khi xuất)
+      const dsTen = Array.from(new Set(dsDon.map(khoaKhachCongNo)));
+      const chung = tienToChungTenKhach(dsTen);
+      const tenTieuDe = dsTen.length === 1 ? dsTen[0] : (chung.ten || `${dsTen.length} KHÁCH HÀNG`);
+      const dsNgay = dsDon.map(ngayNoCuaDon).filter(Boolean).sort();
+      const tuNgay = document.getElementById('locTuNgay')?.value || dsNgay[0] || '';
+      const denNgay = document.getElementById('locDenNgay')?.value || dsNgay[dsNgay.length - 1] || '';
+      const khoangNgay = (tuNgay || denNgay) ? ` TỪ NGÀY ${tuNgay ? dinhDangNgayVN(tuNgay) : '...'} ĐẾN ${denNgay ? dinhDangNgayVN(denNgay) : '...'}` : '';
+      const tieuDeMacDinh = `BẢNG THEO DÕI CÔNG NỢ ${String(tenTieuDe).toUpperCase()}${khoangNgay}`;
+      const tieuDe = prompt(`📊 Xuất bảng theo dõi công nợ: ${dsDon.length} hoá đơn nợ của ${dsTen.length} khách hàng.\n\nTiêu đề báo cáo (có thể sửa):`, tieuDeMacDinh);
+      if (tieuDe === null) return;
+
+      baoNhanhCongNo('⏳ Đang chuẩn bị file Excel báo cáo công nợ...');
+      let ExcelJS, logo;
+      try {
+        [ExcelJS, logo] = await Promise.all([taiThuVienExcelJS(), taiLogoCongTy(), napHangHoaChoCacDon(dsDon)]);
+      } catch (e) {
+        alert('❌ Chưa xuất được báo cáo: ' + ((e && e.message) || e));
+        return;
+      }
+
+      // Cột mặt hàng: mã hàng có trong các đơn đã chọn (hàng khuyến mãi tách cột riêng)
+      const cotHang = new Map(); // khoá -> { maHang, tenHang, km, tong }
+      const slTheoDon = new Map(); // id đơn -> Map(khoá -> số lượng)
+      let soDonThieuHang = 0;
+      dsDon.forEach(d => {
+        const dong = hangHoaTheoHD.get(chuanMaHD(d.maHD)) || [];
+        if (!dong.length) soDonThieuHang++;
+        const m = new Map();
+        dong.forEach(h => {
+          if (!h.maHang) return;
+          const k = h.maHang + (h.km ? '|KM' : '');
+          if (!cotHang.has(k)) cotHang.set(k, { maHang: h.maHang, tenHang: h.tenHang || '', km: !!h.km, tong: 0 });
+          const c = cotHang.get(k);
+          c.tong += h.soLuong || 0;
+          if (!c.tenHang && h.tenHang) c.tenHang = h.tenHang;
+          m.set(k, (m.get(k) || 0) + (h.soLuong || 0));
+        });
+        slTheoDon.set(d.id, m);
+      });
+      const dsCot = Array.from(cotHang.entries())
+        .sort((a, b) => (Number(a[1].km) - Number(b[1].km)) || String(a[1].maHang).localeCompare(String(b[1].maHang), 'vi', { numeric: true }))
+        .map(([k, c]) => Object.assign({ khoa: k }, c));
+
+      // ---------- Dựng file ----------
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'Thái Mỹ Hương';
+      const ws = wb.addWorksheet('Cong_No', {
+        views: [{ state: 'frozen', xSplit: 3, ySplit: 5 }],
+        pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+          margins: { left: 0.25, right: 0.25, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 }, printTitlesRow: '5:5' }
+      });
+      const soCotHang = dsCot.length;
+      const cotThanhTien = 4 + soCotHang, cotGhiChu = cotThanhTien + 1, cotSoHD = cotThanhTien + 2, cotTongHD = cotThanhTien + 3;
+      const soCot = cotTongHD;
+      const FONT = 'Times New Roman';
+      const vien = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+      const nen = mau => ({ type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + mau } });
+
+      ws.columns = [{ width: 5 }, { width: 11 }, { width: 34 }]
+        .concat(dsCot.map(() => ({ width: 6.5 })))
+        .concat([{ width: 13 }, { width: 12 }, { width: 14 }, { width: 15 }]);
+
+      // Đầu trang: logo + thông tin công ty · hotline · tiêu đề
+      if (logo) {
+        const idLogo = wb.addImage({ buffer: logo, extension: 'png' });
+        ws.addImage(idLogo, { tl: { col: 0.1, row: 0.15 }, ext: { width: 62, height: 62 } });
+      }
+      [1, 2, 3, 4].forEach(r => { ws.getRow(r).height = 18; });
+      const oCongTy = [
+        ['CÔNG TY TNHH THÁI MỸ HƯƠNG', { name: FONT, bold: true, size: 10, color: { argb: 'FF15803D' } }],
+        ['291 Văn Tiến Dũng, P. Hòa Xuân, Q. Cẩm Lệ, TP. Đà Nẵng', { name: FONT, italic: true, size: 8 }],
+        ['ĐT: 090 580 1918 / 090 585 1918', { name: FONT, italic: true, size: 8 }]
+      ];
+      oCongTy.forEach(([v, f], i) => { const c = ws.getCell(i + 1, 3); c.value = v; c.font = f; });
+      const gop = (r, tu, den) => { if (den > tu) ws.mergeCells(r, tu, r, den); return ws.getCell(r, tu); };
+      const cHot = gop(1, 4, soCot);
+      cHot.value = HOTLINE_BAO_CAO_CONG_NO;
+      cHot.font = { name: FONT, bold: true, size: 11 };
+      cHot.alignment = { horizontal: 'center', vertical: 'middle' };
+      const cTieuDe = gop(2, 4, soCot);
+      cTieuDe.value = tieuDe.trim() || tieuDeMacDinh;
+      cTieuDe.font = { name: FONT, bold: true, size: 13 };
+      cTieuDe.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      ws.getRow(2).height = 24;
+      const cPhu = gop(3, 4, soCot);
+      cPhu.value = `${dsDon.length} hoá đơn nợ · ${dsTen.length} khách hàng · Ngày xuất ${new Date().toLocaleDateString('vi-VN')}`;
+      cPhu.font = { name: FONT, italic: true, size: 9, color: { argb: 'FF475569' } };
+      cPhu.alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Dòng tiêu đề bảng (vàng như mẫu)
+      const hangTieuDe = ws.getRow(5);
+      const tieuDeCot = ['STT', 'NGÀY', 'KHÁCH HÀNG']
+        .concat(dsCot.map(c => c.maHang + (c.km ? '\n(KM)' : '')))
+        .concat(['THÀNH TIỀN', 'GHI CHÚ', 'SỐ HĐ', 'TỔNG TIỀN TRÊN HOÁ ĐƠN']);
+      tieuDeCot.forEach((v, i) => {
+        const c = hangTieuDe.getCell(i + 1);
+        c.value = v;
+        c.font = { name: FONT, bold: true, size: i >= 3 && i < 3 + soCotHang ? 8 : 9 };
+        c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        c.fill = nen('FFFF00');
+        c.border = vien;
+      });
+      dsCot.forEach((cot, i) => {
+        if (cot.tenHang) hangTieuDe.getCell(4 + i).note = cot.tenHang + (cot.km ? ' (khuyến mãi)' : '');
+      });
+      hangTieuDe.height = 42;
+
+      // Các dòng hoá đơn
+      let dongSo = 6;
+      dsDon.forEach((d, idx) => {
+        const m = slTheoDon.get(d.id) || new Map();
+        const giaTri = [idx + 1, dinhDangNgayVN(ngayNoCuaDon(d)) || d.ngayGiao || '', tenKhachTrenBaoCao(khoaKhachCongNo(d), chung.soTu)]
+          .concat(dsCot.map(c => { const v = Math.round((m.get(c.khoa) || 0) * 1000) / 1000; return v ? v : null; }))
+          .concat([d.tienHD || d.soTienNo || 0, d.maHD || '', null, null]);
+        const hang = ws.getRow(dongSo);
+        const mauNen = idx % 2 === 0 ? 'E2EFDA' : 'FFF2CC';
+        giaTri.forEach((v, i) => {
+          const c = hang.getCell(i + 1);
+          c.value = v;
+          c.border = vien;
+          c.fill = nen(mauNen);
+          c.font = { name: FONT, size: 10, bold: i + 1 === cotThanhTien };
+          c.alignment = { vertical: 'middle', horizontal: (i === 2) ? 'left' : 'center', wrapText: i === 2 };
+          if (i + 1 === cotThanhTien) { c.numFmt = '#,##0'; c.alignment = { vertical: 'middle', horizontal: 'right' }; }
+        });
+        dongSo++;
+      });
+
+      // Dòng tổng cộng
+      const hangTong = ws.getRow(dongSo);
+      gop(dongSo, 1, 3);
+      hangTong.getCell(1).value = `TỔNG CỘNG (${dsDon.length} hoá đơn)`;
+      dsCot.forEach((c, i) => { const v = Math.round(c.tong * 1000) / 1000; hangTong.getCell(4 + i).value = v || null; });
+      hangTong.getCell(cotThanhTien).value = dsDon.reduce((s, d) => s + (d.tienHD || d.soTienNo || 0), 0);
+      for (let i = 1; i <= soCot; i++) {
+        const c = hangTong.getCell(i);
+        c.font = { name: FONT, bold: true, size: 10 };
+        c.fill = nen('FFFF00');
+        c.border = vien;
+        c.alignment = { vertical: 'middle', horizontal: i === cotThanhTien ? 'right' : 'center' };
+        if (i === cotThanhTien) c.numFmt = '#,##0';
+      }
+      dongSo += 2;
+
+      // Tóm tắt công nợ
+      const tomTat = [
+        ['Tổng tiền hàng các hoá đơn', dsDon.reduce((s, d) => s + (d.tienHD || 0), 0), false],
+        ['Tổng nợ ghi nhận', dsDon.reduce((s, d) => s + (d.soTienNo || 0), 0), false],
+        ['Đã thanh toán', dsDon.reduce((s, d) => s + (d.daThu || 0), 0), false],
+        ['CÒN PHẢI THANH TOÁN', dsDon.reduce((s, d) => s + conLaiCuaDon(d), 0), true]
+      ];
+      const cotNhan = Math.max(3, cotThanhTien - 4);
+      tomTat.forEach(([nhan, so, dam]) => {
+        const cN = gop(dongSo, cotNhan, cotThanhTien - 1);
+        cN.value = nhan;
+        cN.font = { name: FONT, bold: dam, size: dam ? 11 : 10 };
+        cN.alignment = { horizontal: 'right', vertical: 'middle' };
+        const cS = ws.getCell(dongSo, cotThanhTien);
+        cS.value = so;
+        cS.numFmt = '#,##0';
+        cS.font = dam ? { name: FONT, bold: true, size: 11, color: { argb: 'FFDC2626' } } : { name: FONT, bold: true, size: 10 };
+        cS.alignment = { horizontal: 'right', vertical: 'middle' };
+        dongSo++;
+      });
+
+      // Tải file
+      try {
+        const buf = await wb.xlsx.writeBuffer();
+        const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        const tenFile = String(tenTieuDe).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[đĐ]/g, 'd').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
+        a.download = `CongNo_${tenFile || 'KhachHang'}_${layNgayLocalYYYYMMDD(new Date())}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+      } catch (e) {
+        alert('❌ Không tạo được file Excel: ' + ((e && e.message) || e));
+        return;
+      }
+      baoNhanhCongNo(`✅ Đã xuất báo cáo công nợ: ${dsDon.length} hoá đơn, ${soCotHang} mặt hàng.`);
+      if (soDonThieuHang) {
+        alert(`ℹ️ Đã xuất báo cáo. Có ${soDonThieuHang} hoá đơn không tìm thấy chi tiết hàng hoá (đơn ngoài bảng kê hoặc chưa lưu chi tiết ở Bước 1) — các dòng đó chỉ có thành tiền.`);
+      }
+    }
+
     function xuatExcelCongNo() {
       if (danhSachCongNo.length === 0) {
         alert("⚠️ Không có dữ liệu công nợ để xuất file!");
