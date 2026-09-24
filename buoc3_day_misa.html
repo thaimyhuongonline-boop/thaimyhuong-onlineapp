@@ -239,6 +239,9 @@
         </div>
       </div>
 
+      <!-- HÀNG TRẢ VỀ Ở BƯỚC 2 ĐÃ ĐƯỢC TRỪ KHỎI DỮ LIỆU MISA -->
+      <div id="ghiChuHangTraMisa" style="display:none; padding:10px 14px; border-radius:var(--radius-md); font-size:12.5px; border:1px solid #fed7aa; background:#fff7ed; color:#9a3412;"></div>
+
       <!-- BẢNG DỮ LIỆU HẠCH TOÁN CHI TIẾT THEO MẪU MISA -->
       <div class="table-container">
         <div style="padding:12px 16px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
@@ -459,7 +462,8 @@
                 danhSachTatCaDot[idx].daQuyetToan = dotSB.daQuyetToan;
                 danhSachTatCaDot[idx].soLuongHD = dotSB.soLuongHD;
                 danhSachTatCaDot[idx].tongTien = dotSB.tongTien;
-                if (!danhSachTatCaDot[idx].danhSachChiTiet || danhSachTatCaDot[idx].danhSachChiTiet.length === 0) {
+                // Chuyến không quyết toán trên máy này → lấy số liệu quyết toán mới nhất (tiền, trả về, hàng trả) từ máy chủ
+                if (!danhSachTatCaDot[idx].danhSachChiTiet || danhSachTatCaDot[idx].danhSachChiTiet.length === 0 || !danhSachTatCaDot[idx].thoiGianQuyetToan) {
                   danhSachTatCaDot[idx].danhSachChiTiet = dotSB.danhSachChiTiet;
                 }
               }
@@ -618,6 +622,11 @@
         }));
       }
 
+      // Hàng trả về ở Bước 2: trả nguyên đơn → bỏ toàn bộ hàng của hoá đơn; trả 1 phần → trừ đúng mặt hàng đã chọn
+      const kqTruHangTra = truHangTraVeMisa(cacDongHang, mapQuyetToan);
+      cacDongHang = kqTruHangTra.dong;
+      veGhiChuHangTraMisa(kqTruHangTra);
+
       const ngayHT = dot.ngayGiao || new Date().toLocaleDateString('vi-VN');
       danhSachDongMisa = [];
       let stt = 1;
@@ -636,7 +645,8 @@
 
         // Lấy thông tin thanh toán từ Bước 2
         const infoQT = mapQuyetToan.get(maHD) || {};
-        const tienHDGoc = parseFloat(infoQT.tienHD || thanhTien);
+        // Tiền cả hoá đơn (dữ liệu từ máy chủ ghi ở thanhTien) — không lấy tiền của riêng dòng hàng
+        const tienHDGoc = parseFloat(infoQT.tienHD || infoQT.thanhTien || thanhTien);
         const tienMat = parseFloat(infoQT.tienMat || 0);
         const chuyenKhoan = parseFloat(infoQT.chuyenKhoan || 0);
         const traVe = parseFloat(infoQT.traVe || 0);
@@ -664,7 +674,7 @@
           soCT: maHD,
           maKH: maKH,
           tenKH: tenKH,
-          dienGiai: `Bán hàng xe ${dot.xe} - HĐ ${maHD}`,
+          dienGiai: `Bán hàng xe ${dot.xe} - HĐ ${maHD}` + (r.__daTruHangTra ? ' (đã trừ hàng trả về)' : ''),
           maHang: maHang,
           tenHang: tenHang,
           dvt: dvt,
@@ -681,6 +691,91 @@
 
       veBangMisa();
       tinhToanTongTheMisa();
+    }
+
+    // ========================================================
+    // TRỪ HÀNG TRẢ VỀ (Bước 2) KHỎI DỮ LIỆU ĐẨY MISA
+    // --------------------------------------------------------
+    // - Trả nguyên đơn (tình trạng "Trả nguyên đơn" hoặc tiền trả về ≥ tiền hoá đơn): bỏ toàn bộ dòng hàng của HĐ.
+    // - Trả 1 phần có chọn hàng (hangTraVe): trừ đúng số lượng từng mặt hàng; thành tiền trừ theo giá thực
+    //   của dòng (thành tiền / số lượng) nên đúng cả khi dòng có chiết khấu. Dòng hết số lượng thì bỏ.
+    // - Trả 1 phần chưa chọn hàng: giữ nguyên như trước và cảnh báo để kế toán kiểm tra.
+    // Không sửa dữ liệu gốc của chuyến (làm trên bản sao các dòng).
+    // ========================================================
+    function truHangTraVeMisa(dsDong, mapQuyetToan) {
+      const kq = { dong: [], nguyenDon: [], motPhan: [], chuaChonHang: [], thieuHang: [] };
+      const maCua = r => String(r['Mã hóa đơn'] || '').trim().toUpperCase();
+      const laKM = r => !!r['KM'] || ((parseFloat(r['Đơn giá'] || r['Giá bán'] || 0) || 0) === 0 && (parseFloat(r['Thành tiền'] || 0) || 0) === 0);
+      const tongTheoHD = new Map();
+      dsDong.forEach(r => tongTheoHD.set(maCua(r), (tongTheoHD.get(maCua(r)) || 0) + (parseFloat(r['Thành tiền'] || 0) || 0)));
+      const theoHD = new Map();
+      dsDong.forEach(r => {
+        const m = maCua(r);
+        if (!theoHD.has(m)) theoHD.set(m, []);
+        theoHD.get(m).push(Object.assign({}, r));
+      });
+      theoHD.forEach((dong, maHD) => {
+        const info = mapQuyetToan.get(maHD) || {};
+        const traVe = parseFloat(info.traVe || info.tra_ve || 0) || 0;
+        if (!(traVe > 0)) { kq.dong.push(...dong); return; }
+        const tienHD = parseFloat(info.tienHD || info.thanhTien || 0) || tongTheoHD.get(maHD) || 0;
+        const tenKH = info.tenKH || (dong[0] && dong[0]['Tên khách hàng']) || '';
+        if (info.tinhTrang === 'tra_nguyen_don' || (tienHD > 0 && traVe >= tienHD - 0.5)) {
+          kq.nguyenDon.push({ maHD, tenKH, traVe });
+          return; // bỏ toàn bộ hàng của hoá đơn
+        }
+        const hangTra = Array.isArray(info.hangTraVe) ? info.hangTraVe : (Array.isArray(info.hang_tra_ve) ? info.hang_tra_ve : []);
+        if (!hangTra.length) {
+          kq.chuaChonHang.push({ maHD, tenKH, traVe });
+          kq.dong.push(...dong);
+          return;
+        }
+        let tienDaTru = 0;
+        hangTra.forEach(h => {
+          let can = parseFloat(h.soLuong) || 0;
+          const ma = String(h.maHang || '').trim().toUpperCase();
+          dong.forEach(r => {
+            if (can <= 1e-9 || String(r['Mã hàng'] || '').trim().toUpperCase() !== ma || laKM(r) !== !!h.km) return;
+            const sl = parseFloat(r['Số lượng'] || 0) || 0;
+            if (sl <= 1e-9) return;
+            const lay = Math.min(sl, can);
+            const tt = parseFloat(r['Thành tiền'] || 0) || 0;
+            const ttTru = Math.round(tt * lay / sl);
+            r['Số lượng'] = Math.round((sl - lay) * 1000) / 1000;
+            r['Thành tiền'] = tt - ttTru;
+            r.__daTruHangTra = true;
+            tienDaTru += ttTru;
+            can -= lay;
+          });
+          if (can > 1e-6) kq.thieuHang.push(`${maHD}: ${ma} còn ${Math.round(can * 1000) / 1000}`);
+        });
+        kq.motPhan.push({ maHD, tenKH, traVe, tienDaTru, soMatHang: hangTra.length });
+        kq.dong.push(...dong.filter(r => (parseFloat(r['Số lượng'] || 0) || 0) > 1e-9));
+      });
+      return kq;
+    }
+
+    function veGhiChuHangTraMisa(kq) {
+      const el = document.getElementById('ghiChuHangTraMisa');
+      if (!el) return;
+      const dong = [];
+      if (kq.nguyenDon.length) {
+        dong.push(`↩ <b>${kq.nguyenDon.length} hoá đơn trả nguyên đơn</b> — đã bỏ toàn bộ hàng khỏi dữ liệu MISA: ` +
+          kq.nguyenDon.map(x => `${escapeHtml(x.maHD)} (${formatTien(x.traVe)} đ)`).join(', '));
+      }
+      if (kq.motPhan.length) {
+        dong.push(`📦 <b>${kq.motPhan.length} hoá đơn trả 1 phần</b> — đã trừ đúng mặt hàng chọn ở Bước 2: ` +
+          kq.motPhan.map(x => `${escapeHtml(x.maHD)} (${x.soMatHang} mặt hàng, ${formatTien(x.tienDaTru)} đ)`).join(', '));
+      }
+      if (kq.chuaChonHang.length) {
+        dong.push(`<span style="color:#b91c1c; font-weight:700;">⚠️ ${kq.chuaChonHang.length} hoá đơn trả 1 phần CHƯA chọn mặt hàng trả ở Bước 2 — hàng vẫn tính đủ, cần kiểm tra: ` +
+          kq.chuaChonHang.map(x => `${escapeHtml(x.maHD)} (trả ${formatTien(x.traVe)} đ)`).join(', ') + '</span>');
+      }
+      if (kq.thieuHang.length) {
+        dong.push(`<span style="color:#b91c1c;">⚠️ Số lượng trả lớn hơn số lượng trên hoá đơn: ${escapeHtml(kq.thieuHang.join('; '))}</span>`);
+      }
+      el.innerHTML = dong.map(x => `<div>${x}</div>`).join('');
+      el.style.display = dong.length ? '' : 'none';
     }
 
     function veBangMisa() {

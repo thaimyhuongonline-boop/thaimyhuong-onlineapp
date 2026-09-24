@@ -232,7 +232,9 @@ function chuyenDoiLuuTruThanhDanhSachDot(rowsLuuTru) {
       ghiChu: r.ghi_chu || '',
       laGiaoLai: !!r.la_giao_lai,
       daKiemDon: !!r.da_kiem_don,
-      daQuyetToan: !!r.da_quyet_toan
+      daQuyetToan: !!r.da_quyet_toan,
+      // Mặt hàng khách trả 1 phần (chọn ở Bước 2 — cần sql/13_hang_tra_ve.sql)
+      hangTraVe: Array.isArray(r.hang_tra_ve) ? r.hang_tra_ve : []
     });
   });
 

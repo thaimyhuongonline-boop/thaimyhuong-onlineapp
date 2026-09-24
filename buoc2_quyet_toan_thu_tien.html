@@ -1184,6 +1184,53 @@
   </div>
 
   <!-- ======================================================== -->
+  <!-- MODAL CHỌN HÀNG TRẢ VỀ (TRẢ 1 PHẦN) — Bước 3 trừ đúng mặt hàng -->
+  <!-- ======================================================== -->
+  <div id="modalHangTraVe" class="modal-overlay no-print" style="display:none;" onclick="if(event.target===this) dongModalHangTraVe()">
+    <div class="modal-card" style="max-width:900px;">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:20px;">📦</span>
+          <div>
+            <div style="font-weight:800; font-size:14px; color:var(--text-main);" id="mhtTieuDe">Chọn hàng trả về</div>
+            <div style="font-size:11.5px; color:var(--text-muted);">Nhập số lượng khách trả lại của từng mặt hàng — tiền hàng trả tự tính theo giá trên hoá đơn; Bước 3 (MISA) trừ đúng các mặt hàng này</div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-outline" style="height:28px; padding:0 8px; font-weight:800;" onclick="dongModalHangTraVe()">✕ Đóng</button>
+      </div>
+      <div class="modal-body">
+        <div id="mhtThongBao" style="font-size:12px; color:var(--text-muted); margin-bottom:8px;"></div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+            <thead>
+              <tr style="background:#f8fafc; text-align:left;">
+                <th style="padding:7px 8px; border-bottom:1px solid var(--border-color);">Mã hàng</th>
+                <th style="padding:7px 8px; border-bottom:1px solid var(--border-color);">Tên hàng</th>
+                <th style="padding:7px 8px; border-bottom:1px solid var(--border-color); text-align:center;">ĐVT</th>
+                <th style="padding:7px 8px; border-bottom:1px solid var(--border-color); text-align:right;">SL giao</th>
+                <th style="padding:7px 8px; border-bottom:1px solid var(--border-color); text-align:right;">Thành tiền</th>
+                <th style="padding:7px 8px; border-bottom:1px solid var(--border-color); text-align:center; width:130px;">SL khách trả</th>
+                <th style="padding:7px 8px; border-bottom:1px solid var(--border-color); text-align:right;">Tiền hàng trả</th>
+              </tr>
+            </thead>
+            <tbody id="mhtBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div style="padding:12px 20px; border-top:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; background:#f8fafc;">
+        <div style="display:flex; gap:6px;">
+          <button type="button" class="btn btn-outline" style="height:30px; padding:0 10px; font-size:12px;" onclick="mhtDatTatCa(true)">Trả hết tất cả</button>
+          <button type="button" class="btn btn-outline" style="height:30px; padding:0 10px; font-size:12px;" onclick="mhtDatTatCa(false)">Xoá chọn</button>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <span style="font-size:13px;">Tiền hàng trả: <b id="mhtTong" style="color:#ea580c; font-size:15px;">0 đ</b></span>
+          <button type="button" class="btn btn-primary" style="height:32px; padding:0 14px; font-weight:800;" onclick="luuHangTraVe()">✅ Áp dụng</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
   <!-- MODAL SỔ THEO DÕI CÔNG NỢ & CHỌN NỢ CŨ                   -->
   <!-- ======================================================== -->
   <div id="modalSoCongNo" class="modal-overlay no-print" style="display:none;" onclick="if(event.target===this) dongModalSoCongNo()">
@@ -1729,6 +1776,7 @@
         h.tienMat = 0; h.chuyenKhoan = 0; h.traVe = 0; h.noPhatSinh = 0; h.taiKhoanNhan = '';
         h.daKiemDon = false; h.daQuyetToan = false;
         h.hoanTienMat = 0; delete h.lyDoHoanTM;
+        h.hangTraVe = [];
         delete h.tinhTrang; delete h.loaiTraVe;
         if (setGL.has(String(h.maHD || '').toUpperCase())) h.laGiaoLai = false;
       });
@@ -1925,7 +1973,7 @@
       }
 
       // 5. luu_tru: đưa các hoá đơn của chuyến về chưa tính tiền (bảng thiếu cột nào thì bỏ cột đó)
-      const capNhatLT = { tien_mat: 0, chuyen_khoan: 0, tai_khoan_nhan: '', tra_ve: 0, no_phat_sinh: 0, da_kiem_don: false, da_quyet_toan: false };
+      const capNhatLT = { tien_mat: 0, chuyen_khoan: 0, tai_khoan_nhan: '', tra_ve: 0, no_phat_sinh: 0, da_kiem_don: false, da_quyet_toan: false, hang_tra_ve: null };
       let loiLT = null;
       for (let lan = 0; lan < 4; lan++) {
         const { error } = await sb.from('luu_tru').update(capNhatLT).eq('ma_dot', maDot);
@@ -2092,7 +2140,9 @@
           laGiaoLai: !!r.laGiaoLai,
           // Khách chuyển khoản dư, tài xế đã trả lại tiền mặt (phương án A)
           hoanTienMat: parseFloat(r.hoanTienMat || 0) || 0,
-          lyDoHoanTM: r.lyDoHoanTM || ''
+          lyDoHoanTM: r.lyDoHoanTM || '',
+          // Mặt hàng khách trả (trả 1 phần) — Bước 3 trừ đúng các mặt hàng này
+          hangTraVe: Array.isArray(r.hangTraVe) ? r.hangTraVe : (Array.isArray(r.hang_tra_ve) ? r.hang_tra_ve : [])
         };
       });
 
@@ -2151,6 +2201,7 @@
               onfocus="onFocusTienInput(this)"
               onblur="onBlurTienTraVe(${idx}, this)"
               oninput="nhapTienTraVe(${idx}, this.value)">
+            <div id="oHangTra_${idx}">${htmlOHangTraVe(hd, idx)}</div>
           </td>
           <td style="text-align:center;">
             ${isGiaoDu ? '<span style="color:var(--text-muted); font-size:12px;">—</span>' : `
@@ -2358,10 +2409,12 @@
         hd.traVe = 0;
         hd.loaiTraVe = 'tra_han';
         hd.tienMat = Math.max(0, hd.tienHD - hd.chuyenKhoan);
+        hd.hangTraVe = [];
       } else if (val === 'tra_nguyen_don') {
         hd.traVe = hd.tienHD;
         hd.tienMat = 0;
         hd.chuyenKhoan = 0;
+        hd.hangTraVe = []; // trả nguyên đơn: Bước 3 bỏ toàn bộ hàng của hoá đơn
       } else if (val === 'tra_mot_phan') {
         if (hd.traVe >= hd.tienHD) {
           hd.traVe = 0;
@@ -2381,6 +2434,8 @@
             inp.focus();
             inp.select();
           }
+          // Chọn đúng mặt hàng khách trả để Bước 3 trừ ra
+          moChonHangTraVe(idx);
         }, 50);
       }
     }
@@ -2555,6 +2610,185 @@
       danhSachHoaDonQuyetToan[idx].ghiChu = val;
     }
 
+    // ========================================================
+    // CHỌN HÀNG TRẢ VỀ (TRẢ 1 PHẦN) → BƯỚC 3 TRỪ ĐÚNG MẶT HÀNG
+    // --------------------------------------------------------
+    // Trả nguyên đơn: không cần chọn — Bước 3 bỏ toàn bộ hàng của hoá đơn.
+    // Trả 1 phần: chọn số lượng từng mặt hàng khách trả → tiền hàng trả = Σ (thành tiền dòng ÷ SL × SL trả),
+    // lưu vào hd.hangTraVe (luu_tru.hang_tra_ve — sql/13) để Bước 3 trừ đúng.
+    // ========================================================
+    const hangHoaCuaHDB2 = new Map(); // mã HĐ -> [{ maHang, tenHang, dvt, soLuong, thanhTien, km }]
+    let mhtIdx = -1;
+    let mhtDong = [];
+
+    function chuanDongHangB2(r) {
+      const sl = parseFloat(r['Số lượng']) || 0;
+      const dg = parseFloat(r['Đơn giá'] || r['Giá bán']) || 0;
+      const tt = parseFloat(r['Thành tiền']) || 0;
+      return {
+        maHang: String(r['Mã hàng'] || '').trim().toUpperCase(), tenHang: String(r['Tên hàng'] || '').trim(),
+        dvt: String(r['ĐVT'] || '').trim(), soLuong: sl, thanhTien: tt, km: !!r['KM'] || (dg === 0 && tt === 0)
+      };
+    }
+
+    // Dòng hàng của hoá đơn: dữ liệu chuyến trên máy → chi_tiet_hoa_don trên máy chủ → file KiotViet đã nạp
+    async function layDongHangCuaHDB2(maHD) {
+      const ma = String(maHD || '').trim().toUpperCase();
+      if (hangHoaCuaHDB2.has(ma)) return hangHoaCuaHDB2.get(ma);
+      const theoMa = r => String(r['Mã hóa đơn'] || '').trim().toUpperCase() === ma;
+      let ds = (dotHienTai && Array.isArray(dotHienTai.cacDongChiTietKiotViet) ? dotHienTai.cacDongChiTietKiotViet : []).filter(theoMa).map(chuanDongHangB2);
+      if (!ds.length && typeof sb !== 'undefined') {
+        try {
+          const { data, error } = await sb.from('chi_tiet_hoa_don').select('*').eq('ma_hd', ma);
+          if (!error && Array.isArray(data) && data.length) {
+            // Bước 1 ghi 1 bộ dòng mỗi lần lưu chuyến → lấy bộ của chuyến này, không có thì bộ mới nhất
+            let bo = data.filter(r => dotHienTai && r.ma_dot === dotHienTai.maDot);
+            if (!bo.length) {
+              const moiNhat = data.reduce((m, r) => String(r.tao_luc || '') > m ? String(r.tao_luc || '') : m, '');
+              bo = data.filter(r => String(r.tao_luc || '') === moiNhat);
+            }
+            ds = bo.map(r => chuanDongHangB2({ 'Mã hàng': r.ma_hang, 'Tên hàng': r.ten_hang, 'ĐVT': r.dvt, 'Số lượng': r.so_luong, 'Đơn giá': r.don_gia, 'Thành tiền': r.thanh_tien, 'KM': r.la_khuyen_mai }));
+          }
+        } catch (e) { console.warn('Không tải được chi tiết hàng hoá của hoá đơn:', e); }
+      }
+      if (!ds.length) {
+        try { ds = (JSON.parse(localStorage.getItem('tmh_kiotviet_data') || '[]') || []).filter(theoMa).map(chuanDongHangB2); } catch (e) {}
+      }
+      if (ds.length) hangHoaCuaHDB2.set(ma, ds);
+      return ds;
+    }
+
+    function tongTienHangTraVe(hd) {
+      return (Array.isArray(hd.hangTraVe) ? hd.hangTraVe : []).reduce((s, h) => s + (parseFloat(h.thanhTien) || 0), 0);
+    }
+
+    function htmlOHangTraVe(hd, idx) {
+      const kieu = 'margin-top:3px; font-size:10.5px; font-weight:700; border-radius:4px; padding:2px 6px; cursor:pointer; border:1px dashed; text-align:center;';
+      if (hd.tinhTrang === 'tra_nguyen_don') {
+        return `<div style="margin-top:3px; font-size:10px; color:var(--text-muted); text-align:center;">Bước 3 trừ toàn bộ hàng</div>`;
+      }
+      if (hd.tinhTrang !== 'tra_mot_phan') return '';
+      const ds = Array.isArray(hd.hangTraVe) ? hd.hangTraVe : [];
+      if (!ds.length) {
+        return `<div style="${kieu} color:#b91c1c; background:#fef2f2; border-color:#fca5a5;" onclick="moChonHangTraVe(${idx})" title="Chọn mặt hàng khách trả để Bước 3 trừ đúng">📦 Chọn hàng trả</div>`;
+      }
+      const tong = tongTienHangTraVe(hd);
+      const lech = Math.abs(tong - (hd.traVe || 0)) > 1;
+      return `<div style="${kieu} color:#9a3412; background:#fff7ed; border-color:#fdba74;" onclick="moChonHangTraVe(${idx})" title="${escapeHtml(ds.map(h => `${h.maHang}${h.km ? ' (KM)' : ''} × ${h.soLuong}`).join(', '))} — bấm để sửa">📦 ${ds.length} mặt hàng (${formatTien(tong)}) ✎</div>` +
+        (lech ? `<div style="font-size:10px; color:#b91c1c; font-weight:700; text-align:center;">⚠️ Khác tiền trả ${formatTien(hd.traVe)}</div>` : '');
+    }
+
+    async function moChonHangTraVe(idx) {
+      const hd = danhSachHoaDonQuyetToan[idx];
+      if (!hd) return;
+      mhtIdx = idx;
+      mhtDong = [];
+      document.getElementById('mhtTieuDe').textContent = `📦 Chọn hàng trả về — HĐ ${hd.maHD} — ${hd.tenKH}`;
+      document.getElementById('mhtThongBao').textContent = '';
+      document.getElementById('mhtBody').innerHTML = '<tr><td colspan="7" style="text-align:center; padding:18px; color:var(--text-muted);">⏳ Đang tải hàng hoá của hoá đơn...</td></tr>';
+      document.getElementById('mhtTong').textContent = '0 đ';
+      document.getElementById('modalHangTraVe').style.display = 'flex';
+      const dong = await layDongHangCuaHDB2(hd.maHD);
+      if (mhtIdx !== idx) return;
+      // Điền lại số lượng đã chọn trước đó
+      const conLai = (Array.isArray(hd.hangTraVe) ? hd.hangTraVe : []).map(x => Object.assign({}, x));
+      mhtDong = dong.map(d => {
+        let slTra = 0;
+        conLai.forEach(x => {
+          if (x.maHang !== d.maHang || !!x.km !== d.km || !(x.soLuong > 1e-9)) return;
+          const lay = Math.min(d.soLuong - slTra, x.soLuong);
+          slTra += lay;
+          x.soLuong -= lay;
+        });
+        return Object.assign({}, d, { slTra: Math.round(slTra * 1000) / 1000 });
+      });
+      veModalHangTraVe();
+    }
+
+    function tienTraCuaDongMHT(d) {
+      return d.soLuong > 0 ? Math.round(d.thanhTien * Math.min(d.slTra, d.soLuong) / d.soLuong) : 0;
+    }
+
+    function veModalHangTraVe() {
+      const hd = danhSachHoaDonQuyetToan[mhtIdx];
+      const body = document.getElementById('mhtBody');
+      if (!mhtDong.length) {
+        body.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:18px; color:#b91c1c;">Không tìm thấy chi tiết hàng hoá của hoá đơn này (chưa lưu chi tiết ở Bước 1). Hãy đóng lại và nhập trực tiếp tiền hàng trả.</td></tr>';
+        return;
+      }
+      document.getElementById('mhtThongBao').innerHTML = `Tiền hoá đơn: <b>${formatTien(hd ? hd.tienHD : 0)} đ</b> · Tiền hàng trả đang nhập ở bảng: <b>${formatTien(hd ? hd.traVe : 0)} đ</b>`;
+      body.innerHTML = mhtDong.map((d, i) => `
+        <tr style="border-bottom:1px solid #f1f5f9;${d.slTra > 0 ? ' background:#fff7ed;' : ''}" id="mhtDong_${i}">
+          <td style="padding:6px 8px; font-weight:700; font-family:monospace;">${escapeHtml(d.maHang)}${d.km ? ' <span style="color:#16a34a; font-size:10px;">KM</span>' : ''}</td>
+          <td style="padding:6px 8px;">${escapeHtml(d.tenHang)}</td>
+          <td style="padding:6px 8px; text-align:center;">${escapeHtml(d.dvt)}</td>
+          <td style="padding:6px 8px; text-align:right;">${d.soLuong.toLocaleString('vi-VN', { maximumFractionDigits: 3 })}</td>
+          <td style="padding:6px 8px; text-align:right;">${formatTien(d.thanhTien)}</td>
+          <td style="padding:4px 8px; text-align:center;">
+            <input type="number" min="0" max="${d.soLuong}" step="any" class="input-table" style="width:80px; text-align:center; font-weight:700;"
+              value="${d.slTra || ''}" placeholder="0" oninput="mhtNhapSL(${i}, this.value)">
+            <button type="button" class="btn-quick-fill" style="margin-left:2px;" onclick="mhtNhapSL(${i}, ${d.soLuong}, true)" title="Trả hết mặt hàng này">Hết</button>
+          </td>
+          <td style="padding:6px 8px; text-align:right; font-weight:700; color:#ea580c;" id="mhtTien_${i}">${d.slTra > 0 ? formatTien(tienTraCuaDongMHT(d)) : '–'}</td>
+        </tr>`).join('');
+      capNhatTongMHT();
+    }
+
+    function mhtNhapSL(i, val, veLai) {
+      const d = mhtDong[i];
+      if (!d) return;
+      const sl = Math.max(0, Math.min(d.soLuong, parseFloat(String(val).replace(',', '.')) || 0));
+      d.slTra = Math.round(sl * 1000) / 1000;
+      if (veLai) { veModalHangTraVe(); return; }
+      const oTien = document.getElementById('mhtTien_' + i);
+      if (oTien) oTien.textContent = d.slTra > 0 ? formatTien(tienTraCuaDongMHT(d)) : '–';
+      const dong = document.getElementById('mhtDong_' + i);
+      if (dong) dong.style.background = d.slTra > 0 ? '#fff7ed' : '';
+      capNhatTongMHT();
+    }
+
+    function mhtDatTatCa(traHet) {
+      mhtDong.forEach(d => { d.slTra = traHet ? d.soLuong : 0; });
+      veModalHangTraVe();
+    }
+
+    function capNhatTongMHT() {
+      document.getElementById('mhtTong').textContent = formatTien(mhtDong.reduce((s, d) => s + (d.slTra > 0 ? tienTraCuaDongMHT(d) : 0), 0)) + ' đ';
+    }
+
+    function dongModalHangTraVe() {
+      document.getElementById('modalHangTraVe').style.display = 'none';
+      mhtIdx = -1;
+    }
+
+    function luuHangTraVe() {
+      const idx = mhtIdx;
+      const hd = danhSachHoaDonQuyetToan[idx];
+      if (!hd) { dongModalHangTraVe(); return; }
+      if (!mhtDong.length) { dongModalHangTraVe(); return; }
+      const ds = mhtDong.filter(d => d.slTra > 1e-9).map(d => ({
+        maHang: d.maHang, tenHang: d.tenHang, dvt: d.dvt, km: d.km, soLuong: d.slTra, thanhTien: tienTraCuaDongMHT(d)
+      }));
+      const traHetDon = ds.length && mhtDong.every(d => d.slTra >= d.soLuong - 1e-9);
+      if (traHetDon && confirm('Khách trả lại TẤT CẢ mặt hàng của hoá đơn này.\n\nChuyển sang tình trạng "❌ Trả nguyên đơn"? (Bấm Hủy để vẫn ghi là trả 1 phần)')) {
+        dongModalHangTraVe();
+        thayDoiTinhTrang(idx, 'tra_nguyen_don');
+        return;
+      }
+      hd.hangTraVe = ds;
+      if (ds.length) {
+        const tong = ds.reduce((s, h) => s + h.thanhTien, 0);
+        nhapTienTraVe(idx, String(tong));
+        const inp = document.getElementById('inputTraVe_' + idx);
+        if (inp) inp.value = formatTien(hd.traVe);
+        hienThiToast(`📦 Đã chọn ${ds.length} mặt hàng trả về (${formatTien(tong)} đ) — Bước 3 sẽ trừ đúng các mặt hàng này.`);
+      } else {
+        capNhatOTrongBang(idx);
+        hienThiToast('📦 Đã bỏ chọn hàng trả về của hoá đơn.');
+      }
+      dongModalHangTraVe();
+    }
+
     function tinhLaiNoMotDong(hd) {
       const phaiTra = Math.max(0, hd.tienHD - hd.traVe);
       hd.noPhatSinh = Math.max(0, phaiTra - hd.tienMat - hd.chuyenKhoan);
@@ -2569,6 +2803,8 @@
       }
       const elHoan = document.getElementById(`oHoanTM_${idx}`);
       if (elHoan) elHoan.innerHTML = htmlOHoanTienMat(hd, idx);
+      const elHangTra = document.getElementById(`oHangTra_${idx}`);
+      if (elHangTra) elHangTra.innerHTML = htmlOHangTraVe(hd, idx);
     }
 
     // ========================================================
@@ -2735,6 +2971,7 @@
         hd.chuyenKhoan = 0;
         hd.tienMat = hd.tienHD;
         hd.noPhatSinh = 0;
+        hd.hangTraVe = [];
       });
       veBangQuyetToan();
       tinhToanTongThe();
@@ -4150,6 +4387,14 @@
         alert("⚠️ Vui lòng chọn một chuyến xe để quyết toán!");
         return;
       }
+      // Trả 1 phần mà chưa chọn mặt hàng trả → Bước 3 chưa trừ được hàng, hỏi trước khi lưu
+      const dsChuaChonHang = danhSachHoaDonQuyetToan.filter(h => h.tinhTrang === 'tra_mot_phan' && h.traVe > 0 && !(Array.isArray(h.hangTraVe) && h.hangTraVe.length));
+      if (dsChuaChonHang.length && !confirm(
+        `📦 Có ${dsChuaChonHang.length} hoá đơn TRẢ 1 PHẦN chưa chọn mặt hàng trả:\n\n` +
+        dsChuaChonHang.map(h => `• ${h.maHD} — ${h.tenKH}: trả ${formatTien(h.traVe)} đ`).join('\n') +
+        `\n\nBước 3 (MISA) sẽ CHƯA trừ được hàng của các hoá đơn này. Bấm nút "📦 Chọn hàng trả" ở cột Hàng trả để chọn.\n\n` +
+        `Bấm [OK] để vẫn lưu, [Hủy / Cancel] để quay lại chọn hàng.`
+      )) return;
       // Lấy số liệu công nợ mới nhất & kiểm tra thu nợ trước khi lưu (chống thu trùng)
       const chuanBiThuNo = await chuanBiCanTruThuNoCu();
       if (!chuanBiThuNo) return;
@@ -4160,6 +4405,14 @@
         dangLuuQuyetToan = false;
         phanBoThuNoCu();
         veDanhSachThuNo();
+      }
+      // Có chọn hàng trả mà máy chủ chưa có cột hang_tra_ve → Bước 3 ở máy khác chưa trừ được hàng
+      if (dotHienTai && dotHienTai.daQuyetToan && typeof sb !== 'undefined' &&
+          danhSachHoaDonQuyetToan.some(h => h.tinhTrang === 'tra_mot_phan' && Array.isArray(h.hangTraVe) && h.hangTraVe.length)) {
+        try {
+          const { error } = await sb.from('luu_tru').select('hang_tra_ve').limit(1);
+          if (error) alert('ℹ️ Đã lưu các mặt hàng trả về trên máy này, nhưng máy chủ chưa có cột lưu hàng trả — Bước 3 ở MÁY KHÁC sẽ chưa trừ được hàng trả 1 phần.\n\nNhờ quản trị chạy file sql/13_hang_tra_ve.sql trong Supabase SQL Editor (1 lần), rồi bấm Lưu Quyết Toán lại.');
+        } catch (e) {}
       }
       // Khách chuyển khoản dư đã được tài xế hoàn tiền mặt → tự ghi cặp nhận / hoàn vào Sổ tiền khách trả trước
       if (dotHienTai && dotHienTai.daQuyetToan) {
@@ -4489,7 +4742,9 @@
             ghi_chu: h.ghiChu,
             da_kiem_don: true,
             da_quyet_toan: true,
-            la_giao_lai: (h.loaiTraVe === 'giao_lai' || h.laGiaoLai)
+            la_giao_lai: (h.loaiTraVe === 'giao_lai' || h.laGiaoLai),
+            // Mặt hàng khách trả (trả 1 phần) — Bước 3 trừ đúng; cần sql/13_hang_tra_ve.sql (thiếu cột thì tự bỏ qua)
+            hang_tra_ve: (h.tinhTrang === 'tra_mot_phan' && Array.isArray(h.hangTraVe) && h.hangTraVe.length) ? h.hangTraVe : null
           }));
 
           await upsertSupabaseTuTu('luu_tru', rowsUpdate, { onConflict: 'ma_hd' });
