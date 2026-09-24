@@ -185,8 +185,20 @@
     // Xe thêm trên máy này mà chưa ghi được lên máy chủ: giữ lại, lần sau ghi bù
     chuaGhi.forEach(ht => { if (!dsMoi.some(x => hoa(x) === hoa(ht))) dsMoi.push(ht); });
     if (dsMoi.length) ghiJSON(KHOA_XE, dsMoi);
-    ghiJSON(KHOA_ANH_XE, S.map(r => ({ hienThi: hienThiXe(r), ma_xe: r.ma_xe })));
+    ghiJSON(KHOA_ANH_XE, S.map(r => ({ hienThi: hienThiXe(r), ma_xe: r.ma_xe, bien_so: String(r.bien_so || "").trim() })));
     return { ok: !loi.length, loi: loi.join("\n"), soLuong: S.length };
+  }
+
+  // Biển số xe (cột "Biển Số Xe" ở trang Danh Mục) theo tên xe trong danh sách của Bước 1,
+  // lấy từ lần đồng bộ gần nhất → ô chọn xe hiển thị biển số cho nhân sự dễ đọc.
+  // Trả về hàm tra cứu: layBienSo("XE01 (HĐ1 SÁNG)") → "HĐ1 SÁNG" ("" nếu chưa khai biển số).
+  function bienSoTheoXe() {
+    const map = new Map();
+    const anh = docJSON(KHOA_ANH_XE, []);
+    (Array.isArray(anh) ? anh : []).forEach(x => {
+      if (x && x.hienThi && x.bien_so) map.set(hoa(x.hienThi), String(x.bien_so).trim());
+    });
+    return ht => map.get(hoa(ht)) || "";
   }
 
   // ==================== ĐỒNG BỘ NHÂN SỰ ====================
@@ -295,5 +307,5 @@
     return hua;
   }
 
-  window.DMDX = { dongBo: dongBo, hienThiXe: hienThiXe, tachTenXe: tachTenXe, vaiTroTuChu: vaiTroTuChu, chuVaiTro: chuVaiTro };
+  window.DMDX = { dongBo: dongBo, hienThiXe: hienThiXe, tachTenXe: tachTenXe, vaiTroTuChu: vaiTroTuChu, chuVaiTro: chuVaiTro, bienSoTheoXe: bienSoTheoXe };
 })();

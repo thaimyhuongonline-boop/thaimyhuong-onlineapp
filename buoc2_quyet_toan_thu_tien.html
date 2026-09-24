@@ -19,6 +19,7 @@
   <script src="phan_quyen.js"></script>
   <script src="khach_tra_truoc.js"></script>
   <script src="pwa.js"></script>
+  <script src="searchable-select.js"></script>
   <link rel="stylesheet" href="layout.css">
   <style>
     /* Bố cục Trang Quyết Toán Thu Tiền */
@@ -747,7 +748,12 @@
         <div style="display:flex; gap:12px; flex-wrap:wrap; border-top:1px dashed #cbd5e1; padding-top:8px; font-size:12px;">
           <div style="display:flex; align-items:center; gap:6px;">
             <span style="font-weight:700; color:var(--text-muted);">Người nộp:</span>
-            <input type="text" id="inputNguoiNop" class="input-table" style="width:160px; height:28px;" placeholder="Tên tài xế..." oninput="nhapNguoiNop(this.value)">
+            <!-- Chọn từ danh mục "Nhân viên giao hàng & tài xế" (gõ để tìm) -->
+            <div style="width:190px;">
+              <select id="inputNguoiNop" class="input-table" style="width:100%; height:28px;" title="Chọn từ danh mục Nhân viên giao hàng & tài xế" onchange="nhapNguoiNop(this.value)">
+                <option value="">— Chọn người nộp —</option>
+              </select>
+            </div>
           </div>
           <div style="display:flex; align-items:center; gap:6px;">
             <span style="font-weight:700; color:var(--text-muted);">Người nhận:</span>
@@ -1293,6 +1299,10 @@
       veBangDemTien();
       khoiTaoNutNhanhChiPhi();
 
+      // 3b. Ô "Người nộp": chọn từ danh mục Nhân viên giao hàng & tài xế (gõ để tìm)
+      if (window.TMHSearchSelect) TMHSearchSelect.enhance(document.getElementById('inputNguoiNop'), { placeholder: '🔍 Gõ tên người nộp...' });
+      await taiDanhSachNguoiNop();
+
       // 4. Tải danh sách đợt và tự động chọn chuyến xe
       await taiLaiDanhSachDot();
 
@@ -1593,7 +1603,7 @@
       document.getElementById('inputThuNoCu').value = formatTien(thuNoCu);
       document.getElementById('inputGhiChuThuNoCu').value = ghiChuThuNoCu;
       document.getElementById('inputTienThoi').value = formatTien(tienThoi);
-      document.getElementById('inputNguoiNop').value = nguoiNop;
+      napDropdownNguoiNop(nguoiNop);
       document.getElementById('inputNguoiNhan').value = nguoiNhan;
       document.getElementById('inputGhiChuPhieu').value = ghiChuPhieu;
 
@@ -1913,6 +1923,52 @@
     function nhapNguoiNop(raw) {
       nguoiNop = raw;
       tinhTongBangDemTien();
+    }
+
+    // ========================================================
+    // NGƯỜI NỘP TIỀN: CHỌN TỪ DANH MỤC "NHÂN VIÊN GIAO HÀNG & TÀI XẾ"
+    // (bảng nv_giao_hang_tai_xe — trang Danh Mục / Bước 1)
+    // ========================================================
+    let danhSachNguoiNop = []; // tên nhân sự, đã bỏ trùng
+
+    function docNguoiNopTrenMay() {
+      try {
+        const ds = JSON.parse(localStorage.getItem('tmh_danh_muc_nv_giao_hang_tai_xe') || '[]');
+        return (Array.isArray(ds) ? ds : []).map(r => ({ ma: r.ma_nv || '', ten: String(r.ho_ten || r.ten_nv || r.ten || '').trim() }));
+      } catch (e) { return []; }
+    }
+
+    async function taiDanhSachNguoiNop() {
+      let ds = docNguoiNopTrenMay();
+      if (typeof sb !== 'undefined') {
+        try {
+          const { data, error } = await sb.from('nv_giao_hang_tai_xe').select('*');
+          if (!error && Array.isArray(data) && data.length) ds = data.map(r => ({ ma: r.ma_nv || '', ten: String(r.ho_ten || '').trim() }));
+          else if (error) console.warn('Không tải được danh mục nhân viên giao hàng & tài xế:', error);
+        } catch (e) {
+          console.warn('Không tải được danh mục nhân viên giao hàng & tài xế:', e);
+        }
+      }
+      const daCo = new Set();
+      danhSachNguoiNop = ds
+        .filter(r => r.ten)
+        .sort((a, b) => String(a.ma).localeCompare(String(b.ma), 'vi', { numeric: true }))
+        .map(r => r.ten)
+        .filter(t => { const k = t.toUpperCase(); if (daCo.has(k)) return false; daCo.add(k); return true; });
+      napDropdownNguoiNop(nguoiNop);
+    }
+
+    function napDropdownNguoiNop(giaTri) {
+      const sel = document.getElementById('inputNguoiNop');
+      if (!sel) return;
+      const chon = String(giaTri || '').trim();
+      sel.innerHTML = '';
+      sel.add(new Option('— Chọn người nộp —', ''));
+      danhSachNguoiNop.forEach(t => sel.add(new Option(t, t)));
+      // Tên đã lưu ở chuyến xe nhưng không có trong danh mục (tài xế cũ / gõ tay trước đây) → vẫn giữ đúng
+      if (chon && !danhSachNguoiNop.some(t => t.toUpperCase() === chon.toUpperCase())) sel.add(new Option(chon + ' (ngoài danh mục)', chon));
+      const khop = Array.from(sel.options).find(o => o.value && o.value.toUpperCase() === chon.toUpperCase());
+      sel.value = khop ? khop.value : '';
     }
 
     function nhapNguoiNhan(raw) {
