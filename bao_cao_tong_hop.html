@@ -57,6 +57,7 @@
     .bc-kpi.k-cho { border-left-color: #7c3aed; }
     .bc-kpi.k-thieu { border-left-color: #be123c; }
     .bc-kpi.k-thua { border-left-color: #0e7490; }
+    .bc-kpi.k-hoan { border-left-color: #b45309; }
     .bc-tt-note { padding: 8px 14px; font-size: 12px; color: var(--text-muted); border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 3px; }
     .bc-tt-note:empty { display: none; }
     .bc-sub-title { padding: 10px 14px 6px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: #475569; }
@@ -423,8 +424,53 @@
       return map;
     }
 
+    // ---------------- HOÀN TIỀN MẶT CHO KHÁCH CHUYỂN KHOẢN DƯ (Bước 2 — phương án A) ----------------
+    // ma_dot|ma_hd -> số tiền mặt tài xế đã trả lại khách (Sổ tiền khách trả trước, nguồn buoc2_hoan_ck_du)
+    let hoanTheoHD = new Map();
+    const NGUON_HOAN_CK_DU_BC = 'buoc2_hoan_ck_du';
+
+    function hoanCuaDon(d) { return hoanTheoHD.get(d.maDot + '|' + d.maHD) || 0; }
+    // Lệch quyết toán = Xuất kho − (Tiền mặt + Chuyển khoản − Hoàn TM cho khách + Trả về + Nợ)
+    function lechCuaDon(d) { return d.thanhTien - (d.tm + d.ck - hoanCuaDon(d) + d.tra + d.no); }
+
+    async function taiHoanTienMat(dsMaDot) {
+      const map = new Map();
+      const ds = dsMaDot.filter(m => m && m !== 'DOT_KHAC');
+      for (let i = 0; i < ds.length; i += 100) {
+        const { data, error } = await sb.from('khach_tra_truoc').select('ma_dot, ma_hd, loai, so_tien').eq('nguon', NGUON_HOAN_CK_DU_BC).in('ma_dot', ds.slice(i, i + 100));
+        if (error) return map; // chưa có sổ trả trước (sql/12) → không có khoản hoàn
+        (data || []).forEach(r => {
+          if (r.loai !== 'hoan') return;
+          const k = r.ma_dot + '|' + r.ma_hd;
+          map.set(k, (map.get(k) || 0) + (parseFloat(r.so_tien) || 0));
+        });
+      }
+      map.forEach((v, k) => { if (!(v > 0.5)) map.delete(k); });
+      return map;
+    }
+
+    function taiHoanTienMatTuMayNay() {
+      const map = new Map();
+      let dsDot = [];
+      try { dsDot = JSON.parse(localStorage.getItem('tmh_lich_su_dot') || '[]'); } catch (e) {}
+      dsDot.forEach(dot => {
+        if (!dot || !dot.daQuyetToan) return;
+        (dot.danhSachChiTiet || []).forEach(h => {
+          const v = parseFloat(h.hoanTienMat) || 0;
+          if (v > 0) map.set(dot.maDot + '|' + h.maHD, v);
+        });
+      });
+      return map;
+    }
+
     // Không bao giờ ném lỗi: lỗi đọc phiếu nộp tiền không được làm hỏng phần báo cáo còn lại
     async function taiNopTien() {
+      if (nguonDuLieu === 'cloud') {
+        try { hoanTheoHD = await taiHoanTienMat(Array.from(new Set(duLieu.map(d => d.maDot)))); }
+        catch (e) { hoanTheoHD = new Map(); }
+      } else {
+        hoanTheoHD = taiHoanTienMatTuMayNay();
+      }
       loiNopTien = '';
       if (typeof tinhThieuThuaNopTien !== 'function') { nopTien = new Map(); return; }
       if (nguonDuLieu !== 'cloud') { nopTien = taiNopTienTuMayNay(); return; }
@@ -495,7 +541,7 @@
         if (!d.daQT) { t.soCho++; t.tienCho += d.thanhTien; }
         else {
           t.soQT++;
-          const l = d.thanhTien - (d.tm + d.ck + d.tra + d.no);
+          const l = lechCuaDon(d);
           if (Math.abs(l) > 1) { t.lech += l; t.soLech++; }
         }
       });
@@ -702,6 +748,11 @@
         the('k-no', 'no', '📒 Tổng nợ phát sinh', fmt(t.no) + ' đ', `${t.soNo} đơn ghi nợ`) +
         the('k-cho', 'cho', '⏳ Chờ quyết toán (Bước 2)', `${t.soCho} đơn`, `${fmt(t.tienCho)} đ chưa quyết toán`);
       document.getElementById('bcKpi').insertAdjacentHTML('beforeend', veTheThieuThua());
+      const dsHoan = ds.filter(d => hoanCuaDon(d) > 0);
+      if (dsHoan.length) {
+        document.getElementById('bcKpi').insertAdjacentHTML('beforeend',
+          the('k-hoan', 'hoan', '↩ Hoàn TM cho khách (CK dư)', fmt(dsHoan.reduce((s, d) => s + hoanCuaDon(d), 0)) + ' đ', `${dsHoan.length} đơn khách chuyển khoản dư, tài xế trả lại tiền mặt`));
+      }
 
       const el = document.getElementById('bcCanDoi');
       if (t.soHD === 0) { el.innerHTML = ''; return; }
@@ -772,7 +823,8 @@
       travee:  { tieuDe: '↩️ Các đơn có hàng trả về', loc: d => d.tra > 0 },
       no:      { tieuDe: '📒 Các đơn phát sinh nợ', loc: d => d.no > 0 },
       cho:     { tieuDe: '⏳ Các đơn chờ quyết toán', loc: d => !d.daQT },
-      lech:    { tieuDe: '⚠️ Các đơn quyết toán bị lệch', loc: d => d.daQT && Math.abs(d.thanhTien - (d.tm + d.ck + d.tra + d.no)) > 1 },
+      lech:    { tieuDe: '⚠️ Các đơn quyết toán bị lệch', loc: d => d.daQT && Math.abs(lechCuaDon(d)) > 1 },
+      hoan:    { tieuDe: '↩ Các đơn khách chuyển khoản dư — tài xế đã hoàn tiền mặt', loc: d => hoanCuaDon(d) > 0 },
       dot:     { tieuDe: '🚚 Chi tiết chuyến xe', loc: null }
     };
 
@@ -814,6 +866,10 @@
       if (k === 'xuat' || k === 'dot' || k === 'ck') chips.push(`<div class="bc-chip">Chuyển khoản: <b>${fmt(t.ck)} đ</b></div>`);
       if (k === 'xuat' || k === 'dot' || k === 'travee') chips.push(`<div class="bc-chip">Trả về: <b>${fmt(t.tra)} đ</b></div>`);
       if (k === 'xuat' || k === 'dot' || k === 'no') chips.push(`<div class="bc-chip">Nợ: <b>${fmt(t.no)} đ</b></div>`);
+      const tongHoanChiTiet = rows.reduce((s, d) => s + hoanCuaDon(d), 0);
+      if (tongHoanChiTiet > 0 && ['hoan', 'dot', 'xuat', 'ck', 'tienmat'].includes(k)) {
+        chips.push(`<div class="bc-chip" style="color:#b45309;">↩ Hoàn TM cho khách (CK dư): <b>${fmt(tongHoanChiTiet)} đ</b></div>`);
+      }
       if (k === 'ck' || k === 'dot' || k === 'xuat') {
         const mapNH = {};
         rows.forEach(d => { if (d.ck > 0) { const n = d.nganHang || 'Chưa rõ tài khoản'; mapNH[n] = (mapNH[n] || 0) + d.ck; } });
@@ -839,7 +895,7 @@
         return;
       }
       body.innerHTML = rows.map((d, i) => {
-        const lech = d.thanhTien - (d.tm + d.ck + d.tra + d.no);
+        const lech = lechCuaDon(d);
         let tt;
         if (!d.daQT) tt = '<span class="bc-tag wait">⏳ Chờ quyết toán</span>';
         else if (Math.abs(lech) > 1) tt = `<span class="bc-tag warn">Lệch ${lech > 0 ? '+' : ''}${fmt(lech)}</span>`;
@@ -907,6 +963,7 @@
         ['Hàng trả về', t.soTra, t.tra],
         ['Tổng nợ phát sinh', t.soNo, t.no],
         ['Chờ quyết toán', t.soCho, t.tienCho],
+        ['Hoàn tiền mặt cho khách chuyển khoản dư', ds.filter(d => hoanCuaDon(d) > 0).length, ds.reduce((s, d) => s + hoanCuaDon(d), 0)],
         ['Tiền thiếu khi nộp tiền xe', tt.soThieu, tt.thieu],
         ['   – Ghi nợ người nộp (thiếu từ 10.000 đ)', tt.soGhiNo, tt.no],
         ['   – Thiếu dưới 10.000 đ (không ghi nợ)', tt.soBoQua, tt.boQua],

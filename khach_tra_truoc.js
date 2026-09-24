@@ -20,6 +20,7 @@ const TEN_NGUON_TT = {
   thu_tai_quy_du: "Thu nợ tại quỹ — phần trả dư",
   buoc2_du_hoa_don: "Bước 2 — trả dư hoá đơn",
   buoc2_du_thu_no: "Bước 2 — thu nợ cũ vượt số nợ",
+  buoc2_hoan_ck_du: "Bước 2 — khách chuyển khoản dư, tài xế hoàn tiền mặt",
   hoan_tien: "Hoàn tiền cho khách"
 };
 

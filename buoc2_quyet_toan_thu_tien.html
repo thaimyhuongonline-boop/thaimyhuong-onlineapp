@@ -741,6 +741,8 @@
             <div style="font-size:11px; color:#15803d; text-align:right;">
               = Khách trả TM + Thu nợ cũ - Chi + Tiền thối
             </div>
+            <!-- Khách chuyển khoản dư, tài xế đã trả lại tiền mặt (nhập ở cột Chuyển khoản của hoá đơn) -->
+            <div id="dongHoanTienMatKhach" style="display:none; font-size:11px; color:#b45309; text-align:right; font-weight:700; margin-top:2px;"></div>
           </div>
         </div>
 
@@ -1057,6 +1059,10 @@
             <tr>
               <td>Tiền thối</td>
               <td class="t-right" id="p_tienThoi">0</td>
+            </tr>
+            <tr id="p_dongHoanTienMat" style="display:none;">
+              <td>Hoàn TM cho khách (CK dư)</td>
+              <td class="t-right" id="p_hoanTienMat">0</td>
             </tr>
             <tr class="row-highlight-green">
               <td style="font-weight: bold;">SỐ TIỀN PHẢI THU</td>
@@ -1640,6 +1646,8 @@
 
       // Chuẩn bị danh sách hóa đơn quyết toán
       napDuLieuHoaDonCuaDot(dotHienTai);
+      // Khoản hoàn tiền mặt cho khách chuyển khoản dư (máy khác đã lưu) — chạy nền
+      napHoanTienMatTuCloud(dotHienTai);
     }
 
     // Xóa dữ liệu chuyến xe hiện tại
@@ -1707,7 +1715,7 @@
     const TRUONG_SO_LIEU_QUYET_TOAN = ['thoiGianQuyetToan', 'tongTienMat', 'tongChuyenKhoan', 'tongTraVe', 'tongNoPhatSinh',
       'tienChi', 'noiDungChi', 'thuNoCu', 'ghiChuThuNoCu', 'idDonNoDangThu', 'danhSachDonNoDangThu', 'tienThoi', 'soTienPhaiThu',
       'nguoiNop', 'nguoiNhan', 'ghiChuPhieu', 'soToDemTien', 'danhSachChiPhi', 'danhSachThuNo', 'thuNoDaGhiNhan',
-      'tongTienDem', 'tienThieu', 'tienThua', 'noNguoiNop'];
+      'tongTienDem', 'tienThieu', 'tienThua', 'noNguoiNop', 'tongHoanTienMat'];
     const COT_SO_TO_PHIEU = { 500000: 'sl_500k', 200000: 'sl_200k', 100000: 'sl_100k', 50000: 'sl_50k', 20000: 'sl_20k', 10000: 'sl_10k', 5000: 'sl_5k', 2000: 'sl_2k', 1000: 'sl_1k' };
 
     // Bỏ số liệu quyết toán của 1 chuyến trên máy này (chuyến về Chờ tính tiền)
@@ -1720,6 +1728,7 @@
         if (h.thanhTien === undefined && h.tienHD !== undefined) h.thanhTien = h.tienHD;
         h.tienMat = 0; h.chuyenKhoan = 0; h.traVe = 0; h.noPhatSinh = 0; h.taiKhoanNhan = '';
         h.daKiemDon = false; h.daQuyetToan = false;
+        h.hoanTienMat = 0; delete h.lyDoHoanTM;
         delete h.tinhTrang; delete h.loaiTraVe;
         if (setGL.has(String(h.maHD || '').toUpperCase())) h.laGiaoLai = false;
       });
@@ -1789,15 +1798,15 @@
 
       // 3. Tiền khách trả dư của chuyến đã ghi vào Sổ tiền khách trả trước → dòng điều chỉnh giảm
       if (typeof BANG_TRA_TRUOC !== 'undefined') {
-        const { data: tt, error: e3 } = await sb.from(BANG_TRA_TRUOC).select('*').eq('ma_dot', maDot).in('nguon', ['buoc2_du_hoa_don', 'buoc2_du_thu_no']);
+        const { data: tt, error: e3 } = await sb.from(BANG_TRA_TRUOC).select('*').eq('ma_dot', maDot).in('nguon', ['buoc2_du_hoa_don', 'buoc2_du_thu_no', NGUON_HOAN_CK_DU]);
         if (e3 && !laLoiThieuBangTT(e3)) throw e3;
         const ngay = chuanHoaNgayISO(dot.ngayRaw) || chuanHoaNgayISO(dot.ngayGiao) || new Date().toISOString().slice(0, 10);
         const ghiChuChuyen = `Chuyến xe ${dot.xe || ''} ngày ${dot.ngayGiao || ngay}`;
         const tong = new Map(), mau = new Map();
         (tt || []).forEach(r => {
-          const k = r.nguon === 'buoc2_du_thu_no'
+          const k = (r.nguon === 'buoc2_du_thu_no'
             ? `buoc2_du_thu_no|${khoaKhachTT(r.ten_kh)}|${r.hinh_thuc || 'Tiền mặt'}`
-            : `buoc2_du_hoa_don|${r.ma_hd}|${r.hinh_thuc || 'Tiền mặt'}`;
+            : `${r.nguon}|${r.ma_hd}|${r.hinh_thuc || 'Tiền mặt'}`) + `|${r.loai === 'hoan' ? 'hoan' : 'nhan'}`;
           tong.set(k, (tong.get(k) || 0) + (parseFloat(r.so_tien) || 0));
           if (!mau.has(k)) mau.set(k, r);
         });
@@ -1805,9 +1814,11 @@
           const conLai = Math.round(st);
           if (!conLai) return;
           const m = mau.get(k);
-          kq.tongTraDu += conLai;
+          const laHoan = m.loai === 'hoan';
+          if (m.nguon === NGUON_HOAN_CK_DU) { if (laHoan) kq.tongHoanCKDu = (kq.tongHoanCKDu || 0) + conLai; }
+          else kq.tongTraDu += conLai;
           kq.dongTraTruoc.push({
-            ngay, ma_kh: m.ma_kh || '', ten_kh: m.ten_kh, loai: 'nhan', so_tien: -conLai, hinh_thuc: m.hinh_thuc || 'Tiền mặt',
+            ngay, ma_kh: m.ma_kh || '', ten_kh: m.ten_kh, loai: laHoan ? 'hoan' : 'nhan', so_tien: -conLai, hinh_thuc: m.hinh_thuc || 'Tiền mặt',
             tai_khoan_nhan: m.tai_khoan_nhan || '', nguon: m.nguon, ma_dot: maDot, ma_hd: m.ma_hd || '',
             ghi_chu: `${ghiChuChuyen} — điều chỉnh giảm do làm mới chuyến (về Chờ tính tiền)`
           });
@@ -1818,7 +1829,7 @@
           if (so.ok) {
             const bien = new Map();
             const cong = (ten, v) => { const k = khoaKhachTT(ten); bien.set(k, (bien.get(k) || 0) + v); };
-            kq.dongTraTruoc.forEach(r => cong(r.ten_kh, r.so_tien));
+            kq.dongTraTruoc.forEach(r => cong(r.ten_kh, r.loai === 'hoan' ? -r.so_tien : r.so_tien));
             kq.dongHoanThuNo.filter(r => r.hinh_thuc === HT_CAN_TRU).forEach(r => cong(r.ten_kh, parseFloat(r.so_tien) || 0));
             bien.forEach((chenh, k) => {
               const g = so.theoKhach.get(k);
@@ -1882,6 +1893,7 @@
         (kt.tongThuNoCu ? `• Hoàn lại thu nợ cũ qua xe ${formatTien(kt.tongThuNoCu)} đ (khách nợ lại như trước khi thu)\n` : '') +
         (kt.tongCanTru ? `• Trả lại ${formatTien(kt.tongCanTru)} đ tiền trả trước đã cấn trừ vào nợ của chuyến\n` : '') +
         (kt.tongTraDu ? `• Gỡ ${formatTien(kt.tongTraDu)} đ tiền khách trả dư khỏi Sổ tiền khách trả trước\n` : '') +
+        (kt.tongHoanCKDu ? `• Gỡ khoản khách chuyển khoản dư đã hoàn tiền mặt ${formatTien(kt.tongHoanCKDu)} đ (cặp nhận / hoàn trong Sổ tiền khách trả trước)\n` : '') +
         dongPhieu +
         (kt.dsGiaoLai.length ? `• Bỏ ${kt.dsGiaoLai.length} đơn khỏi hàng đợi hẹn giao lại\n` : '') +
         (!kt.coBangThuNo ? `• Hoàn lại thu nợ cũ đã ghi trên máy này\n` : '');
@@ -2077,7 +2089,10 @@
           taiKhoanNhan: tkNhan,
           noPhatSinh: noPhatSinh,
           ghiChu: r.ghiChu || r.ghi_chu || '',
-          laGiaoLai: !!r.laGiaoLai
+          laGiaoLai: !!r.laGiaoLai,
+          // Khách chuyển khoản dư, tài xế đã trả lại tiền mặt (phương án A)
+          hoanTienMat: parseFloat(r.hoanTienMat || 0) || 0,
+          lyDoHoanTM: r.lyDoHoanTM || ''
         };
       });
 
@@ -2170,6 +2185,7 @@
                 oninput="nhapChuyenKhoan(${idx}, this.value)">
               <button type="button" class="btn-quick-fill" onclick="chuyenKhoanToanBo(${idx})" title="Chuyển khoản toàn bộ">⚡Đủ</button>
             </div>
+            <div id="oHoanTM_${idx}">${htmlOHoanTienMat(hd, idx)}</div>
           </td>
           <td>
             <select id="selNH_${idx}" class="input-table select-ngan-hang" 
@@ -2551,6 +2567,164 @@
         elNo.textContent = hd.noPhatSinh > 0 ? formatTien(hd.noPhatSinh) : '0';
         elNo.style.color = hd.noPhatSinh > 0 ? '#dc2626' : 'var(--text-muted)';
       }
+      const elHoan = document.getElementById(`oHoanTM_${idx}`);
+      if (elHoan) elHoan.innerHTML = htmlOHoanTienMat(hd, idx);
+    }
+
+    // ========================================================
+    // KHÁCH CHUYỂN KHOẢN DƯ → TÀI XẾ TRẢ LẠI TIỀN MẶT (phương án A)
+    // --------------------------------------------------------
+    // Ví dụ: HĐ 1.000.000, khách chuyển nhầm 2.000.000, tài xế đưa lại khách 1.000.000 tiền mặt.
+    //  • Số tiền phải thu (tài xế nộp) trừ khoản đã hoàn → bảng đếm tiền khớp, không ghi nợ nhầm tài xế.
+    //  • Khi lưu: tự ghi 2 dòng Sổ tiền khách trả trước (nguồn buoc2_hoan_ck_du): nhận phần chuyển khoản dư
+    //    (Nợ 1121 – Có 131) + hoàn tiền mặt (Nợ 131 – Có 1111) → số dư của khách = 0, TK 1121 khớp sao kê.
+    //  • Chỉ hoàn tối đa bằng phần chuyển khoản dư, bắt buộc ghi lý do.
+    // ========================================================
+    const NGUON_HOAN_CK_DU = 'buoc2_hoan_ck_du';
+
+    // Phần chuyển khoản vượt số khách phải trả của hoá đơn (tiền mặt được tính trả trước)
+    function ckDuCuaDong(hd) {
+      const phaiTra = Math.max(0, (hd.tienHD || 0) - (hd.traVe || 0));
+      if (typeof tachPhanDuTT === 'function') return Math.max(0, tachPhanDuTT(hd.tienMat || 0, hd.chuyenKhoan || 0, phaiTra).ckDu);
+      return Math.max(0, Math.min(hd.chuyenKhoan || 0, (hd.tienMat || 0) + (hd.chuyenKhoan || 0) - phaiTra));
+    }
+
+    // Số tiền mặt đã hoàn cho khách còn hiệu lực (không vượt phần chuyển khoản dư hiện tại)
+    function hoanTMCuaDong(hd) {
+      return Math.max(0, Math.min(parseFloat(hd.hoanTienMat) || 0, ckDuCuaDong(hd)));
+    }
+
+    function tongHoanTienMatKhach() {
+      return danhSachHoaDonQuyetToan.reduce((s, hd) => s + hoanTMCuaDong(hd), 0);
+    }
+
+    function htmlOHoanTienMat(hd, idx) {
+      const du = ckDuCuaDong(hd);
+      const hoan = hoanTMCuaDong(hd);
+      const kieu = 'margin-top:3px; font-size:10.5px; font-weight:700; border-radius:4px; padding:2px 6px; cursor:pointer; border:1px dashed;';
+      if (hoan > 0) {
+        return `<div style="${kieu} color:#b45309; background:#fffbeb; border-color:#f59e0b;" onclick="nhapHoanTienMatKhach(${idx})" title="${escapeHtml(hd.lyDoHoanTM || '')} — bấm để sửa">↩ Đã hoàn TM: ${formatTien(hoan)} đ${hoan < du ? ` (dư còn ${formatTien(du - hoan)})` : ''} ✎</div>`;
+      }
+      if (du > 0) {
+        return `<div style="${kieu} color:#1d4ed8; background:#eff6ff; border-color:#93c5fd;" onclick="nhapHoanTienMatKhach(${idx})" title="Khách chuyển khoản dư — bấm nếu tài xế đã trả lại tiền mặt cho khách">⚠️ CK dư ${formatTien(du)} đ — ↩ Hoàn TM?</div>`;
+      }
+      return '';
+    }
+
+    function nhapHoanTienMatKhach(idx) {
+      const hd = danhSachHoaDonQuyetToan[idx];
+      if (!hd) return;
+      const du = ckDuCuaDong(hd);
+      const hoanCu = hoanTMCuaDong(hd);
+      if (du <= 0 && hoanCu <= 0) { alert('ℹ️ Hoá đơn này không có tiền chuyển khoản dư.'); return; }
+      const phaiTra = Math.max(0, hd.tienHD - hd.traVe);
+      const nhap = prompt(
+        `↩ KHÁCH CHUYỂN KHOẢN DƯ — TÀI XẾ TRẢ LẠI TIỀN MẶT\n\n` +
+        `HĐ ${hd.maHD} — ${hd.tenKH}\n` +
+        `• Khách phải trả: ${formatTien(phaiTra)} đ\n` +
+        `• Khách đã trả: tiền mặt ${formatTien(hd.tienMat)} đ + chuyển khoản ${formatTien(hd.chuyenKhoan)} đ\n` +
+        `• Phần chuyển khoản dư: ${formatTien(du)} đ\n\n` +
+        `Nhập số tiền mặt tài xế ĐÃ TRẢ LẠI cho khách (tối đa ${formatTien(du)} đ, nhập 0 để bỏ):`,
+        formatTien(hoanCu || du)
+      );
+      if (nhap === null) return;
+      const soTien = Math.round(parseVNNumber_(nhap));
+      if (soTien < 0 || soTien > du) { alert(`⚠️ Số tiền hoàn phải từ 0 đến ${formatTien(du)} đ (phần chuyển khoản dư).`); return; }
+      if (soTien > 0) {
+        const lyDo = prompt('Ghi rõ lý do / người nhận lại tiền (bắt buộc, để kế toán kiểm soát):',
+          hd.lyDoHoanTM || `Khách CK dư, tài xế ${nguoiNop || (dotHienTai && dotHienTai.taiXe) || ''} trả lại tiền mặt cho khách`);
+        if (lyDo === null) return;
+        if (!lyDo.trim()) { alert('⚠️ Cần ghi lý do hoàn tiền.'); return; }
+        hd.hoanTienMat = soTien;
+        hd.lyDoHoanTM = lyDo.trim();
+      } else {
+        hd.hoanTienMat = 0;
+        delete hd.lyDoHoanTM;
+      }
+      tinhToanTongThe();
+      capNhatOTrongBang(idx);
+      hienThiToast(soTien > 0 ? `↩ Đã ghi hoàn ${formatTien(soTien)} đ tiền mặt cho khách — số tiền tài xế phải nộp giảm tương ứng.` : '↩ Đã bỏ khoản hoàn tiền mặt cho khách.');
+    }
+
+    // Máy khác mở chuyến đã quyết toán: lấy lại khoản hoàn tiền mặt từ Sổ tiền khách trả trước
+    async function napHoanTienMatTuCloud(dot) {
+      if (!dot || !dot.daQuyetToan || typeof sb === 'undefined' || typeof BANG_TRA_TRUOC === 'undefined') return;
+      try {
+        const { data, error } = await sb.from(BANG_TRA_TRUOC).select('ma_hd, loai, so_tien, ghi_chu').eq('ma_dot', dot.maDot).eq('nguon', NGUON_HOAN_CK_DU);
+        if (error || !Array.isArray(data) || dotHienTai !== dot) return;
+        const theoHD = new Map();
+        data.forEach(r => {
+          if (r.loai !== 'hoan') return;
+          const g = theoHD.get(r.ma_hd) || { soTien: 0, lyDo: '' };
+          g.soTien += parseFloat(r.so_tien) || 0;
+          if ((parseFloat(r.so_tien) || 0) > 0 && r.ghi_chu) g.lyDo = String(r.ghi_chu).split(' — ').slice(1).join(' — ') || g.lyDo;
+          theoHD.set(r.ma_hd, g);
+        });
+        let coDoi = false;
+        danhSachHoaDonQuyetToan.forEach(hd => {
+          const g = theoHD.get(hd.maHD);
+          const moi = g ? Math.max(0, Math.round(g.soTien)) : 0;
+          if (moi !== Math.round(parseFloat(hd.hoanTienMat) || 0)) {
+            hd.hoanTienMat = moi;
+            if (moi > 0 && g.lyDo) hd.lyDoHoanTM = g.lyDo;
+            coDoi = true;
+          }
+        });
+        if (coDoi) { veBangQuyetToan(); tinhToanTongThe(); }
+      } catch (e) {
+        console.warn('Không tải được khoản hoàn tiền mặt cho khách:', e);
+      }
+    }
+
+    // Sau khi lưu quyết toán: ghi / điều chỉnh các dòng hoàn tiền trong Sổ tiền khách trả trước
+    // (chỉ ghi PHẦN CHÊNH so với lần lưu trước → lưu lại nhiều lần không bị ghi trùng)
+    async function ghiHoanTienCKDuSauQuyetToan() {
+      if (typeof ghiSoTraTruoc !== 'function' || typeof sb === 'undefined' || !dotHienTai) return { ok: true };
+      const dot = dotHienTai;
+      const maDot = dot.maDot;
+      const ngay = chuanHoaNgayISO(dot.ngayRaw) || chuanHoaNgayISO(dot.ngayGiao) || new Date().toISOString().slice(0, 10);
+      const ghiChuChuyen = `Chuyến xe ${dot.xe || ''} ngày ${dot.ngayGiao || ngay}`;
+      const mongMuon = new Map();
+      danhSachHoaDonQuyetToan.forEach(hd => {
+        const st = Math.round(hoanTMCuaDong(hd));
+        if (st <= 0) return;
+        const goc = { ngay, ma_kh: hd.maKH || '', ten_kh: hd.tenKH || '', nguon: NGUON_HOAN_CK_DU, ma_dot: maDot, ma_hd: hd.maHD,
+          ghi_chu: `${ghiChuChuyen} — ${hd.lyDoHoanTM || 'khách chuyển khoản dư, tài xế trả lại tiền mặt'}` };
+        mongMuon.set(`nhan|${hd.maHD}`, Object.assign({}, goc, { loai: 'nhan', so_tien: st, hinh_thuc: 'Chuyển khoản', tai_khoan_nhan: hd.taiKhoanNhan || '' }));
+        mongMuon.set(`hoan|${hd.maHD}`, Object.assign({}, goc, { loai: 'hoan', so_tien: st, hinh_thuc: 'Tiền mặt', tai_khoan_nhan: '' }));
+      });
+      let daGhi = [];
+      try {
+        const { data, error } = await sb.from(BANG_TRA_TRUOC).select('*').eq('ma_dot', maDot).eq('nguon', NGUON_HOAN_CK_DU);
+        if (error) {
+          if (laLoiThieuBangTT(error)) return mongMuon.size ? { ok: false, loi: 'máy chủ chưa có Sổ tiền khách trả trước — nhờ quản trị chạy sql/12_khach_tra_truoc.sql' } : { ok: true };
+          return { ok: false, loi: error.message || 'lỗi đọc sổ trả trước' };
+        }
+        daGhi = data || [];
+      } catch (e) { return { ok: false, loi: e.message || String(e) }; }
+      const tongDaGhi = new Map(), mauDaGhi = new Map();
+      daGhi.forEach(r => {
+        const k = `${r.loai === 'hoan' ? 'hoan' : 'nhan'}|${r.ma_hd}`;
+        tongDaGhi.set(k, (tongDaGhi.get(k) || 0) + (parseFloat(r.so_tien) || 0));
+        if (!mauDaGhi.has(k)) mauDaGhi.set(k, r);
+      });
+      const canGhi = [];
+      new Set([...mongMuon.keys(), ...tongDaGhi.keys()]).forEach(k => {
+        const chenh = Math.round((mongMuon.get(k) || {}).so_tien || 0) - Math.round(tongDaGhi.get(k) || 0);
+        if (!chenh) return;
+        const m = mongMuon.get(k) || mauDaGhi.get(k);
+        const laHoan = k.indexOf('hoan|') === 0;
+        canGhi.push({
+          ngay, ma_kh: m.ma_kh || '', ten_kh: m.ten_kh, loai: laHoan ? 'hoan' : 'nhan', so_tien: chenh,
+          hinh_thuc: laHoan ? 'Tiền mặt' : 'Chuyển khoản', tai_khoan_nhan: laHoan ? '' : (m.tai_khoan_nhan || ''),
+          nguon: NGUON_HOAN_CK_DU, ma_dot: maDot, ma_hd: m.ma_hd || '',
+          ghi_chu: (m.ghi_chu || ghiChuChuyen) + (chenh < 0 ? ' — điều chỉnh giảm do sửa quyết toán' : '')
+        });
+      });
+      // Ghi phần nhận trước, phần hoàn sau (Bước 3 xuất theo thứ tự này)
+      canGhi.sort((a, b) => (a.loai === 'hoan') - (b.loai === 'hoan'));
+      if (!canGhi.length) return { ok: true, soDong: 0 };
+      return ghiSoTraTruoc(canGhi);
     }
 
     function dongYThuDuTatCa() {
@@ -2614,7 +2788,9 @@
       document.getElementById('kpiSubTraVe').textContent = `Hẳn: ${formatTien(traHan)}đ | Giao lại: ${formatTien(giaoLai)}đ`;
 
       // Cân đối sổ sách theo xuất kho
-      const tongQuyetToan = tongMat + tongCK + tongTraVe + tongNo;
+      // Khách chuyển khoản dư đã được tài xế hoàn lại tiền mặt → phần đó không còn là tiền thu của hoá đơn
+      const tongHoanTM = tongHoanTienMatKhach();
+      const tongQuyetToan = tongMat + tongCK - tongHoanTM + tongTraVe + tongNo;
       const chenhLech = tongXuat - tongQuyetToan;
       const cardCD = document.getElementById('cardKiemSoat');
       const elCD = document.getElementById('kpiCanDoi');
@@ -2634,10 +2810,19 @@
 
       // SỐ TIỀN PHẢI THU (Tài xế thực tế nộp quỹ theo đúng chuẩn hình 3):
       // SỐ TIỀN PHẢI THU = Khách trả TM + Thu nợ cũ - Chi + Tiền thối
-      const soTienPhaiThu = Math.max(0, tongMat + thuNoCu - tienChi + tienThoi);
+      const soTienPhaiThu = Math.max(0, tongMat + thuNoCu - tienChi + tienThoi - tongHoanTienMatKhach());
       const boxSoPhaiThu = document.getElementById('kpiSoTienPhaiThuBox');
       if (boxSoPhaiThu) {
         boxSoPhaiThu.textContent = formatTien(soTienPhaiThu) + ' đ';
+      }
+      const dongHoan = document.getElementById('dongHoanTienMatKhach');
+      if (dongHoan) {
+        // Tiền mặt tài xế thu được không đủ để hoàn cho khách → tài xế đã ứng tiền riêng (công ty cần trả lại)
+        const taiXeUng = Math.max(0, tongHoanTM - (tongMat + thuNoCu - tienChi + tienThoi));
+        dongHoan.style.display = tongHoanTM > 0 ? '' : 'none';
+        dongHoan.textContent = tongHoanTM > 0
+          ? `− Hoàn TM cho khách (CK dư): ${formatTien(tongHoanTM)} đ` + (taiXeUng > 0 ? ` ⚠️ Tiền mặt thu được không đủ để hoàn — tài xế đã ứng thêm ${formatTien(taiXeUng)} đ (công ty cần trả lại tài xế)` : '')
+          : '';
       }
 
       // Footer bảng
@@ -2820,7 +3005,7 @@
 
       // Lấy tổng tiền mặt phải nộp (sau khi tính Chi & Thu nợ cũ)
       let tongMat = danhSachHoaDonQuyetToan.reduce((s, h) => s + (h.tienMat || 0), 0);
-      const soTienPhaiThu = Math.max(0, tongMat + thuNoCu - tienChi + tienThoi);
+      const soTienPhaiThu = Math.max(0, tongMat + thuNoCu - tienChi + tienThoi - tongHoanTienMatKhach());
       kiemTraKhopTienMat(soTienPhaiThu, tongTien);
     }
 
@@ -3976,6 +4161,11 @@
         phanBoThuNoCu();
         veDanhSachThuNo();
       }
+      // Khách chuyển khoản dư đã được tài xế hoàn tiền mặt → tự ghi cặp nhận / hoàn vào Sổ tiền khách trả trước
+      if (dotHienTai && dotHienTai.daQuyetToan) {
+        const kqHoan = await ghiHoanTienCKDuSauQuyetToan();
+        if (!kqHoan.ok) alert('⚠️ Chưa ghi được khoản hoàn tiền mặt cho khách (chuyển khoản dư) vào Sổ tiền khách trả trước: ' + (kqHoan.loi || 'lỗi') + '\nBấm Lưu Quyết Toán lại để thử lần nữa.');
+      }
       // Khách trả dư / thu nợ vượt → hỏi ghi vào Sổ tiền khách trả trước; khách có tiền trả trước
       // mà phát sinh nợ mới → hỏi có cấn trừ không (không bao giờ tự trừ)
       if (dotHienTai && dotHienTai.daQuyetToan) await xuLyTraTruocSauQuyetToan();
@@ -4004,7 +4194,9 @@
         const tach = tachPhanDuTT(hd.tienMat || 0, hd.chuyenKhoan || 0, phaiTra);
         const goc = { ngay, ma_kh: hd.maKH || '', ten_kh: hd.tenKH || '', loai: 'nhan', nguon: 'buoc2_du_hoa_don', ma_dot: maDot, ma_hd: hd.maHD, ghi_chu: ghiChuChuyen };
         if (tach.tmDu > 0) them(`buoc2_du_hoa_don|${hd.maHD}|Tiền mặt`, Object.assign({}, goc, { so_tien: tach.tmDu, hinh_thuc: 'Tiền mặt', tai_khoan_nhan: '' }));
-        if (tach.ckDu > 0) them(`buoc2_du_hoa_don|${hd.maHD}|Chuyển khoản`, Object.assign({}, goc, { so_tien: tach.ckDu, hinh_thuc: 'Chuyển khoản', tai_khoan_nhan: hd.taiKhoanNhan || '' }));
+        // Phần chuyển khoản dư tài xế đã hoàn tiền mặt cho khách được ghi riêng (ghiHoanTienCKDuSauQuyetToan)
+        const ckDuConLai = tach.ckDu - hoanTMCuaDong(hd);
+        if (ckDuConLai > 0.5) them(`buoc2_du_hoa_don|${hd.maHD}|Chuyển khoản`, Object.assign({}, goc, { so_tien: ckDuConLai, hinh_thuc: 'Chuyển khoản', tai_khoan_nhan: hd.taiKhoanNhan || '' }));
       });
       danhSachThuNo.forEach(r => {
         if (r.ngoaiSo || !(r.vuot > 0.5)) return;
@@ -4137,10 +4329,14 @@
         tongNo += h.noPhatSinh;
       });
 
-      const soTienPhaiThu = Math.max(0, tongMat + thuNoCu - tienChi + tienThoi);
+      const soTienPhaiThu = Math.max(0, tongMat + thuNoCu - tienChi + tienThoi - tongHoanTienMatKhach());
+      // Khoản hoàn tiền mặt cho khách chuyển khoản dư: chỉ giữ phần còn hiệu lực (không vượt phần CK dư hiện tại)
+      danhSachHoaDonQuyetToan.forEach(h => { h.hoanTienMat = hoanTMCuaDong(h); if (!h.hoanTienMat) h.lyDoHoanTM = ''; });
+      const tongHoanTMLuu = tongHoanTienMatKhach();
 
       // 1. Cập nhật vào đợt hiện tại
       dotHienTai.daQuyetToan = true;
+      dotHienTai.tongHoanTienMat = tongHoanTMLuu;
       dotHienTai.thoiGianQuyetToan = new Date().toISOString();
       dotHienTai.tongTienMat = tongMat;
       dotHienTai.tongChuyenKhoan = tongCK;
@@ -4320,7 +4516,8 @@
             sl_2k: SO_TO_DEM[2000] || 0,
             sl_1k: SO_TO_DEM[1000] || 0,
             chenh_lech: (MENH_GIA_TIEN.reduce((s, m) => s + m * (SO_TO_DEM[m] || 0), 0)) - soTienPhaiThu,
-            ghi_chu: `Chi: ${formatTien(tienChi)} (${noiDungChi}) | Thu nợ cũ: ${formatTien(thuNoCu)} (${ghiChuThuNoCu}) | ${ghiChuPhieu}`,
+            ghi_chu: `Chi: ${formatTien(tienChi)} (${noiDungChi}) | Thu nợ cũ: ${formatTien(thuNoCu)} (${ghiChuThuNoCu}) | ${ghiChuPhieu}` +
+              (tongHoanTMLuu > 0 ? ` | Hoàn TM khách (CK dư): ${formatTien(tongHoanTMLuu)}` : ''),
             // Các cột số liệu riêng để máy khác đọc lại đúng khi mở lại đợt này
             // (trước đây chỉ gộp chung vào ghi_chu dạng chữ nên không đọc lại được)
             tien_chi: tienChi,
@@ -4368,6 +4565,9 @@
       }
       if (donGiaoLaiMoi.length > 0) {
         thongBaoExtra += `\n🔄 Đã lưu ${donGiaoLaiMoi.length} đơn [HẸN GIAO LẠI] vào hàng đợi!`;
+      }
+      if (tongHoanTMLuu > 0) {
+        thongBaoExtra += `\n↩ Hoàn tiền mặt cho khách chuyển khoản dư: ${formatTien(tongHoanTMLuu)} đ — đã trừ vào số tiền phải thu, tự ghi vào Sổ tiền khách trả trước.`;
       }
       if (thieuThuaNop) {
         const tenNop = nguoiNop || dotHienTai.taiXe || 'người nộp';
@@ -4441,7 +4641,7 @@
         tongNo += h.noPhatSinh;
       });
 
-      const soTienPhaiThu = Math.max(0, tongMat + thuNoCu - tienChi + tienThoi);
+      const soTienPhaiThu = Math.max(0, tongMat + thuNoCu - tienChi + tienThoi - tongHoanTienMatKhach());
 
       document.getElementById('p_tongXuat').textContent = formatTien(tongXuat);
       document.getElementById('p_tongMat').textContent = formatTien(tongMat);
@@ -4451,6 +4651,9 @@
       document.getElementById('p_tienChi').textContent = formatTien(tienChi);
       document.getElementById('p_thuNoCu').textContent = formatTien(thuNoCu);
       document.getElementById('p_tienThoi').textContent = formatTien(tienThoi);
+      const tongHoanIn = tongHoanTienMatKhach();
+      document.getElementById('p_dongHoanTienMat').style.display = tongHoanIn > 0 ? '' : 'none';
+      document.getElementById('p_hoanTienMat').textContent = formatTien(tongHoanIn);
       document.getElementById('p_soTienPhaiThu').textContent = formatTien(soTienPhaiThu);
 
       // 3. Đồng bộ Bảng đếm mệnh giá
