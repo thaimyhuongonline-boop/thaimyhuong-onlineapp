@@ -55,6 +55,12 @@
     .bc-kpi.k-tra { border-left-color: #f59e0b; }
     .bc-kpi.k-no { border-left-color: #dc2626; }
     .bc-kpi.k-cho { border-left-color: #7c3aed; }
+    .bc-kpi.k-thieu { border-left-color: #be123c; }
+    .bc-kpi.k-thua { border-left-color: #0e7490; }
+    .bc-tt-note { padding: 8px 14px; font-size: 12px; color: var(--text-muted); border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 3px; }
+    .bc-tt-note:empty { display: none; }
+    .bc-sub-title { padding: 10px 14px 6px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: #475569; }
+    table.bc-table tr.bc-selected td { background: #fff1f2; }
 
     .bc-balance { padding: 10px 14px; border-radius: var(--radius-md); font-size: 13px; font-weight: 700; border: 1px solid; }
     .bc-balance.ok { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
@@ -103,7 +109,7 @@
     <div class="tmh-page-header no-print">
       <div class="tmh-page-header-text">
         <h1 class="tmh-page-header-title">📊 Báo Cáo Tổng Hợp</h1>
-        <p class="tmh-page-header-sub">Tổng kết số liệu xuất kho, tiền mặt, chuyển khoản, hàng trả về và công nợ — lấy trực tiếp từ dữ liệu Bước 1 → Bước 2 → Bước 3. Bấm vào từng thẻ hoặc từng chuyến xe để xem chi tiết đơn hàng và đối soát.</p>
+        <p class="tmh-page-header-sub">Tổng kết số liệu xuất kho, tiền mặt, chuyển khoản, hàng trả về, công nợ và tiền thiếu / thừa khi nộp tiền xe — lấy trực tiếp từ dữ liệu Bước 1 → Bước 2 → Bước 3. Bấm vào từng thẻ hoặc từng chuyến xe để xem chi tiết đơn hàng và đối soát.</p>
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
         <button type="button" class="btn btn-outline" onclick="taiBaoCao()"><span>🔄</span> Tải Lại</button>
@@ -164,11 +170,66 @@
                 <th class="num">Chuyển khoản (đ)</th>
                 <th class="num">Hàng trả về (đ)</th>
                 <th class="num">Nợ (đ)</th>
+                <th class="num">Thiếu (đ)</th>
+                <th class="num">Thừa (đ)</th>
                 <th>Trạng thái</th>
               </tr>
             </thead>
             <tbody id="bcBangDot"></tbody>
             <tfoot id="bcFootDot"></tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- TIỀN THIẾU / THỪA KHI NỘP TIỀN XE -->
+      <div class="bc-card" id="bcThieuThua">
+        <div class="bc-card-head">
+          <div>
+            <div class="bc-card-title">💰 Tiền thiếu / thừa khi nộp tiền xe</div>
+            <div class="bc-card-sub">Lấy từ Bảng đếm tiền mặt ở Bước 2 · Thiếu dưới 10.000 đ không ghi nợ · Thiếu từ 10.000 đ trở lên ghi nợ cho người nộp tiền · Tiền thừa ghi nhận cho người nộp tiền</div>
+          </div>
+          <div class="bc-quick no-print" id="bcTTLoai">
+            <button type="button" class="btn btn-outline" data-loai="tat_ca" onclick="datLocThieuThua('tat_ca')">Tất cả</button>
+            <button type="button" class="btn btn-outline" data-loai="thieu" onclick="datLocThieuThua('thieu')">🔻 Thiếu</button>
+            <button type="button" class="btn btn-outline" data-loai="thua" onclick="datLocThieuThua('thua')">🔺 Thừa</button>
+          </div>
+        </div>
+        <div class="bc-tt-note" id="bcTTGhiChu"></div>
+        <div class="bc-sub-title">👤 Theo người nộp tiền <span style="font-weight:600; text-transform:none; letter-spacing:0; color:var(--text-muted);">— bấm 1 người để lọc chi tiết bên dưới</span></div>
+        <div class="bc-scroll" style="max-height:300px;">
+          <table class="bc-table">
+            <thead>
+              <tr>
+                <th>Người nộp tiền</th>
+                <th class="num">Số chuyến</th>
+                <th class="num">Chuyến thiếu</th>
+                <th class="num">Tổng thiếu (đ)</th>
+                <th class="num">Ghi nợ người nộp (đ)</th>
+                <th class="num">Thiếu &lt; 10.000 bỏ qua (đ)</th>
+                <th class="num">Tiền thừa (đ)</th>
+              </tr>
+            </thead>
+            <tbody id="bcTTNguoi"></tbody>
+            <tfoot id="bcTTNguoiFoot"></tfoot>
+          </table>
+        </div>
+        <div class="bc-sub-title" id="bcTTTieuDeChiTiet">🚚 Chi tiết theo chuyến xe</div>
+        <div class="bc-scroll" style="max-height:360px;">
+          <table class="bc-table">
+            <thead>
+              <tr>
+                <th>Ngày</th>
+                <th>Chuyến xe</th>
+                <th>Người nộp tiền</th>
+                <th class="num">Phải nộp (đ)</th>
+                <th class="num">Thực nộp (đ)</th>
+                <th class="num">Thiếu (đ)</th>
+                <th class="num">Thừa (đ)</th>
+                <th>Ghi nhận</th>
+              </tr>
+            </thead>
+            <tbody id="bcTTChiTiet"></tbody>
+            <tfoot id="bcTTChiTietFoot"></tfoot>
           </table>
         </div>
       </div>
@@ -323,6 +384,59 @@
       return out;
     }
 
+    // ---------------- TIỀN THIẾU / THỪA KHI NỘP TIỀN (phiếu nộp tiền Bước 2) ----------------
+    // maDot -> { nguoiNop, daDem, tienDem, phaiNop, chenh, thieu, thua, ghiNo, soNo } (quy tắc ở config.js)
+    let nopTien = new Map();
+    let loiNopTien = '';
+    let locThieuThua = { loai: 'tat_ca', nguoi: '' };
+    const MENH_GIA_PHIEU = [[500000, 'sl_500k'], [200000, 'sl_200k'], [100000, 'sl_100k'], [50000, 'sl_50k'], [20000, 'sl_20k'], [10000, 'sl_10k'], [5000, 'sl_5k'], [2000, 'sl_2k'], [1000, 'sl_1k']];
+
+    // phieu_nop_tien lưu chenh_lech = tiền đếm − phải nộp → suy ra phải nộp = tiền đếm − chenh_lech
+    function chuanHoaPhieuNop(p) {
+      const tienDem = MENH_GIA_PHIEU.reduce((s, [m, cot]) => s + m * (parseInt(p[cot]) || 0), 0);
+      const phaiNop = tienDem - (parseFloat(p.chenh_lech) || 0);
+      return Object.assign({ nguoiNop: String(p.nguoi_nop || '').trim() }, tinhThieuThuaNopTien(tienDem, phaiNop));
+    }
+
+    async function taiNopTienTuSupabase(dsMaDot) {
+      const map = new Map();
+      const ds = dsMaDot.filter(m => m && m !== 'DOT_KHAC');
+      const cot = 'ma_dot, nguoi_nop, chenh_lech, ' + MENH_GIA_PHIEU.map(x => x[1]).join(', ');
+      for (let i = 0; i < ds.length; i += 100) {
+        const { data, error } = await sb.from('phieu_nop_tien').select(cot).in('ma_dot', ds.slice(i, i + 100));
+        if (error) throw error;
+        (data || []).forEach(p => map.set(p.ma_dot, chuanHoaPhieuNop(p)));
+      }
+      return map;
+    }
+
+    function taiNopTienTuMayNay() {
+      const map = new Map();
+      let dsDot = [];
+      try { dsDot = JSON.parse(localStorage.getItem('tmh_lich_su_dot') || '[]'); } catch (e) {}
+      dsDot.forEach(dot => {
+        if (!dot || !dot.maDot || !dot.daQuyetToan || dot.soTienPhaiThu === undefined) return;
+        const so = dot.soToDemTien || {};
+        const tienDem = MENH_GIA_PHIEU.reduce((s, [m]) => s + m * (parseInt(so[m]) || 0), 0);
+        map.set(dot.maDot, Object.assign({ nguoiNop: String(dot.nguoiNop || '').trim() }, tinhThieuThuaNopTien(tienDem, dot.soTienPhaiThu)));
+      });
+      return map;
+    }
+
+    // Không bao giờ ném lỗi: lỗi đọc phiếu nộp tiền không được làm hỏng phần báo cáo còn lại
+    async function taiNopTien() {
+      loiNopTien = '';
+      if (typeof tinhThieuThuaNopTien !== 'function') { nopTien = new Map(); return; }
+      if (nguonDuLieu !== 'cloud') { nopTien = taiNopTienTuMayNay(); return; }
+      try {
+        nopTien = await taiNopTienTuSupabase(Array.from(new Set(duLieu.map(d => d.maDot))));
+      } catch (e) {
+        console.warn('Không đọc được phiếu nộp tiền trên Supabase:', e);
+        nopTien = taiNopTienTuMayNay();
+        loiNopTien = 'Không đọc được phiếu nộp tiền trên Supabase — số thiếu / thừa đang lấy từ dữ liệu lưu trên máy này (có thể chưa đầy đủ).';
+      }
+    }
+
     async function taiBaoCao() {
       const tu = document.getElementById('bcTuNgay').value;
       const den = document.getElementById('bcDenNgay').value;
@@ -337,11 +451,13 @@
         duLieu = await taiTuSupabase(dsIso);
         nguonDuLieu = 'cloud';
         elNguon.innerHTML = '🟢 Dữ liệu trực tiếp từ Supabase · cập nhật ' + H(new Date().toLocaleTimeString('vi-VN'));
+        await taiNopTien();
       } catch (e) {
         console.warn('Không đọc được Supabase, dùng dữ liệu trên máy:', e);
         duLieu = taiTuMayNay(tu, den);
         nguonDuLieu = 'local';
         elNguon.innerHTML = '🟠 Mất kết nối Supabase — đang hiển thị dữ liệu lưu trên máy này (có thể chưa đầy đủ)';
+        await taiNopTien();
       } finally {
         dangTai = false;
       }
@@ -386,7 +502,184 @@
       return t;
     }
 
-    function veTatCa() { veKpi(); veBangDot(); }
+    // Các chuyến xe (đã lọc) có phiếu nộp tiền, kèm số thiếu / thừa
+    function dsDotCoNopTien() {
+      const map = new Map();
+      duLieuDaLoc().forEach(d => {
+        if (!map.has(d.maDot)) map.set(d.maDot, { maDot: d.maDot, ngay: d.ngay, xe: d.xe, taiXe: d.taiXe });
+      });
+      const out = [];
+      map.forEach(dt => {
+        const nt = nopTien.get(dt.maDot);
+        if (!nt) return;
+        out.push(Object.assign({}, dt, nt, { nguoiNop: nt.nguoiNop || dt.taiXe || '(Chưa ghi người nộp)' }));
+      });
+      return out.sort((a, b) => (vnSangKhoa(b.ngay) + b.xe).localeCompare(vnSangKhoa(a.ngay) + a.xe));
+    }
+
+    function tongThieuThua(ds) {
+      const t = { soPhieu: 0, soChuaDem: 0, soThieu: 0, thieu: 0, soGhiNo: 0, no: 0, soBoQua: 0, boQua: 0, soThua: 0, thua: 0 };
+      ds.forEach(x => {
+        t.soPhieu++;
+        if (!x.daDem) { t.soChuaDem++; return; }
+        if (x.thieu > 0) {
+          t.soThieu++; t.thieu += x.thieu;
+          if (x.ghiNo) { t.soGhiNo++; t.no += x.soNo; } else { t.soBoQua++; t.boQua += x.thieu; }
+        }
+        if (x.thua > 0) { t.soThua++; t.thua += x.thua; }
+      });
+      return t;
+    }
+
+    function khoaNguoiNop(ten) { return String(ten || '').trim().replace(/\s+/g, ' ').toUpperCase(); }
+
+    function nhomTheoNguoiNop(dsDot) {
+      const map = new Map();
+      dsDot.forEach(x => {
+        const k = khoaNguoiNop(x.nguoiNop);
+        if (!map.has(k)) map.set(k, { khoa: k, ten: x.nguoiNop, ds: [] });
+        map.get(k).ds.push(x);
+      });
+      return Array.from(map.values())
+        .map(g => Object.assign({ khoa: g.khoa, ten: g.ten }, tongThieuThua(g.ds)))
+        .sort((a, b) => (b.no - a.no) || (b.thieu - a.thieu) || (b.thua - a.thua) || a.ten.localeCompare(b.ten, 'vi'));
+    }
+
+    function ghiNhanThieuThua(x) {
+      if (!x.daDem) return '<span class="bc-tag wait">Chưa đếm tiền</span>';
+      if (x.ghiNo) return `<span class="bc-tag warn">📒 Ghi nợ người nộp</span>`;
+      if (x.thieu > 0) return `<span class="bc-tag wait">Dưới ${fmt(NGUONG_GHI_NO_THIEU_TIEN)} đ · không ghi nợ</span>`;
+      if (x.thua > 0) return `<span class="bc-tag done">Ghi nhận thừa cho người nộp</span>`;
+      return '<span class="bc-tag done">✅ Khớp</span>';
+    }
+
+    // Ô Thiếu / Thừa trong bảng "Tổng kết theo chuyến xe"
+    function oThieuThuaDot(maDot, loai) {
+      const nt = nopTien.get(maDot);
+      if (!nt) return '<td class="num" style="color:var(--text-muted);">–</td>';
+      if (!nt.daDem) {
+        return loai === 'thieu'
+          ? '<td class="num" style="color:var(--text-muted); font-size:11px;" title="Bước 2 chưa nhập Bảng đếm tiền mặt">chưa đếm</td>'
+          : '<td class="num" style="color:var(--text-muted);">–</td>';
+      }
+      if (loai === 'thua') return `<td class="num" style="color:#0e7490;">${nt.thua ? fmt(nt.thua) : '–'}</td>`;
+      if (!nt.thieu) return '<td class="num">–</td>';
+      return `<td class="num" style="color:#be123c;">${fmt(nt.thieu)}<div style="font-size:10.5px; color:var(--text-muted);">${nt.ghiNo ? 'ghi nợ người nộp' : 'dưới 10.000 · bỏ qua'}</div></td>`;
+    }
+
+    function veTheThieuThua() {
+      const t = tongThieuThua(dsDotCoNopTien());
+      const the = (cls, loai, tieuDe, giaTri, phu) => `
+        <button type="button" class="bc-kpi ${cls}" onclick="xemThieuThua('${loai}')">
+          <span class="bc-kpi-title">${tieuDe}</span>
+          <span class="bc-kpi-value">${giaTri}</span>
+          <span class="bc-kpi-sub">${phu}</span>
+          <span class="bc-kpi-hint">Bấm để xem chi tiết →</span>
+        </button>`;
+      return the('k-thieu', 'thieu', '🔻 Tiền thiếu — ghi nợ người nộp', fmt(t.no) + ' đ',
+          `${t.soGhiNo} chuyến ghi nợ` + (t.soBoQua ? ` · ${fmt(t.boQua)} đ thiếu dưới ${fmt(NGUONG_GHI_NO_THIEU_TIEN)} đ không ghi nợ` : '')) +
+        the('k-thua', 'thua', '🔺 Tiền thừa khi nộp', fmt(t.thua) + ' đ', `${t.soThua} chuyến nộp thừa`);
+    }
+
+    function xemThieuThua(loai) {
+      locThieuThua = { loai: loai, nguoi: '' };
+      veThieuThua();
+      document.getElementById('bcThieuThua').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function datLocThieuThua(loai) { locThieuThua.loai = loai; veThieuThua(); }
+
+    function locNguoiNop(khoa) {
+      locThieuThua.nguoi = locThieuThua.nguoi === khoa ? '' : khoa;
+      veThieuThua();
+    }
+
+    function veThieuThua() {
+      const dsDot = dsDotCoNopTien();
+      document.querySelectorAll('#bcTTLoai .btn').forEach(b => {
+        const bat = b.getAttribute('data-loai') === locThieuThua.loai;
+        b.classList.toggle('btn-primary', bat);
+        b.classList.toggle('btn-outline', !bat);
+      });
+
+      const T = tongThieuThua(dsDot);
+      const soDot = new Set(duLieuDaLoc().map(d => d.maDot)).size;
+      const ghiChu = [];
+      if (loiNopTien) ghiChu.push(`<span style="color:#b91c1c; font-weight:700;">⚠️ ${H(loiNopTien)}</span>`);
+      if (typeof tinhThieuThuaNopTien !== 'function') ghiChu.push('<span style="color:#b91c1c; font-weight:700;">⚠️ Trình duyệt đang dùng bản cũ của config.js — bấm Tải Lại trang (Ctrl + F5) để xem tiền thiếu / thừa.</span>');
+      if (T.soChuaDem) ghiChu.push(`⏳ ${T.soChuaDem} chuyến đã lưu quyết toán nhưng chưa nhập Bảng đếm tiền mặt ở Bước 2 → chưa xác định được thiếu / thừa.`);
+      if (soDot > T.soPhieu) ghiChu.push(`ℹ️ ${soDot - T.soPhieu} chuyến chưa có phiếu nộp tiền (chưa lưu quyết toán ở Bước 2).`);
+      document.getElementById('bcTTGhiChu').innerHTML = ghiChu.map(g => `<div>${g}</div>`).join('');
+
+      // 1. Theo người nộp tiền (chỉ những người có thiếu / thừa)
+      const nhom = nhomTheoNguoiNop(dsDot.filter(x => x.daDem && (x.thieu > 0 || x.thua > 0)));
+      if (locThieuThua.nguoi && !nhom.some(g => g.khoa === locThieuThua.nguoi)) locThieuThua.nguoi = '';
+      const bodyNguoi = document.getElementById('bcTTNguoi');
+      if (!nhom.length) {
+        bodyNguoi.innerHTML = '<tr><td colspan="7" class="bc-empty">Không có chuyến xe nào nộp thiếu / thừa tiền trong khoảng ngày đã chọn.</td></tr>';
+        document.getElementById('bcTTNguoiFoot').innerHTML = '';
+      } else {
+        bodyNguoi.innerHTML = nhom.map(g => `
+          <tr class="bc-click${g.khoa === locThieuThua.nguoi ? ' bc-selected' : ''}" onclick='locNguoiNop(${H(JSON.stringify(g.khoa))})'>
+            <td><b>${H(g.ten)}</b></td>
+            <td class="num">${g.soPhieu}</td>
+            <td class="num">${g.soThieu}</td>
+            <td class="num" style="color:#be123c;">${g.thieu ? fmt(g.thieu) : '–'}</td>
+            <td class="num" style="color:#be123c; font-weight:800;">${g.no ? fmt(g.no) : '–'}</td>
+            <td class="num" style="color:var(--text-muted);">${g.boQua ? fmt(g.boQua) : '–'}</td>
+            <td class="num" style="color:#0e7490; font-weight:800;">${g.thua ? fmt(g.thua) : '–'}</td>
+          </tr>`).join('');
+        const tn = tongThieuThua(dsDot.filter(x => x.daDem && (x.thieu > 0 || x.thua > 0)));
+        document.getElementById('bcTTNguoiFoot').innerHTML = `
+          <tr>
+            <td>TỔNG CỘNG (${nhom.length} người nộp)</td>
+            <td class="num">${tn.soPhieu}</td>
+            <td class="num">${tn.soThieu}</td>
+            <td class="num">${fmt(tn.thieu)}</td>
+            <td class="num">${fmt(tn.no)}</td>
+            <td class="num">${fmt(tn.boQua)}</td>
+            <td class="num">${fmt(tn.thua)}</td>
+          </tr>`;
+      }
+
+      // 2. Chi tiết theo chuyến xe
+      let ct = dsDot.filter(x => x.daDem && (x.thieu > 0 || x.thua > 0));
+      if (locThieuThua.loai === 'thieu') ct = ct.filter(x => x.thieu > 0);
+      if (locThieuThua.loai === 'thua') ct = ct.filter(x => x.thua > 0);
+      const nguoiDangLoc = nhom.find(g => g.khoa === locThieuThua.nguoi);
+      if (nguoiDangLoc) ct = ct.filter(x => khoaNguoiNop(x.nguoiNop) === locThieuThua.nguoi);
+      document.getElementById('bcTTTieuDeChiTiet').innerHTML = '🚚 Chi tiết theo chuyến xe' +
+        (nguoiDangLoc ? ` — người nộp: ${H(nguoiDangLoc.ten)} <a href="javascript:void(0)" onclick="locNguoiNop('')" style="text-transform:none; font-weight:700;">(bỏ lọc)</a>` : '');
+      const bodyCT = document.getElementById('bcTTChiTiet');
+      if (!ct.length) {
+        bodyCT.innerHTML = '<tr><td colspan="8" class="bc-empty">Không có chuyến xe nào phù hợp.</td></tr>';
+        document.getElementById('bcTTChiTietFoot').innerHTML = '';
+        return;
+      }
+      bodyCT.innerHTML = ct.map(x => `
+        <tr class="bc-click" onclick='moChiTiet("dot", ${H(JSON.stringify(x.maDot))})' title="Bấm để xem hoá đơn của chuyến xe">
+          <td>${H(x.ngay)}</td>
+          <td><b>${H(x.xe)}</b></td>
+          <td>${H(x.nguoiNop)}</td>
+          <td class="num">${fmt(x.phaiNop)}</td>
+          <td class="num">${fmt(x.tienDem)}</td>
+          <td class="num" style="color:#be123c; font-weight:700;">${x.thieu ? fmt(x.thieu) : '–'}</td>
+          <td class="num" style="color:#0e7490; font-weight:700;">${x.thua ? fmt(x.thua) : '–'}</td>
+          <td>${ghiNhanThieuThua(x)}</td>
+        </tr>`).join('');
+      const tc = tongThieuThua(ct);
+      document.getElementById('bcTTChiTietFoot').innerHTML = `
+        <tr>
+          <td colspan="3">TỔNG CỘNG (${ct.length} chuyến)</td>
+          <td class="num">${fmt(ct.reduce((s, x) => s + x.phaiNop, 0))}</td>
+          <td class="num">${fmt(ct.reduce((s, x) => s + x.tienDem, 0))}</td>
+          <td class="num">${fmt(tc.thieu)}</td>
+          <td class="num">${fmt(tc.thua)}</td>
+          <td>Ghi nợ: ${fmt(tc.no)} đ</td>
+        </tr>`;
+    }
+
+    function veTatCa() { veKpi(); veBangDot(); veThieuThua(); }
 
     function veKpi() {
       const ds = duLieuDaLoc();
@@ -405,6 +698,7 @@
         the('k-tra', 'travee', '↩️ Hàng trả về', fmt(t.tra) + ' đ', `${t.soTra} đơn có hàng trả`) +
         the('k-no', 'no', '📒 Tổng nợ phát sinh', fmt(t.no) + ' đ', `${t.soNo} đơn ghi nợ`) +
         the('k-cho', 'cho', '⏳ Chờ quyết toán (Bước 2)', `${t.soCho} đơn`, `${fmt(t.tienCho)} đ chưa quyết toán`);
+      document.getElementById('bcKpi').insertAdjacentHTML('beforeend', veTheThieuThua());
 
       const el = document.getElementById('bcCanDoi');
       if (t.soHD === 0) { el.innerHTML = ''; return; }
@@ -425,7 +719,7 @@
       const dots = Array.from(map.values()).sort((a, b) => (vnSangKhoa(b.ngay) + b.xe).localeCompare(vnSangKhoa(a.ngay) + a.xe));
       const body = document.getElementById('bcBangDot');
       if (!dots.length) {
-        body.innerHTML = '<tr><td colspan="10" class="bc-empty">Không có chuyến xe nào trong khoảng ngày đã chọn.</td></tr>';
+        body.innerHTML = '<tr><td colspan="12" class="bc-empty">Không có chuyến xe nào trong khoảng ngày đã chọn.</td></tr>';
         document.getElementById('bcFootDot').innerHTML = '';
         return;
       }
@@ -445,10 +739,13 @@
             <td class="num" style="color:#1d4ed8;">${fmt(t.ck)}</td>
             <td class="num" style="color:#b45309;">${fmt(t.tra)}</td>
             <td class="num" style="color:#b91c1c;">${fmt(t.no)}</td>
+            ${oThieuThuaDot(dt.maDot, 'thieu')}
+            ${oThieuThuaDot(dt.maDot, 'thua')}
             <td>${tt}${lech}</td>
           </tr>`;
       }).join('');
       const T = tongHop(ds);
+      const TT = tongThieuThua(dsDotCoNopTien());
       document.getElementById('bcFootDot').innerHTML = `
         <tr>
           <td colspan="3">TỔNG CỘNG (${dots.length} chuyến)</td>
@@ -458,6 +755,8 @@
           <td class="num">${fmt(T.ck)}</td>
           <td class="num">${fmt(T.tra)}</td>
           <td class="num">${fmt(T.no)}</td>
+          <td class="num">${fmt(TT.thieu)}</td>
+          <td class="num">${fmt(TT.thua)}</td>
           <td></td>
         </tr>`;
     }
@@ -516,6 +815,17 @@
         const mapNH = {};
         rows.forEach(d => { if (d.ck > 0) { const n = d.nganHang || 'Chưa rõ tài khoản'; mapNH[n] = (mapNH[n] || 0) + d.ck; } });
         Object.keys(mapNH).forEach(n => chips.push(`<div class="bc-chip">🏦 ${H(n)}: <b>${fmt(mapNH[n])} đ</b></div>`));
+      }
+      const ntDot = k === 'dot' ? nopTien.get(chiTietHienTai.param) : null;
+      if (ntDot) {
+        const tenNop = ntDot.nguoiNop || (rows[0] && rows[0].taiXe) || '';
+        if (tenNop) chips.push(`<div class="bc-chip">👤 Người nộp: <b>${H(tenNop)}</b></div>`);
+        if (!ntDot.daDem) chips.push(`<div class="bc-chip">💰 Chưa nhập bảng đếm tiền ở Bước 2</div>`);
+        else {
+          chips.push(`<div class="bc-chip">💰 Phải nộp: <b>${fmt(ntDot.phaiNop)} đ</b> · Thực nộp: <b>${fmt(ntDot.tienDem)} đ</b></div>`);
+          if (ntDot.thieu > 0) chips.push(`<div class="bc-chip" style="color:#be123c;">🔻 Thiếu: <b>${fmt(ntDot.thieu)} đ</b> — ${ntDot.ghiNo ? 'ghi nợ người nộp' : 'dưới 10.000 đ, không ghi nợ'}</div>`);
+          if (ntDot.thua > 0) chips.push(`<div class="bc-chip" style="color:#0e7490;">🔺 Thừa: <b>${fmt(ntDot.thua)} đ</b> — ghi nhận cho người nộp</div>`);
+        }
       }
       document.getElementById('bcModalChips').innerHTML = chips.join('');
 
@@ -581,6 +891,8 @@
     function xuatExcelTongHop() {
       const ds = duLieuDaLoc();
       const t = tongHop(ds);
+      const dsDotTT = dsDotCoNopTien();
+      const tt = tongThieuThua(dsDotTT);
       const tu = document.getElementById('bcTuNgay').value, den = document.getElementById('bcDenNgay').value;
       const aoa = [
         ['BÁO CÁO TỔNG HỢP — CÔNG TY TNHH THÁI MỸ HƯƠNG'],
@@ -591,16 +903,29 @@
         ['Chuyển khoản', t.soCK, t.ck],
         ['Hàng trả về', t.soTra, t.tra],
         ['Tổng nợ phát sinh', t.soNo, t.no],
-        ['Chờ quyết toán', t.soCho, t.tienCho], [],
-        ['Ngày', 'Chuyến xe', 'Tài xế', 'Số HĐ', 'Xuất kho', 'Tiền mặt', 'Chuyển khoản', 'Trả về', 'Nợ']
+        ['Chờ quyết toán', t.soCho, t.tienCho],
+        ['Tiền thiếu khi nộp tiền xe', tt.soThieu, tt.thieu],
+        ['   – Ghi nợ người nộp (thiếu từ 10.000 đ)', tt.soGhiNo, tt.no],
+        ['   – Thiếu dưới 10.000 đ (không ghi nợ)', tt.soBoQua, tt.boQua],
+        ['Tiền thừa khi nộp tiền xe (ghi nhận cho người nộp)', tt.soThua, tt.thua], [],
+        ['Ngày', 'Chuyến xe', 'Tài xế', 'Số HĐ', 'Xuất kho', 'Tiền mặt', 'Chuyển khoản', 'Trả về', 'Nợ', 'Người nộp tiền', 'Thiếu', 'Thừa', 'Ghi nợ người nộp']
       ];
       const map = new Map();
       ds.forEach(d => { if (!map.has(d.maDot)) map.set(d.maDot, []); map.get(d.maDot).push(d); });
-      map.forEach(rows => {
+      map.forEach((rows, maDot) => {
         const s = tongHop(rows);
-        aoa.push([rows[0].ngay, rows[0].xe, rows[0].taiXe, s.soHD, s.xuat, s.tm, s.ck, s.tra, s.no]);
+        const nt = nopTien.get(maDot);
+        const coDem = !!(nt && nt.daDem);
+        aoa.push([rows[0].ngay, rows[0].xe, rows[0].taiXe, s.soHD, s.xuat, s.tm, s.ck, s.tra, s.no,
+          nt ? (nt.nguoiNop || rows[0].taiXe) : '', coDem ? nt.thieu : (nt ? 'Chưa đếm tiền' : ''), coDem ? nt.thua : '', coDem ? nt.soNo : '']);
       });
-      taiFileExcel(`BaoCao_TongHop_${ymdLocal(new Date())}.xlsx`, aoa, [28, 16, 16, 10, 16, 16, 16, 16, 16]);
+      const nhom = nhomTheoNguoiNop(dsDotTT.filter(x => x.daDem && (x.thieu > 0 || x.thua > 0)));
+      if (nhom.length) {
+        aoa.push([], ['TIỀN THIẾU / THỪA THEO NGƯỜI NỘP TIỀN (thiếu dưới 10.000 đ không ghi nợ)'],
+          ['Người nộp tiền', 'Số chuyến', 'Chuyến thiếu', 'Tổng thiếu', 'Ghi nợ người nộp', 'Thiếu < 10.000 bỏ qua', 'Tiền thừa']);
+        nhom.forEach(g => aoa.push([g.ten, g.soPhieu, g.soThieu, g.thieu, g.no, g.boQua, g.thua]));
+      }
+      taiFileExcel(`BaoCao_TongHop_${ymdLocal(new Date())}.xlsx`, aoa, [28, 16, 16, 10, 16, 16, 16, 16, 16, 20, 14, 14, 16]);
     }
 
     // ---------------- KHỞI TẠO & TỰ ĐỘNG CẬP NHẬT ----------------
@@ -609,6 +934,10 @@
       try {
         sb.channel('tmh_realtime_baocao')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'luu_tru' }, () => {
+            clearTimeout(hen);
+            hen = setTimeout(taiBaoCao, 1500);
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'phieu_nop_tien' }, () => {
             clearTimeout(hen);
             hen = setTimeout(taiBaoCao, 1500);
           })

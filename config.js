@@ -411,6 +411,27 @@ function escapeHtml(v) {
 }
 
 /* ====================================================================
+ * TIỀN THIẾU / THỪA KHI NỘP TIỀN XE (Bước 2 → Báo Cáo Tổng Hợp)
+ * Chênh lệch = Tiền mặt đếm thực tế (bảng đếm mệnh giá) − Số tiền phải nộp.
+ * - Thiếu dưới 10.000 đ: không ghi nhận nợ.
+ * - Thiếu từ 10.000 đ trở lên: ghi nợ cho người nộp tiền xe.
+ * - Tiền thừa: ghi nhận cho người nộp tiền xe.
+ * Bảng đếm tiền để trống (chưa đếm) thì chưa xác định được thiếu / thừa.
+ * ==================================================================== */
+const NGUONG_GHI_NO_THIEU_TIEN = 10000;
+
+function tinhThieuThuaNopTien(tienDem, phaiNop) {
+  const dem = Math.round(parseFloat(tienDem) || 0);
+  const phai = Math.round(parseFloat(phaiNop) || 0);
+  const daDem = dem > 0 || phai <= 0;
+  const chenh = daDem ? dem - phai : 0;
+  const thieu = chenh < 0 ? -chenh : 0;
+  const thua = chenh > 0 ? chenh : 0;
+  const ghiNo = thieu >= NGUONG_GHI_NO_THIEU_TIEN;
+  return { daDem, tienDem: dem, phaiNop: phai, chenh, thieu, thua, ghiNo, soNo: ghiNo ? thieu : 0 };
+}
+
+/* ====================================================================
  * PHÂN QUYỀN THEO MODULE THỰC TẾ CỦA APP
  * Mỗi module tương ứng 1 tab/trang có thật trong menu.
  * Mức quyền: 'all' (toàn quyền) | 'view' (chỉ xem) | 'none' (không truy cập)
