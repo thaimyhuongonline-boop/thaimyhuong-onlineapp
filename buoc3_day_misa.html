@@ -197,6 +197,10 @@
           <button type="button" class="btn btn-outline" style="align-self:flex-end; height:34px; padding:0 10px;" onclick="taiLaiDuLieuMisa()">
             <span>🔄</span> Làm mới
           </button>
+          <!-- Chỉ hiện khi chọn "Tất cả xe trong ngày" -->
+          <label id="nhanGomChuaQTMisa" style="display:none; align-self:flex-end; height:34px; align-items:center; gap:6px; font-size:12px; font-weight:700; color:var(--text-muted); cursor:pointer;" title="Mặc định chỉ gộp các xe đã quyết toán ở Bước 2">
+            <input type="checkbox" id="chkGomChuaQTMisa" onchange="chonLaiNgayMisa()" style="width:16px; height:16px;"> Gồm cả xe chưa quyết toán
+          </label>
         </div>
 
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:13px;">
@@ -238,6 +242,9 @@
           <div class="kpi-sub">Nợ TK 5212 (Hàng trả về)</div>
         </div>
       </div>
+
+      <!-- XUẤT GỘP TẤT CẢ XE TRONG NGÀY -->
+      <div id="ghiChuNgayMisa" style="display:none; padding:10px 14px; border-radius:var(--radius-md); font-size:12.5px; border:1px solid #bfdbfe; background:#eff6ff; color:#1e3a8a;"></div>
 
       <!-- HÀNG TRẢ VỀ Ở BƯỚC 2 ĐÃ ĐƯỢC TRỪ KHỎI DỮ LIỆU MISA -->
       <div id="ghiChuHangTraMisa" style="display:none; padding:10px 14px; border-radius:var(--radius-md); font-size:12.5px; border:1px solid #fed7aa; background:#fff7ed; color:#9a3412;"></div>
@@ -434,6 +441,7 @@
 
     async function taiLaiDuLieuMisa(isAutoSync = false) {
       const sel = document.getElementById('selChuyenXeMisa');
+      const khoaNgayDangXem = cheDoNgayMisa ? 'NGAY|' + cheDoNgayMisa.ngay : ''; // đang xem gộp cả ngày
       if (!isAutoSync && sel) {
         sel.innerHTML = '<option value="">-- Đang nạp danh sách chuyến xe... --</option>';
       }
@@ -492,6 +500,8 @@
           opt.textContent = `${d.xe} (${d.ngayGiao || 'Hôm nay'}) — [${d.soLuongHD || (d.danhSachHD && d.danhSachHD.length) || 0} HĐ, ${formatTien(d.tongTien || 0)} đ] — ${trangThaiText}`;
           sel.appendChild(opt);
         });
+        // Thêm lựa chọn "Tất cả xe trong ngày" (xuất gộp) phía trên danh sách từng chuyến
+        themLuaChonTheoNgayMisa(sel);
       }
 
       const urlParams = new URLSearchParams(window.location.search);
@@ -501,15 +511,21 @@
         maDotChon = paramMaDot;
       } else if (maDotDangChonTruoc && danhSachTatCaDot.some(d => d.maDot === maDotDangChonTruoc)) {
         maDotChon = maDotDangChonTruoc;
+      } else if (khoaNgayDangXem && danhSachTatCaDot.some(d => 'NGAY|' + khoaNgayMisa(d) === khoaNgayDangXem)) {
+        maDotChon = khoaNgayDangXem; // giữ nguyên chế độ xem gộp cả ngày
       }
 
       if (sel) sel.value = maDotChon;
-      if (!isAutoSync || !dotHienTai || dotHienTai.maDot !== maDotChon) {
+      const dangXemDungNgay = !!khoaNgayDangXem && khoaNgayDangXem === maDotChon;
+      if (!isAutoSync || (!dangXemDungNgay && (!dotHienTai || dotHienTai.maDot !== maDotChon))) {
         await chonChuyenXeMisa(maDotChon);
       }
     }
 
     async function chonChuyenXeMisa(maDot) {
+      // Lựa chọn "Tất cả xe trong ngày" → xuất gộp
+      if (String(maDot || '').indexOf('NGAY|') === 0) return chonNgayMisa(String(maDot).slice(5));
+      boCheDoNgayMisa();
       dotHienTai = danhSachTatCaDot.find(d => d.maDot === maDot);
       if (!dotHienTai) return;
 
@@ -525,12 +541,19 @@
         tagStatus.innerHTML = "⏳ Chờ xuất MISA";
       }
 
-      // Nếu chưa có chi tiết dòng hàng hóa, tải từ Supabase chi_tiet_hoa_don
-      if ((!dotHienTai.cacDongChiTietKiotViet || dotHienTai.cacDongChiTietKiotViet.length === 0) && typeof sb !== 'undefined') {
+      await napDongHangChoDotMisa(dotHienTai);
+
+      taoDuLieuDongMisa(dotHienTai);
+    }
+
+    // Nếu chưa có chi tiết dòng hàng hóa, tải từ Supabase chi_tiet_hoa_don
+    async function napDongHangChoDotMisa(dot) {
+      const maDot = dot.maDot;
+      if ((!dot.cacDongChiTietKiotViet || dot.cacDongChiTietKiotViet.length === 0) && typeof sb !== 'undefined') {
         try {
           const { data: cthd } = await sb.from('chi_tiet_hoa_don').select('*').eq('ma_dot', maDot);
           if (cthd && cthd.length > 0) {
-            dotHienTai.cacDongChiTietKiotViet = cthd.map(c => ({
+            dot.cacDongChiTietKiotViet = cthd.map(c => ({
               'Mã hóa đơn': c.ma_hd,
               'Mã khách hàng': c.ma_kh,
               'Tên khách hàng': c.ten_kh,
@@ -545,8 +568,145 @@
           }
         } catch (e) {}
       }
+    }
 
-      taoDuLieuDongMisa(dotHienTai);
+    // ========================================================
+    // XUẤT GỘP TẤT CẢ CHUYẾN XE CỦA 1 NGÀY
+    // --------------------------------------------------------
+    // Chọn "📅 TẤT CẢ XE NGÀY dd/mm/yyyy" ở ô chọn chuyến → bảng MISA gộp dòng của mọi chuyến trong ngày
+    // (tính y như xuất từng chuyến, kể cả trừ hàng trả về) → Xuất Excel / Copy / Đánh dấu đã đẩy cho cả ngày.
+    // Mặc định chỉ gộp chuyến ĐÃ quyết toán ở Bước 2 (tích "Gồm cả xe chưa quyết toán" để đưa vào).
+    // Hoá đơn có ở 2 chuyến trong ngày (giao lại) chỉ lấy 1 lần — ở chuyến đang giữ hoá đơn.
+    // ========================================================
+    let cheDoNgayMisa = null; // { ngay, dsDot, dsBoQua }
+
+    // Ngày giao của chuyến dạng dd/mm/yyyy
+    function khoaNgayMisa(dot) {
+      const s = String((dot && (dot.ngayGiao || dot.ngayRaw)) || '').trim();
+      let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (m) return `${m[3].padStart(2, '0')}/${m[2].padStart(2, '0')}/${m[1]}`;
+      m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (m) return `${m[1].padStart(2, '0')}/${m[2].padStart(2, '0')}/${m[3]}`;
+      return '';
+    }
+
+    function themLuaChonTheoNgayMisa(sel) {
+      const theoNgay = new Map();
+      danhSachTatCaDot.forEach(d => {
+        const k = khoaNgayMisa(d);
+        if (!k) return;
+        if (!theoNgay.has(k)) theoNgay.set(k, []);
+        theoNgay.get(k).push(d);
+      });
+      if (!theoNgay.size) return;
+      const sapXep = k => k.split('/').reverse().join('');
+      const nhomNgay = document.createElement('optgroup');
+      nhomNgay.label = '📅 Xuất gộp tất cả xe trong ngày';
+      Array.from(theoNgay.keys()).sort((a, b) => sapXep(b).localeCompare(sapXep(a))).forEach(ngay => {
+        const ds = theoNgay.get(ngay);
+        const soQT = ds.filter(d => d.daQuyetToan).length;
+        const soHD = ds.reduce((s, d) => s + (d.soLuongHD || (d.danhSachHD && d.danhSachHD.length) || 0), 0);
+        const tong = ds.reduce((s, d) => s + (d.tongTien || 0), 0);
+        nhomNgay.appendChild(new Option(`📅 TẤT CẢ XE NGÀY ${ngay} — [${ds.length} xe, ${soHD} HĐ, ${formatTien(tong)} đ] — ${soQT}/${ds.length} xe đã quyết toán`, 'NGAY|' + ngay));
+      });
+      const nhomChuyen = document.createElement('optgroup');
+      nhomChuyen.label = '🚚 Xuất riêng từng chuyến xe';
+      Array.from(sel.options).forEach(o => nhomChuyen.appendChild(o));
+      sel.appendChild(nhomNgay);
+      sel.appendChild(nhomChuyen);
+    }
+
+    function boCheDoNgayMisa() {
+      cheDoNgayMisa = null;
+      const o = document.getElementById('nhanGomChuaQTMisa');
+      if (o) o.style.display = 'none';
+      const g = document.getElementById('ghiChuNgayMisa');
+      if (g) { g.style.display = 'none'; g.innerHTML = ''; }
+    }
+
+    function chonLaiNgayMisa() {
+      if (cheDoNgayMisa) return chonNgayMisa(cheDoNgayMisa.ngay);
+    }
+
+    async function chonNgayMisa(ngay) {
+      const tatCaXe = danhSachTatCaDot.filter(d => khoaNgayMisa(d) === ngay);
+      const gomChuaQT = !!(document.getElementById('chkGomChuaQTMisa') || {}).checked;
+      const dsDot = tatCaXe.filter(d => gomChuaQT || d.daQuyetToan);
+      const dsBoQua = tatCaXe.filter(d => !(gomChuaQT || d.daQuyetToan));
+      dotHienTai = null;
+      const cd = cheDoNgayMisa = { ngay, dsDot, dsBoQua };
+
+      document.getElementById('nhanGomChuaQTMisa').style.display = 'flex';
+      document.getElementById('tagXeMisa').textContent = `🚚 Gộp ${dsDot.length}/${tatCaXe.length} xe`;
+      document.getElementById('tagNgayMisa').textContent = `📅 Ngày: ${ngay}`;
+      const tagStatus = document.getElementById('tagTrangThaiMisa');
+      const daDayHet = dsDot.length > 0 && dsDot.every(d => d.daDayMisa);
+      tagStatus.className = daDayHet ? "badge-status badge-done" : "badge-status badge-pending";
+      tagStatus.innerHTML = daDayHet ? "✅ Đã đẩy MISA (cả ngày)" : `⏳ Chờ xuất MISA (${dsDot.filter(d => !d.daDayMisa).length} xe chưa đẩy)`;
+      document.getElementById('tbodyMisa').innerHTML = `<tr><td colspan="17" style="text-align:center; padding:30px; color:var(--text-muted);">⏳ Đang tổng hợp ${dsDot.length} chuyến xe ngày ${ngay}...</td></tr>`;
+
+      await Promise.all(dsDot.map(d => napDongHangChoDotMisa(d)));
+      if (cheDoNgayMisa !== cd) return; // đã chọn chuyến / ngày khác (hoặc bấm lại) trong lúc tải
+
+      // Tính từng chuyến như khi xuất riêng, rồi gộp
+      const ketQua = dsDot.map(d => Object.assign({ dot: d }, taoDuLieuDongMisa(d, true)));
+      // Hoá đơn có dòng hàng ở nhiều chuyến (giao lại trong ngày) → giữ ở chuyến đang giữ hoá đơn (có số liệu quyết toán)
+      const cacChuyenCoHD = new Map();
+      ketQua.forEach(k => new Set(k.dong.map(r => r.soCT)).forEach(ma => {
+        if (!cacChuyenCoHD.has(ma)) cacChuyenCoHD.set(ma, []);
+        cacChuyenCoHD.get(ma).push(k);
+      }));
+      const boTrung = [];
+      cacChuyenCoHD.forEach((ds, ma) => {
+        if (ds.length < 2) return;
+        const giu = ds.find(k => k.hdCoQuyetToan.has(ma)) || ds[ds.length - 1];
+        ds.forEach(k => { if (k !== giu) { k.dong = k.dong.filter(r => r.soCT !== ma); boTrung.push(`${ma} (bỏ ở xe ${k.dot.xe}, giữ ở xe ${giu.dot.xe})`); } });
+      });
+
+      danhSachDongMisa = [];
+      const kqGop = { nguyenDon: [], motPhan: [], chuaChonHang: [], thieuHang: [] };
+      ketQua.forEach(k => {
+        danhSachDongMisa = danhSachDongMisa.concat(k.dong);
+        Object.keys(kqGop).forEach(t => { kqGop[t] = kqGop[t].concat(k.kqTru[t] || []); });
+      });
+      danhSachDongMisa.forEach((r, i) => { r.stt = i + 1; });
+
+      const ghiChu = [`📅 <b>Xuất gộp ${dsDot.length} chuyến xe ngày ${ngay}</b> — ${danhSachDongMisa.length} dòng: ` +
+        ketQua.map(k => `${escapeHtml(k.dot.xe)} (${k.dong.length} dòng)${k.dot.daDayMisa ? ' ✅' : ''}`).join(', ')];
+      if (dsBoQua.length) {
+        ghiChu.push(`<span style="color:#b45309; font-weight:700;">⏳ ${dsBoQua.length} xe chưa quyết toán ở Bước 2 nên chưa đưa vào: ${dsBoQua.map(d => escapeHtml(d.xe)).join(', ')}</span> — tích "Gồm cả xe chưa quyết toán" nếu vẫn muốn xuất.`);
+      }
+      if (gomChuaQT && dsDot.some(d => !d.daQuyetToan)) {
+        ghiChu.push(`<span style="color:#b91c1c; font-weight:700;">⚠️ Đang gồm cả xe CHƯA quyết toán — tài khoản Nợ của các xe này chưa đúng thực thu (mặc định 1111).</span>`);
+      }
+      if (boTrung.length) ghiChu.push(`🔁 Hoá đơn có ở 2 chuyến trong ngày (giao lại) chỉ tính 1 lần: ${escapeHtml(boTrung.join('; '))}`);
+      const elGhiChu = document.getElementById('ghiChuNgayMisa');
+      elGhiChu.innerHTML = ghiChu.map(x => `<div>${x}</div>`).join('');
+      elGhiChu.style.display = '';
+
+      veGhiChuHangTraMisa(kqGop);
+      veBangMisa();
+      tinhToanTongTheMisa();
+    }
+
+    // Đánh dấu đã đẩy MISA cho mọi chuyến đang gộp của ngày
+    function danhDauDaDayMisaTheoNgay() {
+      const cd = cheDoNgayMisa;
+      if (!cd || !cd.dsDot.length) { alert('⚠️ Ngày này chưa có chuyến xe nào để đánh dấu!'); return; }
+      if (!confirm(`✅ Đánh dấu ${cd.dsDot.length} chuyến xe ngày ${cd.ngay} là ĐÃ ĐẨY LÊN MISA?\n\n` + cd.dsDot.map(d => `• ${d.xe}`).join('\n'))) return;
+      const bayGio = new Date().toISOString();
+      cd.dsDot.forEach(d => {
+        d.daDayMisa = true;
+        d.thoiGianDayMisa = bayGio;
+        const idx = danhSachTatCaDot.findIndex(x => x.maDot === d.maDot);
+        if (idx >= 0) danhSachTatCaDot[idx] = d;
+      });
+      localStorage.setItem("tmh_lich_su_dot", JSON.stringify(danhSachTatCaDot));
+      const tagStatus = document.getElementById('tagTrangThaiMisa');
+      tagStatus.className = "badge-status badge-done";
+      tagStatus.innerHTML = "✅ Đã đẩy MISA (cả ngày)";
+      alert(`✅ Đã đánh dấu ${cd.dsDot.length} chuyến xe ngày ${cd.ngay} là ĐÃ ĐẨY LÊN MISA!`);
+      hienThiToast("✅ Đã ghi nhận hoàn tất quy trình 3 bước cho cả ngày!");
     }
 
     function khoiTaoRealtimeDongBoB3() {
@@ -580,7 +740,8 @@
     }
 
     // Tự động xây dựng danh sách dòng hạch toán chuẩn MISA
-    function taoDuLieuDongMisa(dot) {
+    // chiTinh = true: chỉ tính và trả về các dòng (dùng khi xuất gộp cả ngày), không vẽ lại màn hình
+    function taoDuLieuDongMisa(dot, chiTinh) {
       let rawKiot = [];
       try { rawKiot = JSON.parse(localStorage.getItem("tmh_kiotviet_data") || "[]"); } catch(e){}
 
@@ -625,10 +786,10 @@
       // Hàng trả về ở Bước 2: trả nguyên đơn → bỏ toàn bộ hàng của hoá đơn; trả 1 phần → trừ đúng mặt hàng đã chọn
       const kqTruHangTra = truHangTraVeMisa(cacDongHang, mapQuyetToan);
       cacDongHang = kqTruHangTra.dong;
-      veGhiChuHangTraMisa(kqTruHangTra);
+      if (!chiTinh) veGhiChuHangTraMisa(kqTruHangTra);
 
       const ngayHT = dot.ngayGiao || new Date().toLocaleDateString('vi-VN');
-      danhSachDongMisa = [];
+      const dsDongMoi = [];
       let stt = 1;
 
       cacDongHang.forEach(r => {
@@ -667,7 +828,7 @@
 
         const tkCo = (tkNo === "5212") ? "131" : "5111";
 
-        danhSachDongMisa.push({
+        dsDongMoi.push({
           stt: stt++,
           ngayHT: ngayHT,
           ngayCT: ngayHT,
@@ -689,6 +850,8 @@
         });
       });
 
+      if (chiTinh) return { dong: dsDongMoi, kqTru: kqTruHangTra, hdCoQuyetToan: new Set(mapQuyetToan.keys()) };
+      danhSachDongMisa = dsDongMoi;
       veBangMisa();
       tinhToanTongTheMisa();
     }
@@ -1213,7 +1376,9 @@
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "ChungTuBanHangMISA");
 
-        const tenFile = `MISA_BanHang_${dotHienTai ? dotHienTai.xe.replace(/[^a-zA-Z0-9]/g, '_') : 'TMH'}_${new Date().toISOString().slice(0,10)}.xlsx`;
+        const tenFile = cheDoNgayMisa
+          ? `MISA_BanHang_TatCaXe_Ngay_${cheDoNgayMisa.ngay.replace(/\//g, '-')}_${cheDoNgayMisa.dsDot.length}xe.xlsx`
+          : `MISA_BanHang_${dotHienTai ? dotHienTai.xe.replace(/[^a-zA-Z0-9]/g, '_') : 'TMH'}_${new Date().toISOString().slice(0,10)}.xlsx`;
         XLSX.writeFile(wb, tenFile);
 
         hienThiToast("📥 Đã xuất file Excel MISA chuẩn thành công!");
@@ -1245,6 +1410,7 @@
 
     // Đánh dấu đã đẩy MISA
     async function danhDauDaDayMISA() {
+      if (!dotHienTai && cheDoNgayMisa) return danhDauDaDayMisaTheoNgay();
       if (!dotHienTai) {
         alert("⚠️ Vui lòng chọn một chuyến xe!");
         return;
