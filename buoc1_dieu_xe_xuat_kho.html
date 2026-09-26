@@ -567,8 +567,8 @@
                 <div style="font-weight:800; color:#c2410c; font-size:12.5px;">🔄 Có <span id="soLuongDonGiaoLai">0</span> đơn hẹn giao lại từ chuyến trước!</div>
                 <div id="moTaDonGiaoLai" style="font-size:11px; color:#9a3412; margin-top:2px;"></div>
               </div>
-              <button type="button" class="btn" onclick="napCacDonGiaoLaiVaoChuyenXeNay()" style="background:#ea580c; color:#ffffff; font-size:11.5px; font-weight:700; padding:6px 12px; border:none; border-radius:4px; cursor:pointer; white-space:nowrap; box-shadow:0 2px 4px rgba(234,88,12,0.3);">
-                ➕ Thêm vào xe này
+              <button type="button" class="btn" onclick="moChonDonGiaoLai()" title="Chọn từng đơn hẹn giao lại cần đưa vào xe này" style="background:#ea580c; color:#ffffff; font-size:11.5px; font-weight:700; padding:6px 12px; border:none; border-radius:4px; cursor:pointer; white-space:nowrap; box-shadow:0 2px 4px rgba(234,88,12,0.3);">
+                ➕ Chọn đơn thêm vào xe
               </button>
             </div>
           </div>
@@ -782,6 +782,27 @@
     </div>
 
     <!-- MODAL QUẢN LÝ DANH MỤC ĐIỀU ĐỘNG XE (THÊM / SỬA / XÓA) -->
+    <!-- CHỌN TỪNG ĐƠN HẸN GIAO LẠI ĐỂ ĐƯA VÀO XE NÀY -->
+    <div id="modalChonDonGiaoLai" onclick="if(event.target===this) dongChonDonGiaoLai()" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.5); z-index:99999; align-items:center; justify-content:center; backdrop-filter:blur(2px);">
+      <div style="background:#ffffff; border-radius:var(--radius-md); width:560px; max-width:94vw; box-shadow:var(--shadow-lg); border:1px solid var(--border-color); overflow:hidden; display:flex; flex-direction:column; max-height:85vh;">
+        <div style="padding:14px 18px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:#fff7ed;">
+          <div>
+            <h4 style="margin:0; font-size:14px; font-weight:800; color:#c2410c;">🔄 Chọn đơn hẹn giao lại cho xe này</h4>
+            <div style="font-size:11.5px; color:#9a3412; margin-top:2px;">Tích đúng các đơn sẽ giao lại trên xe đang điều — đơn không chọn vẫn nằm chờ cho xe khác</div>
+          </div>
+          <button type="button" onclick="dongChonDonGiaoLai()" style="border:none; background:transparent; font-size:18px; cursor:pointer; color:var(--text-muted);">&times;</button>
+        </div>
+        <div id="dsChonDonGiaoLai" style="padding:12px 18px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:6px;"></div>
+        <div style="padding:10px 18px; border-top:1px solid var(--border-color); background:#f8fafc; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <span id="tomTatChonDonGiaoLai" style="font-size:12px; color:var(--text-muted);"></span>
+          <div style="display:flex; gap:6px;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="dongChonDonGiaoLai()">Đóng</button>
+            <button type="button" class="btn btn-sm" id="btnThemDonGiaoLaiDaChon" onclick="themDonGiaoLaiDaChon()" style="background:#ea580c; color:#ffffff; font-weight:700; border:none;">➕ Thêm đơn đã chọn</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div id="modalQuanLyDM" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.5); z-index:99999; align-items:center; justify-content:center; backdrop-filter:blur(2px);">
       <div style="background:#ffffff; border-radius:var(--radius-md); width:450px; max-width:92vw; box-shadow:var(--shadow-lg); border:1px solid var(--border-color); overflow:hidden; display:flex; flex-direction:column; max-height:85vh;">
         <div style="padding:14px 18px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:#f8fafc;">
@@ -2645,6 +2666,8 @@
       try {
         dsGL = JSON.parse(localStorage.getItem('tmh_danh_sach_cho_giao_lai') || '[]');
       } catch (e) {}
+      // Chỉ đếm các đơn CHƯA được đưa vào danh sách của xe đang điều
+      dsGL = dsGL.filter(d => !donGiaoLaiDaCoTrongXe(d.maHD));
 
       const banner = document.getElementById('bannerDonGiaoLai');
       if (!banner) return;
@@ -2663,11 +2686,67 @@
       }
     }
 
-    async function napCacDonGiaoLaiVaoChuyenXeNay() {
+    // ---------- Chọn TỪNG đơn hẹn giao lại để đưa vào xe đang điều ----------
+    function donGiaoLaiDaCoTrongXe(maHD) {
+      const m = String(maHD || '').trim().toUpperCase();
+      return (danhSachHoaDon || []).some(h => String(h.maHD || '').toUpperCase() === m);
+    }
+
+    function moChonDonGiaoLai() {
+      let dsGL = [];
+      try { dsGL = JSON.parse(localStorage.getItem('tmh_danh_sach_cho_giao_lai') || '[]'); } catch (e) {}
+      if (!dsGL.length) { alert("Không có đơn hàng nào đang chờ giao lại!"); return; }
+      const box = document.getElementById('dsChonDonGiaoLai');
+      box.innerHTML = dsGL.map(d => {
+        const ma = String(d.maHD || '').trim().toUpperCase();
+        const daCo = donGiaoLaiDaCoTrongXe(ma);
+        const cu = [d.xeCu || d.xeGoc, d.ngayCu || d.ngayGiaoGoc].filter(Boolean).join(' — ');
+        return `
+          <label style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; border:1px solid ${daCo ? '#bbf7d0' : '#fed7aa'}; background:${daCo ? '#f0fdf4' : '#ffffff'}; border-radius:6px; cursor:${daCo ? 'default' : 'pointer'}; font-size:12.5px;">
+            <input type="checkbox" class="chk-don-giao-lai" value="${escapeHtml(ma)}" ${daCo ? 'disabled checked' : ''} onchange="capNhatTomTatChonDonGiaoLai()" style="margin-top:2px; width:16px; height:16px;">
+            <span style="flex:1; min-width:0;">
+              <b>${escapeHtml(ma)}</b> — ${escapeHtml(d.tenKH || 'Khách Lẻ')}
+              <span style="color:#15803d; font-weight:700;">(${formatTien(d.tienHD || d.thanhTien || 0)} đ)</span>
+              ${cu ? `<div style="font-size:11px; color:var(--text-muted);">Chuyến trước: ${escapeHtml(cu)}</div>` : ''}
+              ${daCo ? '<div style="font-size:11px; color:#15803d; font-weight:700;">✅ Đã có trong xe này</div>' : ''}
+            </span>
+          </label>`;
+      }).join('');
+      capNhatTomTatChonDonGiaoLai();
+      document.getElementById('modalChonDonGiaoLai').style.display = 'flex';
+    }
+
+    function dongChonDonGiaoLai() {
+      document.getElementById('modalChonDonGiaoLai').style.display = 'none';
+    }
+
+    function capNhatTomTatChonDonGiaoLai() {
+      const chon = Array.from(document.querySelectorAll('#dsChonDonGiaoLai .chk-don-giao-lai:not(:disabled):checked'));
+      const conCho = document.querySelectorAll('#dsChonDonGiaoLai .chk-don-giao-lai:not(:disabled)').length;
+      document.getElementById('tomTatChonDonGiaoLai').textContent = `Đã chọn ${chon.length}/${conCho} đơn đang chờ`;
+      const nut = document.getElementById('btnThemDonGiaoLaiDaChon');
+      nut.disabled = !chon.length;
+      nut.style.opacity = chon.length ? '1' : '.5';
+      nut.textContent = chon.length ? `➕ Thêm ${chon.length} đơn đã chọn` : '➕ Thêm đơn đã chọn';
+    }
+
+    async function themDonGiaoLaiDaChon() {
+      const dsMa = Array.from(document.querySelectorAll('#dsChonDonGiaoLai .chk-don-giao-lai:not(:disabled):checked')).map(c => c.value);
+      if (!dsMa.length) { alert('⚠️ Hãy tích chọn ít nhất 1 đơn hẹn giao lại.'); return; }
+      dongChonDonGiaoLai();
+      await napCacDonGiaoLaiVaoChuyenXeNay(dsMa);
+    }
+
+    // dsMaChon: chỉ đưa các đơn này vào xe (bỏ trống = tất cả, giữ như trước cho code cũ gọi)
+    async function napCacDonGiaoLaiVaoChuyenXeNay(dsMaChon) {
       let dsGL = [];
       try {
         dsGL = JSON.parse(localStorage.getItem('tmh_danh_sach_cho_giao_lai') || '[]');
       } catch (e) {}
+      if (Array.isArray(dsMaChon) && dsMaChon.length) {
+        const setChon = new Set(dsMaChon.map(m => String(m).trim().toUpperCase()));
+        dsGL = dsGL.filter(it => setChon.has(String(it.maHD || '').trim().toUpperCase()));
+      }
 
       if (dsGL.length === 0) {
         alert("Không có đơn hàng nào đang chờ giao lại!");
@@ -2750,8 +2829,8 @@
       veDanhSachCheckboxHD();
       chayTaoPhieu();
 
-      const banner = document.getElementById('bannerDonGiaoLai');
-      if (banner) banner.style.display = 'none';
+      // Banner chỉ còn đếm các đơn hẹn giao lại chưa đưa vào xe này
+      kiemTraBannerDonGiaoLai();
 
       hienThiToast(`🎉 Đã đưa ${dsGL.length} đơn hẹn giao lại vào chuyến xe hiện tại!`);
       if (vanThieuHang.length) {
@@ -2762,6 +2841,7 @@
 
     // Render danh sách checkbox hóa đơn kèm huy hiệu Đơn Giao Lại
     function veDanhSachCheckboxHD() {
+      kiemTraBannerDonGiaoLai(); // số đơn hẹn giao lại còn chờ luôn khớp danh sách của xe
       const container = document.getElementById('danhSachHDContainer');
       const badge = document.getElementById('badgeSoHDChon');
       const tuKhoa = (document.getElementById('timKiemHD')?.value || '').trim().toLowerCase();
