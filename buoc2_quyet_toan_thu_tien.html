@@ -145,6 +145,67 @@
       color: var(--text-muted);
     }
 
+    /* Thẻ KPI có thể bấm vào xem chi tiết (THÊM MỚI) */
+    .kpi-card-clickable {
+      cursor: pointer;
+      position: relative;
+      user-select: none;
+    }
+    .kpi-card-clickable:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+      border-color: #94a3b8;
+    }
+    .kpi-card-clickable:active {
+      transform: translateY(0);
+    }
+    .kpi-xem-chitiet {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #2563eb;
+      opacity: 0.55;
+      margin-top: 2px;
+      letter-spacing: 0.2px;
+    }
+    .kpi-card-clickable:hover .kpi-xem-chitiet {
+      opacity: 1;
+      text-decoration: underline;
+    }
+    /* Bảng chi tiết trong modal KPI */
+    .table-chitiet-kpi {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .table-chitiet-kpi th {
+      background: #f1f5f9;
+      padding: 8px 8px;
+      text-align: left;
+      font-weight: 800;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      color: #475569;
+      border-bottom: 2px solid var(--border-color);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+    .table-chitiet-kpi td {
+      padding: 7px 8px;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: middle;
+    }
+    .table-chitiet-kpi tbody tr:hover {
+      background: #f8fafc;
+    }
+    .row-nhom-nv td {
+      background: #eff6ff !important;
+      font-weight: 800;
+      color: #1d4ed8;
+      border-top: 2px solid #bfdbfe;
+    }
+
     /* Bảng quyết toán chi tiết — CHUẨN KẾ TOÁN */
     .table-container {
       background: #ffffff;
@@ -1095,27 +1156,91 @@
           </div>
         </div>
 
-        <!-- 4 Thẻ KPI Tổng hợp Đơn thiếu -->
+        <!-- ================================================================= -->
+        <!-- BỘ LỌC NÂNG CAO (THÊM MỚI) — lọc theo xe, mức tiền thiếu, sắp xếp -->
+        <!-- ================================================================= -->
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:14px; padding:10px 12px; background:#fef2f2; border:1px solid #fecaca; border-radius:var(--radius-md);">
+          <span style="font-size:12px; font-weight:800; color:#b91c1c; white-space:nowrap;">🎛️ Bộ lọc nâng cao</span>
+
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); white-space:nowrap;">Xe / Chuyến:</label>
+            <select id="locThieuXe" class="form-control" style="font-size:12px; height:32px; width:160px;" onchange="veDanhSachDonThieu()">
+              <option value="tat_ca">🚚 Tất cả xe</option>
+            </select>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); white-space:nowrap;">Mức tiền thiếu:</label>
+            <select id="locThieuMucTien" class="form-control" style="font-size:12px; height:32px; width:160px;" onchange="veDanhSachDonThieu()">
+              <option value="tat_ca">💰 Tất cả mức tiền</option>
+              <option value="10000">Từ 10.000đ trở lên</option>
+              <option value="50000">Từ 50.000đ trở lên</option>
+              <option value="100000">Từ 100.000đ trở lên</option>
+              <option value="500000">Từ 500.000đ trở lên</option>
+              <option value="1000000">Từ 1.000.000đ trở lên</option>
+              <option value="5000000">Từ 5.000.000đ trở lên</option>
+            </select>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); white-space:nowrap;">Tiền thiếu từ:</label>
+            <input type="number" id="locThieuTienTu" class="form-control" style="font-size:12px; height:32px; width:110px;" placeholder="VD: 100000" oninput="veDanhSachDonThieu()">
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted);">đến</label>
+            <input type="number" id="locThieuTienDen" class="form-control" style="font-size:12px; height:32px; width:110px;" placeholder="VD: 5000000" oninput="veDanhSachDonThieu()">
+          </div>
+
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); white-space:nowrap;">Ghi chú:</label>
+            <select id="locThieuGhiChu" class="form-control" style="font-size:12px; height:32px; width:150px;" onchange="veDanhSachDonThieu()">
+              <option value="tat_ca">📝 Tất cả</option>
+              <option value="co_ghi_chu">Đã có ghi chú</option>
+              <option value="chua_ghi_chu">Chưa ghi chú</option>
+            </select>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); white-space:nowrap;">Sắp xếp:</label>
+            <select id="locThieuSapXep" class="form-control" style="font-size:12px; height:32px; width:175px;" onchange="veDanhSachDonThieu()">
+              <option value="ngay_moi">📅 Ngày mới nhất</option>
+              <option value="ngay_cu">📅 Ngày cũ nhất</option>
+              <option value="tien_giam">🔻 Tiền thiếu nhiều nhất</option>
+              <option value="tien_tang">🔺 Tiền thiếu ít nhất</option>
+              <option value="nhan_vien">👤 Theo nhân viên (A→Z)</option>
+              <option value="xe">🚚 Theo xe (A→Z)</option>
+            </select>
+          </div>
+
+          <button type="button" class="btn btn-outline" style="height:32px; padding:0 10px; font-size:11px; margin-left:auto; border-color:#fca5a5; color:#b91c1c;" onclick="xoaBoLocDonThieu()" title="Xoá toàn bộ điều kiện lọc và xem lại tất cả">
+            🧹 Xoá bộ lọc
+          </button>
+          <span id="thongTinLocDonThieu" style="font-size:11.5px; font-weight:700; color:#b91c1c; white-space:nowrap;"></span>
+        </div>
+
+        <!-- 4 Thẻ KPI Tổng hợp Đơn thiếu — BẤM VÀO TỪNG THẺ ĐỂ XEM CHI TIẾT -->
         <div class="kpi-grid" style="margin-top:16px;">
-          <div class="kpi-card" style="border-left: 4px solid #dc2626;">
+          <div class="kpi-card kpi-card-clickable" style="border-left: 4px solid #dc2626;" onclick="moChiTietKPIThieu('tong')" title="Bấm để xem chi tiết toàn bộ khoản thiếu tiền">
             <div class="kpi-title" style="color:#dc2626;"><span>🔻</span> Tổng Tiền Thiếu (> 10k)</div>
             <div class="kpi-value" id="kpiThieuTongTien" style="color:#dc2626;">0 đ</div>
             <div class="kpi-sub" id="kpiThieuSoKhoan">0 khoản thiếu tiền</div>
+            <div class="kpi-xem-chitiet">🔍 Bấm xem chi tiết</div>
           </div>
-          <div class="kpi-card" style="border-left: 4px solid #ea580c;">
+          <div class="kpi-card kpi-card-clickable" style="border-left: 4px solid #ea580c;" onclick="moChiTietKPIThieu('chua_tinh')" title="Bấm để xem chi tiết các khoản chưa tính toán với nhân viên">
             <div class="kpi-title" style="color:#ea580c;"><span>⏳</span> Chưa Tính Toán (Còn Nợ)</div>
             <div class="kpi-value" id="kpiThieuChuaTinh" style="color:#ea580c;">0 đ</div>
             <div class="kpi-sub" id="kpiThieuSoChuaTinh">0 khoản chờ xử lý</div>
+            <div class="kpi-xem-chitiet">🔍 Bấm xem chi tiết</div>
           </div>
-          <div class="kpi-card" style="border-left: 4px solid #16a34a;">
+          <div class="kpi-card kpi-card-clickable" style="border-left: 4px solid #16a34a;" onclick="moChiTietKPIThieu('da_tinh')" title="Bấm để xem chi tiết các khoản đã quyết toán với nhân viên">
             <div class="kpi-title" style="color:#16a34a;"><span>✅</span> Đã Quyết Toán Với NV</div>
             <div class="kpi-value" id="kpiThieuDaTinh" style="color:#16a34a;">0 đ</div>
             <div class="kpi-sub" id="kpiThieuSoDaTinh">0 khoản đã giải quyết</div>
+            <div class="kpi-xem-chitiet">🔍 Bấm xem chi tiết</div>
           </div>
-          <div class="kpi-card" style="border-left: 4px solid #2563eb;">
+          <div class="kpi-card kpi-card-clickable" style="border-left: 4px solid #2563eb;" onclick="moChiTietKPIThieu('nhan_vien')" title="Bấm để xem bảng tổng hợp tiền thiếu theo từng nhân viên">
             <div class="kpi-title" style="color:#2563eb;"><span>👤</span> Nhân Viên Liên Quan</div>
             <div class="kpi-value" id="kpiThieuSoNV" style="color:#2563eb;">0 người</div>
             <div class="kpi-sub">Tài xế / Giao hàng</div>
+            <div class="kpi-xem-chitiet">🔍 Bấm xem chi tiết</div>
           </div>
         </div>
 
@@ -1191,6 +1316,30 @@
 
     </div>
   </main>
+
+  <!-- ============================================================== -->
+  <!-- MODAL CHI TIẾT KHI BẤM VÀO 4 THẺ KPI CỦA TAB ĐƠN THIẾU NV      -->
+  <!-- ============================================================== -->
+  <div id="modalChiTietKPIThieu" class="modal-overlay no-print" style="display:none;" onclick="if(event.target===this) dongModalChiTietKPIThieu()">
+    <div class="modal-card" style="max-width:1150px;">
+      <div class="modal-header" style="flex-wrap:wrap; gap:10px;">
+        <div style="display:flex; align-items:center; gap:10px; min-width:240px; flex:1;">
+          <span style="font-size:20px;" id="iconChiTietKPIThieu">🔻</span>
+          <div>
+            <div style="font-weight:800; font-size:14px; color:var(--text-main);" id="tieuDeChiTietKPIThieu">Chi tiết khoản thiếu tiền</div>
+            <div style="font-size:11.5px; color:var(--text-muted);" id="phuDeChiTietKPIThieu">Theo điều kiện lọc đang áp dụng</div>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="text" id="timKiemChiTietKPIThieu" class="form-control" style="font-size:12px; height:30px; width:180px;" placeholder="🔍 Tìm trong chi tiết..." oninput="veNoiDungChiTietKPIThieu()">
+          <button type="button" class="btn btn-outline" style="height:30px; font-size:11px; padding:0 10px;" onclick="xuatExcelChiTietKPIThieu()">📥 Xuất Excel</button>
+          <button type="button" class="btn btn-outline" style="height:30px; font-size:11px; padding:0 10px;" onclick="dongModalChiTietKPIThieu()">✖ Đóng</button>
+        </div>
+      </div>
+      <div class="modal-body" id="noiDungChiTietKPIThieu">
+      </div>
+    </div>
+  </div>
 
   <!-- MẪU IN BẢNG ĐỐI SOÁT ĐƠN THIẾU NHÂN VIÊN A4 -->
   <div id="khuVucInDonThieuA4" class="print-only" style="display:none;">
@@ -5556,6 +5705,9 @@
       // Nạp danh sách nhân viên vào dropdown lọc
       capNhatDropdownNhanVienThieu();
 
+      // Nạp danh sách xe vào dropdown lọc nâng cao — THÊM MỚI
+      capNhatDropdownXeThieu();
+
       // Render bảng
       veDanhSachDonThieu();
     }
@@ -5662,6 +5814,17 @@
           (r.xe || '').toLowerCase().includes(tuKhoa) ||
           (r.noiDung || '').toLowerCase().includes(tuKhoa)
         );
+      }
+
+      // Áp dụng BỘ LỌC NÂNG CAO (xe, mức tiền, ghi chú) + sắp xếp — THÊM MỚI
+      dsLoc = apDungBoLocNangCaoThieu(dsLoc);
+      danhSachDonThieuDangHienThi = dsLoc;
+      capNhatThongTinLocDonThieu(dsLoc.length);
+
+      // Nếu modal chi tiết KPI đang mở thì vẽ lại theo dữ liệu mới — THÊM MỚI
+      if (loaiChiTietKPIDangMo) {
+        const mCT = document.getElementById('modalChiTietKPIThieu');
+        if (mCT && mCT.style.display === 'flex') veNoiDungChiTietKPIThieu();
       }
 
       // Tính tổng KPI
@@ -5825,6 +5988,404 @@
       veDanhSachDonThieu();
     }
 
+    // ========================================================
+    // BỘ LỌC NÂNG CAO + XEM CHI TIẾT 4 THẺ KPI (THÊM MỚI)
+    // ========================================================
+    let danhSachDonThieuDangHienThi = [];   // Danh sách sau khi lọc, dùng cho modal chi tiết
+    let loaiChiTietKPIDangMo = '';          // 'tong' | 'chua_tinh' | 'da_tinh' | 'nhan_vien'
+
+    // Áp dụng bộ lọc nâng cao (xe, mức tiền, ghi chú) + sắp xếp
+    function apDungBoLocNangCaoThieu(ds) {
+      let kq = Array.isArray(ds) ? [...ds] : [];
+
+      const locXe = document.getElementById('locThieuXe')?.value || 'tat_ca';
+      if (locXe && locXe !== 'tat_ca') {
+        kq = kq.filter(r => (r.xe || '') === locXe);
+      }
+
+      const mucTien = parseFloat(document.getElementById('locThieuMucTien')?.value || '');
+      if (!isNaN(mucTien) && mucTien > 0) {
+        kq = kq.filter(r => (r.soTienThieu || 0) >= mucTien);
+      }
+
+      const tienTu = parseFloat(document.getElementById('locThieuTienTu')?.value || '');
+      if (!isNaN(tienTu)) kq = kq.filter(r => (r.soTienThieu || 0) >= tienTu);
+      const tienDen = parseFloat(document.getElementById('locThieuTienDen')?.value || '');
+      if (!isNaN(tienDen) && tienDen > 0) kq = kq.filter(r => (r.soTienThieu || 0) <= tienDen);
+
+      const locGC = document.getElementById('locThieuGhiChu')?.value || 'tat_ca';
+      if (locGC === 'co_ghi_chu') kq = kq.filter(r => (r.ghiChuDoiSoat || '').trim() !== '');
+      else if (locGC === 'chua_ghi_chu') kq = kq.filter(r => (r.ghiChuDoiSoat || '').trim() === '');
+
+      const sx = document.getElementById('locThieuSapXep')?.value || 'ngay_moi';
+      if (sx === 'ngay_cu') {
+        kq.sort((a, b) => (a.ngay || '').localeCompare(b.ngay || '') || (b.soTienThieu || 0) - (a.soTienThieu || 0));
+      } else if (sx === 'tien_giam') {
+        kq.sort((a, b) => (b.soTienThieu || 0) - (a.soTienThieu || 0));
+      } else if (sx === 'tien_tang') {
+        kq.sort((a, b) => (a.soTienThieu || 0) - (b.soTienThieu || 0));
+      } else if (sx === 'nhan_vien') {
+        kq.sort((a, b) => (a.nhanVien || '').localeCompare(b.nhanVien || '', 'vi') || (b.soTienThieu || 0) - (a.soTienThieu || 0));
+      } else if (sx === 'xe') {
+        kq.sort((a, b) => (a.xe || '').localeCompare(b.xe || '', 'vi') || (b.soTienThieu || 0) - (a.soTienThieu || 0));
+      } else {
+        kq.sort((a, b) => (b.ngay || '').localeCompare(a.ngay || '') || (b.soTienThieu || 0) - (a.soTienThieu || 0));
+      }
+
+      return kq;
+    }
+
+    // Nạp danh sách xe vào dropdown lọc nâng cao
+    function capNhatDropdownXeThieu() {
+      const selXe = document.getElementById('locThieuXe');
+      if (!selXe) return;
+      const currentVal = selXe.value || 'tat_ca';
+      const tapHopXe = new Set();
+      (danhSachDonThieuTongHop || []).forEach(r => {
+        if (r.xe) tapHopXe.add(r.xe);
+      });
+      const dsXe = Array.from(tapHopXe).sort((a, b) => a.localeCompare(b, 'vi'));
+      selXe.innerHTML = '<option value="tat_ca">🚚 Tất cả xe</option>';
+      dsXe.forEach(x => {
+        const opt = document.createElement('option');
+        opt.value = x;
+        opt.textContent = '🚚 ' + x;
+        selXe.appendChild(opt);
+      });
+      if (currentVal && Array.from(selXe.options).some(o => o.value === currentVal)) {
+        selXe.value = currentVal;
+      }
+    }
+
+    // Xoá toàn bộ điều kiện lọc của tab theo dõi đơn thiếu
+    function xoaBoLocDonThieu() {
+      const datGiaTri = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+      datGiaTri('locThieuTuNgay', '');
+      datGiaTri('locThieuDenNgay', '');
+      datGiaTri('locThieuNhanVien', 'tat_ca');
+      datGiaTri('locThieuLoai', 'tat_ca');
+      datGiaTri('locThieuTrangThai', 'tat_ca');
+      datGiaTri('timKiemThieu', '');
+      datGiaTri('locThieuXe', 'tat_ca');
+      datGiaTri('locThieuMucTien', 'tat_ca');
+      datGiaTri('locThieuTienTu', '');
+      datGiaTri('locThieuTienDen', '');
+      datGiaTri('locThieuGhiChu', 'tat_ca');
+      datGiaTri('locThieuSapXep', 'ngay_moi');
+      veDanhSachDonThieu();
+      if (typeof hienThiToast === 'function') hienThiToast("🧹 Đã xoá toàn bộ bộ lọc, đang xem tất cả dữ liệu.");
+    }
+
+    // Cập nhật dòng thông tin tóm tắt điều kiện lọc đang áp dụng
+    function capNhatThongTinLocDonThieu(soDong) {
+      const el = document.getElementById('thongTinLocDonThieu');
+      if (!el) return;
+      const mo = [];
+      const tuNgay = document.getElementById('locThieuTuNgay')?.value || '';
+      const denNgay = document.getElementById('locThieuDenNgay')?.value || '';
+      if (tuNgay || denNgay) mo.push((tuNgay ? dinhDangNgayVN(tuNgay) : 'Đầu kỳ') + '→' + (denNgay ? dinhDangNgayVN(denNgay) : 'Nay'));
+      const locNV = document.getElementById('locThieuNhanVien')?.value || 'tat_ca';
+      if (locNV !== 'tat_ca') mo.push(locNV);
+      const locXe = document.getElementById('locThieuXe')?.value || 'tat_ca';
+      if (locXe !== 'tat_ca') mo.push(locXe);
+      const locLoai = document.getElementById('locThieuLoai')?.value || 'tat_ca';
+      if (locLoai !== 'tat_ca') mo.push(locLoai === 'chuyen_xe' ? 'Nộp chuyến' : 'Đơn hàng');
+      const locTT = document.getElementById('locThieuTrangThai')?.value || 'tat_ca';
+      if (locTT !== 'tat_ca') mo.push(locTT === 'chua_tinh' ? 'Chưa tính' : 'Đã quyết toán');
+      const mucTien = document.getElementById('locThieuMucTien')?.value || 'tat_ca';
+      if (mucTien !== 'tat_ca') mo.push('≥ ' + formatTien(parseFloat(mucTien)) + 'đ');
+      const tTu = document.getElementById('locThieuTienTu')?.value || '';
+      const tDen = document.getElementById('locThieuTienDen')?.value || '';
+      if (tTu || tDen) mo.push('Tiền ' + (tTu ? formatTien(parseFloat(tTu)) : '0') + '→' + (tDen ? formatTien(parseFloat(tDen)) : '∞'));
+      const locGC = document.getElementById('locThieuGhiChu')?.value || 'tat_ca';
+      if (locGC !== 'tat_ca') mo.push(locGC === 'co_ghi_chu' ? 'Có ghi chú' : 'Chưa ghi chú');
+
+      el.textContent = 'Đang hiển thị ' + soDong + ' dòng' + (mo.length ? ' — Lọc: ' + mo.join(' | ') : ' (không lọc)');
+    }
+
+    // ---- MODAL CHI TIẾT KHI BẤM VÀO THẺ KPI ----
+    function moChiTietKPIThieu(loai) {
+      loaiChiTietKPIDangMo = loai || 'tong';
+      const modal = document.getElementById('modalChiTietKPIThieu');
+      if (!modal) return;
+      const oTim = document.getElementById('timKiemChiTietKPIThieu');
+      if (oTim) oTim.value = '';
+      veNoiDungChiTietKPIThieu();
+      modal.style.display = 'flex';
+    }
+
+    function dongModalChiTietKPIThieu() {
+      const modal = document.getElementById('modalChiTietKPIThieu');
+      if (modal) modal.style.display = 'none';
+      loaiChiTietKPIDangMo = '';
+    }
+
+    // Lấy danh sách dòng tương ứng với thẻ KPI đang mở
+    function layDuLieuChiTietKPIThieu() {
+      let ds = [...(danhSachDonThieuDangHienThi || [])];
+      if (loaiChiTietKPIDangMo === 'chua_tinh') ds = ds.filter(r => !r.daGiaiQuyet);
+      else if (loaiChiTietKPIDangMo === 'da_tinh') ds = ds.filter(r => !!r.daGiaiQuyet);
+
+      const tuKhoa = (document.getElementById('timKiemChiTietKPIThieu')?.value || '').trim().toLowerCase();
+      if (tuKhoa) {
+        ds = ds.filter(r =>
+          (r.maRef || '').toLowerCase().includes(tuKhoa) ||
+          (r.nhanVien || '').toLowerCase().includes(tuKhoa) ||
+          (r.xe || '').toLowerCase().includes(tuKhoa) ||
+          (r.noiDung || '').toLowerCase().includes(tuKhoa) ||
+          (r.ghiChuDoiSoat || '').toLowerCase().includes(tuKhoa)
+        );
+      }
+      return ds;
+    }
+
+    function veNoiDungChiTietKPIThieu() {
+      const box = document.getElementById('noiDungChiTietKPIThieu');
+      if (!box) return;
+
+      const cauHinh = {
+        tong:      { icon: '🔻', mau: '#dc2626', tieuDe: 'Chi Tiết Tổng Tiền Thiếu (> 10.000đ)',       phuDe: 'Toàn bộ khoản thiếu tiền theo điều kiện lọc đang áp dụng' },
+        chua_tinh: { icon: '⏳', mau: '#ea580c', tieuDe: 'Chi Tiết Khoản Chưa Tính Toán (Còn Nợ)',     phuDe: 'Các khoản nhân viên còn nợ, chưa đối soát / trừ lương' },
+        da_tinh:   { icon: '✅', mau: '#16a34a', tieuDe: 'Chi Tiết Khoản Đã Quyết Toán Với Nhân Viên', phuDe: 'Các khoản đã tính toán, đã trừ lương hoặc nhân viên đã nộp lại' },
+        nhan_vien: { icon: '👤', mau: '#2563eb', tieuDe: 'Tổng Hợp Tiền Thiếu Theo Từng Nhân Viên',    phuDe: 'Bấm nút 🎯 để lọc nhanh danh sách bên ngoài theo nhân viên' }
+      };
+      const cfg = cauHinh[loaiChiTietKPIDangMo] || cauHinh.tong;
+
+      const elIcon = document.getElementById('iconChiTietKPIThieu');
+      if (elIcon) elIcon.textContent = cfg.icon;
+      const elTd = document.getElementById('tieuDeChiTietKPIThieu');
+      if (elTd) { elTd.textContent = cfg.tieuDe; elTd.style.color = cfg.mau; }
+      const elPd = document.getElementById('phuDeChiTietKPIThieu');
+      if (elPd) elPd.textContent = cfg.phuDe;
+
+      const ds = layDuLieuChiTietKPIThieu();
+
+      if (!ds.length) {
+        box.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted); font-size:13px;">✅ Không có dữ liệu nào phù hợp trong mục này.</div>';
+        return;
+      }
+
+      const tongThieu = ds.reduce((s, r) => s + (r.soTienThieu || 0), 0);
+      const tongPhai = ds.reduce((s, r) => s + (r.phaiThuNop || 0), 0);
+      const tongThuc = ds.reduce((s, r) => s + (r.thucThuNop || 0), 0);
+      const soChuaTinh = ds.filter(r => !r.daGiaiQuyet).length;
+      const soDaTinh = ds.length - soChuaTinh;
+
+      // Gom nhóm theo nhân viên
+      const mapNV = new Map();
+      ds.forEach(r => {
+        const nv = r.nhanVien || 'Chưa gán';
+        if (!mapNV.has(nv)) mapNV.set(nv, { nhanVien: nv, soKhoan: 0, tongThieu: 0, chuaTinh: 0, daTinh: 0, soChuyen: 0, soDon: 0, dsXe: new Set() });
+        const g = mapNV.get(nv);
+        g.soKhoan++;
+        g.tongThieu += (r.soTienThieu || 0);
+        if (r.daGiaiQuyet) g.daTinh += (r.soTienThieu || 0); else g.chuaTinh += (r.soTienThieu || 0);
+        if (r.loai === 'chuyen_xe') g.soChuyen++; else g.soDon++;
+        if (r.xe) g.dsXe.add(r.xe);
+      });
+      const dsNhom = Array.from(mapNV.values()).sort((a, b) => b.tongThieu - a.tongThieu);
+
+      const oTomTat = `
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; margin-bottom:14px;">
+          <div style="padding:10px 12px; background:#fef2f2; border:1px solid #fecaca; border-radius:8px;">
+            <div style="font-size:10.5px; font-weight:800; color:#b91c1c; text-transform:uppercase;">Tổng tiền thiếu</div>
+            <div style="font-size:18px; font-weight:900; color:#dc2626;">${formatTien(tongThieu)} đ</div>
+          </div>
+          <div style="padding:10px 12px; background:#f8fafc; border:1px solid var(--border-color); border-radius:8px;">
+            <div style="font-size:10.5px; font-weight:800; color:#475569; text-transform:uppercase;">Số khoản</div>
+            <div style="font-size:18px; font-weight:900; color:#1e293b;">${ds.length} khoản</div>
+          </div>
+          <div style="padding:10px 12px; background:#fff7ed; border:1px solid #fed7aa; border-radius:8px;">
+            <div style="font-size:10.5px; font-weight:800; color:#c2410c; text-transform:uppercase;">Chưa tính toán</div>
+            <div style="font-size:18px; font-weight:900; color:#ea580c;">${soChuaTinh} khoản</div>
+          </div>
+          <div style="padding:10px 12px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px;">
+            <div style="font-size:10.5px; font-weight:800; color:#15803d; text-transform:uppercase;">Đã quyết toán</div>
+            <div style="font-size:18px; font-weight:900; color:#16a34a;">${soDaTinh} khoản</div>
+          </div>
+          <div style="padding:10px 12px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px;">
+            <div style="font-size:10.5px; font-weight:800; color:#1d4ed8; text-transform:uppercase;">Nhân viên</div>
+            <div style="font-size:18px; font-weight:900; color:#2563eb;">${dsNhom.length} người</div>
+          </div>
+        </div>
+      `;
+
+      const bangNV = `
+        <div style="font-size:12.5px; font-weight:800; color:var(--text-main); margin:4px 0 8px 0;">📊 Tổng hợp theo nhân viên</div>
+        <div style="border:1px solid var(--border-color); border-radius:8px; overflow:auto; max-height:${loaiChiTietKPIDangMo === 'nhan_vien' ? '50vh' : '230px'}; margin-bottom:16px;">
+          <table class="table-chitiet-kpi">
+            <thead>
+              <tr>
+                <th style="width:40px; text-align:center;">STT</th>
+                <th>Nhân viên</th>
+                <th style="width:150px;">Xe phụ trách</th>
+                <th style="width:75px; text-align:center;">Số khoản</th>
+                <th style="width:90px; text-align:center;">Nộp chuyến</th>
+                <th style="width:85px; text-align:center;">Đơn hàng</th>
+                <th style="width:115px; text-align:right;">Chưa tính</th>
+                <th style="width:115px; text-align:right;">Đã quyết toán</th>
+                <th style="width:125px; text-align:right;">Tổng thiếu</th>
+                <th style="width:60px; text-align:center;">Lọc</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${dsNhom.map((g, i) => `
+                <tr>
+                  <td style="text-align:center; color:var(--text-muted); font-weight:700;">${i + 1}</td>
+                  <td><b style="color:#1e293b;">${escapeHtml(g.nhanVien)}</b></td>
+                  <td style="font-size:11px; color:#475569;">${escapeHtml(Array.from(g.dsXe).join(', ') || '—')}</td>
+                  <td style="text-align:center; font-weight:700;">${g.soKhoan}</td>
+                  <td style="text-align:center; color:#0369a1;">${g.soChuyen}</td>
+                  <td style="text-align:center; color:#c2410c;">${g.soDon}</td>
+                  <td style="text-align:right; color:#ea580c; font-weight:700; font-variant-numeric:tabular-nums;">${formatTien(g.chuaTinh)}</td>
+                  <td style="text-align:right; color:#16a34a; font-weight:700; font-variant-numeric:tabular-nums;">${formatTien(g.daTinh)}</td>
+                  <td style="text-align:right; color:#dc2626; font-weight:900; font-variant-numeric:tabular-nums;">${formatTien(g.tongThieu)} đ</td>
+                  <td style="text-align:center;">
+                    <button type="button" class="btn btn-outline" style="height:22px; padding:0 6px; font-size:10px;" onclick="locNhanhTheoNhanVienThieu(this.getAttribute('data-nv'))" data-nv="${escapeHtml(g.nhanVien)}" title="Lọc danh sách bên ngoài theo nhân viên này">🎯</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+            <tfoot style="background:#f1f5f9; font-weight:800;">
+              <tr>
+                <td colspan="6" style="text-align:right;">TỔNG CỘNG (${dsNhom.length} nhân viên):</td>
+                <td style="text-align:right; color:#ea580c; font-variant-numeric:tabular-nums;">${formatTien(dsNhom.reduce((s, g) => s + g.chuaTinh, 0))}</td>
+                <td style="text-align:right; color:#16a34a; font-variant-numeric:tabular-nums;">${formatTien(dsNhom.reduce((s, g) => s + g.daTinh, 0))}</td>
+                <td style="text-align:right; color:#dc2626; font-size:13px; font-weight:900; font-variant-numeric:tabular-nums;">${formatTien(tongThieu)} đ</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      `;
+
+      const bangChiTiet = `
+        <div style="font-size:12.5px; font-weight:800; color:var(--text-main); margin:4px 0 8px 0;">📋 Chi tiết từng khoản thiếu (${ds.length} dòng)</div>
+        <div style="border:1px solid var(--border-color); border-radius:8px; overflow:auto; max-height:45vh;">
+          <table class="table-chitiet-kpi">
+            <thead>
+              <tr>
+                <th style="width:40px; text-align:center;">STT</th>
+                <th style="width:85px; text-align:center;">Ngày</th>
+                <th style="width:125px;">Nhân viên</th>
+                <th style="width:100px;">Xe / Chuyến</th>
+                <th style="width:120px;">Phân loại</th>
+                <th style="width:115px;">Mã tham chiếu</th>
+                <th>Khách hàng / Diễn giải</th>
+                <th style="width:105px; text-align:right;">Phải thu/nộp</th>
+                <th style="width:105px; text-align:right;">Thực thu/nộp</th>
+                <th style="width:115px; text-align:right;">Tiền thiếu</th>
+                <th style="width:120px; text-align:center;">Trạng thái</th>
+                <th style="width:150px;">Ghi chú đối soát</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${ds.map((r, i) => `
+                <tr>
+                  <td style="text-align:center; color:var(--text-muted); font-weight:700;">${i + 1}</td>
+                  <td style="text-align:center; white-space:nowrap;">${escapeHtml(r.ngayHienThi || '')}</td>
+                  <td><b style="color:#1e293b;">${escapeHtml(r.nhanVien || '')}</b></td>
+                  <td style="font-weight:700; color:#475569;">${escapeHtml(r.xe || '')}</td>
+                  <td>${r.loai === 'chuyen_xe'
+                      ? '<span class="badge-status" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;">🚚 Nộp chuyến</span>'
+                      : '<span class="badge-status" style="background:#ffedd5; color:#c2410c; border:1px solid #fed7aa;">📄 Đơn hàng</span>'}</td>
+                  <td><b style="font-family:monospace; color:#1e293b;">${escapeHtml(r.maRef || '')}</b></td>
+                  <td style="white-space:normal; font-size:11px;">${escapeHtml(r.noiDung || '')}</td>
+                  <td style="text-align:right; font-variant-numeric:tabular-nums;">${formatTien(r.phaiThuNop || 0)}</td>
+                  <td style="text-align:right; font-variant-numeric:tabular-nums;">${formatTien(r.thucThuNop || 0)}</td>
+                  <td style="text-align:right; font-weight:800; color:#dc2626; font-variant-numeric:tabular-nums;">${formatTien(r.soTienThieu || 0)} đ</td>
+                  <td style="text-align:center;">${r.daGiaiQuyet
+                      ? '<span class="badge-status" style="background:#f0fdf4; color:#15803d; border:1px solid #86efac;">✅ Đã quyết toán</span>'
+                      : '<span class="badge-status" style="background:#fff7ed; color:#c2410c; border:1px solid #fdba74;">⏳ Chưa tính</span>'}</td>
+                  <td style="font-size:11px; color:#475569; white-space:normal;">${escapeHtml(r.ghiChuDoiSoat || '—')}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+            <tfoot style="background:#f1f5f9; font-weight:800;">
+              <tr>
+                <td colspan="7" style="text-align:right;">TỔNG CỘNG (${ds.length} khoản):</td>
+                <td style="text-align:right; font-variant-numeric:tabular-nums;">${formatTien(tongPhai)}</td>
+                <td style="text-align:right; font-variant-numeric:tabular-nums;">${formatTien(tongThuc)}</td>
+                <td style="text-align:right; color:#dc2626; font-size:13px; font-weight:900; font-variant-numeric:tabular-nums;">${formatTien(tongThieu)} đ</td>
+                <td colspan="2"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      `;
+
+      box.innerHTML = oTomTat + bangNV + bangChiTiet;
+    }
+
+    // Bấm nút 🎯 trong modal để lọc nhanh danh sách ngoài theo nhân viên
+    function locNhanhTheoNhanVienThieu(tenNV) {
+      const sel = document.getElementById('locThieuNhanVien');
+      if (sel && Array.from(sel.options).some(o => o.value === tenNV)) {
+        sel.value = tenNV;
+        veDanhSachDonThieu();
+        dongModalChiTietKPIThieu();
+        if (typeof hienThiToast === 'function') hienThiToast('🎯 Đã lọc danh sách theo nhân viên: ' + tenNV);
+      } else {
+        alert('⚠️ Nhân viên "' + tenNV + '" không có trong danh sách lọc hiện tại.');
+      }
+    }
+
+    // Xuất Excel đúng phần chi tiết đang xem trong modal
+    function xuatExcelChiTietKPIThieu() {
+      const ds = layDuLieuChiTietKPIThieu();
+      if (!ds.length) {
+        alert("⚠️ Không có dữ liệu để xuất Excel!");
+        return;
+      }
+      const tenMuc = {
+        tong: 'TONG TIEN THIEU',
+        chua_tinh: 'CHUA TINH TOAN',
+        da_tinh: 'DA QUYET TOAN',
+        nhan_vien: 'THEO NHAN VIEN'
+      }[loaiChiTietKPIDangMo] || 'CHI TIET';
+
+      try {
+        const rowsData = [
+          ["CÔNG TY TNHH THÁI MỸ HƯƠNG"],
+          ["CHI TIẾT ĐƠN & KHOẢN THIẾU TIỀN NHÂN VIÊN — " + tenMuc],
+          ["Thời gian xuất: " + new Date().toLocaleString('vi-VN')],
+          [],
+          ["STT", "Ngày", "Nhân viên", "Xe / Chuyến", "Phân loại", "Mã tham chiếu",
+           "Khách hàng / Diễn giải", "Phải thu/nộp", "Thực thu/nộp", "Tiền thiếu", "Trạng thái", "Ghi chú đối soát"]
+        ];
+        let tThieu = 0, tPhai = 0, tThuc = 0;
+        ds.forEach((r, i) => {
+          tThieu += (r.soTienThieu || 0); tPhai += (r.phaiThuNop || 0); tThuc += (r.thucThuNop || 0);
+          rowsData.push([
+            i + 1, r.ngayHienThi, r.nhanVien, r.xe,
+            r.loai === 'chuyen_xe' ? 'Thiếu tiền nộp chuyến' : 'Đơn hàng thiếu tiền',
+            r.maRef, r.noiDung, r.phaiThuNop, r.thucThuNop, r.soTienThieu,
+            r.daGiaiQuyet ? 'Đã quyết toán với NV' : 'Chưa tính toán (Còn nợ)',
+            r.ghiChuDoiSoat || ''
+          ]);
+        });
+        rowsData.push(["TỔNG CỘNG", "", "", "", "", "", ds.length + " khoản", tPhai, tThuc, tThieu, "", ""]);
+
+        const ws = XLSX.utils.aoa_to_sheet(rowsData);
+        ws['!cols'] = [{ wch: 6 }, { wch: 13 }, { wch: 22 }, { wch: 16 }, { wch: 22 }, { wch: 20 },
+                       { wch: 35 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 24 }, { wch: 30 }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "ChiTietKPI");
+        XLSX.writeFile(wb, 'ChiTiet_DonThieu_' + (loaiChiTietKPIDangMo || 'tong') + '_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+        if (typeof hienThiToast === 'function') hienThiToast("📥 Đã xuất Excel chi tiết thành công!");
+      } catch (e) {
+        alert("Lỗi xuất file Excel: " + (e.message || String(e)));
+      }
+    }
+
+    // Đóng modal chi tiết bằng phím ESC
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        const m = document.getElementById('modalChiTietKPIThieu');
+        if (m && m.style.display === 'flex') dongModalChiTietKPIThieu();
+      }
+    });
+
     function xuatExcelDonThieuNhanVien() {
       if (!danhSachDonThieuTongHop || !danhSachDonThieuTongHop.length) {
         alert("⚠️ Danh sách đang trống, không có đơn thiếu nào để xuất file!");
@@ -5853,6 +6414,9 @@
           (r.noiDung || '').toLowerCase().includes(tuKhoa)
         );
       }
+
+      // Áp dụng thêm BỘ LỌC NÂNG CAO + sắp xếp — THÊM MỚI
+      ds = apDungBoLocNangCaoThieu(ds);
 
       if (!ds.length) {
         alert("⚠️ Không có dòng dữ liệu nào khớp với bộ lọc hiện tại để xuất Excel!");
@@ -5946,6 +6510,9 @@
           (r.noiDung || '').toLowerCase().includes(tuKhoa)
         );
       }
+
+      // Áp dụng thêm BỘ LỌC NÂNG CAO + sắp xếp — THÊM MỚI
+      ds = apDungBoLocNangCaoThieu(ds);
 
       if (!ds.length) {
         alert("⚠️ Không có dòng dữ liệu nào khớp với bộ lọc để in!");
