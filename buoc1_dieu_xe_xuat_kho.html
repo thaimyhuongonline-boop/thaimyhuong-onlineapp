@@ -2170,20 +2170,36 @@
       }
 
       // Dọn dẹp dữ liệu KiotViet tạm nếu các hóa đơn đã được phân hết vào các chuyến xe đã lưu
+      let hdDaGoKhiMoTrang = null; // mã HĐ -> "xe ngày" đã bị gỡ khỏi danh sách chờ (để báo cho người dùng)
       try {
         const lichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
-        if (lichSu.length > 0) {
+        let rawKiotKT = [];
+        try { rawKiotKT = JSON.parse(localStorage.getItem("tmh_kiotviet_data") || "[]"); } catch (e) {}
+        // Ưu tiên kiểm tra trên máy chủ (luu_tru): lịch sử trên máy có thể còn chuyến đã bị xoá / đơn đã gỡ khỏi chuyến
+        // → trước đây đơn nạp lại bị lặng lẽ xoá khỏi danh sách chờ. Không kiểm tra được máy chủ thì dùng lịch sử như cũ.
+        const daChiaTrenCloud = await timHoaDonDaChiaXe((Array.isArray(rawKiotKT) ? rawKiotKT : []).map(r => String(r['Mã hóa đơn'] || '').trim().toUpperCase()));
+        if (lichSu.length > 0 || daChiaTrenCloud) {
           const setMaDaLuu = new Set();
-          lichSu.forEach(d => {
-            if (Array.isArray(d.danhSachHD)) d.danhSachHD.forEach(m => setMaDaLuu.add(String(m).trim().toUpperCase()));
-            if (Array.isArray(d.danhSachChiTiet)) d.danhSachChiTiet.forEach(c => setMaDaLuu.add(String(c.maHD || c.ma_hd || '').trim().toUpperCase()));
-          });
+          if (daChiaTrenCloud) {
+            daChiaTrenCloud.forEach((_, m) => setMaDaLuu.add(m));
+          } else {
+            lichSu.forEach(d => {
+              if (Array.isArray(d.danhSachHD)) d.danhSachHD.forEach(m => setMaDaLuu.add(String(m).trim().toUpperCase()));
+              if (Array.isArray(d.danhSachChiTiet)) d.danhSachChiTiet.forEach(c => setMaDaLuu.add(String(c.maHD || c.ma_hd || '').trim().toUpperCase()));
+            });
+          }
 
           let rawKiot = JSON.parse(localStorage.getItem("tmh_kiotviet_data") || "[]");
           if (Array.isArray(rawKiot) && rawKiot.length > 0) {
             // Chỉ giữ lại những hóa đơn THỰC SỰ CHƯA ĐƯỢC CHIA XE
             const rawMoi = rawKiot.filter(r => !setMaDaLuu.has(String(r['Mã hóa đơn'] || '').trim().toUpperCase()));
             if (rawMoi.length !== rawKiot.length) {
+              hdDaGoKhiMoTrang = new Map();
+              rawKiot.forEach(r => {
+                const m = String(r['Mã hóa đơn'] || '').trim().toUpperCase();
+                if (setMaDaLuu.has(m)) hdDaGoKhiMoTrang.set(m, daChiaTrenCloud ? (daChiaTrenCloud.get(m) || '') : 'lịch sử trên máy');
+              });
+              duLieuKiotViet = rawMoi;
               if (rawMoi.length > 0) {
                 localStorage.setItem("tmh_kiotviet_data", JSON.stringify(rawMoi));
                 dongBoKiotTamLenSupabase(rawMoi, JSON.parse(localStorage.getItem('tmh_danh_sach_ten_file') || '[]'));
@@ -2199,6 +2215,13 @@
 
       napDuLieuTuBuoc1();
       kiemTraBannerDonGiaoLai();
+      if (hdDaGoKhiMoTrang && hdDaGoKhiMoTrang.size) {
+        const ds = Array.from(hdDaGoKhiMoTrang.entries());
+        alert(`ℹ️ Đã gỡ ${ds.length} hóa đơn khỏi danh sách chờ chia xe vì ĐÃ ĐƯỢC CHIA VÀO CHUYẾN XE:\n\n` +
+          ds.slice(0, 15).map(([m, x]) => `• ${m}${x ? ' — ' + x : ''}`).join('\n') +
+          (ds.length > 15 ? `\n… và ${ds.length - 15} hóa đơn khác` : '') +
+          `\n\nNếu hóa đơn cần giao lại, hãy dùng nút "Đơn hẹn giao lại".`);
+      }
 
       // Phục hồi badge hiển thị file đã nạp nếu có dữ liệu
       try {
@@ -2640,7 +2663,7 @@
       }
     }
 
-    function napCacDonGiaoLaiVaoChuyenXeNay() {
+    async function napCacDonGiaoLaiVaoChuyenXeNay() {
       let dsGL = [];
       try {
         dsGL = JSON.parse(localStorage.getItem('tmh_danh_sach_cho_giao_lai') || '[]');
@@ -2650,6 +2673,39 @@
         alert("Không có đơn hàng nào đang chờ giao lại!");
         return;
       }
+
+      // Đơn hẹn giao lại lấy từ máy chủ (máy khác quyết toán) chưa kèm dòng hàng → tải từ chi_tiet_hoa_don,
+      // nếu không đơn sẽ không lên Bảng kê (trước đây lưu chuyến là mất đơn)
+      const canTaiHang = dsGL.filter(it => !(Array.isArray(it.chiTietKiotViet) && it.chiTietKiotViet.length));
+      if (canTaiHang.length && typeof sb !== 'undefined') {
+        try {
+          const dsMa = canTaiHang.map(it => String(it.maHD || '').trim().toUpperCase()).filter(Boolean);
+          const tatCa = [];
+          for (let i = 0; i < dsMa.length; i += 150) {
+            const { data, error } = await sb.from('chi_tiet_hoa_don').select('*').in('ma_hd', dsMa.slice(i, i + 150));
+            if (!error && Array.isArray(data)) tatCa.push(...data);
+          }
+          canTaiHang.forEach(it => {
+            const ma = String(it.maHD || '').trim().toUpperCase();
+            let bo = tatCa.filter(r => String(r.ma_hd || '').trim().toUpperCase() === ma);
+            if (!bo.length) return;
+            const dotGoc = it.maDotCu || it.maDotGoc || '';
+            const cuaDotGoc = bo.filter(r => dotGoc && r.ma_dot === dotGoc);
+            if (cuaDotGoc.length) bo = cuaDotGoc;
+            else {
+              const moiNhat = bo.reduce((m, r) => String(r.tao_luc || '') > m ? String(r.tao_luc || '') : m, '');
+              bo = bo.filter(r => String(r.tao_luc || '') === moiNhat);
+            }
+            it.chiTietKiotViet = bo.map(r => ({
+              'Mã hóa đơn': ma, 'Mã hàng': r.ma_hang, 'Tên hàng': r.ten_hang, 'ĐVT': r.dvt || 'Thùng',
+              'Số lượng': parseFloat(r.so_luong || 0), 'Đơn giá': parseFloat(r.don_gia || 0), 'Giá bán': parseFloat(r.don_gia || 0),
+              'Thành tiền': parseFloat(r.thanh_tien || 0), 'Mã khách hàng': r.ma_kh || it.maKH || '', 'Tên khách hàng': r.ten_kh || it.tenKH || '',
+              'Người bán': it.nguoiBan || '', 'Quy cách': r.quy_cach, 'KM': !!r.la_khuyen_mai
+            }));
+          });
+        } catch (e) { console.warn('Không tải được chi tiết hàng của đơn giao lại:', e); }
+      }
+      const vanThieuHang = dsGL.filter(it => !(Array.isArray(it.chiTietKiotViet) && it.chiTietKiotViet.length));
 
       if (!Array.isArray(danhSachHoaDon)) danhSachHoaDon = [];
       if (!Array.isArray(duLieuKiotViet)) duLieuKiotViet = [];
@@ -2698,6 +2754,10 @@
       if (banner) banner.style.display = 'none';
 
       hienThiToast(`🎉 Đã đưa ${dsGL.length} đơn hẹn giao lại vào chuyến xe hiện tại!`);
+      if (vanThieuHang.length) {
+        alert(`⚠️ ${vanThieuHang.length} đơn hẹn giao lại CHƯA tìm thấy chi tiết hàng hóa nên sẽ không lên Bảng kê (khi lưu chuyến, đơn vẫn được giữ trong danh sách):\n\n` +
+          vanThieuHang.map(it => `• ${it.maHD} — ${it.tenKH || ''}`).join('\n') + `\n\nHãy nạp lại file Excel KiotViet có các hóa đơn này.`);
+      }
     }
 
     // Render danh sách checkbox hóa đơn kèm huy hiệu Đơn Giao Lại
@@ -2764,6 +2824,7 @@
     // Xóa 1 hóa đơn cụ thể khỏi danh sách tạm
     async function xoaMotHoaDon(maHD) {
       if (!confirm(`Bạn có chắc muốn xóa hóa đơn "${maHD}" khỏi danh sách tạm?`)) return;
+      await dongBoCoSoKiotTuCloud(); // xoá trên bản mới nhất của máy chủ, không làm mất đơn máy khác vừa nạp
       danhSachHoaDon = danhSachHoaDon.filter(h => h.maHD !== maHD);
       duLieuKiotViet = duLieuKiotViet.filter(r => String(r['Mã hóa đơn'] || '').trim().toUpperCase() !== maHD);
       if (duLieuKiotViet.length === 0) {
@@ -2805,6 +2866,7 @@
       if (!confirm(`Bạn có chắc chắn muốn xóa ${cacHDXoa.length} hóa đơn đã chọn khỏi danh sách tạm?`)) {
         return;
       }
+      await dongBoCoSoKiotTuCloud(); // xoá trên bản mới nhất của máy chủ, không làm mất đơn máy khác vừa nạp
       const setMaHDXoa = new Set(cacHDXoa.map(h => h.maHD));
       danhSachHoaDon = danhSachHoaDon.filter(h => !setMaHDXoa.has(h.maHD));
       duLieuKiotViet = duLieuKiotViet.filter(r => {
@@ -3548,7 +3610,7 @@
     // ========================================================
 
     async function luuSangBuoc3() {
-      const hoaDonDuocChon = danhSachHoaDon.filter(h => h.chon);
+      let hoaDonDuocChon = danhSachHoaDon.filter(h => h.chon);
       if (hoaDonDuocChon.length === 0) {
         alert("⚠️ Vui lòng chọn ít nhất 1 hóa đơn để lưu!");
         return;
@@ -3569,6 +3631,39 @@
         alert("⚠️ Vui lòng chọn Ngày giao hàng!");
         return;
       }
+
+      // CHỐNG MẤT ĐƠN: chỉ lưu (và chỉ gỡ khỏi danh sách chờ) những hoá đơn thực sự có trên Bảng kê.
+      // 1. Hoá đơn đang tích nhưng không có dòng hàng hoá (vd. đơn giao lại chưa tải được chi tiết) → không lưu được
+      const maCoDongHang = new Set(duLieuKiotViet.filter(r => {
+        const mh = String(r['Mã hàng'] || '').trim();
+        return mh && !mh.toLowerCase().includes('tổng');
+      }).map(r => String(r['Mã hóa đơn'] || '').trim().toUpperCase()));
+      const hdKhongCoHang = hoaDonDuocChon.filter(h => !maCoDongHang.has(String(h.maHD).toUpperCase()));
+      if (hdKhongCoHang.length) {
+        if (hdKhongCoHang.length === hoaDonDuocChon.length) {
+          alert(`⚠️ Các hóa đơn đang tích chưa có chi tiết hàng hóa nên chưa lưu được:\n\n${hdKhongCoHang.map(h => '• ' + h.maHD + ' — ' + h.tenKH).join('\n')}\n\nHãy nạp lại file Excel KiotViet có các hóa đơn này.`);
+          return;
+        }
+        if (!confirm(`⚠️ ${hdKhongCoHang.length} hóa đơn đang tích CHƯA CÓ CHI TIẾT HÀNG HÓA nên không lên Bảng kê:\n\n` +
+          hdKhongCoHang.map(h => '• ' + h.maHD + ' — ' + h.tenKH).join('\n') +
+          `\n\nBấm [OK] để lưu chuyến với các hóa đơn còn lại (các hóa đơn trên VẪN GIỮ trong danh sách chờ).\nBấm [Hủy] để quay lại.`)) return;
+        hdKhongCoHang.forEach(h => { h.chon = false; });
+        hoaDonDuocChon = hoaDonDuocChon.filter(h => maCoDongHang.has(String(h.maHD).toUpperCase()));
+      }
+      // 2. Đã tick / bỏ tick hoá đơn sau khi tạo biểu mẫu → Bảng kê cũ không khớp: tạo lại theo đúng các hoá đơn đang tích
+      const maTrenBangKe = new Set(((duLieuXuatExcel && duLieuXuatExcel.bangKe) || []).map(r => r.maHD));
+      const themSauKhiTao = hoaDonDuocChon.filter(h => !maTrenBangKe.has(h.maHD));
+      const boSauKhiTao = Array.from(maTrenBangKe).filter(m => !hoaDonDuocChon.some(h => h.maHD === m));
+      if (themSauKhiTao.length || boSauKhiTao.length) {
+        if (!confirm(`📋 Danh sách hóa đơn đang tích KHÁC với Bảng kê đã tạo` +
+          (themSauKhiTao.length ? `\n• Thêm ${themSauKhiTao.length} HĐ: ${themSauKhiTao.slice(0, 6).map(h => h.maHD).join(', ')}${themSauKhiTao.length > 6 ? '…' : ''}` : '') +
+          (boSauKhiTao.length ? `\n• Bớt ${boSauKhiTao.length} HĐ: ${boSauKhiTao.slice(0, 6).join(', ')}${boSauKhiTao.length > 6 ? '…' : ''}` : '') +
+          `\n\nBảng kê & Phiếu xuất kho sẽ được TẠO LẠI theo đúng ${hoaDonDuocChon.length} hóa đơn đang tích rồi mới lưu (nếu đã in thì in lại bản mới).\n\nBấm [OK] để tiếp tục lưu, [Hủy] để xem lại.`)) {
+          chayTaoPhieu();
+          return;
+        }
+      }
+      chayTaoPhieu();
 
       const maDot = `DOT_${xe.replace(/[^a-zA-Z0-9]/g, '')}_${ngayRaw.replace(/-/g, '')}_${Date.now().toString().slice(-4)}`;
 
@@ -3708,6 +3803,9 @@
           console.warn("Lỗi đồng bộ Supabase:", e);
         }
       }
+
+      // Gỡ trên bản danh sách chờ MỚI NHẤT của máy chủ (không ghi đè đơn máy khác vừa nạp trong lúc điều xe)
+      await dongBoCoSoKiotTuCloud();
 
       // TỰ ĐỘNG XÓA HÓA ĐƠN ĐÃ ĐIỀU XE KHỎI DANH SÁCH CHỜ (TRÁNH NẰM LẠI GÂY HIỂU LẦM)
       const setHDChon = new Set(hoaDonDuocChon.map(h => h.maHD.toUpperCase()));
@@ -3861,8 +3959,78 @@
       if (file) xuLyDanhSachFilesExcel([file]);
     }
 
+    // ========================================================
+    // CHỐNG MẤT ĐƠN Ở DANH SÁCH CHỜ CHIA XE (file_kiot_tam dùng chung mọi máy)
+    // ========================================================
+
+    // Ô gộp trong file Excel: điền giá trị ô đầu cho mọi ô trong vùng gộp. Trả về số ô đã điền.
+    function dienGiaTriOGop_(ws) {
+      if (!ws || !Array.isArray(ws['!merges']) || !ws['!merges'].length) return 0;
+      let dem = 0;
+      ws['!merges'].forEach(vung => {
+        const oDau = ws[XLSX.utils.encode_cell(vung.s)];
+        if (!oDau) return;
+        for (let r = vung.s.r; r <= vung.e.r; r++) {
+          for (let c = vung.s.c; c <= vung.e.c; c++) {
+            if (r === vung.s.r && c === vung.s.c) continue;
+            const dc = XLSX.utils.encode_cell({ r, c });
+            const o = ws[dc];
+            if (!o || o.v === undefined || o.v === null || String(o.v).trim() === '') {
+              ws[dc] = Object.assign({}, oDau);
+              dem++;
+            }
+          }
+        }
+      });
+      return dem;
+    }
+
+    // Lấy danh sách chờ MỚI NHẤT trên máy chủ về máy này trước khi sửa (máy khác có thể vừa nạp / chia xe / xoá).
+    // Giữ lại các dòng hàng của đơn hẹn giao lại vừa đưa vào trên máy này (chưa lên máy chủ).
+    // Không đọc được máy chủ hoặc máy chủ chưa có dữ liệu → giữ nguyên dữ liệu trên máy như trước.
+    async function dongBoCoSoKiotTuCloud() {
+      if (typeof taiKiotTamTuSupabase !== 'function') return false;
+      let cloud = null;
+      try { cloud = await taiKiotTamTuSupabase(); } catch (e) { return false; }
+      if (!cloud || !Array.isArray(cloud.duLieu) || !cloud.duLieu.length) return false;
+      const maCua = r => String(r['Mã hóa đơn'] || '').trim().toUpperCase();
+      const maTrenCloud = new Set(cloud.duLieu.map(maCua));
+      const maGiaoLai = new Set((danhSachHoaDon || []).filter(h => h.laGiaoLai).map(h => String(h.maHD).toUpperCase()));
+      const giuLai = (Array.isArray(duLieuKiotViet) ? duLieuKiotViet : []).filter(r => maGiaoLai.has(maCua(r)) && !maTrenCloud.has(maCua(r)));
+      duLieuKiotViet = cloud.duLieu.concat(giuLai);
+      localStorage.setItem("tmh_kiotviet_data", JSON.stringify(duLieuKiotViet));
+      localStorage.setItem("tmh_danh_sach_ten_file", JSON.stringify(cloud.danhSachTenFile || []));
+      const giaoLaiTrongDS = (danhSachHoaDon || []).filter(h => h.laGiaoLai && !maTrenCloud.has(String(h.maHD).toUpperCase()));
+      napDuLieuTuBuoc1();
+      // Đơn hẹn giao lại chưa có dòng hàng (chỉ có trên danh sách) → giữ nguyên trên danh sách
+      let coThemLai = false;
+      giaoLaiTrongDS.forEach(h => { if (!danhSachHoaDon.some(x => x.maHD === h.maHD)) { danhSachHoaDon.unshift(h); coThemLai = true; } });
+      if (coThemLai) veDanhSachCheckboxHD();
+      return true;
+    }
+
+    // Hoá đơn ĐÃ được chia vào chuyến xe = có dòng trên luu_tru (máy chủ). Map mã HĐ -> "xe, ngày".
+    // Trả về null nếu không kiểm tra được (mất mạng / lỗi) — khi đó không bỏ đơn nào.
+    async function timHoaDonDaChiaXe(dsMaHD) {
+      const ds = Array.from(new Set((dsMaHD || []).filter(Boolean)));
+      const kq = new Map();
+      if (!ds.length) return kq;
+      if (typeof sb === 'undefined') return null;
+      try {
+        for (let i = 0; i < ds.length; i += 150) {
+          const { data, error } = await sb.from('luu_tru').select('ma_hd, xe, ngay_giao').in('ma_hd', ds.slice(i, i + 150));
+          if (error) return null;
+          (data || []).forEach(r => kq.set(String(r.ma_hd || '').trim().toUpperCase(), `${r.xe || '?'} ${r.ngay_giao || ''}`.trim()));
+        }
+      } catch (e) { return null; }
+      return kq;
+    }
+
     async function xuLyDanhSachFilesExcel(files) {
       if (!files || files.length === 0) return;
+
+      // 0. Lấy danh sách chờ MỚI NHẤT trên máy chủ trước (máy khác có thể vừa nạp / chia xe) để không ghi đè mất đơn
+      await dongBoCoSoKiotTuCloud();
 
       // 1. Kiểm tra xem danh sách hiện tại đã có dữ liệu chưa để hỏi ghép file
       let cheDoGhep = true; // Mặc định là GHÉP BỔ SUNG
@@ -3883,11 +4051,17 @@
       let danhSachTenFile = cheDoGhep ? JSON.parse(localStorage.getItem('tmh_danh_sach_ten_file') || '[]') : [];
 
       // Tập hợp chữ ký các dòng đã có để chống trùng lặp dòng khi nạp lặp
+      // (đếm theo SỐ LẦN xuất hiện: 2 dòng giống hệt nhau trong CÙNG 1 hoá đơn của 1 file vẫn được giữ đủ,
+      //  nạp lại đúng file cũ thì không thêm dòng nào)
       const setDongDaCo = new Set();
+      const demDongDaCo = new Map();
       duLieuTongHop.forEach(r => {
         const sig = `${r['Mã hóa đơn']}‖${r['Mã hàng']}‖${r['Đơn giá']}‖${r['Số lượng']}`;
         setDongDaCo.add(sig);
+        demDongDaCo.set(sig, (demDongDaCo.get(sig) || 0) + 1);
       });
+      const maHDTruocKhiNap = new Set(duLieuTongHop.map(r => String(r['Mã hóa đơn'] || '').trim().toUpperCase()));
+      let soDongLayTheoOGop = 0;
 
       // Đọc danh mục hiện có để đối chiếu tự động cập nhật
       const dmKhach = JSON.parse(localStorage.getItem('tmh_danh_muc_khach_hang') || '[]');
@@ -3914,6 +4088,8 @@
               const data = new Uint8Array(e.target.result);
               const workbook = XLSX.read(data, { type: 'array' });
               const firstSheet = workbook.SheetNames[0];
+              // Ô gộp (vd. Mã hoá đơn gộp cho nhiều dòng hàng) → điền giá trị cho mọi dòng, tránh bỏ sót dòng hàng
+              soDongLayTheoOGop += dienGiaTriOGop_(workbook.Sheets[firstSheet]);
               const rawRows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], { defval: "" });
               resolve({ fileName: file.name, rows: rawRows });
             } catch (err) {
@@ -3933,6 +4109,7 @@
           }
 
           const rawRows = ketQua.rows || [];
+          const demDongFile = new Map(); // số lần mỗi chữ ký dòng xuất hiện trong file này
           rawRows.forEach(r => {
             const maHD = String(layGiaTri_(r, ['Mã hóa đơn', 'Mã HĐ', 'Mã chứng từ', 'Số hóa đơn', 'Ma hoa don']) || '').trim().toUpperCase();
             if (!maHD || maHD.includes('TỔNG')) return;
@@ -3976,11 +4153,12 @@
             const giamHD = parseVNNumber_(layGiaTri_(r, ['Giảm giá HĐ', 'Giảm giá hóa đơn', 'Chiết khấu HĐ']));
 
             const sig = `${maHD}‖${maHang}‖${donGiaThucTe}‖${sl}`;
-            if (setDongDaCo.has(sig)) {
+            const lanTrongFile = (demDongFile.get(sig) || 0) + 1;
+            demDongFile.set(sig, lanTrongFile);
+            if (setDongDaCo.has(sig) && lanTrongFile <= (demDongDaCo.get(sig) || 0)) {
               tongDongBoQuaTrung++;
               return; // Tránh trùng lặp dòng khi nạp lặp
             }
-            setDongDaCo.add(sig);
 
             duLieuTongHop.push({
               'Mã hóa đơn': maHD,
@@ -4018,10 +4196,30 @@
               nvMoiThem.push({ ten_nv: nguoiBan, ho_ten: nguoiBan, vi_tri: 'Kinh doanh' });
             }
           });
+          // File sau trong cùng lần nạp: dòng đã có ở file trước tính là trùng
+          demDongFile.forEach((so, sig) => {
+            setDongDaCo.add(sig);
+            demDongDaCo.set(sig, Math.max(demDongDaCo.get(sig) || 0, so));
+          });
+        }
+
+        // Hoá đơn MỚI nạp nhưng ĐÃ được chia vào chuyến xe (có trên luu_tru) → bỏ ra ngay và báo rõ
+        // (trước đây vẫn nhận vào danh sách rồi lặng lẽ biến mất ở lần mở trang sau)
+        const maHDMoiNap = Array.from(new Set(duLieuTongHop.map(r => String(r['Mã hóa đơn'] || '').trim().toUpperCase())))
+          .filter(m => m && !maHDTruocKhiNap.has(m));
+        const daChiaXe = await timHoaDonDaChiaXe(maHDMoiNap);
+        if (daChiaXe && daChiaXe.size) {
+          const soDongTruoc = duLieuTongHop.length;
+          duLieuTongHop = duLieuTongHop.filter(r => !daChiaXe.has(String(r['Mã hóa đơn'] || '').trim().toUpperCase()));
+          tongDongMoiThem = Math.max(0, tongDongMoiThem - (soDongTruoc - duLieuTongHop.length));
         }
 
         if (duLieuTongHop.length === 0) {
-          alert("⚠️ Không tìm thấy dòng dữ liệu hàng hóa hợp lệ nào trong file!");
+          alert(daChiaXe && daChiaXe.size
+            ? `⚠️ Tất cả ${daChiaXe.size} hóa đơn trong file đều ĐÃ ĐƯỢC CHIA XE trước đó nên không nạp lại: ` +
+              Array.from(daChiaXe.entries()).slice(0, 8).map(([m, x]) => `${m} (${x})`).join(', ') + (daChiaXe.size > 8 ? ' …' : '') +
+              `\n\nĐơn cần giao lại hãy nạp qua nút "Đơn hẹn giao lại".`
+            : "⚠️ Không tìm thấy dòng dữ liệu hàng hóa hợp lệ nào trong file!");
           return;
         }
 
@@ -4071,6 +4269,13 @@
           `• Tổng số dòng hàng: ${duLieuTongHop.length} dòng (+${tongDongMoiThem} dòng mới` + 
           (tongDongBoQuaTrung > 0 ? `, bỏ qua ${tongDongBoQuaTrung} dòng trùng` : '') + `)\n`;
 
+        if (daChiaXe && daChiaXe.size) {
+          thongBao += `• ⚠️ Bỏ qua ${daChiaXe.size} hóa đơn ĐÃ ĐƯỢC CHIA XE trước đó: ` +
+            Array.from(daChiaXe.entries()).slice(0, 8).map(([m, x]) => `${m} (${x})`).join(', ') +
+            (daChiaXe.size > 8 ? ` … và ${daChiaXe.size - 8} HĐ khác` : '') +
+            ` — đơn cần giao lại hãy nạp qua nút "Đơn hẹn giao lại"\n`;
+        }
+        if (soDongLayTheoOGop > 0) thongBao += `• Đã điền ${soDongLayTheoOGop} ô gộp trong file (mã hóa đơn / khách hàng gộp nhiều dòng)\n`;
         if (khachMoiThem.length > 0) thongBao += `• Khách hàng mới tự cập nhật: +${khachMoiThem.length}\n`;
         if (hangMoiThem.length > 0) thongBao += `• Hàng hóa mới tự cập nhật: +${hangMoiThem.length}\n`;
         if (soDonGiaoLai > 0) thongBao += `• Đơn giao lại phát hiện: ${soDonGiaoLai} đơn (đã gắn cờ 🔄 Giao lại)\n`;
