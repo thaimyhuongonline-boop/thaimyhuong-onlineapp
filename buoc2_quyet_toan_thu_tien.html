@@ -29,6 +29,52 @@
       gap: 18px;
     }
 
+    /* Tab Điều Hướng Chính Bước 2 */
+    .tmh-nav-tabs {
+      display: flex;
+      gap: 6px;
+      border-bottom: 2px solid var(--border-color);
+      margin-bottom: 14px;
+      padding-left: 4px;
+    }
+    .btn-tab {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      background: transparent;
+      border: none;
+      border-bottom: 3px solid transparent;
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: -2px;
+    }
+    .btn-tab:hover {
+      color: var(--primary);
+      background: #f8fafc;
+      border-radius: 6px 6px 0 0;
+    }
+    .btn-tab.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+      background: #f0fdf4;
+      border-radius: 6px 6px 0 0;
+    }
+    .badge-tab-count {
+      background: #ef4444;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 1px 7px;
+      border-radius: 9999px;
+      display: inline-block;
+      min-width: 18px;
+      text-align: center;
+    }
+
     /* Thanh chọn chuyến xe & Thông tin đợt */
     .hero-meta-bar {
       display: flex;
@@ -584,37 +630,74 @@
       </div>
     </div>
 
-    <div class="b2-container">
+    <!-- TAB CHUYỂN ĐỔI: QUYẾT TOÁN CHUYẾN XE / THEO DÕI ĐƠN THIẾU NHÂN VIÊN (> 10.000đ) -->
+    <div class="tmh-nav-tabs no-print">
+      <button type="button" id="tabBtnQuyetToan" class="btn-tab active" onclick="chuyenTabB2('quyet_toan')">
+        <span style="font-size:15px;">🚚</span> 
+        <span>Quyết Toán Chuyến Xe</span>
+      </button>
+      <button type="button" id="tabBtnDonThieu" class="btn-tab" onclick="chuyenTabB2('don_thieu')">
+        <span style="font-size:15px;">⚠️</span> 
+        <span>Theo Dõi Đơn Thiếu Nhân Viên (> 10.000đ)</span>
+        <span class="badge-tab-count" id="badgeSoDonThieu" style="display:none;">0</span>
+      </button>
+    </div>
+
+    <!-- VÙNG 1: QUYẾT TOÁN CHUYẾN XE -->
+    <div id="vungQuyetToanChuyenXe" class="b2-container">
       
-      <!-- THANH CHỌN CHUYẾN XE VỪA VỀ -->
-      <div class="hero-meta-bar no-print">
-        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-          <div style="display:flex; flex-direction:column; gap:3px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-              <label style="font-size:11.5px; font-weight:700; color:var(--text-muted);">🚚 Chọn chuyến xe về cần tính tiền:</label>
-              <select id="locTrangThaiChuyenXe" class="form-control" style="font-size:11px; height:24px; padding:1px 6px; font-weight:700; width:170px; background:#f8fafc; cursor:pointer;" onchange="locVaRenderDropdownChuyenXe()">
-                <option value="tat_ca">⚡ Tất cả chuyến xe</option>
-                <option value="cho_tinh_tien">⏳ Chờ tính tiền (Chưa thu)</option>
-                <option value="da_quyet_toan">✅ Đã quyết toán (Đã thu)</option>
-              </select>
-            </div>
-            <select id="selChuyenXe" class="form-control" style="font-weight:700; min-width:340px;" onchange="chonChuyenXeTuDropdown(this.value)">
-              <option value="">-- Đang tải danh sách các chuyến xe... --</option>
+      <!-- THANH CHỌN CHUYẾN XE VỪA VỀ (BỘ LỌC TỪ NGÀY ĐẾN NGÀY, TRẠNG THÁI XE, XE) -->
+      <div class="hero-meta-bar no-print" style="flex-direction:column; align-items:stretch; gap:12px;">
+        <!-- Dòng 1: Bộ lọc (Từ ngày - Đến ngày - Trạng thái xe - Xe) -->
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding-bottom:10px; border-bottom:1px dashed var(--border-color);">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); white-space:nowrap;">📅 Từ ngày:</label>
+            <input type="date" id="locTuNgayChuyenXe" class="form-control" style="font-size:12px; height:32px; width:135px;" onchange="locVaRenderDropdownChuyenXe()">
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); white-space:nowrap;">Đến ngày:</label>
+            <input type="date" id="locDenNgayChuyenXe" class="form-control" style="font-size:12px; height:32px; width:135px;" onchange="locVaRenderDropdownChuyenXe()">
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); white-space:nowrap;">Trạng thái xe:</label>
+            <select id="locTrangThaiChuyenXe" class="form-control" style="font-size:12px; height:32px; font-weight:700; width:160px; background:#f8fafc; cursor:pointer;" onchange="locVaRenderDropdownChuyenXe()">
+              <option value="tat_ca">⚡ Tất cả trạng thái</option>
+              <option value="cho_tinh_tien">⏳ Chờ tính tiền</option>
+              <option value="da_quyet_toan">✅ Đã quyết toán</option>
             </select>
           </div>
-          <button type="button" class="btn btn-outline" style="align-self:flex-end; height:34px; padding:0 10px;" onclick="lamMoiChuyenXe()" title="Chuyến chờ tính tiền: tải lại danh sách. Chuyến đã quyết toán: đưa về Chờ tính tiền (gỡ công nợ, thu nợ, phiếu nộp tiền đã ghi)">
-            <span>🔄</span> Làm mới
-          </button>
-          <button type="button" class="btn btn-outline" style="align-self:flex-end; height:34px; padding:0 10px; color:#dc2626; border-color:#fca5a5;" onclick="xoaDuLieuChuyenXe()" title="Xóa dữ liệu chuyến xe đang chọn khỏi hệ thống">
-            <span>🗑️</span> Xóa dữ liệu
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); white-space:nowrap;">🚚 Xe:</label>
+            <select id="locXeChuyenXe" class="form-control" style="font-size:12px; height:32px; font-weight:700; width:150px; background:#f8fafc; cursor:pointer;" onchange="locVaRenderDropdownChuyenXe()">
+              <option value="tat_ca">🚚 Tất cả xe</option>
+            </select>
+          </div>
+          <button type="button" class="btn btn-outline" style="height:32px; padding:0 8px; font-size:11.5px;" onclick="xoaBoLocChuyenXe()" title="Xóa bộ lọc về mặc định (xem tất cả)">
+            <span>✖</span> Xóa lọc
           </button>
         </div>
 
-        <div class="hero-info-tags" id="chuyenXeInfoTags">
-          <span class="tag-highlight" id="tagXe">🚚 Xe: --</span>
-          <span class="tag-highlight" id="tagTaiXe">👤 Tài xế: --</span>
-          <span class="tag-highlight" id="tagNgay">📅 Ngày: --</span>
-          <span id="tagTrangThai" class="badge-status badge-pending">⏳ Chờ quyết toán</span>
+        <!-- Dòng 2: Dropdown Chọn chuyến xe, Các nút thao tác & Thẻ thông tin xe -->
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; flex:1; min-width:320px;">
+            <label style="font-size:12.5px; font-weight:800; color:var(--text-main); white-space:nowrap;">🚚 Chuyến xe:</label>
+            <select id="selChuyenXe" class="form-control" style="font-weight:700; flex:1; min-width:300px; height:36px;" onchange="chonChuyenXeTuDropdown(this.value)">
+              <option value="">-- Đang tải danh sách các chuyến xe... --</option>
+            </select>
+            <button type="button" class="btn btn-outline" style="height:36px; padding:0 10px;" onclick="lamMoiChuyenXe()" title="Chuyến chờ tính tiền: tải lại danh sách. Chuyến đã quyết toán: đưa về Chờ tính tiền (gỡ công nợ, thu nợ, phiếu nộp tiền đã ghi)">
+              <span>🔄</span> Làm mới
+            </button>
+            <button type="button" class="btn btn-outline" style="height:36px; padding:0 10px; color:#dc2626; border-color:#fca5a5;" onclick="xoaDuLieuChuyenXe()" title="Xóa dữ liệu chuyến xe đang chọn khỏi hệ thống">
+              <span>🗑️</span> Xóa dữ liệu
+            </button>
+          </div>
+
+          <div class="hero-info-tags" id="chuyenXeInfoTags">
+            <span class="tag-highlight" id="tagXe">🚚 Xe: --</span>
+            <span class="tag-highlight" id="tagTaiXe">👤 Tài xế: --</span>
+            <span class="tag-highlight" id="tagNgay">📅 Ngày: --</span>
+            <span id="tagTrangThai" class="badge-status badge-pending">⏳ Chờ quyết toán</span>
+          </div>
         </div>
       </div>
 
@@ -984,7 +1067,173 @@
       </div>
 
     </div>
+
+    <!-- VÙNG 2: THEO DÕI ĐƠN THIẾU NHÂN VIÊN (> 10.000đ) ĐỂ TÍNH TOÁN CUỐI THÁNG -->
+    <div id="vungTheoDoiDonThieu" class="b2-container" style="display:none;">
+      
+      <!-- Thẻ tiêu đề & Hành động -->
+      <div class="card-box no-print" style="padding:16px 20px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+          <div>
+            <h2 style="font-size:16px; font-weight:800; color:var(--text-main); margin:0 0 4px 0; display:flex; align-items:center; gap:8px;">
+              <span>📋</span> Sổ Theo Dõi Đơn & Khoản Thiếu Tiền Nhân Viên (Trên 10.000đ)
+            </h2>
+            <p style="font-size:12px; color:var(--text-muted); margin:0; line-height:1.4;">
+              Quy tắc kế toán: <b>Tiền thừa / thiếu dưới 10.000đ được bỏ qua không ghi nhận</b>. Những đơn hoặc chuyến xe nộp thiếu <b>từ 10.000đ trở lên</b> được tổng hợp thành danh sách để thủ quỹ và kế toán đối soát, tính toán lại hoặc trừ lương với nhân viên vào cuối tháng.
+            </p>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-outline" onclick="xuatExcelDonThieuNhanVien()">
+              <span>📥</span> Xuất Excel Đối Soát
+            </button>
+            <button type="button" class="btn btn-outline" onclick="inBangDonThieuNhanVien()">
+              <span>🖨️</span> In Danh Sách
+            </button>
+            <button type="button" class="btn btn-primary" onclick="taiVaVeDanhSachDonThieu()">
+              <span>🔄</span> Tải Lại Dữ Liệu
+            </button>
+          </div>
+        </div>
+
+        <!-- 4 Thẻ KPI Tổng hợp Đơn thiếu -->
+        <div class="kpi-grid" style="margin-top:16px;">
+          <div class="kpi-card" style="border-left: 4px solid #dc2626;">
+            <div class="kpi-title" style="color:#dc2626;"><span>🔻</span> Tổng Tiền Thiếu (> 10k)</div>
+            <div class="kpi-value" id="kpiThieuTongTien" style="color:#dc2626;">0 đ</div>
+            <div class="kpi-sub" id="kpiThieuSoKhoan">0 khoản thiếu tiền</div>
+          </div>
+          <div class="kpi-card" style="border-left: 4px solid #ea580c;">
+            <div class="kpi-title" style="color:#ea580c;"><span>⏳</span> Chưa Tính Toán (Còn Nợ)</div>
+            <div class="kpi-value" id="kpiThieuChuaTinh" style="color:#ea580c;">0 đ</div>
+            <div class="kpi-sub" id="kpiThieuSoChuaTinh">0 khoản chờ xử lý</div>
+          </div>
+          <div class="kpi-card" style="border-left: 4px solid #16a34a;">
+            <div class="kpi-title" style="color:#16a34a;"><span>✅</span> Đã Quyết Toán Với NV</div>
+            <div class="kpi-value" id="kpiThieuDaTinh" style="color:#16a34a;">0 đ</div>
+            <div class="kpi-sub" id="kpiThieuSoDaTinh">0 khoản đã giải quyết</div>
+          </div>
+          <div class="kpi-card" style="border-left: 4px solid #2563eb;">
+            <div class="kpi-title" style="color:#2563eb;"><span>👤</span> Nhân Viên Liên Quan</div>
+            <div class="kpi-value" id="kpiThieuSoNV" style="color:#2563eb;">0 người</div>
+            <div class="kpi-sub">Tài xế / Giao hàng</div>
+          </div>
+        </div>
+
+        <!-- Bộ lọc Tab Đơn Thiếu -->
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:16px; padding:12px; background:#f8fafc; border:1px solid var(--border-color); border-radius:var(--radius-md);">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); white-space:nowrap;">Từ ngày:</label>
+            <input type="date" id="locThieuTuNgay" class="form-control" style="font-size:12px; height:32px; width:135px;" onchange="veDanhSachDonThieu()">
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); white-space:nowrap;">Đến ngày:</label>
+            <input type="date" id="locThieuDenNgay" class="form-control" style="font-size:12px; height:32px; width:135px;" onchange="veDanhSachDonThieu()">
+          </div>
+          <div style="display:flex; gap:4px;">
+            <button type="button" class="btn btn-outline" style="height:32px; padding:0 8px; font-size:11px;" onclick="datNhanhKhoangNgayThieu('thang_nay')">Tháng này</button>
+            <button type="button" class="btn btn-outline" style="height:32px; padding:0 8px; font-size:11px;" onclick="datNhanhKhoangNgayThieu('thang_truoc')">Tháng trước</button>
+            <button type="button" class="btn btn-outline" style="height:32px; padding:0 8px; font-size:11px;" onclick="datNhanhKhoangNgayThieu('tat_ca')">Tất cả</button>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px; margin-left:auto;">
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); white-space:nowrap;">Nhân viên:</label>
+            <select id="locThieuNhanVien" class="form-control" style="font-size:12px; height:32px; width:170px;" onchange="veDanhSachDonThieu()">
+              <option value="tat_ca">⚡ Tất cả nhân viên</option>
+            </select>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); white-space:nowrap;">Phân loại:</label>
+            <select id="locThieuLoai" class="form-control" style="font-size:12px; height:32px; width:170px;" onchange="veDanhSachDonThieu()">
+              <option value="tat_ca">⚡ Tất cả phân loại</option>
+              <option value="chuyen_xe">🚚 Thiếu tiền nộp chuyến</option>
+              <option value="hoa_don">📄 Đơn hàng thiếu tiền</option>
+            </select>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); white-space:nowrap;">Trạng thái:</label>
+            <select id="locThieuTrangThai" class="form-control" style="font-size:12px; height:32px; width:150px;" onchange="veDanhSachDonThieu()">
+              <option value="tat_ca">⚡ Tất cả</option>
+              <option value="chua_tinh" selected>⏳ Chưa tính</option>
+              <option value="da_tinh">✅ Đã quyết toán</option>
+            </select>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <input type="text" id="timKiemThieu" class="form-control" style="font-size:12px; height:32px; width:160px;" placeholder="🔍 Tìm mã, khách..." oninput="veDanhSachDonThieu()">
+          </div>
+        </div>
+      </div>
+
+      <!-- Bảng Danh Sách Đơn Thiếu -->
+      <div class="table-container no-print">
+        <table class="table-quyet-toan" id="bangDonThieuNhanVien">
+          <thead>
+            <tr>
+              <th style="width:40px; text-align:center;">STT</th>
+              <th style="width:85px; text-align:center;">Ngày</th>
+              <th style="width:130px;">Nhân viên</th>
+              <th style="width:110px;">Xe / Chuyến</th>
+              <th style="width:150px;">Phân loại</th>
+              <th style="width:120px;">Mã tham chiếu</th>
+              <th>Khách hàng / Diễn giải</th>
+              <th style="width:110px; text-align:right;">Phải thu/nộp</th>
+              <th style="width:110px; text-align:right;">Thực thu/nộp</th>
+              <th style="width:120px; text-align:right; color:#dc2626;">Tiền thiếu (>10k)</th>
+              <th style="width:145px; text-align:center;">Trạng thái với NV</th>
+              <th style="width:160px;">Ghi chú đối soát</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyDonThieuNhanVien">
+            <tr><td colspan="12" style="text-align:center; padding:30px; color:var(--text-muted);">Đang tải dữ liệu đơn thiếu...</td></tr>
+          </tbody>
+          <tfoot id="tfootDonThieuNhanVien" style="background:#f8fafc; font-weight:800;">
+          </tfoot>
+        </table>
+      </div>
+
+    </div>
   </main>
+
+  <!-- MẪU IN BẢNG ĐỐI SOÁT ĐƠN THIẾU NHÂN VIÊN A4 -->
+  <div id="khuVucInDonThieuA4" class="print-only" style="display:none;">
+    <div class="print-a4-page">
+      <div class="print-header-title">BẢNG ĐỐI SOÁT ĐƠN & KHOẢN THIẾU TIỀN NHÂN VIÊN</div>
+      <div style="text-align:center; font-size:11pt; margin-bottom:12px; font-style:italic;" id="p_thieuThoiGianIn"></div>
+      <table class="print-detail-table" id="p_bangDonThieuIn" style="width:100%; border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="width:35px; text-align:center;">STT</th>
+            <th style="width:80px; text-align:center;">Ngày</th>
+            <th style="width:110px;">Nhân viên</th>
+            <th style="width:90px;">Xe</th>
+            <th style="width:110px;">Phân loại</th>
+            <th style="width:100px;">Mã HĐ/Chuyến</th>
+            <th>Diễn giải / Khách hàng</th>
+            <th style="width:90px; text-align:right;">Phải thu/nộp</th>
+            <th style="width:90px; text-align:right;">Thực thu/nộp</th>
+            <th style="width:95px; text-align:right;">Tiền thiếu</th>
+            <th style="width:100px; text-align:center;">Trạng thái</th>
+          </tr>
+        </thead>
+        <tbody id="p_tbodyDonThieuIn"></tbody>
+        <tfoot id="p_tfootDonThieuIn"></tfoot>
+      </table>
+
+      <!-- Chữ ký xác nhận cuối tháng -->
+      <div style="margin-top:24px; display:flex; justify-content:space-between; text-align:center; font-size:11pt;">
+        <div style="width:200px;">
+          <b>Người Lập Biểu</b><br>
+          <span style="font-size:9.5pt; font-style:italic;">(Ký, ghi rõ họ tên)</span>
+        </div>
+        <div style="width:200px;">
+          <b>Thủ Quỹ / Kế Toán</b><br>
+          <span style="font-size:9.5pt; font-style:italic;">(Ký, ghi rõ họ tên)</span>
+        </div>
+        <div style="width:200px;">
+          <b>Nhân Viên Xác Nhận</b><br>
+          <span style="font-size:9.5pt; font-style:italic;">(Ký, ghi rõ họ tên)</span>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ======================================================== -->
   <!-- MẪU IN BẢNG KÊ NỘP TIỀN A4 CHUẨN 100% THEO HÌNH 3        -->
@@ -1512,30 +1761,118 @@
         return (b.maDot || '').localeCompare(a.maDot || '');
       });
 
-      // Lọc và hiển thị dropdown theo bộ lọc trạng thái
+      // Cập nhật danh sách xe vào bộ lọc xe và cập nhật badge đơn thiếu
+      capNhatDanhSachXeLoc();
+      capNhatBadgeTabDonThieu();
+
+      // Lọc và hiển thị dropdown theo bộ lọc trạng thái, xe, ngày
       await locVaRenderDropdownChuyenXe(isAutoSync);
     }
 
-    // Lọc và render dropdown chọn chuyến xe: Hỗ trợ lọc Chưa thu / Đã thu & Giữ sắp xếp chưa thu nằm trên
+    // Cập nhật danh sách xe vào bộ lọc xe (Dropdown lọc Xe)
+    function capNhatDanhSachXeLoc() {
+      const selXe = document.getElementById('locXeChuyenXe');
+      if (!selXe) return;
+      const currentVal = selXe.value || 'tat_ca';
+      const tapHopXe = new Set();
+      (danhSachTatCaDot || []).forEach(d => {
+        const x = (d.xe || '').trim();
+        if (x) tapHopXe.add(x);
+      });
+      try {
+        const dmXe = JSON.parse(localStorage.getItem('tmh_danh_muc_xe') || '[]');
+        dmXe.forEach(x => {
+          const ten = (x.bien_so || x.ten_xe || x.ten || '').trim();
+          if (ten) tapHopXe.add(ten);
+        });
+      } catch (e) {}
+
+      const dsXe = Array.from(tapHopXe).sort((a, b) => a.localeCompare(b, 'vi', { numeric: true }));
+      selXe.innerHTML = '<option value="tat_ca">🚚 Tất cả xe</option>';
+      dsXe.forEach(x => {
+        const opt = document.createElement('option');
+        opt.value = x;
+        opt.textContent = `🚚 ${x}`;
+        selXe.appendChild(opt);
+      });
+      if (currentVal && Array.from(selXe.options).some(o => o.value === currentVal)) {
+        selXe.value = currentVal;
+      }
+    }
+
+    // Xóa bộ lọc chuyến xe về mặc định
+    function xoaBoLocChuyenXe() {
+      const tuNgayEl = document.getElementById('locTuNgayChuyenXe');
+      const denNgayEl = document.getElementById('locDenNgayChuyenXe');
+      const ttEl = document.getElementById('locTrangThaiChuyenXe');
+      const xeEl = document.getElementById('locXeChuyenXe');
+      if (tuNgayEl) tuNgayEl.value = '';
+      if (denNgayEl) denNgayEl.value = '';
+      if (ttEl) ttEl.value = 'tat_ca';
+      if (xeEl) xeEl.value = 'tat_ca';
+      locVaRenderDropdownChuyenXe();
+    }
+
+    // Lọc và render dropdown chọn chuyến xe: Lọc Từ ngày - Đến ngày, Trạng thái xe, Xe
     async function locVaRenderDropdownChuyenXe(isAutoSync = false) {
       const sel = document.getElementById('selChuyenXe');
       const locTT = document.getElementById('locTrangThaiChuyenXe')?.value || 'tat_ca';
+      const locXe = document.getElementById('locXeChuyenXe')?.value || 'tat_ca';
+      const tuNgay = document.getElementById('locTuNgayChuyenXe')?.value || '';
+      const denNgay = document.getElementById('locDenNgayChuyenXe')?.value || '';
       if (!sel) return;
 
       const urlParams = new URLSearchParams(window.location.search);
       const paramMaDot = urlParams.get('maDot');
       const maDotDangChonTruocDo = sel.value || (dotHienTai ? dotHienTai.maDot : '');
 
-      let dsLoc = danhSachTatCaDot;
+      let dsLoc = [...danhSachTatCaDot];
+
+      // 1. Lọc theo trạng thái xe
       if (locTT === 'cho_tinh_tien') {
-        dsLoc = danhSachTatCaDot.filter(d => !d.daQuyetToan);
+        dsLoc = dsLoc.filter(d => !d.daQuyetToan);
       } else if (locTT === 'da_quyet_toan') {
-        dsLoc = danhSachTatCaDot.filter(d => !!d.daQuyetToan);
+        dsLoc = dsLoc.filter(d => !!d.daQuyetToan);
+      }
+
+      // 2. Lọc theo xe
+      if (locXe && locXe !== 'tat_ca') {
+        const lx = locXe.trim().toUpperCase();
+        dsLoc = dsLoc.filter(d => {
+          const x = (d.xe || '').trim().toUpperCase();
+          return x === lx || x.includes(lx) || lx.includes(x);
+        });
+      }
+
+      // 3. Lọc theo khoảng ngày (Từ ngày - Đến ngày)
+      if (tuNgay) {
+        dsLoc = dsLoc.filter(d => {
+          const ng = chuanHoaNgayISO(d.ngayRaw) || chuanHoaNgayISO(d.ngayGiao) || '';
+          return !ng || ng >= tuNgay;
+        });
+      }
+      if (denNgay) {
+        dsLoc = dsLoc.filter(d => {
+          const ng = chuanHoaNgayISO(d.ngayRaw) || chuanHoaNgayISO(d.ngayGiao) || '';
+          return !ng || ng <= denNgay;
+        });
       }
 
       sel.innerHTML = '';
       if (dsLoc.length === 0) {
-        sel.innerHTML = `<option value="">⚠️ Không có chuyến xe nào (${locTT === 'cho_tinh_tien' ? 'Chờ tính tiền' : 'Đã quyết toán'})</option>`;
+        sel.innerHTML = `<option value="">⚠️ Không có chuyến xe nào theo bộ lọc</option>`;
+        document.getElementById('tagXe').textContent = `🚚 Xe: --`;
+        document.getElementById('tagTaiXe').textContent = `👤 Tài xế: --`;
+        document.getElementById('tagNgay').textContent = `📅 Ngày: --`;
+        const tagStatus = document.getElementById('tagTrangThai');
+        if (tagStatus) {
+          tagStatus.className = "badge-status badge-pending";
+          tagStatus.innerHTML = "⏳ Không tìm thấy";
+        }
+        dotHienTai = null;
+        danhSachHoaDonQuyetToan = [];
+        veBangQuyetToan();
+        tinhToanTongThe();
         return;
       }
 
@@ -2791,7 +3128,10 @@
 
     function tinhLaiNoMotDong(hd) {
       const phaiTra = Math.max(0, hd.tienHD - hd.traVe);
-      hd.noPhatSinh = Math.max(0, phaiTra - hd.tienMat - hd.chuyenKhoan);
+      const thieu = Math.max(0, phaiTra - hd.tienMat - hd.chuyenKhoan);
+      // Tiền thừa / thiếu dưới 10.000 đ không ghi nhận
+      const nguong = (typeof NGUONG_GHI_NO_THIEU_TIEN !== 'undefined') ? NGUONG_GHI_NO_THIEU_TIEN : 10000;
+      hd.noPhatSinh = thieu >= nguong ? thieu : 0;
     }
 
     function capNhatOTrongBang(idx) {
@@ -3038,6 +3378,11 @@
         elCD.style.color = "#16a34a";
         elCD.textContent = "0 đ";
         elSubCD.innerHTML = "✅ Khớp 100% không lệch!";
+      } else if (Math.abs(chenhLech) < (typeof NGUONG_GHI_NO_THIEU_TIEN !== 'undefined' ? NGUONG_GHI_NO_THIEU_TIEN : 10000)) {
+        cardCD.style.borderLeftColor = "#16a34a";
+        elCD.style.color = "#16a34a";
+        elCD.textContent = (chenhLech > 0 ? "+" : "") + formatTien(chenhLech) + " đ";
+        elSubCD.innerHTML = "✅ Lệch < 10.000 đ (Bỏ qua không ghi nhận)";
       } else {
         cardCD.style.borderLeftColor = "#dc2626";
         elCD.style.color = "#dc2626";
@@ -3260,10 +3605,15 @@
       }
 
       const chenh = tongTienDem - soTienPhaiThu;
+      const nguongThieu = (typeof NGUONG_GHI_NO_THIEU_TIEN !== 'undefined') ? NGUONG_GHI_NO_THIEU_TIEN : 10000;
       if (Math.abs(chenh) === 0) {
         box.style.background = "#dcfce7";
         box.style.color = "#15803d";
         box.innerHTML = `✅ ĐÃ KHỚP TIỀN NỘP! (Đủ ${formatTien(tongTienDem)} đ)`;
+      } else if (Math.abs(chenh) < nguongThieu) {
+        box.style.background = "#dcfce7";
+        box.style.color = "#15803d";
+        box.innerHTML = `✅ Lệch: ${chenh > 0 ? '+' : ''}${formatTien(chenh)} đ (Dưới ${formatTien(nguongThieu)} đ — Bỏ qua không ghi nhận)`;
       } else if (chenh > 0) {
         box.style.background = "#fef9c3";
         box.style.color = "#a16207";
@@ -3274,14 +3624,15 @@
         box.innerHTML = `❌ Thiếu tiền nộp: -${formatTien(Math.abs(chenh))} đ (Phải nộp: ${formatTien(soTienPhaiThu)} đ)`;
       }
 
-      // Ghi nhận thiếu / thừa cho người nộp tiền (thiếu dưới 10.000 đ không ghi nợ)
+      // Ghi nhận thiếu / thừa cho người nộp tiền (thừa/thiếu dưới 10.000 đ không ghi nhận)
       if (typeof tinhThieuThuaNopTien !== 'function') return;
       const tt = tinhThieuThuaNopTien(tongTienDem, soTienPhaiThu);
       const tenNop = escapeHtml(nguoiNop || (dotHienTai && dotHienTai.taiXe) || 'người nộp');
       let dongGhiNhan = '';
-      if (tt.ghiNo) dongGhiNhan = `📒 Khi lưu sẽ ghi nợ cho người nộp tiền <b>${tenNop}</b>: ${formatTien(tt.soNo)} đ`;
-      else if (tt.thieu > 0) dongGhiNhan = `Thiếu dưới ${formatTien(NGUONG_GHI_NO_THIEU_TIEN)} đ — không ghi nợ`;
-      else if (tt.thua > 0) dongGhiNhan = `📒 Khi lưu sẽ ghi nhận tiền thừa cho người nộp tiền <b>${tenNop}</b>: ${formatTien(tt.thua)} đ`;
+      if (tt.ghiNo) dongGhiNhan = `📒 Khi lưu sẽ ghi nợ cho người nộp tiền <b>${tenNop}</b>: ${formatTien(tt.soNo)} đ (tính toán cuối tháng)`;
+      else if (tt.rawThieu > 0 && tt.rawThieu < nguongThieu) dongGhiNhan = `Thiếu ${formatTien(tt.rawThieu)} đ (dưới ${formatTien(nguongThieu)} đ) — không ghi nhận`;
+      else if (tt.thua >= nguongThieu) dongGhiNhan = `📒 Khi lưu sẽ ghi nhận tiền thừa cho người nộp tiền <b>${tenNop}</b>: ${formatTien(tt.thua)} đ`;
+      else if (tt.rawThua > 0 && tt.rawThua < nguongThieu) dongGhiNhan = `Thừa ${formatTien(tt.rawThua)} đ (dưới ${formatTien(nguongThieu)} đ) — không ghi nhận`;
       if (dongGhiNhan) box.innerHTML += `<div style="font-size:11px; font-weight:600; margin-top:3px;">${dongGhiNhan}</div>`;
     }
 
@@ -4829,13 +5180,15 @@
         if (!thieuThuaNop.daDem) {
           thongBaoExtra += `\n⚠️ Chưa nhập Bảng đếm tiền mặt → chưa ghi nhận được tiền thiếu / thừa của người nộp.`;
         } else if (thieuThuaNop.ghiNo) {
-          thongBaoExtra += `\n🔻 Tiền nộp THIẾU ${formatTien(thieuThuaNop.thieu)} đ → ghi nợ cho người nộp tiền "${tenNop}" (xem ở Báo Cáo Tổng Hợp).`;
-        } else if (thieuThuaNop.thieu > 0) {
-          thongBaoExtra += `\n🔻 Tiền nộp thiếu ${formatTien(thieuThuaNop.thieu)} đ (dưới ${formatTien(NGUONG_GHI_NO_THIEU_TIEN)} đ) → không ghi nợ.`;
-        } else if (thieuThuaNop.thua > 0) {
-          thongBaoExtra += `\n🔺 Tiền nộp THỪA ${formatTien(thieuThuaNop.thua)} đ → ghi nhận cho người nộp tiền "${tenNop}" (xem ở Báo Cáo Tổng Hợp).`;
+          thongBaoExtra += `\n🔻 Tiền nộp THIẾU ${formatTien(thieuThuaNop.thieu)} đ → ghi nợ cho người nộp tiền "${tenNop}" (xem ở Tab Theo Dõi Đơn Thiếu & Báo Cáo Tổng Hợp).`;
+        } else if (thieuThuaNop.rawThieu > 0 && thieuThuaNop.rawThieu < NGUONG_GHI_NO_THIEU_TIEN) {
+          thongBaoExtra += `\n🔻 Tiền nộp thiếu ${formatTien(thieuThuaNop.rawThieu)} đ (dưới ${formatTien(NGUONG_GHI_NO_THIEU_TIEN)} đ) → không ghi nhận.`;
+        } else if (thieuThuaNop.thua >= NGUONG_GHI_NO_THIEU_TIEN) {
+          thongBaoExtra += `\n🔺 Tiền nộp THỪA ${formatTien(thieuThuaNop.thua)} đ → ghi nhận cho người nộp tiền "${tenNop}".`;
+        } else if (thieuThuaNop.rawThua > 0 && thieuThuaNop.rawThua < NGUONG_GHI_NO_THIEU_TIEN) {
+          thongBaoExtra += `\n🔺 Tiền nộp thừa ${formatTien(thieuThuaNop.rawThua)} đ (dưới ${formatTien(NGUONG_GHI_NO_THIEU_TIEN)} đ) → không ghi nhận.`;
         }
-        if (thieuThuaNop.daDem && (thieuThuaNop.ghiNo || thieuThuaNop.thua > 0) && !luuPhieuNopOk) {
+        if (thieuThuaNop.daDem && (thieuThuaNop.ghiNo || thieuThuaNop.thua >= NGUONG_GHI_NO_THIEU_TIEN) && !luuPhieuNopOk) {
           thongBaoExtra += `\n⚠️ Chưa lưu được phiếu nộp tiền lên máy chủ nên Báo Cáo Tổng Hợp chưa thấy khoản thiếu / thừa này — kiểm tra mạng rồi bấm Lưu lại.`;
         }
       }
@@ -4932,7 +5285,8 @@
       // Dòng ghi nhận thiếu (từ 10.000 đ) / thừa cho người nộp tiền
       const ttIn = (typeof tinhThieuThuaNopTien === 'function') ? tinhThieuThuaNopTien(tongTienDem, soTienPhaiThu) : null;
       const dongGhiNhanIn = document.getElementById('p_dongGhiNhanNguoiNop');
-      if (ttIn && (ttIn.ghiNo || ttIn.thua > 0)) {
+      const nguongIn = (typeof NGUONG_GHI_NO_THIEU_TIEN !== 'undefined') ? NGUONG_GHI_NO_THIEU_TIEN : 10000;
+      if (ttIn && (ttIn.ghiNo || ttIn.thua >= nguongIn)) {
         document.getElementById('p_ghiNhanNguoiNopNhan').textContent = ttIn.ghiNo ? 'GHI NỢ NGƯỜI NỘP' : 'THỪA — GHI NHẬN CHO NGƯỜI NỘP';
         document.getElementById('p_ghiNhanNguoiNopSoTien').textContent = formatTien(ttIn.ghiNo ? ttIn.soNo : ttIn.thua);
         dongGhiNhanIn.style.display = '';
@@ -5023,6 +5377,637 @@
         t.style.opacity = '0';
         t.style.transform = 'translateY(10px)';
       }, 3500);
+    }
+
+    // ========================================================
+    // TAB THEO DÕI ĐƠN & KHOẢN THIẾU TIỀN NHÂN VIÊN (> 10.000đ)
+    // Để thủ quỹ và kế toán đối soát, tính toán lại với nhân viên vào cuối tháng
+    // ========================================================
+    let danhSachDonThieuTongHop = [];
+
+    function dinhDangNgayVN(strDate) {
+      if (!strDate) return '';
+      const iso = (typeof chuanHoaNgayISO === 'function') ? chuanHoaNgayISO(strDate) : strDate;
+      if (!iso || iso.length < 10) return String(strDate);
+      const parts = iso.slice(0, 10).split('-');
+      if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      return String(strDate);
+    }
+
+    function chuyenTabB2(tab) {
+      const vungQT = document.getElementById('vungQuyetToanChuyenXe');
+      const vungDT = document.getElementById('vungTheoDoiDonThieu');
+      const btnQT = document.getElementById('tabBtnQuyetToan');
+      const btnDT = document.getElementById('tabBtnDonThieu');
+
+      if (tab === 'don_thieu') {
+        if (vungQT) vungQT.style.display = 'none';
+        if (vungDT) vungDT.style.display = 'flex';
+        if (btnQT) btnQT.classList.remove('active');
+        if (btnDT) btnDT.classList.add('active');
+        taiVaVeDanhSachDonThieu();
+      } else {
+        if (vungDT) vungDT.style.display = 'none';
+        if (vungQT) vungQT.style.display = 'flex';
+        if (btnDT) btnDT.classList.remove('active');
+        if (btnQT) btnQT.classList.add('active');
+      }
+    }
+
+    async function taiVaVeDanhSachDonThieu() {
+      const tbody = document.getElementById('tbodyDonThieuNhanVien');
+      if (tbody) tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:30px; color:var(--text-muted);">⏳ Đang tổng hợp dữ liệu đơn & chuyến thiếu tiền...</td></tr>`;
+
+      let mapDoiSoat = {};
+      try {
+        mapDoiSoat = JSON.parse(localStorage.getItem('tmh_doi_soat_don_thieu_nv') || '{}');
+      } catch (e) {
+        mapDoiSoat = {};
+      }
+
+      // Tải bổ sung phiếu nộp tiền thiếu từ Supabase nếu có
+      const mapPhieuSB = new Map();
+      if (typeof sb !== 'undefined') {
+        try {
+          const { data, error } = await sb.from('phieu_nop_tien').select('*').lt('chenh_lech', -9999);
+          if (!error && Array.isArray(data)) {
+            data.forEach(p => mapPhieuSB.set(p.ma_dot, p));
+          }
+        } catch (e) {}
+      }
+
+      const dsKetQua = [];
+      const setDaCo = new Set();
+      const nguong = (typeof NGUONG_GHI_NO_THIEU_TIEN !== 'undefined') ? NGUONG_GHI_NO_THIEU_TIEN : 10000;
+
+      // 1. Quét từ danhSachTatCaDot
+      (danhSachTatCaDot || []).forEach(dot => {
+        const maDot = dot.maDot || '';
+        const ngay = (typeof chuanHoaNgayISO === 'function') ? (chuanHoaNgayISO(dot.ngayRaw) || chuanHoaNgayISO(dot.ngayGiao) || '') : (dot.ngayRaw || '');
+        const nhanVien = dot.nguoiNop || dot.taiXe || 'Chưa gán';
+        const xe = dot.xe || 'Xe chung';
+
+        // A. Khoản nộp thiếu của chuyến xe (Phiếu nộp tiền mặt)
+        let phieuSB = mapPhieuSB.get(maDot);
+        let soTienPhaiThu = dot.soTienPhaiThu || 0;
+        let tongTienDem = dot.tongTienDem || (dot.soToDemTien ? MENH_GIA_TIEN.reduce((s, m) => s + m * (dot.soToDemTien[m] || 0), 0) : 0);
+        let tienThieuChuyen = (soTienPhaiThu > tongTienDem && tongTienDem > 0) ? (soTienPhaiThu - tongTienDem) : (dot.tienThieu || 0);
+
+        if (phieuSB && phieuSB.chenh_lech && parseFloat(phieuSB.chenh_lech) <= -nguong) {
+          tienThieuChuyen = Math.abs(parseFloat(phieuSB.chenh_lech));
+        }
+
+        if (tienThieuChuyen >= nguong) {
+          const idKey = `THIEU_CHUYEN_${maDot}`;
+          if (!setDaCo.has(idKey)) {
+            setDaCo.add(idKey);
+            const dsInfo = mapDoiSoat[idKey] || {};
+            dsKetQua.push({
+              id: idKey,
+              loai: 'chuyen_xe',
+              tenLoai: '🚚 Thiếu tiền nộp chuyến',
+              ngay: ngay,
+              ngayHienThi: dot.ngayGiao || dinhDangNgayVN(ngay) || '--',
+              nhanVien: nhanVien,
+              xe: xe,
+              maDot: maDot,
+              maRef: maDot,
+              noiDung: `Nộp quỹ chuyến xe ${xe} (${dot.soLuongHD || 0} HĐ đi giao)`,
+              phaiThuNop: soTienPhaiThu || (tongTienDem + tienThieuChuyen),
+              thucThuNop: tongTienDem,
+              soTienThieu: tienThieuChuyen,
+              daGiaiQuyet: !!dsInfo.daGiaiQuyet,
+              ghiChuDoiSoat: dsInfo.ghiChu || ''
+            });
+          }
+        }
+
+        // B. Đơn hàng giao thiếu tiền (hoá đơn trong chuyến xe)
+        if (Array.isArray(dot.danhSachChiTiet)) {
+          dot.danhSachChiTiet.forEach(h => {
+            const maHD = h.maHD || h.ma_hd || '';
+            const phaiTra = Math.max(0, (h.tienHD || h.thanhTien || 0) - (h.traVe || 0));
+            const thucThu = (h.tienMat || 0) + (h.chuyenKhoan || 0);
+            const thieu = (h.noPhatSinh && h.noPhatSinh >= nguong) ? h.noPhatSinh : Math.max(0, phaiTra - thucThu);
+
+            if (thieu >= nguong) {
+              const idKey = `THIEU_DON_${maDot}_${maHD}`;
+              if (!setDaCo.has(idKey)) {
+                setDaCo.add(idKey);
+                const dsInfo = mapDoiSoat[idKey] || {};
+                dsKetQua.push({
+                  id: idKey,
+                  loai: 'hoa_don',
+                  tenLoai: '📄 Đơn hàng thiếu tiền',
+                  ngay: ngay,
+                  ngayHienThi: dot.ngayGiao || dinhDangNgayVN(ngay) || '--',
+                  nhanVien: nhanVien,
+                  xe: xe,
+                  maDot: maDot,
+                  maRef: maHD,
+                  noiDung: `${h.tenKH || 'Khách hàng'} (HĐ: ${maHD})`,
+                  phaiThuNop: phaiTra,
+                  thucThuNop: thucThu,
+                  soTienThieu: thieu,
+                  daGiaiQuyet: !!dsInfo.daGiaiQuyet,
+                  ghiChuDoiSoat: dsInfo.ghiChu || ''
+                });
+              }
+            }
+          });
+        }
+      });
+
+      // 2. Bổ sung các phiếu nộp tiền trên Supabase nếu local chưa có
+      mapPhieuSB.forEach((p, mDot) => {
+        const idKey = `THIEU_CHUYEN_${mDot}`;
+        if (!setDaCo.has(idKey)) {
+          setDaCo.add(idKey);
+          const thieu = Math.abs(parseFloat(p.chenh_lech));
+          const ng = (typeof chuanHoaNgayISO === 'function') ? chuanHoaNgayISO(p.ngay_nop) : (p.ngay_nop || '');
+          const dsInfo = mapDoiSoat[idKey] || {};
+          dsKetQua.push({
+            id: idKey,
+            loai: 'chuyen_xe',
+            tenLoai: '🚚 Thiếu tiền nộp chuyến',
+            ngay: ng,
+            ngayHienThi: p.ngay_nop || '--',
+            nhanVien: p.nguoi_nop || 'Chưa gán',
+            xe: p.xe || 'Xe chung',
+            maDot: mDot,
+            maRef: mDot,
+            noiDung: `Nộp quỹ chuyến xe ${p.xe || ''}`,
+            phaiThuNop: (parseFloat(p.tong_tien_mat) || 0) + thieu,
+            thucThuNop: parseFloat(p.tong_tien_mat) || 0,
+            soTienThieu: thieu,
+            daGiaiQuyet: !!dsInfo.daGiaiQuyet,
+            ghiChuDoiSoat: dsInfo.ghiChu || ''
+          });
+        }
+      });
+
+      // Sắp xếp: Ngày mới nhất lên trên
+      dsKetQua.sort((a, b) => (b.ngay || '').localeCompare(a.ngay || '') || b.soTienThieu - a.soTienThieu);
+      danhSachDonThieuTongHop = dsKetQua;
+
+      // Cập nhật số lượng trên Tab badge
+      capNhatBadgeTabDonThieu();
+
+      // Nạp danh sách nhân viên vào dropdown lọc
+      capNhatDropdownNhanVienThieu();
+
+      // Render bảng
+      veDanhSachDonThieu();
+    }
+
+    function capNhatBadgeTabDonThieu() {
+      const badge = document.getElementById('badgeSoDonThieu');
+      if (!badge) return;
+      let mapDoiSoat = {};
+      try {
+        mapDoiSoat = JSON.parse(localStorage.getItem('tmh_doi_soat_don_thieu_nv') || '{}');
+      } catch (e) {}
+
+      let count = 0;
+      if (danhSachDonThieuTongHop && danhSachDonThieuTongHop.length) {
+        count = danhSachDonThieuTongHop.filter(r => !r.daGiaiQuyet).length;
+      } else {
+        const nguong = (typeof NGUONG_GHI_NO_THIEU_TIEN !== 'undefined') ? NGUONG_GHI_NO_THIEU_TIEN : 10000;
+        (danhSachTatCaDot || []).forEach(dot => {
+          const soTienPhaiThu = dot.soTienPhaiThu || 0;
+          const tongTienDem = dot.tongTienDem || (dot.soToDemTien ? MENH_GIA_TIEN.reduce((s, m) => s + m * (dot.soToDemTien[m] || 0), 0) : 0);
+          const tienThieuChuyen = (soTienPhaiThu > tongTienDem && tongTienDem > 0) ? (soTienPhaiThu - tongTienDem) : (dot.tienThieu || 0);
+          if (tienThieuChuyen >= nguong && (!mapDoiSoat[`THIEU_CHUYEN_${dot.maDot}`] || !mapDoiSoat[`THIEU_CHUYEN_${dot.maDot}`].daGiaiQuyet)) {
+            count++;
+          }
+          if (Array.isArray(dot.danhSachChiTiet)) {
+            dot.danhSachChiTiet.forEach(h => {
+              const phaiTra = Math.max(0, (h.tienHD || h.thanhTien || 0) - (h.traVe || 0));
+              const thucThu = (h.tienMat || 0) + (h.chuyenKhoan || 0);
+              const thieu = (h.noPhatSinh && h.noPhatSinh >= nguong) ? h.noPhatSinh : Math.max(0, phaiTra - thucThu);
+              if (thieu >= nguong && (!mapDoiSoat[`THIEU_DON_${dot.maDot}_${h.maHD}`] || !mapDoiSoat[`THIEU_DON_${dot.maDot}_${h.maHD}`].daGiaiQuyet)) {
+                count++;
+              }
+            });
+          }
+        });
+      }
+
+      badge.textContent = count;
+      badge.style.display = count > 0 ? 'inline-block' : 'none';
+    }
+
+    function capNhatDropdownNhanVienThieu() {
+      const selNV = document.getElementById('locThieuNhanVien');
+      if (!selNV) return;
+      const currentVal = selNV.value || 'tat_ca';
+      const tapHopNV = new Set();
+      danhSachDonThieuTongHop.forEach(r => {
+        if (r.nhanVien && r.nhanVien !== 'Chưa gán') tapHopNV.add(r.nhanVien);
+      });
+      const dsNV = Array.from(tapHopNV).sort((a, b) => a.localeCompare(b, 'vi'));
+      selNV.innerHTML = '<option value="tat_ca">⚡ Tất cả nhân viên</option>';
+      dsNV.forEach(nv => {
+        const opt = document.createElement('option');
+        opt.value = nv;
+        opt.textContent = `👤 ${nv}`;
+        selNV.appendChild(opt);
+      });
+      if (currentVal && Array.from(selNV.options).some(o => o.value === currentVal)) {
+        selNV.value = currentVal;
+      }
+    }
+
+    function veDanhSachDonThieu() {
+      const tbody = document.getElementById('tbodyDonThieuNhanVien');
+      const tfoot = document.getElementById('tfootDonThieuNhanVien');
+      if (!tbody) return;
+
+      const tuNgay = document.getElementById('locThieuTuNgay')?.value || '';
+      const denNgay = document.getElementById('locThieuDenNgay')?.value || '';
+      const locNV = document.getElementById('locThieuNhanVien')?.value || 'tat_ca';
+      const locLoai = document.getElementById('locThieuLoai')?.value || 'tat_ca';
+      const locTT = document.getElementById('locThieuTrangThai')?.value || 'tat_ca';
+      const tuKhoa = (document.getElementById('timKiemThieu')?.value || '').trim().toLowerCase();
+
+      let dsLoc = [...danhSachDonThieuTongHop];
+
+      // Lọc ngày
+      if (tuNgay) dsLoc = dsLoc.filter(r => !r.ngay || r.ngay >= tuNgay);
+      if (denNgay) dsLoc = dsLoc.filter(r => !r.ngay || r.ngay <= denNgay);
+
+      // Lọc nhân viên
+      if (locNV && locNV !== 'tat_ca') {
+        const lnv = locNV.toUpperCase();
+        dsLoc = dsLoc.filter(r => (r.nhanVien || '').toUpperCase() === lnv);
+      }
+
+      // Lọc phân loại
+      if (locLoai && locLoai !== 'tat_ca') {
+        dsLoc = dsLoc.filter(r => r.loai === locLoai);
+      }
+
+      // Lọc trạng thái đối soát
+      if (locTT === 'chua_tinh') {
+        dsLoc = dsLoc.filter(r => !r.daGiaiQuyet);
+      } else if (locTT === 'da_tinh') {
+        dsLoc = dsLoc.filter(r => !!r.daGiaiQuyet);
+      }
+
+      // Lọc tìm kiếm
+      if (tuKhoa) {
+        dsLoc = dsLoc.filter(r =>
+          (r.maRef || '').toLowerCase().includes(tuKhoa) ||
+          (r.nhanVien || '').toLowerCase().includes(tuKhoa) ||
+          (r.xe || '').toLowerCase().includes(tuKhoa) ||
+          (r.noiDung || '').toLowerCase().includes(tuKhoa)
+        );
+      }
+
+      // Tính tổng KPI
+      let tongTien = 0, tongChuaTinh = 0, tongDaTinh = 0;
+      let soChuaTinh = 0, soDaTinh = 0;
+      const setNV = new Set();
+
+      dsLoc.forEach(r => {
+        tongTien += r.soTienThieu;
+        if (r.nhanVien) setNV.add(r.nhanVien);
+        if (r.daGiaiQuyet) {
+          tongDaTinh += r.soTienThieu;
+          soDaTinh++;
+        } else {
+          tongChuaTinh += r.soTienThieu;
+          soChuaTinh++;
+        }
+      });
+
+      const elTong = document.getElementById('kpiThieuTongTien');
+      if (elTong) elTong.textContent = formatTien(tongTien) + ' đ';
+      const elSoKhoan = document.getElementById('kpiThieuSoKhoan');
+      if (elSoKhoan) elSoKhoan.textContent = `${dsLoc.length} khoản thiếu tiền`;
+      const elChuaTinh = document.getElementById('kpiThieuChuaTinh');
+      if (elChuaTinh) elChuaTinh.textContent = formatTien(tongChuaTinh) + ' đ';
+      const elSoChuaTinh = document.getElementById('kpiThieuSoChuaTinh');
+      if (elSoChuaTinh) elSoChuaTinh.textContent = `${soChuaTinh} khoản chờ xử lý`;
+      const elDaTinh = document.getElementById('kpiThieuDaTinh');
+      if (elDaTinh) elDaTinh.textContent = formatTien(tongDaTinh) + ' đ';
+      const elSoDaTinh = document.getElementById('kpiThieuSoDaTinh');
+      if (elSoDaTinh) elSoDaTinh.textContent = `${soDaTinh} khoản đã giải quyết`;
+      const elSoNV = document.getElementById('kpiThieuSoNV');
+      if (elSoNV) elSoNV.textContent = `${setNV.size} người`;
+
+      if (dsLoc.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:35px; color:var(--text-muted); font-size:13px;">✅ Không có đơn hoặc khoản nào thiếu trên 10.000đ trong điều kiện lọc hiện tại.</td></tr>`;
+        if (tfoot) tfoot.innerHTML = '';
+        return;
+      }
+
+      tbody.innerHTML = dsLoc.map((r, i) => {
+        const badgeLoai = r.loai === 'chuyen_xe'
+          ? `<span class="badge-status" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;">🚚 Nộp chuyến</span>`
+          : `<span class="badge-status" style="background:#ffedd5; color:#c2410c; border:1px solid #fed7aa;">📄 Đơn hàng</span>`;
+
+        const btnTrangThai = r.daGiaiQuyet
+          ? `<button type="button" class="btn btn-outline" style="font-size:11px; height:26px; padding:0 8px; border-color:#86efac; color:#15803d; background:#f0fdf4;" onclick="doiTrangThaiDoiSoatNV('${r.id}', false)" title="Bấm để đưa về Chưa tính toán">✅ Đã giải quyết</button>`
+          : `<button type="button" class="btn btn-outline" style="font-size:11px; height:26px; padding:0 8px; border-color:#fdba74; color:#c2410c; background:#fff7ed;" onclick="doiTrangThaiDoiSoatNV('${r.id}', true)" title="Bấm để đánh dấu đã tính toán / trừ lương với nhân viên">⏳ Chưa tính (Bấm tính)</button>`;
+
+        return `
+          <tr>
+            <td style="text-align:center; font-weight:700; color:var(--text-muted);">${i + 1}</td>
+            <td style="text-align:center; white-space:nowrap;">${escapeHtml(r.ngayHienThi)}</td>
+            <td><b style="color:var(--text-main); font-size:12.5px;">${escapeHtml(r.nhanVien)}</b></td>
+            <td><span style="font-weight:700; color:#475569;">${escapeHtml(r.xe)}</span></td>
+            <td>${badgeLoai}</td>
+            <td><b style="font-family:monospace; color:#1e293b;">${escapeHtml(r.maRef)}</b></td>
+            <td style="white-space:normal; font-size:11.5px;">${escapeHtml(r.noiDung)}</td>
+            <td style="text-align:right; font-variant-numeric:tabular-nums;">${formatTien(r.phaiThuNop)}</td>
+            <td style="text-align:right; font-variant-numeric:tabular-nums;">${formatTien(r.thucThuNop)}</td>
+            <td style="text-align:right; font-weight:800; color:#dc2626; font-size:12.5px; font-variant-numeric:tabular-nums;">${formatTien(r.soTienThieu)} đ</td>
+            <td style="text-align:center;">${btnTrangThai}</td>
+            <td>
+              <div style="display:flex; align-items:center; gap:4px;">
+                <span id="txtGhiChu_${r.id}" style="font-size:11px; color:#475569; flex:1;">${escapeHtml(r.ghiChuDoiSoat || '—')}</span>
+                <button type="button" class="btn btn-outline" style="height:22px; width:22px; padding:0; font-size:10px; border-radius:4px;" onclick="suaGhiChuDoiSoatNV('${r.id}')" title="Sửa ghi chú đối soát">✏️</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      if (tfoot) {
+        tfoot.innerHTML = `
+          <tr>
+            <td colspan="7" style="text-align:right; font-weight:800; font-size:12.5px;">TỔNG CỘNG (${dsLoc.length} khoản):</td>
+            <td style="text-align:right; font-weight:800; font-variant-numeric:tabular-nums;">${formatTien(dsLoc.reduce((s, r) => s + r.phaiThuNop, 0))}</td>
+            <td style="text-align:right; font-weight:800; font-variant-numeric:tabular-nums;">${formatTien(dsLoc.reduce((s, r) => s + r.thucThuNop, 0))}</td>
+            <td style="text-align:right; font-weight:900; color:#dc2626; font-size:13.5px; font-variant-numeric:tabular-nums;">${formatTien(tongTien)} đ</td>
+            <td colspan="2" style="font-size:11px; color:var(--text-muted); text-align:center;">Chưa tính: <b>${formatTien(tongChuaTinh)} đ</b> | Đã tính: <b>${formatTien(tongDaTinh)} đ</b></td>
+          </tr>
+        `;
+      }
+    }
+
+    function doiTrangThaiDoiSoatNV(id, daTinh) {
+      let mapDoiSoat = {};
+      try {
+        mapDoiSoat = JSON.parse(localStorage.getItem('tmh_doi_soat_don_thieu_nv') || '{}');
+      } catch (e) {
+        mapDoiSoat = {};
+      }
+
+      if (!mapDoiSoat[id]) mapDoiSoat[id] = {};
+      mapDoiSoat[id].daGiaiQuyet = daTinh;
+      mapDoiSoat[id].thoiGian = new Date().toISOString();
+
+      if (daTinh && !mapDoiSoat[id].ghiChu) {
+        const d = new Date();
+        mapDoiSoat[id].ghiChu = `Đã quyết toán tháng ${d.getMonth() + 1}/${d.getFullYear()}`;
+      }
+
+      localStorage.setItem('tmh_doi_soat_don_thieu_nv', JSON.stringify(mapDoiSoat));
+
+      const item = danhSachDonThieuTongHop.find(r => r.id === id);
+      if (item) {
+        item.daGiaiQuyet = daTinh;
+        if (mapDoiSoat[id].ghiChu) item.ghiChuDoiSoat = mapDoiSoat[id].ghiChu;
+      }
+
+      capNhatBadgeTabDonThieu();
+      veDanhSachDonThieu();
+      hienThiToast(daTinh ? "✅ Đã đánh dấu quyết toán thành công!" : "ℹ️ Đã chuyển về Chưa tính toán");
+    }
+
+    function suaGhiChuDoiSoatNV(id) {
+      let mapDoiSoat = {};
+      try {
+        mapDoiSoat = JSON.parse(localStorage.getItem('tmh_doi_soat_don_thieu_nv') || '{}');
+      } catch (e) {
+        mapDoiSoat = {};
+      }
+
+      const item = danhSachDonThieuTongHop.find(r => r.id === id);
+      const ghiChuCu = (mapDoiSoat[id] && mapDoiSoat[id].ghiChu) || (item ? item.ghiChuDoiSoat : '') || '';
+      const nhap = prompt("Nhập ghi chú đối soát với nhân viên (ví dụ: Đã trừ lương T9/2026, NV nộp lại tiền mặt...):", ghiChuCu);
+      if (nhap === null) return;
+
+      if (!mapDoiSoat[id]) mapDoiSoat[id] = { daGiaiQuyet: item ? item.daGiaiQuyet : false };
+      mapDoiSoat[id].ghiChu = nhap.trim();
+      localStorage.setItem('tmh_doi_soat_don_thieu_nv', JSON.stringify(mapDoiSoat));
+
+      if (item) item.ghiChuDoiSoat = nhap.trim();
+      veDanhSachDonThieu();
+      hienThiToast("💾 Đã lưu ghi chú đối soát!");
+    }
+
+    function datNhanhKhoangNgayThieu(loai) {
+      const tuEl = document.getElementById('locThieuTuNgay');
+      const denEl = document.getElementById('locThieuDenNgay');
+      if (!tuEl || !denEl) return;
+
+      const now = new Date();
+      if (loai === 'thang_nay') {
+        const y = now.getFullYear();
+        const m = now.getMonth();
+        tuEl.value = `${y}-${String(m + 1).padStart(2, '0')}-01`;
+        const lastDay = new Date(y, m + 1, 0).getDate();
+        denEl.value = `${y}-${String(m + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+      } else if (loai === 'thang_truoc') {
+        const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const y = prev.getFullYear();
+        const m = prev.getMonth();
+        tuEl.value = `${y}-${String(m + 1).padStart(2, '0')}-01`;
+        const lastDay = new Date(y, m + 1, 0).getDate();
+        denEl.value = `${y}-${String(m + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+      } else {
+        tuEl.value = '';
+        denEl.value = '';
+      }
+      veDanhSachDonThieu();
+    }
+
+    function xuatExcelDonThieuNhanVien() {
+      if (!danhSachDonThieuTongHop || !danhSachDonThieuTongHop.length) {
+        alert("⚠️ Danh sách đang trống, không có đơn thiếu nào để xuất file!");
+        return;
+      }
+
+      const tuNgay = document.getElementById('locThieuTuNgay')?.value || '';
+      const denNgay = document.getElementById('locThieuDenNgay')?.value || '';
+      const locNV = document.getElementById('locThieuNhanVien')?.value || 'tat_ca';
+      const locLoai = document.getElementById('locThieuLoai')?.value || 'tat_ca';
+      const locTT = document.getElementById('locThieuTrangThai')?.value || 'tat_ca';
+      const tuKhoa = (document.getElementById('timKiemThieu')?.value || '').trim().toLowerCase();
+
+      let ds = [...danhSachDonThieuTongHop];
+      if (tuNgay) ds = ds.filter(r => !r.ngay || r.ngay >= tuNgay);
+      if (denNgay) ds = ds.filter(r => !r.ngay || r.ngay <= denNgay);
+      if (locNV && locNV !== 'tat_ca') ds = ds.filter(r => (r.nhanVien || '').toUpperCase() === locNV.toUpperCase());
+      if (locLoai && locLoai !== 'tat_ca') ds = ds.filter(r => r.loai === locLoai);
+      if (locTT === 'chua_tinh') ds = ds.filter(r => !r.daGiaiQuyet);
+      else if (locTT === 'da_tinh') ds = ds.filter(r => !!r.daGiaiQuyet);
+      if (tuKhoa) {
+        ds = ds.filter(r =>
+          (r.maRef || '').toLowerCase().includes(tuKhoa) ||
+          (r.nhanVien || '').toLowerCase().includes(tuKhoa) ||
+          (r.xe || '').toLowerCase().includes(tuKhoa) ||
+          (r.noiDung || '').toLowerCase().includes(tuKhoa)
+        );
+      }
+
+      if (!ds.length) {
+        alert("⚠️ Không có dòng dữ liệu nào khớp với bộ lọc hiện tại để xuất Excel!");
+        return;
+      }
+
+      try {
+        const tieuDe = [
+          ["CÔNG TY TNHH THÁI MỸ HƯƠNG"],
+          ["BẢNG ĐỐI SOÁT ĐƠN & KHOẢN THIẾU TIỀN NHÂN VIÊN (TRÊN 10.000 Đ)"],
+          [`Thời gian xuất: ${new Date().toLocaleString('vi-VN')} | Phạm vi: ${tuNgay || 'Đầu kỳ'} - ${denNgay || 'Hiện tại'}`],
+          []
+        ];
+
+        const headers = [
+          "STT", "Ngày", "Nhân viên (Tài xế/Giao hàng)", "Xe vận chuyển", "Phân loại",
+          "Mã tham chiếu (HĐ/Chuyến)", "Khách hàng / Diễn giải", "Số tiền phải thu/nộp",
+          "Số tiền thực thu/nộp", "Số tiền THIẾU (> 10k)", "Trạng thái đối soát", "Ghi chú đối soát"
+        ];
+
+        const rowsData = [...tieuDe, headers];
+        let tongThieu = 0, tongPhai = 0, tongThuc = 0;
+
+        ds.forEach((r, idx) => {
+          tongThieu += r.soTienThieu;
+          tongPhai += r.phaiThuNop;
+          tongThuc += r.thucThuNop;
+          rowsData.push([
+            idx + 1,
+            r.ngayHienThi,
+            r.nhanVien,
+            r.xe,
+            r.loai === 'chuyen_xe' ? 'Thiếu tiền nộp chuyến' : 'Đơn hàng thiếu tiền',
+            r.maRef,
+            r.noiDung,
+            r.phaiThuNop,
+            r.thucThuNop,
+            r.soTienThieu,
+            r.daGiaiQuyet ? 'Đã quyết toán với NV' : 'Chưa tính toán (Còn nợ)',
+            r.ghiChuDoiSoat || ''
+          ]);
+        });
+
+        rowsData.push([
+          "TỔNG CỘNG", "", "", "", "", "", `${ds.length} khoản`,
+          tongPhai, tongThuc, tongThieu, "", ""
+        ]);
+
+        const ws = XLSX.utils.aoa_to_sheet(rowsData);
+        ws['!cols'] = [
+          { wch: 6 }, { wch: 13 }, { wch: 22 }, { wch: 16 }, { wch: 22 },
+          { wch: 20 }, { wch: 35 }, { wch: 18 }, { wch: 18 }, { wch: 18 },
+          { wch: 24 }, { wch: 30 }
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "DoiSoatDonThieu");
+        const tenFile = `DoiSoat_DonThieu_NhanVien_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        XLSX.writeFile(wb, tenFile);
+        hienThiToast("📥 Đã xuất file Excel đối soát thành công!");
+      } catch (e) {
+        alert("Lỗi xuất file Excel: " + (e.message || String(e)));
+      }
+    }
+
+    function inBangDonThieuNhanVien() {
+      if (!danhSachDonThieuTongHop || !danhSachDonThieuTongHop.length) {
+        alert("⚠️ Danh sách đang trống, không có đơn thiếu nào để in!");
+        return;
+      }
+
+      const tuNgay = document.getElementById('locThieuTuNgay')?.value || '';
+      const denNgay = document.getElementById('locThieuDenNgay')?.value || '';
+      const locNV = document.getElementById('locThieuNhanVien')?.value || 'tat_ca';
+      const locLoai = document.getElementById('locThieuLoai')?.value || 'tat_ca';
+      const locTT = document.getElementById('locThieuTrangThai')?.value || 'tat_ca';
+      const tuKhoa = (document.getElementById('timKiemThieu')?.value || '').trim().toLowerCase();
+
+      let ds = [...danhSachDonThieuTongHop];
+      if (tuNgay) ds = ds.filter(r => !r.ngay || r.ngay >= tuNgay);
+      if (denNgay) ds = ds.filter(r => !r.ngay || r.ngay <= denNgay);
+      if (locNV && locNV !== 'tat_ca') ds = ds.filter(r => (r.nhanVien || '').toUpperCase() === locNV.toUpperCase());
+      if (locLoai && locLoai !== 'tat_ca') ds = ds.filter(r => r.loai === locLoai);
+      if (locTT === 'chua_tinh') ds = ds.filter(r => !r.daGiaiQuyet);
+      else if (locTT === 'da_tinh') ds = ds.filter(r => !!r.daGiaiQuyet);
+      if (tuKhoa) {
+        ds = ds.filter(r =>
+          (r.maRef || '').toLowerCase().includes(tuKhoa) ||
+          (r.nhanVien || '').toLowerCase().includes(tuKhoa) ||
+          (r.xe || '').toLowerCase().includes(tuKhoa) ||
+          (r.noiDung || '').toLowerCase().includes(tuKhoa)
+        );
+      }
+
+      if (!ds.length) {
+        alert("⚠️ Không có dòng dữ liệu nào khớp với bộ lọc để in!");
+        return;
+      }
+
+      const pThoiGian = document.getElementById('p_thieuThoiGianIn');
+      if (pThoiGian) {
+        pThoiGian.textContent = `Phạm vi: ${tuNgay ? dinhDangNgayVN(tuNgay) : 'Đầu kỳ'} — ${denNgay ? dinhDangNgayVN(denNgay) : 'Hiện tại'} | In ngày: ${new Date().toLocaleDateString('vi-VN')}` +
+          (locNV !== 'tat_ca' ? ` | Nhân viên: ${locNV}` : '');
+      }
+
+      const pTbody = document.getElementById('p_tbodyDonThieuIn');
+      const pTfoot = document.getElementById('p_tfootDonThieuIn');
+
+      let tongThieu = 0, tongPhai = 0, tongThuc = 0;
+      if (pTbody) {
+        pTbody.innerHTML = ds.map((r, i) => {
+          tongThieu += r.soTienThieu;
+          tongPhai += r.phaiThuNop;
+          tongThuc += r.thucThuNop;
+          return `
+            <tr>
+              <td class="t-center">${i + 1}</td>
+              <td class="t-center">${escapeHtml(r.ngayHienThi)}</td>
+              <td><b>${escapeHtml(r.nhanVien)}</b></td>
+              <td>${escapeHtml(r.xe)}</td>
+              <td>${r.loai === 'chuyen_xe' ? 'Nộp quỹ xe' : 'Đơn hàng'}</td>
+              <td class="t-center"><b>${escapeHtml(r.maRef)}</b></td>
+              <td>${escapeHtml(r.noiDung)}</td>
+              <td class="t-right">${formatTien(r.phaiThuNop)}</td>
+              <td class="t-right">${formatTien(r.thucThuNop)}</td>
+              <td class="t-right" style="font-weight:bold; color:#dc2626;">${formatTien(r.soTienThieu)}</td>
+              <td class="t-center">${r.daGiaiQuyet ? 'Đã giải quyết' : 'Chưa tính'}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      if (pTfoot) {
+        pTfoot.innerHTML = `
+          <tr style="font-weight:bold; background:#f1f5f9;">
+            <td colspan="7" class="t-right">TỔNG CỘNG (${ds.length} khoản):</td>
+            <td class="t-right">${formatTien(tongPhai)}</td>
+            <td class="t-right">${formatTien(tongThuc)}</td>
+            <td class="t-right" style="font-size:12pt; color:#dc2626;">${formatTien(tongThieu)}</td>
+            <td></td>
+          </tr>
+        `;
+      }
+
+      const khuVucInA4 = document.getElementById('khuVucInBangKeA4');
+      const khuVucInDonThieu = document.getElementById('khuVucInDonThieuA4');
+      if (khuVucInA4) khuVucInA4.style.display = 'none';
+      if (khuVucInDonThieu) khuVucInDonThieu.style.display = 'block';
+
+      window.print();
+
+      setTimeout(() => {
+        if (khuVucInDonThieu) khuVucInDonThieu.style.display = 'none';
+        if (khuVucInA4) khuVucInA4.style.display = '';
+      }, 500);
     }
 
     window.addEventListener('DOMContentLoaded', khoiTaoTrang);

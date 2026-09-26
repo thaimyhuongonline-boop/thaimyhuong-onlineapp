@@ -416,8 +416,8 @@ function escapeHtml(v) {
  * TIỀN THIẾU / THỪA KHI NỘP TIỀN XE (Bước 2 → Báo Cáo Tổng Hợp)
  * Chênh lệch = Tiền mặt đếm thực tế (bảng đếm mệnh giá) − Số tiền phải nộp.
  * - Thiếu dưới 10.000 đ: không ghi nhận nợ.
- * - Thiếu từ 10.000 đ trở lên: ghi nợ cho người nộp tiền xe.
- * - Tiền thừa: ghi nhận cho người nộp tiền xe.
+ * - Thiếu từ 10.000 đ trở lên: ghi nợ cho người nộp tiền xe (tính toán cuối tháng).
+ * - Tiền thừa dưới 10.000 đ: không ghi nhận. Thừa từ 10.000 đ trở lên: ghi nhận cho người nộp.
  * Bảng đếm tiền để trống (chưa đếm) thì chưa xác định được thiếu / thừa.
  * ==================================================================== */
 const NGUONG_GHI_NO_THIEU_TIEN = 10000;
@@ -427,10 +427,13 @@ function tinhThieuThuaNopTien(tienDem, phaiNop) {
   const phai = Math.round(parseFloat(phaiNop) || 0);
   const daDem = dem > 0 || phai <= 0;
   const chenh = daDem ? dem - phai : 0;
-  const thieu = chenh < 0 ? -chenh : 0;
-  const thua = chenh > 0 ? chenh : 0;
+  const rawThieu = chenh < 0 ? -chenh : 0;
+  const rawThua = chenh > 0 ? chenh : 0;
+  // Tiền thừa / thiếu dưới 10.000 đ không ghi nhận
+  const thieu = rawThieu >= NGUONG_GHI_NO_THIEU_TIEN ? rawThieu : 0;
+  const thua = rawThua >= NGUONG_GHI_NO_THIEU_TIEN ? rawThua : 0;
   const ghiNo = thieu >= NGUONG_GHI_NO_THIEU_TIEN;
-  return { daDem, tienDem: dem, phaiNop: phai, chenh, thieu, thua, ghiNo, soNo: ghiNo ? thieu : 0 };
+  return { daDem, tienDem: dem, phaiNop: phai, chenh, rawThieu, rawThua, thieu, thua, ghiNo, soNo: ghiNo ? thieu : 0 };
 }
 
 /* ====================================================================
