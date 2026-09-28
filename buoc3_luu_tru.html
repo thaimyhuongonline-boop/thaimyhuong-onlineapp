@@ -774,8 +774,16 @@
         }
       }
 
+      // Các hóa đơn không còn trong lưu trữ → gỡ đơn nợ của chúng khỏi Sổ Theo Dõi Công Nợ
+      let thongBaoNo = '';
+      if (typeof goDonNoCuaChuyenTrenMayNay === 'function') {
+        const kqNo = goDonNoCuaChuyenTrenMayNay('', Array.from(tapHopXoa));
+        if (kqNo.soGo) thongBaoNo += `\n🧾 Đã gỡ ${kqNo.soGo} đơn nợ của các hóa đơn này khỏi Sổ Theo Dõi Công Nợ.`;
+        if (kqNo.giuLai) thongBaoNo += `\n💰 Giữ lại ${kqNo.giuLai} đơn nợ đã thu tiền (không mất dấu tiền đã thu).`;
+      }
+
       hienThiDuLieu();
-      alert(`✅ Đã xóa thành công ${cacMaHD.length} hóa đơn khỏi đợt!`);
+      alert(`✅ Đã xóa thành công ${cacMaHD.length} hóa đơn khỏi đợt!${thongBaoNo}`);
     }
 
     // ========================================================
@@ -914,8 +922,17 @@
         }
       }
 
+      // Gỡ đơn nợ của đợt khỏi Sổ Theo Dõi Công Nợ trên máy này (máy khác tự gỡ khi tải sổ)
+      let thongBaoNo = '';
+      if (typeof goDonNoCuaChuyenTrenMayNay === 'function') {
+        const dsMa = (d.danhSachChiTiet || []).map(r => r.maHD || r.ma_hd).concat(d.danhSachHD || []);
+        const kqNo = goDonNoCuaChuyenTrenMayNay(maDotXoa, dsMa);
+        if (kqNo.soGo) thongBaoNo += `\n🧾 Đã gỡ ${kqNo.soGo} đơn nợ của đợt này khỏi Sổ Theo Dõi Công Nợ.`;
+        if (kqNo.giuLai) thongBaoNo += `\n💰 Giữ lại ${kqNo.giuLai} đơn nợ đã thu tiền (không mất dấu tiền đã thu).`;
+      }
+
       hienThiDuLieu();
-      alert(`🗑️ Đã xóa đợt điều động "${maDotXoa}" thành công!`);
+      alert(`🗑️ Đã xóa đợt điều động "${maDotXoa}" thành công!${thongBaoNo}`);
     }
 
     // ========================================================

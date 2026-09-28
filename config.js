@@ -492,6 +492,119 @@ async function goDonNoCuaChuyenDaLamMoi(ds) {
 }
 
 /* ====================================================================
+ * XOÁ DỮ LIỆU CHUYẾN XE / HOÁ ĐƠN → GỠ ĐƠN NỢ ĐÃ GHI NHẬN KHỎI SỔ CÔNG NỢ
+ * --------------------------------------------------------------------
+ * Sổ công nợ trên mỗi máy chỉ được BỔ SUNG thêm từ luu_tru, nên khi một chuyến xe
+ * (hoặc một hoá đơn lẻ) bị xoá khỏi luu_tru thì đơn nợ đã ghi nhận trước đó vẫn
+ * còn treo trong sổ — xoá hết xe rồi mà phần công nợ vẫn báo còn nợ.
+ * Hai hàm dưới đây xử lý cả 2 chiều:
+ *   1. goDonNoCuaChuyenTrenMayNay(...) — gỡ ngay trên máy vừa thực hiện xoá.
+ *   2. goDonNoMatChungTu(ds) — mọi máy tự đối chiếu lại sổ với luu_tru khi tải sổ.
+ * Chỉ gỡ khi CHẮC CHẮN an toàn: đơn nợ sinh từ bảng kê (id = "NO_" + maHD), không
+ * phải đơn "Ngoài bảng kê", và CHƯA THU đồng nào. Đơn đã thu (một phần hoặc đủ)
+ * luôn được giữ lại để không mất dấu tiền đã thu.
+ * ==================================================================== */
+
+/**
+ * Gỡ ngay trên máy này các đơn nợ thuộc chuyến xe / các hoá đơn vừa bị xoá dữ liệu,
+ * để sổ công nợ ở máy đang xoá cập nhật liền (máy khác tự gỡ qua goDonNoMatChungTu).
+ * @param {string} maDot     mã chuyến xe bị xoá (bỏ trống nếu chỉ xoá hoá đơn lẻ)
+ * @param {Array}  dsMaHD    danh sách mã hoá đơn bị xoá (tuỳ chọn)
+ * @returns {{soGo:number, giuLai:number}} số đơn đã gỡ và số đơn giữ lại vì đã thu tiền
+ */
+function goDonNoCuaChuyenTrenMayNay(maDot, dsMaHD) {
+  const kq = { soGo: 0, giuLai: 0 };
+  try {
+    let ds = [];
+    try { ds = JSON.parse(localStorage.getItem("tmh_theo_doi_cong_no") || "[]"); } catch (e) { return kq; }
+    if (!Array.isArray(ds) || !ds.length) return kq;
+    const dot = maDot ? String(maDot) : "";
+    const setMa = new Set((dsMaHD || []).map(m => String(m || "").trim().toUpperCase()).filter(Boolean));
+    const conLai = ds.filter(d => {
+      if (!d || !d.maHD || d.ngoaiBangKe || d.maDot === "NGOAI_BANG_KE") return true;
+      if (d.id !== "NO_" + d.maHD) return true;
+      const thuocChuyen = dot && String(d.maDot || "") === dot;
+      const thuocHD = setMa.has(String(d.maHD).trim().toUpperCase());
+      if (!thuocChuyen && !thuocHD) return true;
+      if ((d.daThu || 0) > 0.5) { kq.giuLai++; return true; }  // đã thu tiền → giữ lại
+      kq.soGo++;
+      return false;
+    });
+    if (kq.soGo) localStorage.setItem("tmh_theo_doi_cong_no", JSON.stringify(conLai));
+    return kq;
+  } catch (e) {
+    console.warn("Lỗi gỡ đơn nợ của chuyến vừa xoá:", e);
+    return kq;
+  }
+}
+
+/**
+ * Đối chiếu sổ công nợ trên máy này với luu_tru trên máy chủ và gỡ những đơn nợ mà
+ * chứng từ gốc KHÔNG CÒN nữa (chuyến xe / hoá đơn đã bị xoá ở bất kỳ máy nào):
+ *   • hoá đơn không còn dòng nào trên luu_tru, hoặc
+ *   • hoá đơn đã thuộc chuyến khác và chuyến đó không ghi nợ (nợ cũ của chuyến đã xoá).
+ * Chỉ gỡ khi đơn nợ chưa từng được thu (cả trên máy chủ lẫn phần chỉ ghi trên máy này)
+ * VÀ chuyến xe của đơn nợ đã từng lưu được phiếu nộp tiền lên máy chủ (PNP_<maDot>) —
+ * để phân biệt "chuyến đã bị xoá" với "chuyến quyết toán lúc mất mạng, chưa lên máy chủ"
+ * (trường hợp sau phải GIỮ đơn nợ, vì mất mạng không phải là đã xoá).
+ * Lỗi mạng / đọc không được thì GIỮ NGUYÊN sổ.
+ * @param {Array} ds  sổ công nợ (mảng đơn nợ) — không bị sửa
+ * @returns {Promise<{ds:Array, soGo:number}>}
+ */
+async function goDonNoMatChungTu(ds) {
+  const kq = { ds: ds, soGo: 0 };
+  if (typeof sb === "undefined" || !Array.isArray(ds) || !ds.length) return kq;
+  const ungVien = ds.filter(d => d && d.maHD && !d.ngoaiBangKe && d.maDot !== "NGOAI_BANG_KE" && d.id === "NO_" + d.maHD);
+  if (!ungVien.length) return kq;
+  try {
+    const dsMa = Array.from(new Set(ungVien.map(d => d.maHD)));
+    const lt = new Map();
+    for (let i = 0; i < dsMa.length; i += 150) {
+      const { data, error } = await sb.from("luu_tru").select("ma_hd, ma_dot, no_phat_sinh").in("ma_hd", dsMa.slice(i, i + 150));
+      if (error) return kq;
+      (data || []).forEach(r => lt.set(r.ma_hd, r));
+    }
+    let nghi = ungVien.filter(d => {
+      if (!d.maDot) return false;                             // không rõ chuyến nào → giữ cho an toàn
+      const r = lt.get(d.maHD);
+      if (!r) return true;                                    // hoá đơn đã bị xoá khỏi lưu trữ
+      if ((parseFloat(r.no_phat_sinh) || 0) > 0) return false; // vẫn đang ghi nợ → giữ
+      return !!(r.ma_dot && r.ma_dot !== d.maDot);             // đã sang chuyến khác, không còn nợ
+    });
+    if (!nghi.length) return kq;
+
+    // Chỉ coi là "đã bị xoá" khi chuyến xe từng lưu được phiếu nộp tiền lên máy chủ.
+    // Chuyến chưa bao giờ lên máy chủ (quyết toán lúc mất mạng) thì giữ nguyên đơn nợ.
+    const dsPhieu = Array.from(new Set(nghi.map(d => "PNP_" + d.maDot)));
+    const coPhieu = new Set();
+    for (let i = 0; i < dsPhieu.length; i += 150) {
+      const { data, error } = await sb.from("phieu_nop_tien").select("ma_phieu").in("ma_phieu", dsPhieu.slice(i, i + 150));
+      if (error) return kq;
+      (data || []).forEach(r => coPhieu.add(r.ma_phieu));
+    }
+    nghi = nghi.filter(d => coPhieu.has("PNP_" + d.maDot));
+    if (!nghi.length) return kq;
+
+    const dsId = nghi.map(d => d.id);
+    const tongThu = {};
+    for (let i = 0; i < dsId.length; i += 150) {
+      const { data, error } = await sb.from("thu_no").select("id_don_no, so_tien").in("id_don_no", dsId.slice(i, i + 150));
+      if (error) return kq;
+      (data || []).forEach(r => { tongThu[r.id_don_no] = (tongThu[r.id_don_no] || 0) + (parseFloat(r.so_tien) || 0); });
+    }
+    const go = new Set(nghi.filter(d => {
+      const chiTrenMay = typeof d.daThuCloudDaDongBo === "number" ? Math.max(0, (d.daThu || 0) - d.daThuCloudDaDongBo) : (d.daThu || 0);
+      return !((tongThu[d.id] || 0) > 0.5) && !(chiTrenMay > 0.5);
+    }).map(d => d.id));
+    if (!go.size) return kq;
+    return { ds: ds.filter(d => !go.has(d.id)), soGo: go.size };
+  } catch (e) {
+    console.warn("Lỗi gỡ đơn nợ không còn chứng từ gốc:", e);
+    return kq;
+  }
+}
+
+/* ====================================================================
  * PHÂN QUYỀN THEO MODULE THỰC TẾ CỦA APP
  * Mỗi module tương ứng 1 tab/trang có thật trong menu.
  * Mức quyền: 'all' (toàn quyền) | 'view' (chỉ xem) | 'none' (không truy cập)

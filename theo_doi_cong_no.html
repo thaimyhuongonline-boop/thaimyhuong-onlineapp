@@ -1556,6 +1556,13 @@
         if (kqGo.soGo) { danhSachCongNo = kqGo.ds; coThayDoi = true; }
       }
 
+      // 3c. Chuyến xe / hoá đơn đã bị XOÁ DỮ LIỆU (ở máy này hoặc máy khác) → gỡ đơn nợ
+      // không còn chứng từ gốc trên luu_tru khỏi sổ (chỉ gỡ đơn chưa thu đồng nào).
+      if (typeof goDonNoMatChungTu === 'function') {
+        const kqMat = await goDonNoMatChungTu(danhSachCongNo);
+        if (kqMat.soGo) { danhSachCongNo = kqMat.ds; coThayDoi = true; }
+      }
+
       if (coThayDoi) {
         ghiSoCongNo(danhSachCongNo);
       }

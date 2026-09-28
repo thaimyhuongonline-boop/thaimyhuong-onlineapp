@@ -2183,27 +2183,10 @@
       napHoanTienMatTuCloud(dotHienTai);
     }
 
-    // Xóa dữ liệu chuyến xe hiện tại
-    async function xoaDuLieuChuyenXe() {
-      if (!dotHienTai) {
-        alert("⚠️ Vui lòng chọn một chuyến xe cần xóa dữ liệu!");
-        return;
-      }
-
-      const tenChuyen = `${dotHienTai.xe} (${dotHienTai.ngayGiao || 'Hôm nay'})`;
-      const xacNhan = confirm(
-        `🗑️ BẠN CÓ CHẮC CHẮN MUỐN XÓA DỮ LIỆU CHUYẾN XE NÀY?\n\n` +
-        `• Chuyến xe: ${tenChuyen}\n` +
-        `• Tài xế: ${dotHienTai.taiXe || 'Chưa rõ'}\n` +
-        `• Số hóa đơn: ${danhSachHoaDonQuyetToan.length} HĐ\n\n` +
-        `⚠️ Dữ liệu của chuyến xe này sẽ bị xóa khỏi danh sách quyết toán.\n` +
-        `Bấm [OK] để xác nhận XÓA. Bấm [Hủy / Cancel] để giữ lại.`
-      );
-
-      if (!xacNhan) return;
-
-      const maDotXoa = dotHienTai.maDot;
-
+    // Dọn chuyến xe khỏi máy này + xoá hoá đơn của chuyến trên máy chủ.
+    // Dùng chung cho cả 2 lối xoá (chuyến chưa quyết toán & chuyến đã quyết toán).
+    // Trả về lỗi xoá trên máy chủ (null nếu xoá được).
+    async function donChuyenXeSauKhiXoa(maDotXoa) {
       danhSachTatCaDot = danhSachTatCaDot.filter(d => d.maDot !== maDotXoa);
       localStorage.setItem("tmh_lich_su_dot", JSON.stringify(danhSachTatCaDot));
 
@@ -2218,18 +2201,227 @@
         }
       } catch (e) {}
 
+      let loiXoa = null;
       if (typeof sb !== 'undefined') {
         try {
-          await sb.from('luu_tru').delete().eq('ma_dot', maDotXoa);
+          const { error } = await sb.from('luu_tru').delete().eq('ma_dot', maDotXoa);
+          loiXoa = error || null;
         } catch (e) {
+          loiXoa = e;
           console.warn("Lỗi xóa Supabase:", e);
         }
       }
+      return loiXoa;
+    }
 
-      hienThiToast(`🗑️ Đã xóa dữ liệu chuyến xe "${tenChuyen}" thành công!`);
+    // Xóa dữ liệu chuyến xe hiện tại
+    async function xoaDuLieuChuyenXe() {
+      if (!dotHienTai) {
+        alert("⚠️ Vui lòng chọn một chuyến xe cần xóa dữ liệu!");
+        return;
+      }
+
+      // Chuyến ĐÃ QUYẾT TOÁN: phải hoàn lại các khoản chuyến đã ghi ra ngoài (thu nợ cũ, tiền
+      // trả trước, phiếu nộp tiền, hàng đợi giao lại) trước khi xoá — xem xoaChuyenXeDaQuyetToan.
+      if (dotHienTai.daQuyetToan) return xoaChuyenXeDaQuyetToan();
+
+      const tenChuyen = `${dotHienTai.xe} (${dotHienTai.ngayGiao || 'Hôm nay'})`;
+      const xacNhan = confirm(
+        `🗑️ BẠN CÓ CHẮC CHẮN MUỐN XÓA DỮ LIỆU CHUYẾN XE NÀY?\n\n` +
+        `• Chuyến xe: ${tenChuyen}\n` +
+        `• Tài xế: ${dotHienTai.taiXe || 'Chưa rõ'}\n` +
+        `• Số hóa đơn: ${danhSachHoaDonQuyetToan.length} HĐ\n\n` +
+        `⚠️ Dữ liệu của chuyến xe này sẽ bị xóa khỏi danh sách quyết toán.\n` +
+        `Bấm [OK] để xác nhận XÓA. Bấm [Hủy / Cancel] để giữ lại.`
+      );
+
+      if (!xacNhan) return;
+
+      const maDotXoa = dotHienTai.maDot;
+      await donChuyenXeSauKhiXoa(maDotXoa);
+
+      // Gỡ luôn đơn nợ của chuyến khỏi Sổ Theo Dõi Công Nợ trên máy này (máy khác tự gỡ khi tải sổ)
+      let thongBaoNo = '';
+      if (typeof goDonNoCuaChuyenTrenMayNay === 'function') {
+        const kqNo = goDonNoCuaChuyenTrenMayNay(maDotXoa, danhSachHoaDonQuyetToan.map(h => h.maHD));
+        if (kqNo.soGo) thongBaoNo += ` Đã gỡ ${kqNo.soGo} đơn nợ của chuyến khỏi Sổ Công Nợ.`;
+        if (kqNo.giuLai) thongBaoNo += ` Giữ lại ${kqNo.giuLai} đơn nợ đã thu tiền.`;
+      }
+
+      hienThiToast(`🗑️ Đã xóa dữ liệu chuyến xe "${tenChuyen}" thành công!${thongBaoNo}`);
       dotHienTai = null;
       danhSachHoaDonQuyetToan = [];
       taiLaiDanhSachDot();
+    }
+
+    // ========================================================
+    // XOÁ DỮ LIỆU CHUYẾN XE ĐÃ QUYẾT TOÁN
+    // --------------------------------------------------------
+    // Chuyến đã quyết toán ghi số liệu ra NGOÀI chuyến (thu nợ cũ của khách khác, tiền khách
+    // trả trước, phiếu nộp tiền / tiền thiếu - thừa của người nộp, hàng đợi hẹn giao lại).
+    // Trước đây nút Xoá chỉ xoá luu_tru nên các khoản đó còn treo lại: nợ cũ khách khác vẫn
+    // hiện "đã thu" dù chuyến thu hộ đã bị xoá. Nay xoá chuyến đã quyết toán sẽ HOÀN LẠI đúng
+    // những khoản đó (giống nút "Làm mới chuyến") rồi mới xoá hẳn chuyến:
+    //  • thu_no: hoàn lại thu nợ cũ xe đã thu hộ & tiền trả trước đã cấn trừ vào nợ của chuyến
+    //  • Sổ tiền khách trả trước: ghi dòng điều chỉnh giảm phần khách trả dư của chuyến
+    //  • Phiếu nộp tiền: về 0 và gắn dấu làm mới (bỏ ghi nợ thiếu / thừa của người nộp, đồng
+    //    thời là dấu để mọi máy gỡ đơn nợ của chuyến khỏi sổ công nợ)
+    //  • Hàng đợi hẹn giao lại: bỏ các đơn chuyến này đã đưa vào
+    //  • Sổ công nợ: gỡ đơn nợ phát sinh của chuyến, trả lại số đã thu cho các đơn nợ cũ
+    // Có khoản không tự hoàn được (đã đẩy MISA, đơn nợ đã được thu ở nơi khác) thì DỪNG,
+    // không xoá và không đổi gì.
+    // ========================================================
+    async function xoaChuyenXeDaQuyetToan() {
+      const dot = dotHienTai;
+      const maDot = dot.maDot;
+      const tenChuyen = `${dot.xe} (${dot.ngayGiao || 'Hôm nay'})`;
+      if (dangLuuQuyetToan) { alert('⏳ Đang lưu quyết toán, vui lòng đợi xong rồi bấm lại.'); return; }
+      if (window.TMH_CHE_DO_XEM) { alert('🔒 Đang ở chế độ chỉ xem — không xoá được dữ liệu chuyến xe.'); return; }
+      if (typeof sb === 'undefined') {
+        alert('❌ Chưa kết nối máy chủ nên chưa xoá được chuyến ĐÃ QUYẾT TOÁN (phải hoàn lại thu nợ, tiền khách trả trước và phiếu nộp tiền trên máy chủ).');
+        return;
+      }
+
+      // 1. Đọc trên máy chủ những gì lần Lưu Quyết Toán đã ghi (chưa thay đổi gì)
+      let kt;
+      try {
+        kt = await kiemTraLamMoiChuyen(dot);
+      } catch (e) {
+        alert('❌ Không đọc được dữ liệu của chuyến trên máy chủ nên chưa xoá: ' + ((e && e.message) || e) + '\n\nKhông có dữ liệu nào bị thay đổi.');
+        return;
+      }
+
+      // Máy chủ không còn hoá đơn nào của chuyến (đã bị xoá ở máy khác) → chỉ dọn nốt trên máy này
+      if (!kt.dsMaHD.length) {
+        if (!confirm(`🗑️ Chuyến xe "${tenChuyen}" không còn hoá đơn nào trên máy chủ (có thể đã bị xoá ở máy khác).\n\nBấm [OK] để dọn nốt chuyến này khỏi danh sách trên máy này.`)) return;
+        await donChuyenXeSauKhiXoa(maDot);
+        if (typeof goDonNoCuaChuyenTrenMayNay === 'function') goDonNoCuaChuyenTrenMayNay(maDot, danhSachHoaDonQuyetToan.map(h => h.maHD));
+        hienThiToast(`🗑️ Đã dọn chuyến xe "${tenChuyen}" khỏi danh sách!`);
+        dotHienTai = null;
+        danhSachHoaDonQuyetToan = [];
+        return taiLaiDanhSachDot();
+      }
+
+      if (kt.chan.length) {
+        alert(`❌ CHƯA XOÁ ĐƯỢC DỮ LIỆU CHUYẾN "${tenChuyen}":\n\n${kt.chan.map(x => '• ' + x).join('\n')}\n\n` +
+          `Cần điều chỉnh các khoản trên trước khi xoá chuyến.\n\nKhông có dữ liệu nào bị thay đổi.`);
+        return;
+      }
+
+      // 2. Xác nhận — liệt kê đúng những gì sẽ được hoàn lại và bị xoá
+      const p = kt.phieu;
+      let dongPhieu = '';
+      if (p && String(p.ghi_chu || '').indexOf(GHI_CHU_LAM_MOI_CHUYEN) !== 0) {
+        const tienDem = MENH_GIA_TIEN.reduce((s, m) => s + m * (parseInt(p[COT_SO_TO_PHIEU[m]]) || 0), 0);
+        const tt = tinhThieuThuaNopTien(tienDem, tienDem - (parseFloat(p.chenh_lech) || 0));
+        dongPhieu = `• Huỷ phiếu nộp tiền: người nộp ${p.nguoi_nop || '--'}, tiền mặt phải nộp ${formatTien(tt.phaiNop)} đ` +
+          (tt.daDem ? `, đã đếm ${formatTien(tt.tienDem)} đ` : '') +
+          (tt.ghiNo ? ` → bỏ ghi nợ thiếu ${formatTien(tt.soNo)} đ của người nộp` : (tt.thua > 0 ? ` → bỏ ghi nhận thừa ${formatTien(tt.thua)} đ` : '')) + '\n';
+      }
+      const dongXacNhan =
+        `• Xoá ${kt.dsMaHD.length} hoá đơn của chuyến khỏi lưu trữ (các hoá đơn này được giải phóng để điều xe lại)\n` +
+        (kt.idNo.length ? `• Gỡ ${kt.idNo.length} đơn nợ (${formatTien(kt.tongNo)} đ) khỏi Sổ theo dõi công nợ\n` : '') +
+        (kt.tongThuNoCu ? `• Hoàn lại thu nợ cũ qua xe ${formatTien(kt.tongThuNoCu)} đ (khách nợ lại như trước khi thu)\n` : '') +
+        (kt.tongCanTru ? `• Trả lại ${formatTien(kt.tongCanTru)} đ tiền trả trước đã cấn trừ vào nợ của chuyến\n` : '') +
+        (kt.tongTraDu ? `• Gỡ ${formatTien(kt.tongTraDu)} đ tiền khách trả dư khỏi Sổ tiền khách trả trước\n` : '') +
+        (kt.tongHoanCKDu ? `• Gỡ khoản khách chuyển khoản dư đã hoàn tiền mặt ${formatTien(kt.tongHoanCKDu)} đ (cặp nhận / hoàn trong Sổ tiền khách trả trước)\n` : '') +
+        dongPhieu +
+        (kt.dsGiaoLai.length ? `• Bỏ ${kt.dsGiaoLai.length} đơn khỏi hàng đợi hẹn giao lại\n` : '') +
+        (!kt.coBangThuNo ? `• Hoàn lại thu nợ cũ đã ghi trên máy này\n` : '');
+      if (!confirm(
+        `🗑️ XÓA DỮ LIỆU CHUYẾN XE ĐÃ QUYẾT TOÁN "${tenChuyen}"?\n\n` +
+        `• Tài xế: ${dot.taiXe || 'Chưa rõ'}\n\n` +
+        `Mọi số liệu chuyến đã ghi sẽ được HOÀN LẠI, rồi chuyến bị xoá hẳn:\n` +
+        dongXacNhan +
+        (kt.canhBao.length ? `\n⚠️ LƯU Ý:\n${kt.canhBao.map(x => '• ' + x).join('\n')}\n` : '') +
+        `\n⚠️ Xoá rồi KHÔNG lấy lại được chuyến này. Nếu chỉ muốn nhập lại số liệu, hãy dùng nút "Làm mới chuyến" (giữ chuyến ở Chờ tính tiền).\n` +
+        `\nBấm [OK] để XÓA. Bấm [Hủy / Cancel] để giữ lại.`
+      )) return;
+
+      const loi = [];
+      const luc = new Date().toLocaleString('vi-VN');
+      const nguoi = (typeof nguoiThucHienTT === 'function') ? nguoiThucHienTT() : '';
+
+      // 3. Hoàn lại các khoản thu nợ (thu nợ cũ qua xe, cấn trừ trả trước vào nợ của chuyến)
+      for (const r of kt.dongHoanThuNo) {
+        const cu = parseFloat(r.so_tien) || 0;
+        const { data, error } = await sb.from('thu_no')
+          .update({ so_tien: 0, ghi_chu: `${r.ghi_chu || ''} — [Xoá chuyến ${luc}: hoàn lại ${formatTien(cu)} đ]` })
+          .eq('id', r.id).select('id');
+        if (error || !data || !data.length) loi.push(`Chưa hoàn lại được khoản thu HĐ ${r.ma_hd || '?'} ${formatTien(cu)} đ${error ? ' (' + (error.message || '') + ')' : ''}`);
+      }
+
+      // 4. Sổ tiền khách trả trước: điều chỉnh giảm phần khách trả dư của chuyến
+      if (kt.dongTraTruoc.length) {
+        const dongTT = kt.dongTraTruoc.map(r => ({ ...r, ghi_chu: `${String(r.ghi_chu || '').split(' — điều chỉnh giảm')[0]} — điều chỉnh giảm do xoá dữ liệu chuyến xe` }));
+        const kqTT = await ghiSoTraTruoc(dongTT);
+        if (!kqTT.ok) loi.push('Chưa gỡ được tiền khách trả dư khỏi Sổ tiền khách trả trước: ' + (kqTT.loi || 'lỗi'));
+      }
+
+      // 5. Phiếu nộp tiền: về 0 và gắn dấu làm mới. KHÔNG xoá dòng này — nó là dấu để mọi máy
+      // gỡ đơn nợ của chuyến khỏi sổ công nợ, đồng thời là bằng chứng chuyến từng lên máy chủ.
+      const phieuXoa = {
+        ma_phieu: `PNP_${maDot}`, ma_dot: maDot, xe: dot.xe, ngay_nop: dot.ngayGiao || '', nguoi_nop: '', thu_quy: '',
+        tong_tien_mat: 0, tong_chuyen_khoan: 0, tong_tra_ve: 0, tong_con_no: 0,
+        sl_500k: 0, sl_200k: 0, sl_100k: 0, sl_50k: 0, sl_20k: 0, sl_10k: 0, sl_5k: 0, sl_2k: 0, sl_1k: 0, chenh_lech: 0,
+        ghi_chu: `${GHI_CHU_LAM_MOI_CHUYEN} [ĐÃ XOÁ DỮ LIỆU CHUYẾN] ${luc}${nguoi ? ' — ' + nguoi : ''}` +
+          (p ? ` | Trước đó: người nộp ${p.nguoi_nop || '--'}, tiền mặt ${formatTien(p.tong_tien_mat)} đ, chênh lệch ${formatTien(p.chenh_lech)} đ` : ''),
+        tien_chi: 0, noi_dung_chi: '', thu_no_cu: 0, ghi_chu_thu_no_cu: '', tien_thoi: 0, ghi_chu_phieu: '',
+        danh_sach_don_no_dang_thu: [], danh_sach_chi_phi: [], danh_sach_thu_no: []
+      };
+      const kqPhieu = await upsertSupabaseTuTu('phieu_nop_tien', [phieuXoa], { onConflict: 'ma_phieu' });
+      if (!kqPhieu || !kqPhieu.success) loi.push('Chưa huỷ được phiếu nộp tiền trên máy chủ — Báo Cáo Tổng Hợp có thể vẫn thấy khoản thiếu / thừa của người nộp, và máy khác có thể vẫn thấy đơn nợ của chuyến.');
+
+      // 6. Hàng đợi hẹn giao lại
+      if (kt.dsGiaoLai.length) {
+        const setGL = new Set(kt.dsGiaoLai.map(m => String(m).toUpperCase()));
+        let dsGL = [];
+        try { dsGL = JSON.parse(localStorage.getItem('tmh_danh_sach_cho_giao_lai') || '[]'); } catch (e) {}
+        dsGL = dsGL.filter(it => !(setGL.has(String(it.maHD || '').toUpperCase()) && (!it.maDotCu || it.maDotCu === maDot)));
+        localStorage.setItem('tmh_danh_sach_cho_giao_lai', JSON.stringify(dsGL));
+        if (typeof xoaDonGiaoLaiSupabase === 'function') await xoaDonGiaoLaiSupabase(kt.dsGiaoLai);
+      }
+
+      // 7. Xoá hoá đơn của chuyến trên máy chủ + dọn chuyến khỏi máy này
+      const loiXoa = await donChuyenXeSauKhiXoa(maDot);
+      if (loiXoa) loi.push('Chưa xoá được hoá đơn của chuyến trên máy chủ: ' + (loiXoa.message || loiXoa));
+
+      // 8. Sổ công nợ trên máy này: gỡ đơn nợ của chuyến, cập nhật lại số đã thu của các đơn nợ cũ
+      const setNo = new Set(kt.idNo), setMa = new Set(kt.dsMaHD);
+      const soCongNo = docSoCongNo().filter(d => !(setNo.has(d.id) || (!d.ngoaiBangKe && d.maDot === maDot && setMa.has(d.maHD))));
+      if (!kt.coBangThuNo && dot.thuNoDaGhiNhan && typeof dot.thuNoDaGhiNhan === 'object') {
+        // Chưa có bảng thu_no (chỉ lưu trên máy): trừ lại đúng số chuyến đã cấn trừ
+        Object.entries(dot.thuNoDaGhiNhan).forEach(([id, v]) => {
+          const d = soCongNo.find(x => x.id === id);
+          if (!d) return;
+          d.daThu = Math.max(0, (d.daThu || 0) - (parseFloat(v) || 0));
+          d.conLai = Math.max(0, (d.soTienNo || 0) - d.daThu);
+          d.trangThai = d.conLai <= 0 ? 'da_thu_du' : (d.daThu > 0 ? 'da_thu_mot_phan' : 'chua_thu');
+        });
+      }
+      ghiSoCongNo(soCongNo);
+      if (kt.coBangThuNo) await dongBoConLaiCongNoTuCloud();
+
+      // 9. Nhật ký kiểm soát hậu kỳ
+      if (typeof ghiNhatKy === 'function') {
+        ghiNhatKy('ghi_du_lieu', {
+          module: 'quyettoan', doi_tuong: maDot,
+          noi_dung: `Xoá dữ liệu chuyến xe ĐÃ QUYẾT TOÁN ${tenChuyen} — xoá ${kt.dsMaHD.length} hoá đơn, gỡ ${kt.idNo.length} đơn nợ (${formatTien(kt.tongNo)} đ), ` +
+            `hoàn thu nợ cũ ${formatTien(kt.tongThuNoCu)} đ, trả lại cấn trừ trả trước ${formatTien(kt.tongCanTru)} đ, ` +
+            `gỡ trả dư ${formatTien(kt.tongTraDu)} đ, huỷ phiếu nộp tiền` + (loi.length ? ` — CÒN LỖI: ${loi.join('; ')}` : ''),
+          chi_tiet: { maDot, dsMaHD: kt.dsMaHD, idNo: kt.idNo, phieuTruoc: p, dsGiaoLai: kt.dsGiaoLai, loi }
+        });
+      }
+
+      // 10. Tải lại danh sách chuyến
+      dotHienTai = null;
+      danhSachHoaDonQuyetToan = [];
+      await taiLaiDanhSachDot();
+      alert((loi.length
+        ? `⚠️ ĐÃ XOÁ CHUYẾN "${tenChuyen}", NHƯNG CÒN VIỆC CHƯA XONG:\n\n${loi.map(x => '• ' + x).join('\n')}`
+        : `✅ ĐÃ XOÁ DỮ LIỆU CHUYẾN XE "${tenChuyen}".`) +
+        `\n\nĐã hoàn lại thu nợ cũ, tiền khách trả trước, phiếu nộp tiền và gỡ công nợ của chuyến. ` +
+        `${kt.dsMaHD.length} hoá đơn của chuyến đã được giải phóng để điều xe lại ở Bước 1.`);
     }
 
     // ========================================================
@@ -2997,11 +3189,19 @@
         localStorage.setItem('tmh_danh_sach_cho_giao_lai', JSON.stringify(dsGL));
       } catch (e) {}
 
+      // Hoá đơn không còn trong lưu trữ → gỡ đơn nợ của nó khỏi Sổ Công Nợ (nếu chưa thu đồng nào)
+      let thongBaoNo = '';
+      if (typeof goDonNoCuaChuyenTrenMayNay === 'function') {
+        const kqNo = goDonNoCuaChuyenTrenMayNay('', [maHD]);
+        if (kqNo.soGo) thongBaoNo = ' Đã gỡ đơn nợ của hóa đơn này khỏi Sổ Công Nợ.';
+        else if (kqNo.giuLai) thongBaoNo = ' Đơn nợ của hóa đơn này đã thu tiền nên vẫn giữ trong Sổ Công Nợ.';
+      }
+
       veBangQuyetToan();
       tinhToanTongThe();
       tinhTongBangDemTien();
 
-      hienThiToast(`🗑️ Đã xóa hóa đơn ${maHD} khỏi lưu trữ thành công!`);
+      hienThiToast(`🗑️ Đã xóa hóa đơn ${maHD} khỏi lưu trữ thành công!${thongBaoNo}`);
     }
 
     function nhapTienTraVe(idx, rawVal) {
@@ -4560,6 +4760,11 @@
           if (typeof goDonNoCuaChuyenDaLamMoi === 'function') {
             const kqGo = await goDonNoCuaChuyenDaLamMoi(docSoCongNo());
             if (kqGo.soGo) ghiSoCongNo(kqGo.ds);
+          }
+          // 6. Gỡ đơn nợ của các chuyến xe / hoá đơn đã bị XOÁ DỮ LIỆU (không còn trên luu_tru)
+          if (typeof goDonNoMatChungTu === 'function') {
+            const kqMat = await goDonNoMatChungTu(docSoCongNo());
+            if (kqMat.soGo) ghiSoCongNo(kqMat.ds);
           }
           lanDongBoSoCongNoCuoi = Date.now();
         } catch (e) {

@@ -2008,17 +2008,26 @@
     }
 
     function xoaMotChuyenXeKhoiLichSu(maDot) {
-      if (!confirm("Bạn có chắc chắn muốn xóa chuyến xe này khỏi lịch sử lưu trữ?")) return;
+      if (!confirm("Bạn có chắc chắn muốn xóa chuyến xe này khỏi lịch sử lưu trữ?\n\n⚠️ Các đơn nợ phát sinh từ chuyến (chưa thu đồng nào) cũng được gỡ khỏi Sổ Theo Dõi Công Nợ.")) return;
       let lichSu = [];
       try { lichSu = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]"); } catch(e){}
+      const dotXoa = lichSu.find(d => d.maDot === maDot);
       lichSu = lichSu.filter(d => d.maDot !== maDot);
       localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSu));
       if (typeof sb !== 'undefined') {
         sb.from('luu_tru').delete().eq('ma_dot', maDot).then(() => {});
         sb.from('chi_tiet_hoa_don').delete().eq('ma_dot', maDot).then(() => {});
       }
+      // Gỡ đơn nợ của chuyến khỏi Sổ Theo Dõi Công Nợ trên máy này (máy khác tự gỡ khi tải sổ)
+      let thongBaoNo = '';
+      if (typeof goDonNoCuaChuyenTrenMayNay === 'function') {
+        const dsMa = dotXoa ? (dotXoa.danhSachChiTiet || []).map(r => r.maHD || r.ma_hd).concat(dotXoa.danhSachHD || []) : [];
+        const kqNo = goDonNoCuaChuyenTrenMayNay(maDot, dsMa);
+        if (kqNo.soGo) thongBaoNo += ` Đã gỡ ${kqNo.soGo} đơn nợ khỏi Sổ Công Nợ.`;
+        if (kqNo.giuLai) thongBaoNo += ` Giữ lại ${kqNo.giuLai} đơn nợ đã thu tiền.`;
+      }
       moModalXemLaiChuyenXe(); // Render lại danh sách
-      hienThiToast("🗑️ Đã xóa chuyến xe khỏi lịch sử!");
+      hienThiToast(`🗑️ Đã xóa chuyến xe khỏi lịch sử!${thongBaoNo}`);
     }
 
     // ========================================================
