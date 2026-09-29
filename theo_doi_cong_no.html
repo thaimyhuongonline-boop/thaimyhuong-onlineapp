@@ -1026,6 +1026,48 @@
   </div>
 
   <!-- ======================================================== -->
+  <!-- HOÀN LẠI KHOẢN ĐÃ GẠCH NỢ (gạch nhầm khách / nhầm đơn)    -->
+  <!-- ======================================================== -->
+  <div id="modalHoanGachNo" class="modal-overlay no-print" style="display:none;" onclick="if(event.target===this) dongModalHoanGachNo()">
+    <div class="modal-card modal-card-large">
+      <div class="modal-header">
+        <div>
+          <div style="font-weight:800; font-size:14px; color:var(--text-main);">↩️ Hoàn Lại Khoản Đã Gạch Nợ</div>
+          <div style="font-size:11.5px; color:var(--text-muted);">Gạch nhầm sang khách khác → hoàn lại khoản đã gạch rồi gạch lại cho đúng khách</div>
+        </div>
+        <button type="button" class="btn btn-outline" style="height:28px; padding:0 8px; font-weight:800;" onclick="dongModalHoanGachNo()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="hgnThongTinDon" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:10px; background:#f8fafc; padding:10px; border-radius:var(--radius-sm); border:1px solid #e2e8f0;"></div>
+
+        <div class="table-container" style="max-height:340px; overflow-y:auto; margin-top:10px;">
+          <table class="table-cong-no">
+            <thead>
+              <tr>
+                <th style="width:30px; text-align:center;">STT</th>
+                <th style="width:95px;">Ngày Thu</th>
+                <th style="width:115px;">Hình Thức</th>
+                <th style="width:110px; text-align:right;">Số Tiền Đã Gạch</th>
+                <th style="width:150px;">Người Thu</th>
+                <th style="min-width:160px;">Ghi Chú</th>
+                <th style="width:120px; text-align:center;">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="hgnTbody">
+              <!-- Render động -->
+            </tbody>
+          </table>
+        </div>
+
+        <div style="margin-top:10px; font-size:11.5px; color:var(--text-muted); background:#fffbeb; border:1px solid #fde68a; border-radius:var(--radius-sm); padding:8px 10px;">
+          📌 Hoàn lại sẽ đưa khoản thu về <b>0 đ</b> nhưng <b>GIỮ NGUYÊN dòng cũ</b> kèm ghi chú lý do để còn tra cứu; đơn nợ này trở về <b>CHƯA THU</b> đúng phần đã hoàn.
+          Sau đó vào đúng khách hàng đã trả tiền để <b>gạch nợ lại</b>. Mọi máy khác đều thấy ngay sau khi tải lại.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
   <!-- MẪU IN BIÊN BẢN ĐỐI CHIẾU CÔNG NỢ CHI TIẾT A4             -->
   <!-- ======================================================== -->
   <div id="khuVucInDoiChieuCongNoA4" class="print-only">
@@ -1947,6 +1989,11 @@
                         💰 Thu nợ
                       </button>
                     ` : `<span style="color:#16a34a; font-weight:700; font-size:11px;">Đã xong</span>`}
+                    ${daThu > 0 ? `
+                      <button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:11px; color:#b45309; border-color:#fcd34d;" onclick="moHoanGachNo(${escapeHtml(JSON.stringify(d.id))})" title="Gạch nhầm khách → hoàn lại khoản đã gạch để gạch lại cho đúng khách">
+                        ↩️ Hoàn gạch
+                      </button>
+                    ` : ''}
                     <button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:11px; color:#dc2626; border-color:#fca5a5;" onclick="xoaDonNo(${escapeHtml(JSON.stringify(d.id))})" title="Xoá dòng này">
                       🗑️
                     </button>
@@ -3235,6 +3282,148 @@
     }
 
     // ========================================================
+    // HOÀN LẠI KHOẢN ĐÃ GẠCH NỢ (GẠCH NHẦM KHÁCH / NHẦM ĐƠN)
+    // --------------------------------------------------------
+    // Khách A trả tiền nhưng lỡ gạch nợ sang đơn của khách B. Mở đơn của khách B, hoàn lại
+    // đúng khoản vừa gạch: khoản thu trên máy chủ về 0 đ nhưng GIỮ NGUYÊN dòng cũ kèm ghi chú
+    // lý do (để còn tra cứu — giống cách Bước 2 hoàn khoản thu khi làm mới chuyến), đơn nợ của
+    // khách B trở về CHƯA THU đúng phần đã hoàn. Sau đó vào khách A để gạch nợ lại cho đúng.
+    // ========================================================
+    let donDangHoanGachNo = null;      // đơn nợ đang mở trong modal hoàn gạch nợ
+    let dsKhoanGachNoDangXem = [];     // các khoản đã gạch (thu_no) còn hiệu lực của đơn đó
+
+    async function moHoanGachNo(id) {
+      if (chanNeuChiXem()) return;
+      const don = danhSachCongNo.find(d => d.id === id);
+      if (!don) { alert('⚠️ Không tìm thấy đơn nợ này trong sổ.'); return; }
+      if (typeof sb === 'undefined') {
+        alert('❌ Chưa kết nối máy chủ nên chưa hoàn được khoản gạch nợ (phải sửa khoản thu trên máy chủ để mọi máy cùng thấy).');
+        return;
+      }
+      donDangHoanGachNo = don;
+      dsKhoanGachNoDangXem = [];
+      document.getElementById('modalHoanGachNo').style.display = 'flex';
+      veThongTinDonHoanGachNo();
+      document.getElementById('hgnTbody').innerHTML = '<tr><td colspan="7" style="text-align:center; padding:18px;">⏳ Đang tải các khoản đã gạch nợ…</td></tr>';
+
+      const { data, error } = await sb.from('thu_no').select('*').eq('id_don_no', id);
+      if (error) {
+        document.getElementById('hgnTbody').innerHTML =
+          `<tr><td colspan="7" style="text-align:center; padding:18px; color:#b91c1c;">❌ Không đọc được các khoản đã gạch nợ: ${escapeHtml((error.message || 'lỗi không rõ'))}` +
+          (laLoiThieuBangThuNo(error) ? '<br>Hãy chạy sql/07_thu_no_dong_bo.sql trong Supabase.' : '') + '</td></tr>';
+        return;
+      }
+      dsKhoanGachNoDangXem = (data || [])
+        .filter(r => (parseFloat(r.so_tien) || 0) > 0)
+        .sort((a, b) => String(b.ngay_thu || '').localeCompare(String(a.ngay_thu || '')));
+      veBangHoanGachNo();
+    }
+
+    function dongModalHoanGachNo() {
+      document.getElementById('modalHoanGachNo').style.display = 'none';
+      donDangHoanGachNo = null;
+      dsKhoanGachNoDangXem = [];
+    }
+
+    function veThongTinDonHoanGachNo() {
+      const d = donDangHoanGachNo;
+      const box = document.getElementById('hgnThongTinDon');
+      if (!d || !box) return;
+      const conLai = (d.conLai !== undefined) ? d.conLai : Math.max(0, (d.soTienNo || 0) - (d.daThu || 0));
+      box.innerHTML =
+        `<div><span style="color:var(--text-muted); font-size:11px;">Hoá đơn:</span> <b style="font-family:monospace; font-size:13px;">${escapeHtml(d.maHD || '--')}</b></div>` +
+        `<div><span style="color:var(--text-muted); font-size:11px;">Khách hàng:</span> <b style="font-size:13px;">${escapeHtml(d.tenKH || '--')}</b></div>` +
+        `<div><span style="color:var(--text-muted); font-size:11px;">Tiền nợ:</span> <b style="font-size:13px; color:#b91c1c;">${formatTien(d.soTienNo || 0)} đ</b></div>` +
+        `<div><span style="color:var(--text-muted); font-size:11px;">Đã thu:</span> <b style="font-size:13px; color:#16a34a;">${formatTien(d.daThu || 0)} đ</b></div>` +
+        `<div><span style="color:var(--text-muted); font-size:11px;">Còn lại:</span> <b style="font-size:14px; color:#dc2626;">${formatTien(conLai)} đ</b></div>`;
+    }
+
+    function veBangHoanGachNo() {
+      const body = document.getElementById('hgnTbody');
+      if (!body) return;
+      if (!dsKhoanGachNoDangXem.length) {
+        body.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:18px; color:var(--text-muted);">Đơn nợ này không còn khoản gạch nợ nào để hoàn lại.</td></tr>';
+        return;
+      }
+      body.innerHTML = dsKhoanGachNoDangXem.map((r, i) => {
+        const st = parseFloat(r.so_tien) || 0;
+        return `
+          <tr>
+            <td style="text-align:center; font-weight:700; color:var(--text-muted);">${i + 1}</td>
+            <td style="white-space:nowrap;">${r.ngay_thu ? dinhDangNgayVN(r.ngay_thu) : '--'}</td>
+            <td>${escapeHtml(r.hinh_thuc || '--')}${r.tai_khoan_nhan ? `<div style="font-size:10.5px; color:var(--text-muted);">${escapeHtml(r.tai_khoan_nhan)}</div>` : ''}${r.da_day_misa ? `<div style="font-size:10.5px; color:#b45309; font-weight:700;">Đã đẩy MISA</div>` : ''}</td>
+            <td class="num-cell" style="color:#16a34a; font-weight:800;">${formatTien(st)}</td>
+            <td style="font-size:11.5px;">${escapeHtml(r.nguoi_thu || '--')}</td>
+            <td style="font-size:11.5px; color:var(--text-muted);">${escapeHtml(r.ghi_chu || '--')}</td>
+            <td style="text-align:center;">
+              <button type="button" class="btn btn-outline" style="height:26px; padding:0 8px; font-size:11px; color:#b45309; border-color:#fcd34d;"
+                onclick="hoanLaiKhoanGachNo(${escapeHtml(JSON.stringify(String(r.id)))})" title="Hoàn lại khoản này (gạch nhầm khách)">
+                ↩️ Hoàn lại
+              </button>
+            </td>
+          </tr>`;
+      }).join('');
+    }
+
+    async function hoanLaiKhoanGachNo(idThu) {
+      if (chanNeuChiXem()) return;
+      const don = donDangHoanGachNo;
+      const r = dsKhoanGachNoDangXem.find(x => String(x.id) === String(idThu));
+      if (!don || !r) return;
+      const cu = parseFloat(r.so_tien) || 0;
+      if (cu <= 0) return;
+
+      if (r.da_day_misa && !confirm(
+        `⚠️ KHOẢN GẠCH NỢ NÀY ĐÃ ĐẨY MISA.\n\nHoàn lại ở đây KHÔNG tự sửa bút toán bên MISA — kế toán phải tự điều chỉnh phiếu thu bên MISA.\n\nBấm [OK] nếu vẫn muốn hoàn lại. Bấm [Hủy] để dừng.`
+      )) return;
+
+      const lyDo = (prompt(`Lý do hoàn lại khoản gạch nợ ${formatTien(cu)} đ của đơn ${don.maHD} — ${don.tenKH}:`, 'Gạch nhầm khách') || '').trim();
+      if (!lyDo) { alert('⚠️ Cần ghi lý do hoàn lại để còn tra cứu về sau.'); return; }
+
+      if (!confirm(
+        `↩️ HOÀN LẠI KHOẢN ĐÃ GẠCH NỢ ${formatTien(cu)} đ?\n\n` +
+        `• Đơn nợ: ${don.maHD} — ${don.tenKH}\n` +
+        `• Khoản đã gạch: ${r.hinh_thuc || '--'}, ngày ${r.ngay_thu || '?'}${r.nguoi_thu ? ', ' + r.nguoi_thu : ''}\n` +
+        `• Lý do: ${lyDo}\n\n` +
+        `Khoản thu về 0 đ (dòng cũ vẫn được giữ kèm ghi chú lý do), đơn nợ này trở về CHƯA THU phần ${formatTien(cu)} đ.\n\n` +
+        `📌 Sau đó nhớ vào ĐÚNG khách hàng đã trả tiền để GẠCH NỢ LẠI khoản này.\n\nBấm [OK] để hoàn lại.`
+      )) return;
+
+      const luc = new Date().toLocaleString('vi-VN');
+      const { data, error } = await sb.from('thu_no')
+        .update({ so_tien: 0, ghi_chu: `${r.ghi_chu || ''} — [Hoàn gạch nợ ${luc} — ${layNguoiThaoTac()}: hoàn lại ${formatTien(cu)} đ — ${lyDo}]` })
+        .eq('id', r.id).select('id');
+      if (error || !data || !data.length) {
+        alert('❌ CHƯA hoàn được khoản gạch nợ này trên máy chủ' + (error ? ': ' + (error.message || JSON.stringify(error)) : '.') + '\n\nKhông có dữ liệu nào bị thay đổi.');
+        return;
+      }
+
+      // Cập nhật sổ công nợ trên máy này (máy khác thấy ngay khi tải lại dữ liệu)
+      don.daThu = Math.max(0, (don.daThu || 0) - cu);
+      if (typeof don.daThuCloudDaDongBo === 'number') don.daThuCloudDaDongBo = Math.max(0, don.daThuCloudDaDongBo - cu);
+      don.conLai = Math.max(0, (don.soTienNo || 0) - don.daThu);
+      don.trangThai = don.conLai <= 0 ? 'da_thu_du' : (don.daThu > 0 ? 'da_thu_mot_phan' : 'chua_thu');
+      don.ghiChuThu = `${don.ghiChuThu || ''} — Hoàn lại ${formatTien(cu)} đ ngày ${luc} (${lyDo}).`.trim();
+      if (don.daThu <= 0) {
+        don.ngayThanhToan = '';
+        thuNoNgayCloudMap.delete(don.id);
+      }
+      ghiSoCongNo(danhSachCongNo);
+      // Tổng hợp thu_no đang giữ trong bộ nhớ cũng phải giảm theo, để lần vẽ sau không cộng lại
+      if (thuNoCloudMap.has(don.id)) thuNoCloudMap.set(don.id, Math.max(0, (thuNoCloudMap.get(don.id) || 0) - cu));
+
+      dsKhoanGachNoDangXem = dsKhoanGachNoDangXem.filter(x => String(x.id) !== String(idThu));
+      veBangHoanGachNo();
+      veThongTinDonHoanGachNo();
+      capNhatKPI();
+      veBangCongNo();
+
+      alert(`✅ ĐÃ HOÀN LẠI ${formatTien(cu)} đ của đơn ${don.maHD} — ${don.tenKH}.\n\n` +
+        `Đơn nợ này còn lại ${formatTien(don.conLai)} đ (đã thu ${formatTien(don.daThu)} đ).\n\n` +
+        `📌 Giờ hãy vào ĐÚNG khách hàng đã trả tiền và bấm "💰 Thu nợ" để gạch nợ lại khoản này.`);
+    }
+
+    // ========================================================
     // LỊCH SỬ ĐƠN NỢ THEO KHÁCH HÀNG (MODAL)
     // ========================================================
     function moLichSuDonKhachHang(tenKHRaw) {
@@ -3280,6 +3469,11 @@
                     Thu nợ
                   </button>
                 ` : `<span title="Đã thu đủ">✅</span>`}
+                ${daThu > 0 ? `
+                  <button type="button" class="btn btn-outline" style="height:24px; padding:0 5px; font-size:10.5px; color:#b45309; border-color:#fcd34d;" onclick="dongModalLichSu(); moHoanGachNo(${escapeHtml(JSON.stringify(d.id))})" title="Gạch nhầm khách → hoàn lại khoản đã gạch">
+                    ↩️
+                  </button>
+                ` : ''}
                 <button type="button" class="btn btn-outline" style="height:24px; padding:0 5px; font-size:10.5px; color:#dc2626; border-color:#fca5a5;" onclick="xoaDonNoTrongModal(${escapeHtml(JSON.stringify(d.id))}, ${escapeHtml(JSON.stringify(encodeURIComponent(d.tenKH || '')))})" title="Xoá dòng này">
                   🗑️
                 </button>
