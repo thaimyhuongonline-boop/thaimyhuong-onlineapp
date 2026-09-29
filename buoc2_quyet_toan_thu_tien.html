@@ -2302,6 +2302,24 @@
         return taiLaiDanhSachDot();
       }
 
+      // 1b. Đơn nợ của chuyến đã được THU TIỀN Ở NƠI KHÁC (Sổ theo dõi công nợ) thì KHÔNG chặn xoá
+      // nữa: tiền khách đã nộp là có thật, xoá chuyến không được làm mất dấu khoản đã thu đó.
+      // Cách xử lý giống hệt lối xoá chuyến CHƯA quyết toán (goDonNoCuaChuyenTrenMayNay):
+      // giữ nguyên khoản thu trên máy chủ và GIỮ LẠI đơn nợ đó trong Sổ công nợ, chỉ xoá chuyến.
+      const idNoGiuLai = new Set();
+      let tienNoGiuLai = 0;
+      if (Array.isArray(kt.noThuNoiKhac) && kt.noThuNoiKhac.length) {
+        const boChan = new Set();
+        kt.noThuNoiKhac.forEach(x => {
+          if (!x.id_don_no) return;
+          idNoGiuLai.add(x.id_don_no);
+          tienNoGiuLai += x.so_tien || 0;
+          boChan.add(x.moTaChan);
+          kt.canhBao.push('Đơn nợ đã được thu tiền ở nơi khác nên được GIỮ LẠI trong Sổ theo dõi công nợ (khoản đã thu không bị đụng tới) — ' + x.moTa);
+        });
+        kt.chan = kt.chan.filter(x => !boChan.has(x));
+      }
+
       if (kt.chan.length) {
         alert(`❌ CHƯA XOÁ ĐƯỢC DỮ LIỆU CHUYẾN "${tenChuyen}":\n\n${kt.chan.map(x => '• ' + x).join('\n')}\n\n` +
           `Cần điều chỉnh các khoản trên trước khi xoá chuyến.\n\nKhông có dữ liệu nào bị thay đổi.`);
@@ -2320,7 +2338,8 @@
       }
       const dongXacNhan =
         `• Xoá ${kt.dsMaHD.length} hoá đơn của chuyến khỏi lưu trữ (các hoá đơn này được giải phóng để điều xe lại)\n` +
-        (kt.idNo.length ? `• Gỡ ${kt.idNo.length} đơn nợ (${formatTien(kt.tongNo)} đ) khỏi Sổ theo dõi công nợ\n` : '') +
+        ((kt.idNo.length - idNoGiuLai.size) > 0 ? `• Gỡ ${kt.idNo.length - idNoGiuLai.size} đơn nợ ${idNoGiuLai.size ? '' : `(${formatTien(kt.tongNo)} đ) `}khỏi Sổ theo dõi công nợ\n` : '') +
+        (idNoGiuLai.size ? `• GIỮ LẠI ${idNoGiuLai.size} đơn nợ đã được thu tiền ở nơi khác (đã thu ${formatTien(tienNoGiuLai)} đ) trong Sổ theo dõi công nợ — khoản đã thu KHÔNG bị đụng tới\n` : '') +
         (kt.tongThuNoCu ? `• Hoàn lại thu nợ cũ qua xe ${formatTien(kt.tongThuNoCu)} đ (khách nợ lại như trước khi thu)\n` : '') +
         (kt.tongCanTru ? `• Trả lại ${formatTien(kt.tongCanTru)} đ tiền trả trước đã cấn trừ vào nợ của chuyến\n` : '') +
         (kt.tongTraDu ? `• Gỡ ${formatTien(kt.tongTraDu)} đ tiền khách trả dư khỏi Sổ tiền khách trả trước\n` : '') +
@@ -2388,7 +2407,9 @@
 
       // 8. Sổ công nợ trên máy này: gỡ đơn nợ của chuyến, cập nhật lại số đã thu của các đơn nợ cũ
       const setNo = new Set(kt.idNo), setMa = new Set(kt.dsMaHD);
-      const soCongNo = docSoCongNo().filter(d => !(setNo.has(d.id) || (!d.ngoaiBangKe && d.maDot === maDot && setMa.has(d.maHD))));
+      const soCongNo = docSoCongNo().filter(d =>
+        idNoGiuLai.has(d.id) ||   // đơn nợ đã được thu tiền ở nơi khác → giữ lại để không mất dấu tiền đã thu
+        !(setNo.has(d.id) || (!d.ngoaiBangKe && d.maDot === maDot && setMa.has(d.maHD))));
       if (!kt.coBangThuNo && dot.thuNoDaGhiNhan && typeof dot.thuNoDaGhiNhan === 'object') {
         // Chưa có bảng thu_no (chỉ lưu trên máy): trừ lại đúng số chuyến đã cấn trừ
         Object.entries(dot.thuNoDaGhiNhan).forEach(([id, v]) => {
@@ -2406,7 +2427,8 @@
       if (typeof ghiNhatKy === 'function') {
         ghiNhatKy('ghi_du_lieu', {
           module: 'quyettoan', doi_tuong: maDot,
-          noi_dung: `Xoá dữ liệu chuyến xe ĐÃ QUYẾT TOÁN ${tenChuyen} — xoá ${kt.dsMaHD.length} hoá đơn, gỡ ${kt.idNo.length} đơn nợ (${formatTien(kt.tongNo)} đ), ` +
+          noi_dung: `Xoá dữ liệu chuyến xe ĐÃ QUYẾT TOÁN ${tenChuyen} — xoá ${kt.dsMaHD.length} hoá đơn, gỡ ${kt.idNo.length - idNoGiuLai.size} đơn nợ (${formatTien(kt.tongNo)} đ), ` +
+            (idNoGiuLai.size ? `giữ lại ${idNoGiuLai.size} đơn nợ đã thu tiền ở nơi khác (${formatTien(tienNoGiuLai)} đ), ` : '') +
             `hoàn thu nợ cũ ${formatTien(kt.tongThuNoCu)} đ, trả lại cấn trừ trả trước ${formatTien(kt.tongCanTru)} đ, ` +
             `gỡ trả dư ${formatTien(kt.tongTraDu)} đ, huỷ phiếu nộp tiền` + (loi.length ? ` — CÒN LỖI: ${loi.join('; ')}` : ''),
           chi_tiet: { maDot, dsMaHD: kt.dsMaHD, idNo: kt.idNo, phieuTruoc: p, dsGiaoLai: kt.dsGiaoLai, loi }
@@ -2420,6 +2442,7 @@
       alert((loi.length
         ? `⚠️ ĐÃ XOÁ CHUYẾN "${tenChuyen}", NHƯNG CÒN VIỆC CHƯA XONG:\n\n${loi.map(x => '• ' + x).join('\n')}`
         : `✅ ĐÃ XOÁ DỮ LIỆU CHUYẾN XE "${tenChuyen}".`) +
+        (idNoGiuLai.size ? `\n\n📌 GIỮ LẠI ${idNoGiuLai.size} đơn nợ đã được thu tiền ở nơi khác (đã thu ${formatTien(tienNoGiuLai)} đ) trong Sổ theo dõi công nợ — khoản khách đã nộp vẫn còn nguyên, không bị mất dấu.` : '') +
         `\n\nĐã hoàn lại thu nợ cũ, tiền khách trả trước, phiếu nộp tiền và gỡ công nợ của chuyến. ` +
         `${kt.dsMaHD.length} hoá đơn của chuyến đã được giải phóng để điều xe lại ở Bước 1.`);
     }
@@ -2474,7 +2497,7 @@
       const maDot = dot.maDot;
       const HT_CAN_TRU = typeof HINH_THUC_CAN_TRU_TT !== 'undefined' ? HINH_THUC_CAN_TRU_TT : 'Cấn trừ trả trước';
       const kq = { chan: [], canhBao: [], dsMaHD: [], idNo: [], tongNo: 0, dongHoanThuNo: [], tongThuNoCu: 0, tongCanTru: 0,
-        dongTraTruoc: [], tongTraDu: 0, phieu: null, dsGiaoLai: [], coBangThuNo: true };
+        dongTraTruoc: [], tongTraDu: 0, phieu: null, dsGiaoLai: [], coBangThuNo: true, noThuNoiKhac: [] };
 
       // 1. Hoá đơn còn thuộc chuyến trên luu_tru & đơn nợ phát sinh của chuyến
       const { data: lt, error: e1 } = await sb.from('luu_tru').select('ma_hd, no_phat_sinh').eq('ma_dot', maDot);
@@ -2516,7 +2539,11 @@
               kq.dongHoanThuNo.push(r);
               kq.tongCanTru += st;
             } else {
-              kq.chan.push('Đơn nợ của chuyến đã được thu tiền ở nơi khác — ' + moTa + (r.ghi_chu ? ` — "${r.ghi_chu}"` : ''));
+              const moTaChan = 'Đơn nợ của chuyến đã được thu tiền ở nơi khác — ' + moTa + (r.ghi_chu ? ` — "${r.ghi_chu}"` : '');
+              kq.chan.push(moTaChan);
+              // Ghi riêng để lối XOÁ chuyến giữ lại đơn nợ này (không đụng tới khoản đã thu)
+              // thay vì chặn hẳn — xem xoaChuyenXeDaQuyetToan. Lối Làm mới chuyến vẫn chặn như cũ.
+              kq.noThuNoiKhac.push({ id_don_no: r.id_don_no, ma_hd: r.ma_hd, ten_kh: r.ten_kh, so_tien: st, moTa, moTaChan });
             }
           }
         });
