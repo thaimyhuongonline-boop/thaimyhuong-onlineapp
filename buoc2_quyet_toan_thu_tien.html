@@ -2367,7 +2367,7 @@
         const { data, error } = await sb.from('thu_no')
           .update({ so_tien: 0, ghi_chu: `${r.ghi_chu || ''} — [Xoá chuyến ${luc}: hoàn lại ${formatTien(cu)} đ]` })
           .eq('id', r.id).select('id');
-        if (error || !data || !data.length) loi.push(`Chưa hoàn lại được khoản thu HĐ ${r.ma_hd || '?'} ${formatTien(cu)} đ${error ? ' (' + (error.message || '') + ')' : ''}`);
+        if (error || !data || !data.length) loi.push(`Chưa hoàn lại được khoản thu HĐ ${r.ma_hd || '?'} ${formatTien(cu)} đ${error ? ' (' + (error.message || '') + ')' : ''}${!error ? ' — máy chủ chưa cho phép sửa bảng thu_no: nhờ quản trị chạy sql/08_thu_no_day_misa.sql trong Supabase SQL Editor' : ''}`);
       }
 
       // 4. Sổ tiền khách trả trước: điều chỉnh giảm phần khách trả dư của chuyến
@@ -2711,7 +2711,7 @@
         const { data, error } = await sb.from('thu_no')
           .update({ so_tien: 0, ghi_chu: `${r.ghi_chu || ''} — [Làm mới chuyến ${luc}: hoàn lại ${formatTien(cu)} đ]` })
           .eq('id', r.id).select('id');
-        if (error || !data || !data.length) loi.push(`Chưa hoàn lại được khoản thu HĐ ${r.ma_hd || '?'} ${formatTien(cu)} đ${error ? ' (' + (error.message || '') + ')' : ''}`);
+        if (error || !data || !data.length) loi.push(`Chưa hoàn lại được khoản thu HĐ ${r.ma_hd || '?'} ${formatTien(cu)} đ${error ? ' (' + (error.message || '') + ')' : ''}${!error ? ' — máy chủ chưa cho phép sửa bảng thu_no: nhờ quản trị chạy sql/08_thu_no_day_misa.sql trong Supabase SQL Editor' : ''}`);
       }
 
       // 4. Sổ tiền khách trả trước: điều chỉnh giảm phần khách trả dư của chuyến
@@ -3153,7 +3153,15 @@
         return;
       }
 
+      const tinhTrangTruoc = hd.tinhTrang;
       hd.tinhTrang = val;
+
+      // Đơn vừa chuyển từ Giao đủ sang có hàng trả về: MẶC ĐỊNH là "🔄 Giao lại" (hẹn chuyến sau).
+      // Đơn nào trả hẳn về kho thì người dùng bấm chọn "📦 Trả hẳn". Đơn đã có hàng trả về từ
+      // trước (đổi qua lại Trả 1 phần ↔ Trả nguyên đơn) thì giữ nguyên lựa chọn đã bấm.
+      if ((val === 'tra_mot_phan' || val === 'tra_nguyen_don') && tinhTrangTruoc === 'giao_du') {
+        hd.loaiTraVe = 'giao_lai';
+      }
 
       if (val === 'giao_du') {
         hd.traVe = 0;

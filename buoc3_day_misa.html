@@ -1088,6 +1088,9 @@
         // và các dòng CẤN TRỪ TIỀN TRẢ TRƯỚC (không có tiền mới vào quỹ — MISA tự bù trừ trong TK 131;
         // tiền đã được hạch toán lúc nhận trả trước ở phần "Tiền khách trả trước" bên dưới)
         let ds = (data || []).filter(r => (parseFloat(r.so_tien) || 0) > 0 && !(typeof laDongCanTruTT === 'function' && laDongCanTruTT(r)));
+        // Bỏ các dòng TRẢ LẠI HÀNG (khách trả hàng thay tiền để trừ nợ) — không có tiền vào quỹ,
+        // kế toán lập chứng từ hàng bán bị trả lại trong MISA, không xuất thành phiếu thu 1111/1121
+        ds = ds.filter(r => !(typeof laDongTraLaiHang === 'function' && laDongTraLaiHang(r)));
         if (chiChuaDay) ds = ds.filter(r => !r.da_day_misa);
 
         danhSachThuNoMisa = ds.map(r => {

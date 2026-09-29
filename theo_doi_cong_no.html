@@ -613,6 +613,16 @@
           </div>
         </div>
 
+        <!-- KHÁCH KHÔNG BÁN ĐƯỢC HÀNG → TRẢ LẠI HÀNG THAY CHO TIỀN (trừ vào nợ, không có tiền vào quỹ) -->
+        <div class="form-group" style="background:#fff7ed; padding:8px 10px; border-radius:var(--radius-sm); border:1px solid #fed7aa;">
+          <label style="color:#c2410c; font-weight:800;">📦 Trả Lại Hàng (đ) — khách không bán được, trả hàng thay tiền:</label>
+          <input type="text" id="modalTraLaiHangThu" class="form-control" style="font-size:15px; font-weight:800; color:#c2410c;"
+            value="0" oninput="nhapTraLaiHangModal(this)">
+          <div style="font-size:11px; color:#9a3412; margin-top:2px;">
+            Vd: nợ 1.500.000 → khách trả 1.000.000 tiền mặt + 500.000 trả lại hàng. Phần trả hàng trừ vào nợ nhưng KHÔNG tính vào tiền quỹ và không xuất phiếu thu ở Bước 3 (kế toán lập chứng từ hàng bán trả lại trong MISA).
+          </div>
+        </div>
+
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
           <div class="form-group">
             <label>Tổng Thu Đợt Này:</label>
@@ -2300,11 +2310,13 @@
           if (soTien <= 0) return;
           tongCloud += soTien;
           const canTru = typeof laDongCanTruTT === 'function' && laDongCanTruTT(r);
-          const ck = !canTru && laChuyenKhoan(r.hinh_thuc);
+          // Khách trả lại hàng thay tiền: không phải tiền mặt / chuyển khoản
+          const traHang = typeof laDongTraLaiHang === 'function' && laDongTraLaiHang(r);
+          const ck = !canTru && !traHang && laChuyenKhoan(r.hinh_thuc);
           kq.push({
             don: d, ngay: chuanHoaNgayYYYYMMDD(r.ngay_thu || ''), soTien: soTien,
-            hinhThuc: canTru ? 'cantru' : (ck ? 'ck' : 'tm'), taiKhoan: ck ? (r.tai_khoan_nhan || 'Chưa ghi tài khoản') : '',
-            nguon: canTru ? 'Cấn trừ tiền khách trả trước' : (/^Thu hộ nợ cũ qua chuyến xe/i.test(r.ghi_chu || '') ? 'Thu hộ qua xe (Bước 2)' : 'Thu tại quỹ'),
+            hinhThuc: canTru ? 'cantru' : (traHang ? 'tralai' : (ck ? 'ck' : 'tm')), taiKhoan: ck ? (r.tai_khoan_nhan || 'Chưa ghi tài khoản') : '',
+            nguon: canTru ? 'Cấn trừ tiền khách trả trước' : (traHang ? 'Khách trả lại hàng' : (/^Thu hộ nợ cũ qua chuyến xe/i.test(r.ghi_chu || '') ? 'Thu hộ qua xe (Bước 2)' : 'Thu tại quỹ')),
             nguoiThu: r.nguoi_thu || '', ghiChu: r.ghi_chu || '', daDayMisa: !!r.da_day_misa
           });
         });
@@ -2617,6 +2629,8 @@
         chips = chip('💰 Tổng đã thu', formatTien(cong(dsThu)) + ' đ', 'xanh') + chip('Số khoản thu', dsThu.length) +
           chip('💵 Tiền mặt', `${formatTien(cong(tm))} đ (${tm.length})`, 'xanh') + chip('🏦 Chuyển khoản', `${formatTien(cong(ck))} đ (${ck.length})`, 'lam');
         if (canTru.length) chips += chip('🔁 Cấn trừ tiền trả trước', `${formatTien(cong(canTru))} đ (${canTru.length})`);
+        const traLai = dsThu.filter(x => x.hinhThuc === 'tralai');
+        if (traLai.length) chips += chip('📦 Trả lại hàng (trừ nợ, không có tiền)', `${formatTien(cong(traLai))} đ (${traLai.length})`);
         const theoTK = {};
         ck.forEach(x => { theoTK[x.taiKhoan] = (theoTK[x.taiKhoan] || 0) + x.soTien; });
         Object.keys(theoTK).forEach(tk => { chips += chip('🏦 ' + escapeHtml(tk), formatTien(theoTK[tk]) + ' đ', 'lam'); });
@@ -2635,11 +2649,12 @@
             <td style="text-align:center;">${x.hinhThuc === 'ck' ? '<span class="badge-status" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe;">🏦 Chuyển khoản</span>'
               : (x.hinhThuc === 'tm' ? '<span class="badge-status badge-da-thu">💵 Tiền mặt</span>'
               : (x.hinhThuc === 'cantru' ? '<span class="badge-status" style="background:#ecfdf5; color:#047857; border:1px solid #6ee7b7;">🔁 Cấn trừ trả trước</span>'
-              : '<span class="badge-status" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;">❔ Chưa rõ</span>'))}</td>
+              : (x.hinhThuc === 'tralai' ? '<span class="badge-status" style="background:#fff7ed; color:#c2410c; border:1px solid #fed7aa;">📦 Trả lại hàng</span>'
+              : '<span class="badge-status" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;">❔ Chưa rõ</span>')))}</td>
             <td style="font-size:11.5px; color:#1d4ed8; font-weight:700;">${escapeHtml(x.taiKhoan || (x.hinhThuc === 'tm' ? 'Quỹ tiền mặt' : '--'))}</td>
             <td style="font-size:11.5px;">${escapeHtml(x.nguon)}</td>
             <td style="font-size:11.5px;">${escapeHtml(x.nguoiThu || '--')}</td>
-            <td style="text-align:center; font-size:11px;">${x.hinhThuc === 'khac' ? '--' : (x.hinhThuc === 'cantru' ? 'Không cần' : (x.daDayMisa ? '✅ Đã đẩy' : '⏳ Chưa'))}</td></tr>`).join('')
+            <td style="text-align:center; font-size:11px;">${x.hinhThuc === 'khac' ? '--' : ((x.hinhThuc === 'cantru' || x.hinhThuc === 'tralai') ? 'Không cần' : (x.daDayMisa ? '✅ Đã đẩy' : '⏳ Chưa'))}</td></tr>`).join('')
           : `<tr><td colspan="10" class="bc-trong">${bcDangNapThu ? '⏳ Đang tải các khoản thu...' : 'Chưa có khoản thu nào.'}</td></tr>`;
         tfoot.innerHTML = dsThu.length ? `<tr style="background:#f8fafc; font-weight:800;">
           <td colspan="4" style="text-align:right;">TỔNG ĐÃ THU (${dsThu.length} khoản):</td><td class="num-cell" style="color:#16a34a;">${formatTien(cong(dsThu))}</td><td colspan="5"></td></tr>` : '';
@@ -2671,8 +2686,8 @@
       }
       return { ten: 'Đã thu tiền', cot: ['STT', 'Ngày thu', 'Mã HĐ', 'Khách hàng', 'Số tiền', 'Hình thức', 'Tài khoản nhận', 'Nguồn', 'Người thu', 'Ghi chú', 'Đã đẩy MISA'], cotSo: [4],
         dong: dsKhoanThu(ds).map((x, i) => [i + 1, x.ngay ? dinhDangNgayVN(x.ngay) : '', x.don.maHD, x.don.tenKH, x.soTien,
-          x.hinhThuc === 'ck' ? 'Chuyển khoản' : (x.hinhThuc === 'tm' ? 'Tiền mặt' : (x.hinhThuc === 'cantru' ? 'Cấn trừ trả trước' : 'Chưa rõ')),
-          x.taiKhoan || (x.hinhThuc === 'tm' ? 'Quỹ tiền mặt' : ''), x.nguon, x.nguoiThu, x.ghiChu, x.hinhThuc === 'cantru' ? 'Không cần' : (x.daDayMisa ? 'Có' : '')]) };
+          x.hinhThuc === 'ck' ? 'Chuyển khoản' : (x.hinhThuc === 'tm' ? 'Tiền mặt' : (x.hinhThuc === 'cantru' ? 'Cấn trừ trả trước' : (x.hinhThuc === 'tralai' ? 'Trả lại hàng' : 'Chưa rõ'))),
+          x.taiKhoan || (x.hinhThuc === 'tm' ? 'Quỹ tiền mặt' : ''), x.nguon, x.nguoiThu, x.ghiChu, (x.hinhThuc === 'cantru' || x.hinhThuc === 'tralai') ? 'Không cần' : (x.daDayMisa ? 'Có' : '')]) };
     }
 
     function xuatExcelBaoCaoCongNo() {
@@ -3394,7 +3409,12 @@
         .update({ so_tien: 0, ghi_chu: `${r.ghi_chu || ''} — [Hoàn gạch nợ ${luc} — ${layNguoiThaoTac()}: hoàn lại ${formatTien(cu)} đ — ${lyDo}]` })
         .eq('id', r.id).select('id');
       if (error || !data || !data.length) {
-        alert('❌ CHƯA hoàn được khoản gạch nợ này trên máy chủ' + (error ? ': ' + (error.message || JSON.stringify(error)) : '.') + '\n\nKhông có dữ liệu nào bị thay đổi.');
+        // Không báo lỗi nhưng không sửa được dòng nào = máy chủ CHƯA CHO PHÉP SỬA bảng thu_no
+        // (chưa chạy sql/08_thu_no_day_misa.sql — file này thêm quyền UPDATE cho bảng thu_no)
+        const thieuQuyenSua = !error || /da_day_misa|permission|policy/i.test(String((error && error.message) || ''));
+        alert('❌ CHƯA hoàn được khoản gạch nợ này trên máy chủ' + (error ? ': ' + (error.message || JSON.stringify(error)) : '.') +
+          (thieuQuyenSua ? '\n\n👉 Nguyên nhân: máy chủ CHƯA CHO PHÉP SỬA bảng thu_no. Nhờ quản trị viên mở Supabase → SQL Editor, chạy file sql/08_thu_no_day_misa.sql (chạy 1 lần) rồi bấm hoàn lại lần nữa.' : '') +
+          '\n\nKhông có dữ liệu nào bị thay đổi.');
         return;
       }
 
@@ -3708,6 +3728,7 @@
       document.getElementById('modalConLai').value = '';
       document.getElementById('modalTienMatThu').value = '';
       document.getElementById('modalChuyenKhoanThu').value = '0';
+      { const oTH = document.getElementById('modalTraLaiHangThu'); if (oTH) oTH.value = '0'; }
       capNhatTongTienThuModal();
       document.getElementById('modalNgayThu').value = new Date().toISOString().slice(0, 10);
       document.getElementById('modalGhiChu').value = '';
@@ -3725,7 +3746,27 @@
       const tienMat = parseVNNumber_(document.getElementById('modalTienMatThu').value);
       const chuyenKhoan = parseVNNumber_(document.getElementById('modalChuyenKhoanThu').value);
       document.getElementById('modalTongThu').value = formatTien(tienMat + chuyenKhoan) + ' đ';
+      // Có phần trả lại hàng thì hiện thêm, để biết tổng trừ nợ = tiền + hàng trả lại
+      const oTraHang = document.getElementById('modalTraLaiHangThu');
+      const traLaiHang = oTraHang ? parseVNNumber_(oTraHang.value) : 0;
+      if (traLaiHang > 0) {
+        document.getElementById('modalTongThu').value = `${formatTien(tienMat + chuyenKhoan)} đ tiền + ${formatTien(traLaiHang)} đ trả hàng = trừ nợ ${formatTien(tienMat + chuyenKhoan + traLaiHang)} đ`;
+      }
       capNhatHienThiNganHangThuNo();
+    }
+
+    // Nhập số tiền hàng khách trả lại: tự bớt ô Tiền mặt tương ứng (khách chỉ còn phải trả
+    // bằng tiền phần nợ còn lại sau khi trừ hàng trả) — kế toán vẫn sửa lại được nếu cần.
+    function nhapTraLaiHangModal(el) {
+      formatInputTienModal(el);
+      const don = danhSachCongNo.find(d => d.id === document.getElementById('modalSelDonNo').value);
+      if (don) {
+        const cl = (don.conLai !== undefined) ? don.conLai : Math.max(0, (don.soTienNo || 0) - (don.daThu || 0));
+        const traLaiHang = parseVNNumber_(el.value);
+        const chuyenKhoan = parseVNNumber_(document.getElementById('modalChuyenKhoanThu').value);
+        document.getElementById('modalTienMatThu').value = formatTien(Math.max(0, cl - traLaiHang - chuyenKhoan));
+      }
+      capNhatTongTienThuModal();
     }
 
     async function moThuNoChoDon(id) {
@@ -3761,6 +3802,7 @@
         document.getElementById('modalConLai').value = '';
         document.getElementById('modalTienMatThu').value = '';
         document.getElementById('modalChuyenKhoanThu').value = '0';
+        { const oTH = document.getElementById('modalTraLaiHangThu'); if (oTH) oTH.value = '0'; }
         capNhatTongTienThuModal();
         return;
       }
@@ -3771,6 +3813,7 @@
       // tách bớt 1 phần sang ô Chuyển Khoản nếu khách trả cùng lúc cả 2 hình thức
       document.getElementById('modalTienMatThu').value = formatTien(cl);
       document.getElementById('modalChuyenKhoanThu').value = '0';
+      { const oTH = document.getElementById('modalTraLaiHangThu'); if (oTH) oTH.value = '0'; }
       capNhatTongTienThuModal();
       document.getElementById('modalGhiChu').value = `${don.tenKH} nộp nợ HĐ ${don.maHD}`;
     }
@@ -3796,8 +3839,11 @@
       const tienMatThu = parseVNNumber_(document.getElementById('modalTienMatThu').value);
       const chuyenKhoanThu = parseVNNumber_(document.getElementById('modalChuyenKhoanThu').value);
       const soTienThu = tienMatThu + chuyenKhoanThu;
-      if (soTienThu <= 0) {
-        alert("⚠️ Vui lòng nhập số tiền Tiền mặt và/hoặc Chuyển khoản lớn hơn 0!");
+      // Phần khách TRẢ LẠI HÀNG thay cho tiền (trừ vào nợ, không có tiền vào quỹ)
+      const oTraHang = document.getElementById('modalTraLaiHangThu');
+      const traLaiHang = oTraHang ? parseVNNumber_(oTraHang.value) : 0;
+      if (soTienThu <= 0 && traLaiHang <= 0) {
+        alert("⚠️ Vui lòng nhập số tiền Tiền mặt / Chuyển khoản hoặc số tiền hàng Trả lại lớn hơn 0!");
         return;
       }
       const nhNhan = chuyenKhoanThu > 0 ? document.getElementById('modalNganHangNhan').value : '';
@@ -3811,6 +3857,7 @@
       const cacPhanThu = [];
       if (tienMatThu > 0) cacPhanThu.push(`${formatTien(tienMatThu)} đ tiền mặt`);
       if (chuyenKhoanThu > 0) cacPhanThu.push(`${formatTien(chuyenKhoanThu)} đ chuyển khoản${nhNhan ? ' qua ' + nhNhan : ''}`);
+      if (traLaiHang > 0) cacPhanThu.push(`${formatTien(traLaiHang)} đ trả lại hàng`);
       const phuongThucChiTiet = cacPhanThu.join(' + ');
 
       // CHỐNG THU TRÙNG: kiểm tra lại số dư MỚI NHẤT trên Supabase ngay trước khi lưu,
@@ -3856,19 +3903,27 @@
       // Khách đưa DƯ so với nợ còn lại: phần trừ nợ ghi vào thu_no như cũ, phần dư (sau khi hỏi)
       // ghi vào SỔ TIỀN KHÁCH TRẢ TRƯỚC để trừ vào đơn sau (có hỏi) hoặc hoàn lại cho khách.
       // Máy chủ chưa có sổ trả trước (chưa chạy sql/12) thì giữ cách làm cũ.
+      // Hàng trả lại không được vượt quá số nợ còn lại (không thể trả hàng nhiều hơn số đang nợ)
+      if (traLaiHang > clMoiNhat) {
+        alert(`⚠️ Số tiền hàng trả lại (${formatTien(traLaiHang)} đ) lớn hơn số nợ còn lại của đơn "${don.maHD}" (${formatTien(clMoiNhat)} đ).\n\nVui lòng sửa lại số tiền trả lại hàng.`);
+        if (btnLuu) btnLuu.disabled = false;
+        return;
+      }
+      // Phần nợ khách còn phải trả BẰNG TIỀN sau khi trừ hàng trả lại
+      const clChoTien = Math.max(0, clMoiNhat - traLaiHang);
       let phanDu = null;
-      if (soTienThu > clMoiNhat) {
+      if (soTienThu > clChoTien) {
         if (dongBoDuocCloud && soTraTruocSanSang !== false && typeof tachPhanDuTT === 'function') {
-          const tach = tachPhanDuTT(tienMatThu, chuyenKhoanThu, clMoiNhat);
-          if (!confirm(`Khách đưa ${formatTien(soTienThu)} đ nhưng đơn "${don.maHD}" chỉ còn nợ ${formatTien(clMoiNhat)} đ.\n\n` +
-            `• Trừ nợ đơn này: ${formatTien(clMoiNhat)} đ\n` +
+          const tach = tachPhanDuTT(tienMatThu, chuyenKhoanThu, clChoTien);
+          if (!confirm(`Khách đưa ${formatTien(soTienThu)} đ nhưng đơn "${don.maHD}" chỉ còn nợ ${formatTien(clChoTien)} đ${traLaiHang > 0 ? ` (sau khi trừ ${formatTien(traLaiHang)} đ trả lại hàng)` : ''}.\n\n` +
+            `• Trừ nợ đơn này: ${formatTien(clChoTien)} đ\n` +
             `• Phần dư ${formatTien(tach.tmDu + tach.ckDu)} đ sẽ được GHI VÀO SỔ TIỀN KHÁCH TRẢ TRƯỚC của khách "${don.tenKH}" ` +
             `(trừ vào đơn sau — luôn hỏi trước khi trừ — hoặc hoàn lại cho khách).\n\nBấm [OK] để ghi nhận, [Hủy] để sửa lại số tiền.`)) {
             if (btnLuu) btnLuu.disabled = false;
             return;
           }
           phanDu = tach;
-        } else if (!confirm(`Số tiền thu (${formatTien(soTienThu)} đ) lớn hơn số nợ còn lại thực tế (${formatTien(clMoiNhat)} đ). Bạn vẫn muốn tiếp tục?`)) {
+        } else if (!confirm(`Số tiền thu (${formatTien(soTienThu)} đ) lớn hơn số nợ còn lại thực tế (${formatTien(clChoTien)} đ). Bạn vẫn muốn tiếp tục?`)) {
           if (btnLuu) btnLuu.disabled = false;
           return;
         }
@@ -3876,7 +3931,8 @@
       // Phần thực sự trừ vào nợ của đơn này (khi có phần dư thì không tính phần dư)
       const tmTruNo = phanDu ? phanDu.tmNo : tienMatThu;
       const ckTruNo = phanDu ? phanDu.ckNo : chuyenKhoanThu;
-      const soTienTruNo = tmTruNo + ckTruNo;
+      // (cộng cả phần khách trả lại hàng — cũng trừ vào nợ của đơn)
+      const soTienTruNo = tmTruNo + ckTruNo + traLaiHang;
 
       // Ghi nhận lên Supabase TRƯỚC — thành công mới cập nhật sổ trên máy này,
       // để mọi máy khác đều thấy được khoản vừa thu (tránh thu trùng). Nếu bảng
@@ -3900,6 +3956,15 @@
             ma_kh: don.maKH || '', ten_kh: don.tenKH || '',
             so_tien: ckTruNo, hinh_thuc: 'Chuyển khoản', tai_khoan_nhan: nhNhan || '',
             nguoi_thu: layNguoiThaoTac(), ghi_chu: ghiChu || '', ngay_thu: ngayThu
+          });
+        }
+        // Phần khách TRẢ LẠI HÀNG: 1 dòng riêng để trừ nợ trên mọi máy (Bước 3 không xuất phiếu thu)
+        if (traLaiHang > 0) {
+          dongThuNo.push({
+            id_don_no: id, ma_hd: don.maHD || '', ma_dot: don.maDot || '',
+            ma_kh: don.maKH || '', ten_kh: don.tenKH || '',
+            so_tien: traLaiHang, hinh_thuc: (typeof HINH_THUC_TRA_LAI_HANG !== 'undefined' ? HINH_THUC_TRA_LAI_HANG : 'Trả lại hàng'), tai_khoan_nhan: '',
+            nguoi_thu: layNguoiThaoTac(), ghi_chu: `Khách trả lại hàng trừ nợ HĐ ${don.maHD || ''}${ghiChu ? ' — ' + ghiChu : ''}`, ngay_thu: ngayThu
           });
         }
         resInsert = await sb.from('thu_no').insert(dongThuNo);

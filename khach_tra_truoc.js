@@ -39,6 +39,15 @@ function laDongCanTruTT(r) {
   return String((r && r.hinh_thuc) || "") === HINH_THUC_CAN_TRU_TT;
 }
 
+// Khách đang nợ nhưng không bán được hàng → TRẢ LẠI HÀNG thay cho tiền (vd: nợ 1.500.000,
+// trả 1.000.000 tiền, 500.000 còn lại trả lại hàng). Phần trả hàng được ghi thành 1 dòng
+// thu_no riêng với hình thức này để trừ nợ trên mọi máy — KHÔNG có tiền vào quỹ nên Bước 3
+// không xuất thành phiếu thu 1111/1121 (kế toán lập chứng từ hàng bán trả lại trong MISA).
+const HINH_THUC_TRA_LAI_HANG = "Trả lại hàng";
+function laDongTraLaiHang(r) {
+  return String((r && r.hinh_thuc) || "") === HINH_THUC_TRA_LAI_HANG;
+}
+
 function nguoiThucHienTT() {
   try {
     const p = JSON.parse(localStorage.getItem("nhan_su_profile") || "{}");
