@@ -346,9 +346,10 @@ async function dongBoDonGiaoLaiLenSupabase(danhSachChoGiaoLai) {
       ten_kh: item.tenKH || item.ten_kh || '',
       thanh_tien: parseFloat(item.thanhTien || item.tienHD || item.thanh_tien || 0),
       tien_goc: parseFloat(item.tienHD || item.thanhTien || 0),
-      ngay_don_goc: item.ngayGiaoGoc || item.ngay_don_goc || '',
-      dot_goc: item.maDotGoc || item.dot_goc || '',
-      xe_goc: item.xeGoc || item.xe_goc || '',
+      // Bước 2 ghi chuyến gốc vào maDotCu / xeCu / ngayCu (trước đây bị bỏ trống trên máy chủ)
+      ngay_don_goc: item.ngayGiaoGoc || item.ngayCu || item.ngay_don_goc || '',
+      dot_goc: item.maDotGoc || item.maDotCu || item.dot_goc || '',
+      xe_goc: item.xeGoc || item.xeCu || item.xe_goc || '',
       trang_thai: 'cho_giao_lai'
     }));
 
@@ -374,7 +375,11 @@ async function taiDonGiaoLaiTuSupabase() {
       tienHD: parseFloat(d.tien_goc || d.thanh_tien || 0),
       ngayGiaoGoc: d.ngay_don_goc,
       maDotGoc: d.dot_goc,
-      xeGoc: d.xe_goc
+      xeGoc: d.xe_goc,
+      // cùng tên trường Bước 2 dùng (để Bước 1 hiện "Chuyến trước" và đối chiếu đúng chuyến gốc)
+      maDotCu: d.dot_goc || '',
+      xeCu: d.xe_goc || '',
+      ngayCu: d.ngay_don_goc || ''
     }));
   } catch (e) {
     console.warn("Lỗi taiDonGiaoLaiTuSupabase:", e);
@@ -394,6 +399,74 @@ async function xoaDonGiaoLaiSupabase(danhSachMaHD) {
   } catch (e) {
     console.warn("Lỗi xoaDonGiaoLaiSupabase:", e);
   }
+}
+
+/**
+ * ĐỐI CHIẾU HÀNG ĐỢI HẸN GIAO LẠI VỚI KHO LƯU TRỮ (luu_tru) — cho khớp với Bước 2
+ * --------------------------------------------------------------------
+ * Một đơn chỉ còn "chờ giao lại" khi hoá đơn CÒN trên luu_tru, VẪN thuộc chuyến gốc (nếu biết mã
+ * chuyến gốc) và chuyến đó ghi nhận có HÀNG TRẢ VỀ (tra_ve > 0) — đúng như Bước 2 đang hiện.
+ * Còn lại là đơn TREO (trước đây nằm mãi ở Bước 1 dù Bước 2 không có hàng trả về):
+ *   • hoá đơn không còn trên luu_tru (chuyến gốc đã bị xoá)
+ *   • hoá đơn đã thuộc chuyến khác (đã được xếp giao lại / điều lại)
+ *   • chuyến gốc không còn hàng trả về (đã làm mới chuyến, sửa thành giao đủ...)
+ * Không đọc được máy chủ → daKiemTra = false, giữ nguyên danh sách (không gỡ nhầm lúc mất mạng).
+ * @returns {Promise<{hopLe:Array, treo:Array<{item, lyDo}>, daKiemTra:boolean}>}
+ */
+async function doiChieuDonGiaoLaiVoiLuuTru(dsGL) {
+  const ds = Array.isArray(dsGL) ? dsGL : [];
+  const kq = { hopLe: ds.slice(), treo: [], daKiemTra: false };
+  if (typeof sb === "undefined" || !ds.length) return kq;
+  const maCua = it => String((it && (it.maHD || it.ma_hd)) || "").trim().toUpperCase();
+  const dsMa = Array.from(new Set(ds.map(maCua).filter(Boolean)));
+  const theoMa = new Map();
+  try {
+    for (let i = 0; i < dsMa.length; i += 150) {
+      const { data, error } = await sb.from("luu_tru").select("ma_hd, ma_dot, xe, ngay_giao, tra_ve").in("ma_hd", dsMa.slice(i, i + 150));
+      if (error) return kq;
+      (data || []).forEach(r => theoMa.set(String(r.ma_hd || "").trim().toUpperCase(), r));
+    }
+  } catch (e) { return kq; }
+  kq.hopLe = [];
+  kq.daKiemTra = true;
+  ds.forEach(it => {
+    const r = theoMa.get(maCua(it));
+    const dotGoc = it.maDotCu || it.maDotGoc || "";
+    let lyDo = "";
+    if (!r) lyDo = "hoá đơn không còn trên kho lưu trữ (chuyến gốc đã bị xoá)";
+    else if (dotGoc && r.ma_dot && r.ma_dot !== dotGoc) lyDo = `hoá đơn đã thuộc chuyến khác (${r.xe || "?"} ${r.ngay_giao || ""})`.trim();
+    else if (!((parseFloat(r.tra_ve) || 0) > 0)) lyDo = `chuyến ${r.xe || "?"} ${r.ngay_giao || ""} không ghi nhận hàng trả về`.trim();
+    if (lyDo) kq.treo.push({ item: it, lyDo: lyDo });
+    else {
+      // Bổ sung thông tin chuyến gốc cho đơn lấy từ máy chủ (trước đây trống)
+      if (!it.maDotCu && r.ma_dot) it.maDotCu = r.ma_dot;
+      if (!it.xeCu && r.xe) it.xeCu = r.xe;
+      if (!it.ngayCu && r.ngay_giao) it.ngayCu = r.ngay_giao;
+      kq.hopLe.push(it);
+    }
+  });
+  return kq;
+}
+
+/**
+ * Dọn hàng đợi hẹn giao lại trên máy này + máy chủ: gộp đơn trên máy chủ, đối chiếu luu_tru,
+ * gỡ các đơn treo ở cả 2 nơi. Trả về { treo: [{item, lyDo}], daKiemTra }.
+ */
+async function donDepDonGiaoLaiTreo() {
+  let dsGL = [];
+  try { dsGL = JSON.parse(localStorage.getItem("tmh_danh_sach_cho_giao_lai") || "[]") || []; } catch (e) {}
+  if (typeof taiDonGiaoLaiTuSupabase === "function") {
+    try {
+      const cloud = await taiDonGiaoLaiTuSupabase();
+      const coRoi = new Set(dsGL.map(x => String(x.maHD || "").trim().toUpperCase()));
+      (cloud || []).forEach(d => { if (!coRoi.has(String(d.maHD || "").trim().toUpperCase())) dsGL.push(d); });
+    } catch (e) {}
+  }
+  const kq = await doiChieuDonGiaoLaiVoiLuuTru(dsGL);
+  if (!kq.daKiemTra) return { treo: [], daKiemTra: false };
+  localStorage.setItem("tmh_danh_sach_cho_giao_lai", JSON.stringify(kq.hopLe));
+  if (kq.treo.length) await xoaDonGiaoLaiSupabase(kq.treo.map(t => t.item.maHD || t.item.ma_hd));
+  return { treo: kq.treo, daKiemTra: true };
 }
 
 

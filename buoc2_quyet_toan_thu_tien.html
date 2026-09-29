@@ -5554,8 +5554,12 @@
       });
       localStorage.setItem('tmh_danh_sach_cho_giao_lai', JSON.stringify(danhSachChoGiaoLai));
 
-      if (typeof dongBoDonGiaoLaiLenSupabase === 'function' && danhSachChoGiaoLai.length > 0) {
-        dongBoDonGiaoLaiLenSupabase(danhSachChoGiaoLai);
+      // Chỉ đẩy lên máy chủ các đơn giao lại CỦA CHUYẾN NÀY. Trước đây đẩy cả danh sách trên máy
+      // → các đơn treo (chuyến gốc đã xoá / đã giao lại xong ở máy khác) bị ghi lại lên máy chủ,
+      // Bước 1 hiện "đơn hẹn giao lại" dù Bước 2 không có hàng trả về.
+      const donGiaoLaiCuaChuyen = danhSachChoGiaoLai.filter(it => it.maDotCu === dotHienTai.maDot);
+      if (typeof dongBoDonGiaoLaiLenSupabase === 'function' && donGiaoLaiCuaChuyen.length > 0) {
+        dongBoDonGiaoLaiLenSupabase(donGiaoLaiCuaChuyen);
       }
       const cacHDHoanThanh = danhSachHoaDonQuyetToan.filter(h => h.tinhTrang === 'giao_du' || h.loaiTraVe === 'tra_han').map(h => h.maHD);
       if (typeof xoaDonGiaoLaiSupabase === 'function' && cacHDHoanThanh.length > 0) {

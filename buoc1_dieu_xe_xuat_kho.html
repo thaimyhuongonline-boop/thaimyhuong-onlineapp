@@ -471,8 +471,8 @@
         <button type="button" class="btn btn-outline" onclick="moModalTraCuuHoaDon()" style="font-weight:700; color:#7c3aed; border-color:#d8b4fe; background:#faf5ff;" title="Tìm lại hóa đơn hoặc khách hàng đã từng nạp lên hệ thống để xem lại đơn hàng và hàng hóa liên quan">
           <span>🔍</span> Tra Cứu Hóa Đơn / Khách Hàng
         </button>
-        <label class="btn btn-primary" style="cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:6px;" title="Nạp hoặc ghép bổ sung file Excel KiotViet">
-          <span>📂</span> Nạp / Ghép File Excel
+        <label class="btn btn-primary" style="cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:6px;" title="Nạp hoặc bổ sung file Excel KiotViet — đang xem lại chuyến xe đã lưu thì bổ sung đơn vào chính chuyến đó">
+          <span>📂</span> Nạp / Bổ Sung File Excel
           <input type="file" id="fileExcelNhanhBuoc2" accept=".xlsx,.xls" multiple style="display:none;" onchange="napNhanhFileExcelBuoc2(this)">
         </label>
         <button type="button" class="btn btn-outline" onclick="moModalXemLaiChuyenXe()" style="font-weight:700; color:#1d4ed8; border-color:#93c5fd; background:#eff6ff;" title="Xem lại Phiếu xuất kho và Danh sách thu tiền của các chuyến xe đã làm">
@@ -1885,6 +1885,9 @@
     }
 
     let duLieuTamTruocKhiXemLai = null;
+    // Chuyến đã lưu đang xem lại — nút "Nạp / Bổ Sung File Excel" sẽ hỏi BỔ SUNG đơn vào chính chuyến này
+    // { maDot, dot, maHDBoSung: Set các HĐ vừa nạp bổ sung, chưa lưu vào chuyến }
+    let chuyenDangXemLai = null;
 
     async function xemLaiMotChuyenXe(maDot) {
       dongModalXemLaiChuyenXe();
@@ -1971,6 +1974,7 @@
 
       veDanhSachCheckboxHD();
       chayTaoPhieu();
+      chuyenDangXemLai = { maDot: dot.maDot, dot: dot, maHDBoSung: new Set() };
 
       // Hiển thị banner đang xem lại
       const banner = document.getElementById('bannerDangXemLai');
@@ -1985,6 +1989,7 @@
     function thoatCheDoXemLai() {
       const banner = document.getElementById('bannerDangXemLai');
       if (banner) banner.style.display = 'none';
+      chuyenDangXemLai = null;
 
       if (duLieuTamTruocKhiXemLai) {
         danhSachHoaDon = duLieuTamTruocKhiXemLai.danhSachHoaDon || [];
@@ -2005,6 +2010,163 @@
       }
 
       hienThiToast("Đã quay lại trạng thái điều xe mới.");
+    }
+
+    // ========================================================
+    // BỔ SUNG ĐƠN VÀO CHUYẾN XE ĐÃ LƯU (đang "Xem lại biểu mẫu đã làm")
+    // --------------------------------------------------------
+    // Nạp file khi đang xem lại chuyến → các HĐ mới được thêm vào Bảng kê của chuyến; bấm "Lưu chuyến xe"
+    // thì CHỈ ghi các HĐ bổ sung vào đúng chuyến đó (cùng mã chuyến), các HĐ cũ của chuyến giữ nguyên
+    // (không ghi đè số liệu). Chuyến đã quyết toán ở Bước 2 thì không bổ sung được.
+    // ========================================================
+    async function kiemTraChuyenBoSungDuoc(maDot) {
+      let daQT = false;
+      try {
+        const ls = JSON.parse(localStorage.getItem('tmh_lich_su_dot') || '[]');
+        const d = ls.find(x => x.maDot === maDot);
+        if (d && d.daQuyetToan) daQT = true;
+      } catch (e) {}
+      if (!daQT && typeof sb !== 'undefined') {
+        try {
+          const { data, error } = await sb.from('luu_tru').select('*').eq('ma_dot', maDot);
+          if (!error && Array.isArray(data)) {
+            daQT = data.some(r => r.da_quyet_toan === true || (parseFloat(r.tien_mat) || 0) > 0 || (parseFloat(r.chuyen_khoan) || 0) > 0 ||
+              (parseFloat(r.no_phat_sinh) || 0) > 0 || (parseFloat(r.tra_ve) || 0) > 0);
+          }
+        } catch (e) {}
+      }
+      if (daQT) {
+        alert('⚠️ Chuyến xe này ĐÃ QUYẾT TOÁN ở Bước 2 nên không bổ sung đơn được (tránh lệch số liệu tiền đã thu).\n\n' +
+          'Cách làm: vào Bước 2 bấm "Làm mới chuyến" (đưa chuyến về Chờ tính tiền) rồi bổ sung, hoặc tạo chuyến xe mới cho các đơn này.');
+        return false;
+      }
+      return true;
+    }
+
+    function capNhatBannerBoSungXemLai() {
+      const c = chuyenDangXemLai;
+      const lbl = document.getElementById('lblDangXemLaiDot');
+      if (!c || !lbl) return;
+      const soBoSung = danhSachHoaDon.filter(h => c.maHDBoSung.has(h.maHD)).length;
+      lbl.textContent = `${c.dot.xe} (${c.dot.ngayGiao || 'Hôm nay'}) — Tài xế: ${c.dot.taiXe} (${danhSachHoaDon.length} HĐ)` +
+        (soBoSung ? ` — ➕ ${soBoSung} HĐ bổ sung CHƯA LƯU, bấm "Lưu chuyến xe" để ghi vào chuyến` : '');
+    }
+
+    async function luuBoSungVaoChuyenDaLuu() {
+      const c = chuyenDangXemLai;
+      const dot = c.dot;
+      const maDot = c.maDot;
+      const hdBoSung = danhSachHoaDon.filter(h => h.chon && c.maHDBoSung.has(h.maHD));
+      if (!hdBoSung.length) {
+        alert('⚠️ Chưa tích hoá đơn bổ sung nào để lưu vào chuyến.');
+        return;
+      }
+      const maCoDongHang = new Set(duLieuKiotViet.map(r => String(r['Mã hóa đơn'] || '').trim().toUpperCase()));
+      const thieuHang = hdBoSung.filter(h => !maCoDongHang.has(h.maHD));
+      if (thieuHang.length) {
+        alert('⚠️ Các hoá đơn bổ sung chưa có chi tiết hàng hoá nên chưa lưu được:\n' + thieuHang.map(h => '• ' + h.maHD).join('\n'));
+        return;
+      }
+      if (!(await kiemTraChuyenBoSungDuoc(maDot))) return;
+
+      chayTaoPhieu();
+      const setBS = new Set(hdBoSung.map(h => h.maHD));
+      const dongBangKe = ((duLieuXuatExcel && duLieuXuatExcel.bangKe) || []).filter(r => setBS.has(r.maHD));
+      const tongBS = dongBangKe.reduce((s, r) => s + (parseFloat(r.thanhTien) || 0), 0);
+      const soHDCu = danhSachHoaDon.filter(h => h.chon && !c.maHDBoSung.has(h.maHD)).length;
+      const xe = dot.xe || document.getElementById('xeVanChuyen').value;
+      const taiXe = dot.taiXe || '';
+      const ngayRaw = dot.ngayRaw || chuanHoaNgayISO_(dot.ngayGiao) || document.getElementById('ngayGiaoHang').value;
+      const ngayGiao = dot.ngayGiao || chuanHoaNgayVN_(ngayRaw);
+      const nvGiao = dot.nvGiao || '';
+      const nvThu = dot.nvThu || '';
+      if (!confirm(`💾 BỔ SUNG ${hdBoSung.length} HÓA ĐƠN VÀO CHUYẾN XE ĐÃ LƯU?\n\n` +
+        `• Chuyến: ${xe} — ngày ${ngayGiao} — tài xế ${taiXe || '--'}\n` +
+        hdBoSung.map(h => `• ${h.maHD} — ${h.tenKH}: ${formatTien(h.tongTien)} đ`).join('\n') +
+        `\n• Tổng tiền bổ sung: ${formatTien(tongBS)} đ\n\n` +
+        `Sau khi lưu chuyến có ${soHDCu + hdBoSung.length} HĐ. ${soHDCu} HĐ cũ của chuyến GIỮ NGUYÊN (không ghi đè).\n\nBấm [OK] để lưu.`)) return;
+
+      const cacDongBS = duLieuKiotViet.filter(r => setBS.has(String(r['Mã hóa đơn'] || '').trim().toUpperCase()));
+      const chiTietBS = dongBangKe.map(r => ({
+        ...r, ngay: ngayGiao, xe: xe, taiXe: taiXe, giaoHang: nvGiao, thuTien: nvThu,
+        tienMat: 0, chuyenKhoan: 0, traVe: 0, noPhatSinh: 0, maDot: maDot, laGiaoLai: false
+      }));
+
+      // 1. Máy chủ: chỉ ghi các HĐ bổ sung (cùng mã chuyến) — không đụng dòng của các HĐ cũ
+      if (typeof sb !== 'undefined') {
+        const rowsLuuTru = chiTietBS.map(r => ({
+          ma_hd: r.maHD, stt: r.stt, ngay_giao: ngayGiao, xe: xe, tai_xe: taiXe, giao_hang: nvGiao, thu_tien: nvThu,
+          ten_kh: r.tenKH, nguoi_ban: r.nguoiBan, ma_kh: r.maKH, doanh_so: r.doanhSo, giam_gia_sp: r.giamSP, giam_gia_hd: r.giamHD,
+          thanh_tien: r.thanhTien, tien_mat: 0, chuyen_khoan: 0, tra_ve: 0, no_phat_sinh: 0, ma_dot: maDot, da_kiem_don: false, la_giao_lai: false
+        }));
+        const resLt = await upsertSupabaseTuTu('luu_tru', rowsLuuTru, { onConflict: 'ma_hd' });
+        if (!resLt || !resLt.success) {
+          alert('❌ Chưa lưu được hoá đơn bổ sung lên máy chủ: ' + (((resLt && resLt.error) && (resLt.error.message || resLt.error)) || 'lỗi') + '\n\nKhông có dữ liệu nào bị thay đổi.');
+          return;
+        }
+        if (cacDongBS.length) {
+          await upsertSupabaseTuTu('chi_tiet_hoa_don', cacDongBS.map(r => ({
+            ma_hd: String(r['Mã hóa đơn'] || '').trim().toUpperCase(), ma_dot: maDot, ngay_ct: ngayGiao, xe: xe,
+            ma_kh: String(r['Mã khách hàng'] || '').trim().toUpperCase(), ten_kh: String(r['Tên khách hàng'] || '').trim(),
+            ma_hang: String(r['Mã hàng'] || '').trim().toUpperCase(), ten_hang: String(r['Tên hàng'] || '').trim(),
+            dvt: String(r['ĐVT'] || 'Thùng').trim(), so_luong: parseFloat(r['Số lượng'] || 0),
+            don_gia: parseFloat(r['Đơn giá'] || r['Giá bán'] || 0), thanh_tien: parseFloat(r['Thành tiền'] || 0),
+            quy_cach: parseFloat(r['Quy cách'] || 1), la_khuyen_mai: !!r['KM']
+          })));
+        }
+      }
+
+      // 2. Lịch sử chuyến trên máy này: thêm HĐ bổ sung vào đúng chuyến (không tạo chuyến mới)
+      let lichSu = [];
+      try { lichSu = JSON.parse(localStorage.getItem('tmh_lich_su_dot') || '[]'); } catch (e) {}
+      let dotLS = lichSu.find(d => d.maDot === maDot);
+      if (!dotLS) { dotLS = JSON.parse(JSON.stringify(dot)); lichSu.unshift(dotLS); }
+      dotLS.danhSachHD = Array.from(new Set([...(dotLS.danhSachHD || []), ...hdBoSung.map(h => h.maHD)]));
+      dotLS.danhSachChiTiet = (dotLS.danhSachChiTiet || []).filter(r => !setBS.has(r.maHD)).concat(chiTietBS);
+      dotLS.cacDongChiTietKiotViet = (dotLS.cacDongChiTietKiotViet || []).filter(r => !setBS.has(String(r['Mã hóa đơn'] || '').trim().toUpperCase())).concat(cacDongBS);
+      dotLS.soLuongHD = dotLS.danhSachHD.length;
+      dotLS.tongTien = (dotLS.danhSachChiTiet || []).reduce((s, r) => s + (parseFloat(r.thanhTien) || 0), 0);
+      localStorage.setItem('tmh_lich_su_dot', JSON.stringify(lichSu));
+      c.dot = dotLS;
+
+      // 3. Gỡ các HĐ bổ sung khỏi danh sách chờ chia xe & hàng đợi hẹn giao lại (nếu trước đó đã nạp vào)
+      const boKhoiDS = ds => (Array.isArray(ds) ? ds : []).filter(r => !setBS.has(String(r['Mã hóa đơn'] || '').trim().toUpperCase()));
+      try {
+        const dsCho = JSON.parse(localStorage.getItem('tmh_kiotviet_data') || '[]');
+        const conLai = boKhoiDS(dsCho);
+        if (conLai.length !== dsCho.length) {
+          if (conLai.length) localStorage.setItem('tmh_kiotviet_data', JSON.stringify(conLai)); else localStorage.removeItem('tmh_kiotviet_data');
+        }
+      } catch (e) {}
+      if (duLieuTamTruocKhiXemLai) {
+        duLieuTamTruocKhiXemLai.duLieuKiotViet = boKhoiDS(duLieuTamTruocKhiXemLai.duLieuKiotViet);
+        duLieuTamTruocKhiXemLai.danhSachHoaDon = (duLieuTamTruocKhiXemLai.danhSachHoaDon || []).filter(h => !setBS.has(h.maHD));
+      }
+      if (typeof taiKiotTamTuSupabase === 'function') {
+        try {
+          const cloud = await taiKiotTamTuSupabase();
+          if (cloud && Array.isArray(cloud.duLieu) && cloud.duLieu.length) {
+            const conLai = boKhoiDS(cloud.duLieu);
+            if (conLai.length !== cloud.duLieu.length) {
+              if (conLai.length && typeof dongBoKiotTamLenSupabase === 'function') await dongBoKiotTamLenSupabase(conLai, cloud.danhSachTenFile || []);
+              else if (!conLai.length && typeof xoaKiotTamSupabase === 'function') await xoaKiotTamSupabase();
+            }
+          }
+        } catch (e) { console.warn('Không gỡ được đơn bổ sung khỏi danh sách chờ trên máy chủ:', e); }
+      }
+      try {
+        const dsGL = JSON.parse(localStorage.getItem('tmh_danh_sach_cho_giao_lai') || '[]');
+        localStorage.setItem('tmh_danh_sach_cho_giao_lai', JSON.stringify(dsGL.filter(it => !setBS.has(String(it.maHD || '').toUpperCase()))));
+        if (typeof xoaDonGiaoLaiSupabase === 'function') xoaDonGiaoLaiSupabase(hdBoSung.map(h => h.maHD));
+      } catch (e) {}
+
+      // 4. Các HĐ bổ sung giờ đã thuộc chuyến
+      hdBoSung.forEach(h => { h.laBoSung = false; c.maHDBoSung.delete(h.maHD); });
+      veDanhSachCheckboxHD();
+      capNhatBannerBoSungXemLai();
+      alert(`✅ ĐÃ BỔ SUNG ${hdBoSung.length} HÓA ĐƠN (${formatTien(tongBS)} đ) VÀO CHUYẾN "${xe} (${ngayGiao})".\n\n` +
+        `Chuyến hiện có ${dotLS.soLuongHD} HĐ. Bảng kê & Phiếu xuất kho đang hiện là bản đầy đủ — bấm In A4 / Xuất Excel để in lại.\n` +
+        `Bước 2 (quyết toán) sẽ thấy các hoá đơn bổ sung trong chuyến này.`);
     }
 
     function xoaMotChuyenXeKhoiLichSu(maDot) {
@@ -2198,6 +2360,8 @@
           }
         } catch(e) {}
       }
+      // Đối chiếu hàng đợi hẹn giao lại với kho lưu trữ: chỉ giữ đơn mà chuyến gốc ở Bước 2 thật sự có hàng trả về
+      await donDepDonGiaoLaiTreoBuoc1(true);
 
       // Dọn dẹp dữ liệu KiotViet tạm nếu các hóa đơn đã được phân hết vào các chuyến xe đã lưu
       let hdDaGoKhiMoTrang = null; // mã HĐ -> "xe ngày" đã bị gỡ khỏi danh sách chờ (để báo cho người dùng)
@@ -2403,6 +2567,7 @@
               if (typeof taiDonGiaoLaiTuSupabase === 'function') {
                 const dsGL = await taiDonGiaoLaiTuSupabase();
                 localStorage.setItem('tmh_danh_sach_cho_giao_lai', JSON.stringify(dsGL));
+                await donDepDonGiaoLaiTreoBuoc1(false);
                 kiemTraBannerDonGiaoLai();
               }
             })
@@ -2669,6 +2834,23 @@
     // ========================================================
     // QUẢN LÝ HÀNG ĐỢI ĐƠN HẸN GIAO LẠI (TỪ BƯỚC 2 SANG BƯỚC 1)
     // ========================================================
+
+    // Gỡ các đơn hẹn giao lại TREO (chuyến gốc đã xoá / đã sang chuyến khác / Bước 2 không còn hàng trả về)
+    // — dùng doiChieuDonGiaoLaiVoiLuuTru ở config.js. Đơn đang nằm trong xe đang điều (chưa lưu) vẫn giữ.
+    async function donDepDonGiaoLaiTreoBuoc1(baoChoNguoiDung) {
+      if (typeof donDepDonGiaoLaiTreo !== 'function') return;
+      try {
+        const kq = await donDepDonGiaoLaiTreo();
+        if (!kq.daKiemTra || !kq.treo.length) return;
+        console.log('🧹 Đã gỡ đơn hẹn giao lại treo:', kq.treo.map(t => `${t.item.maHD}: ${t.lyDo}`));
+        kiemTraBannerDonGiaoLai();
+        if (baoChoNguoiDung) {
+          hienThiToast(`🧹 Đã gỡ ${kq.treo.length} đơn hẹn giao lại không còn khớp Bước 2 (${kq.treo.slice(0, 3).map(t => t.item.maHD).join(', ')}${kq.treo.length > 3 ? '…' : ''})`);
+        }
+      } catch (e) {
+        console.warn('Không đối chiếu được đơn hẹn giao lại:', e);
+      }
+    }
 
     function kiemTraBannerDonGiaoLai() {
       let dsGL = [];
@@ -3699,6 +3881,8 @@
     // ========================================================
 
     async function luuSangBuoc3() {
+      // Đang xem lại chuyến đã lưu và có HĐ vừa nạp bổ sung → ghi bổ sung vào CHÍNH chuyến đó (không tạo chuyến mới)
+      if (chuyenDangXemLai && chuyenDangXemLai.maHDBoSung && chuyenDangXemLai.maHDBoSung.size) return luuBoSungVaoChuyenDaLuu();
       let hoaDonDuocChon = danhSachHoaDon.filter(h => h.chon);
       if (hoaDonDuocChon.length === 0) {
         alert("⚠️ Vui lòng chọn ít nhất 1 hóa đơn để lưu!");
@@ -4118,15 +4302,32 @@
     async function xuLyDanhSachFilesExcel(files) {
       if (!files || files.length === 0) return;
 
+      // Đang XEM LẠI 1 chuyến xe đã lưu → hỏi BỔ SUNG file vào chính chuyến đó (giữ nguyên các HĐ của chuyến).
+      // Trước đây bước 0 bên dưới thay dữ liệu chuyến đang xem bằng danh sách chờ chia xe nên chỉ còn đơn mới.
+      let boSungVaoChuyen = null;
+      if (chuyenDangXemLai) {
+        const c = chuyenDangXemLai;
+        const tenChuyen = `${c.dot.xe || ''} (${c.dot.ngayGiao || ''})`;
+        if (confirm(`📌 ĐANG XEM LẠI CHUYẾN XE ĐÃ LƯU "${tenChuyen}" — ${danhSachHoaDon.length} HĐ.\n\n` +
+          `• Bấm [OK] để BỔ SUNG ${files.length > 1 ? files.length + ' file' : 'file'} vừa chọn vào CHÍNH CHUYẾN NÀY (giữ nguyên ${danhSachHoaDon.length} HĐ của chuyến; bấm "Lưu chuyến xe" để ghi đơn bổ sung vào chuyến).\n` +
+          `• Bấm [Hủy / Cancel] để THOÁT XEM LẠI và nạp file vào danh sách chờ chia xe như bình thường.`)) {
+          if (!(await kiemTraChuyenBoSungDuoc(c.maDot))) return;
+          boSungVaoChuyen = c;
+        } else {
+          thoatCheDoXemLai();
+        }
+      }
+
       // 0. Lấy danh sách chờ MỚI NHẤT trên máy chủ trước (máy khác có thể vừa nạp / chia xe) để không ghi đè mất đơn
-      await dongBoCoSoKiotTuCloud();
+      // (bổ sung vào chuyến đã lưu thì KHÔNG đụng tới danh sách chờ)
+      if (!boSungVaoChuyen) await dongBoCoSoKiotTuCloud();
 
       // 1. Kiểm tra xem danh sách hiện tại đã có dữ liệu chưa để hỏi ghép file
       let cheDoGhep = true; // Mặc định là GHÉP BỔ SUNG
       const hienCo = (Array.isArray(duLieuKiotViet) && duLieuKiotViet.length > 0) ? duLieuKiotViet.length : 0;
       const soHDCu = Array.isArray(danhSachHoaDon) ? danhSachHoaDon.length : 0;
 
-      if (hienCo > 0) {
+      if (hienCo > 0 && !boSungVaoChuyen) {
         const hoiGhep = confirm(
           `📥 PHÁT HIỆN ĐANG CÓ ${soHDCu} HÓA ĐƠN TRONG DANH SÁCH!\n\n` +
           `• Bấm [OK] để GHÉP BỔ SUNG ${files.length > 1 ? files.length + ' file mới' : 'file mới'} vào danh sách hiện tại (giữ nguyên ${soHDCu} HĐ cũ).\n` +
@@ -4324,6 +4525,38 @@
         if (nvMoiThem.length > 0) {
           localStorage.setItem('tmh_danh_muc_nv_kinh_doanh', JSON.stringify([...dmNV, ...nvMoiThem]));
           upsertSupabaseTuTu_('nv_kinh_doanh', nvMoiThem);
+        }
+
+        // BỔ SUNG VÀO CHUYẾN ĐANG XEM LẠI: chỉ ghép trong bộ nhớ (không ghi vào danh sách chờ chia xe),
+        // thêm các HĐ mới vào danh sách của chuyến — bấm "Lưu chuyến xe" để ghi vào chuyến.
+        if (boSungVaoChuyen) {
+          duLieuKiotViet = duLieuTongHop;
+          const maMoi = maHDMoiNap.filter(m => !(daChiaXe && daChiaXe.has(m)) && !danhSachHoaDon.some(h => h.maHD === m));
+          maMoi.forEach(m => {
+            const dong = duLieuTongHop.filter(r => String(r['Mã hóa đơn'] || '').trim().toUpperCase() === m);
+            danhSachHoaDon.push({
+              maHD: m,
+              tenKH: String((dong[0] && dong[0]['Tên khách hàng']) || 'Khách Lẻ').trim(),
+              tongTien: dong.reduce((s, r) => s + parseVNNumber_(r['Thành tiền']), 0),
+              chon: true,
+              laBoSung: true
+            });
+            boSungVaoChuyen.maHDBoSung.add(m);
+          });
+          veDanhSachCheckboxHD();
+          chayTaoPhieu();
+          capNhatBannerBoSungXemLai();
+          if (!maMoi.length) {
+            alert('ℹ️ File vừa chọn không có hoá đơn MỚI nào để bổ sung (các hoá đơn đã có trong chuyến' +
+              (daChiaXe && daChiaXe.size ? ' hoặc đã được chia vào chuyến khác' : '') + ').');
+            return;
+          }
+          alert(`✅ ĐÃ ĐƯA ${maMoi.length} HÓA ĐƠN BỔ SUNG VÀO CHUYẾN "${boSungVaoChuyen.dot.xe || ''} (${boSungVaoChuyen.dot.ngayGiao || ''})":\n\n` +
+            maMoi.map(m => { const h = danhSachHoaDon.find(x => x.maHD === m); return `• ${m} — ${h ? h.tenKH : ''}: ${formatTien(h ? h.tongTien : 0)} đ`; }).join('\n') +
+            `\n\nChuyến hiện có ${danhSachHoaDon.length} HĐ trên Bảng kê.` +
+            (daChiaXe && daChiaXe.size ? `\n⚠️ Bỏ qua ${daChiaXe.size} HĐ đã được chia vào chuyến khác: ${Array.from(daChiaXe.keys()).slice(0, 6).join(', ')}` : '') +
+            `\n\n📌 Bấm "💾 Lưu Chuyến Xe" để GHI các hoá đơn bổ sung vào chuyến này (các HĐ cũ của chuyến giữ nguyên).`);
+          return;
         }
 
         // Cập nhật bộ nhớ dữ liệu KiotViet
