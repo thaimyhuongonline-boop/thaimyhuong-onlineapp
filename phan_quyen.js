@@ -45,6 +45,7 @@ const DANH_MUC_CHUC_NANG = [
   { id: "misa.sua_luu_tru", module: "misa", loai: "ghi", label: "Sửa / xoá / khôi phục kho lưu trữ", ham: ["moModalSuaDot", "luuSuaDot", "xoaDot", "xoaCacDongDaChon", "khoiPhucLichSu"] },
   // Báo cáo tổng hợp
   { id: "baocao.xuat_excel", module: "baocao", loai: "doc", label: "Xuất Excel báo cáo", ham: ["xuatExcelTongHop", "xuatExcelChiTiet"] },
+  { id: "baocao.kiem_tra", module: "baocao", loai: "ghi", label: "Tích kiểm tra các khoản & ghi nhận hình thức khoản thu chưa rõ (Báo cáo tổng hợp)", ham: ["tickKiemTraBC", "tickTatCaKiemTraBC", "ghiNhanHinhThucChuaRo"] },
   // Theo dõi công nợ
   { id: "congno.thu_no", module: "congno", loai: "ghi", label: "Thu nợ tại quỹ (kể cả thu nợ hàng loạt, hoàn lại khoản gạch nợ)", ham: ["moModalThuNoTaiQuy", "moThuNoChoDon", "moThuNoChoKhachHang", "luuThuNoTaiQuy", "moThuNoHangLoat", "luuThuNoHangLoat", "moHoanGachNo", "hoanLaiKhoanGachNo"] },
   { id: "congno.han_muc", module: "congno", loai: "ghi", label: "Đặt hạn mức công nợ & nhóm khách hàng", ham: ["luuHanMucCaNhan", "moSuaNhomHanMuc", "luuNhomHanMuc", "xoaNhomHanMucCongNo"] },

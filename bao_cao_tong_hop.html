@@ -89,7 +89,7 @@
     /* Modal chi tiết */
     .bc-modal { position: fixed; inset: 0; background: rgba(15,23,42,.55); z-index: 9000; display: none; align-items: center; justify-content: center; padding: 16px; }
     .bc-modal.show { display: flex; }
-    .bc-modal-box { background: #fff; border-radius: 14px; width: 100%; max-width: 1180px; max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 24px 60px rgba(15,23,42,.35); }
+    .bc-modal-box { background: #fff; border-radius: 14px; width: 100%; max-width: 1320px; max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 24px 60px rgba(15,23,42,.35); }
     .bc-modal-head { padding: 14px 18px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
     .bc-modal-body { padding: 14px 18px; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
     .bc-chips { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -267,6 +267,7 @@
                 <th class="num">Trả về (đ)</th>
                 <th class="num">Nợ (đ)</th>
                 <th>Trạng thái</th>
+                <th style="text-align:center; white-space:nowrap;" title="Kế toán tích khi đã kiểm tra từng khoản">Kiểm tra<br><input type="checkbox" id="bcKTTatCa" onchange="tickTatCaKiemTraBC(this)" title="Tích / bỏ tích tất cả khoản đang hiện" style="width:16px; height:16px; cursor:pointer;"></th>
               </tr>
             </thead>
             <tbody id="bcModalBody"></tbody>
@@ -483,6 +484,121 @@
       }
     }
 
+    // ---------------- TIỀN NGOÀI HOÁ ĐƠN GIAO HÀNG ----------------
+    // Trước đây báo cáo chỉ đọc luu_tru (tiền thu theo hoá đơn lúc giao) nên tiền THU NỢ ở Sổ công nợ,
+    // thu hộ nợ cũ qua xe, tiền KHÁCH TRẢ TRƯỚC, hàng khách TRẢ LẠI để trừ nợ… không được cộng vào tiền mặt /
+    // chuyển khoản / hàng trả về. Các khoản đó (theo ngày thu) được đưa vào đây — không sót đồng nào:
+    //   • thu_no: Tiền mặt / Chuyển khoản / Trả lại hàng / Cấn trừ trả trước (cấn trừ không có tiền mới)
+    //   • khach_tra_truoc: nhận trả trước (nguồn chưa nằm trong tiền của hoá đơn) & hoàn tiền trả trước
+    //   • Sổ công nợ trên máy này: phần ĐÃ THU nhưng chưa có dòng thu_no (chưa rõ tiền mặt hay CK)
+    let thuNgoai = [];
+    let ghiChuThuNgoai = [];
+    const TIEN_TO_THU_HO_XE_BC = 'Thu hộ nợ cũ qua chuyến xe';
+    // buoc2_du_hoa_don / buoc2_hoan_ck_du đã nằm trong tiền mặt / CK của hoá đơn (luu_tru) → không cộng lại
+    const NGUON_TT_NGOAI_HD = ['tra_truoc', 'thu_tai_quy_du', 'buoc2_du_thu_no'];
+    const laCKBC = ht => /chuy|ck|ngân hàng|bank/i.test(String(ht || ''));
+
+    function dongThuNgoai(o) {
+      return Object.assign({ laThuNgoai: true, maHD: '', tenKH: '', maKH: '', xe: '', taiXe: '', ngay: '', maDot: '', thanhTien: 0,
+        tm: 0, ck: 0, tra: 0, no: 0, canTru: 0, chiTm: 0, chiCk: 0, chuaRo: 0, nganHang: '', daQT: true, giaoLai: false, ghiChu: '' }, o);
+    }
+
+    function ymdTuGiaTri(v) {
+      if (!v) return '';
+      const s = String(v);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+      const d = new Date(s);
+      return isNaN(d) ? '' : ymdLocal(d);
+    }
+
+    async function taiThuNgoai(tuIso, denIso) {
+      thuNgoai = [];
+      ghiChuThuNgoai = [];
+      if (nguonDuLieu !== 'cloud' || typeof sb === 'undefined') {
+        ghiChuThuNgoai.push('Mất kết nối máy chủ — chưa cộng được tiền thu nợ / trả trước ngoài hoá đơn giao hàng.');
+        return;
+      }
+      const dotTheoMa = new Map(duLieu.map(d => [d.maDot, d]));
+      // 1. Thu nợ (thu_no) trong khoảng ngày thu
+      try {
+        const { data, error } = await sb.from('thu_no').select('*').gte('ngay_thu', tuIso).lte('ngay_thu', denIso).limit(10000);
+        if (error) throw error;
+        (data || []).forEach(r => {
+          const st = parseFloat(r.so_tien) || 0;
+          if (st <= 0.5) return;   // khoản đã hoàn lại (về 0 đ)
+          const ht = String(r.hinh_thuc || '');
+          const thuHoXe = String(r.ghi_chu || '').indexOf(TIEN_TO_THU_HO_XE_BC) === 0;
+          const dot = thuHoXe ? dotTheoMa.get(r.ma_dot) : null;
+          const o = dongThuNgoai({
+            id: r.id, khoa: 'thu_no|' + r.id, maHD: r.ma_hd || '', tenKH: r.ten_kh || '', maKH: r.ma_kh || '', ngay: chuanHoaNgay(r.ngay_thu),
+            maDot: thuHoXe ? (r.ma_dot || '') : '', xe: thuHoXe ? (dot ? dot.xe : 'Thu hộ qua xe') : '', taiXe: dot ? dot.taiXe : '',
+            ghiChu: r.ghi_chu || '', nguoiThu: r.nguoi_thu || ''
+          });
+          if (ht === 'Cấn trừ trả trước') { o.loaiThu = 'can_tru'; o.canTru = st; }
+          else if (ht === 'Trả lại hàng') { o.loaiThu = 'tra_lai_hang'; o.tra = st; }
+          else if (laCKBC(ht)) { o.loaiThu = thuHoXe ? 'thu_ho_xe' : 'thu_no'; o.ck = st; o.nganHang = r.tai_khoan_nhan || ''; }
+          else { o.loaiThu = thuHoXe ? 'thu_ho_xe' : 'thu_no'; o.tm = st; }
+          thuNgoai.push(o);
+        });
+      } catch (e) {
+        ghiChuThuNgoai.push('Không đọc được bảng thu nợ (thu_no): ' + ((e && e.message) || e));
+      }
+      // 2. Tiền khách trả trước (khach_tra_truoc — sql/12)
+      try {
+        const { data, error } = await sb.from('khach_tra_truoc').select('*').gte('ngay', tuIso).lte('ngay', denIso).limit(10000);
+        if (error) {
+          if (!(error.code === 'PGRST205' || error.code === '42P01' || /khach_tra_truoc/i.test(String(error.message || '')))) throw error;
+        } else {
+          (data || []).forEach(r => {
+            const st = parseFloat(r.so_tien) || 0;
+            if (Math.abs(st) <= 0.5) return;
+            const ck = laCKBC(r.hinh_thuc);
+            const goc = { id: r.id, khoa: 'tra_truoc|' + r.id, maHD: r.ma_hd || '', tenKH: r.ten_kh || '', maKH: r.ma_kh || '', ngay: chuanHoaNgay(r.ngay),
+              nganHang: ck ? (r.tai_khoan_nhan || '') : '', ghiChu: r.ghi_chu || '' };
+            if (r.loai === 'hoan') {
+              if (r.nguon !== 'hoan_tien') return;   // hoàn TM cho khách CK dư đã có ở thẻ "Hoàn TM cho khách"
+              thuNgoai.push(dongThuNgoai(Object.assign(goc, { loaiThu: 'hoan_tra_truoc', chiTm: ck ? 0 : st, chiCk: ck ? st : 0 })));
+            } else if (NGUON_TT_NGOAI_HD.includes(r.nguon)) {
+              thuNgoai.push(dongThuNgoai(Object.assign(goc, { loaiThu: 'tra_truoc', tm: ck ? 0 : st, ck: ck ? st : 0 })));
+            }
+          });
+        }
+      } catch (e) {
+        ghiChuThuNgoai.push('Không đọc được sổ tiền khách trả trước: ' + ((e && e.message) || e));
+      }
+      // 3. Đã thu nợ nhưng CHỈ GHI TRÊN MÁY NÀY (vd "Đã thu quỹ" ở Bước 2) — không có dòng thu_no nên
+      //    chưa rõ tiền mặt hay chuyển khoản; không cộng vào tiền mặt / CK cho tới khi ghi nhận hình thức
+      try {
+        const so = JSON.parse(localStorage.getItem('tmh_theo_doi_cong_no') || '[]') || [];
+        const ungVien = so.filter(d => d && d.id && (parseFloat(d.daThu) || 0) > 0.5);
+        const canTaiCloud = ungVien.filter(d => typeof d.daThuCloudDaDongBo !== 'number').map(d => d.id);
+        const tongCloud = new Map();
+        for (let i = 0; i < canTaiCloud.length; i += 150) {
+          const { data, error } = await sb.from('thu_no').select('id_don_no, so_tien').in('id_don_no', canTaiCloud.slice(i, i + 150));
+          if (error) throw error;
+          (data || []).forEach(r => tongCloud.set(r.id_don_no, (tongCloud.get(r.id_don_no) || 0) + (parseFloat(r.so_tien) || 0)));
+        }
+        ungVien.forEach(d => {
+          const moc = typeof d.daThuCloudDaDongBo === 'number' ? d.daThuCloudDaDongBo : (tongCloud.get(d.id) || 0);
+          const chiTrenMay = Math.round((parseFloat(d.daThu) || 0) - moc);
+          if (chiTrenMay <= 0.5) return;
+          const ngayIso = ymdTuGiaTri(d.ngayThanhToan) || ymdTuGiaTri(d.ngayThuXong);
+          if (!ngayIso || ngayIso < tuIso || ngayIso > denIso) return;
+          thuNgoai.push(dongThuNgoai({
+            id: d.id, khoa: 'chua_ro|' + d.id, loaiThu: 'chua_ro', maHD: d.maHD || '', tenKH: d.tenKH || '', maKH: d.maKH || '',
+            ngay: chuanHoaNgay(ngayIso), ngayIso: ngayIso, chuaRo: chiTrenMay, moc: moc, maDotNo: d.maDot || '', ghiChu: d.ghiChuThu || ''
+          }));
+        });
+      } catch (e) {
+        console.warn('Không đối chiếu được khoản đã thu chỉ ghi trên máy:', e);
+      }
+    }
+
+    function thuNgoaiDaLoc() {
+      const xe = document.getElementById('bcXe').value;
+      return xe ? thuNgoai.filter(d => d.maDot && d.xe === xe) : thuNgoai;
+    }
+
     async function taiBaoCao() {
       const tu = document.getElementById('bcTuNgay').value;
       const den = document.getElementById('bcDenNgay').value;
@@ -498,12 +614,14 @@
         nguonDuLieu = 'cloud';
         elNguon.innerHTML = '🟢 Dữ liệu trực tiếp từ Supabase · cập nhật ' + H(new Date().toLocaleTimeString('vi-VN'));
         await taiNopTien();
+        await taiThuNgoai(tu, den);
       } catch (e) {
         console.warn('Không đọc được Supabase, dùng dữ liệu trên máy:', e);
         duLieu = taiTuMayNay(tu, den);
         nguonDuLieu = 'local';
         elNguon.innerHTML = '🟠 Mất kết nối Supabase — đang hiển thị dữ liệu lưu trên máy này (có thể chưa đầy đủ)';
         await taiNopTien();
+        await taiThuNgoai(tu, den);
       } finally {
         dangTai = false;
       }
@@ -530,8 +648,21 @@
 
     // ---------------- TỔNG HỢP ----------------
     function tongHop(ds) {
-      const t = { soHD: ds.length, xuat: 0, tm: 0, ck: 0, tra: 0, no: 0, soTM: 0, soCK: 0, soTra: 0, soNo: 0, soCho: 0, tienCho: 0, soQT: 0, lech: 0, soLech: 0 };
+      const t = { soHD: ds.filter(d => !d.laThuNgoai).length, xuat: 0, tm: 0, ck: 0, tra: 0, no: 0, soTM: 0, soCK: 0, soTra: 0, soNo: 0, soCho: 0, tienCho: 0, soQT: 0, lech: 0, soLech: 0,
+        ngoaiTm: 0, ngoaiCk: 0, ngoaiTra: 0, canTru: 0, chiTm: 0, chiCk: 0, chuaRo: 0, soNgoai: 0 };
       ds.forEach(d => {
+        // Khoản tiền NGOÀI hoá đơn giao hàng (thu nợ, trả trước, trả lại hàng…): cộng vào tiền mặt / CK / trả về,
+        // không tính vào xuất kho, chờ quyết toán hay đối soát lệch của hoá đơn
+        if (d.laThuNgoai) {
+          t.soNgoai++;
+          t.tm += d.tm; t.ck += d.ck; t.tra += d.tra;
+          t.ngoaiTm += d.tm; t.ngoaiCk += d.ck; t.ngoaiTra += d.tra;
+          t.canTru += d.canTru; t.chiTm += d.chiTm; t.chiCk += d.chiCk; t.chuaRo += d.chuaRo;
+          if (d.tm > 0) t.soTM++;
+          if (d.ck > 0) t.soCK++;
+          if (d.tra > 0) t.soTra++;
+          return;
+        }
         t.xuat += d.thanhTien;
         t.tm += d.tm; t.ck += d.ck; t.tra += d.tra; t.no += d.no;
         if (d.tm > 0) t.soTM++;
@@ -733,6 +864,10 @@
     function veKpi() {
       const ds = duLieuDaLoc();
       const t = tongHop(ds);
+      // Cộng thêm tiền ngoài hoá đơn giao hàng (thu nợ, trả trước, trả lại hàng) vào 3 thẻ tiền mặt / CK / trả về
+      const ngoai = thuNgoaiDaLoc();
+      const n = tongHop(ngoai);
+      const phuNgoai = (tien, so) => tien ? ` + ${fmt(tien)} đ thu nợ / trả trước (${so} khoản)` : '';
       const the = (cls, key, tieuDe, giaTri, phu) => `
         <button type="button" class="bc-kpi ${cls}" onclick="moChiTiet('${key}')">
           <span class="bc-kpi-title">${tieuDe}</span>
@@ -742,12 +877,26 @@
         </button>`;
       document.getElementById('bcKpi').innerHTML =
         the('k-xuat', 'xuat', '🚚 Tổng đơn hàng xuất kho', fmt(t.xuat) + ' đ', `${t.soHD} hoá đơn`) +
-        the('k-mat', 'tienmat', '💵 Thanh toán tiền mặt', fmt(t.tm) + ' đ', `${t.soTM} đơn thu tiền mặt`) +
-        the('k-ck', 'ck', '🏦 Chuyển khoản', fmt(t.ck) + ' đ', `${t.soCK} đơn chuyển khoản`) +
-        the('k-tra', 'travee', '↩️ Hàng trả về', fmt(t.tra) + ' đ', `${t.soTra} đơn có hàng trả`) +
+        the('k-mat', 'tienmat', '💵 Thanh toán tiền mặt', fmt(t.tm + n.tm) + ' đ', `${t.soTM} đơn thu tiền mặt` + phuNgoai(n.tm, n.soTM)) +
+        the('k-ck', 'ck', '🏦 Chuyển khoản', fmt(t.ck + n.ck) + ' đ', `${t.soCK} đơn chuyển khoản` + phuNgoai(n.ck, n.soCK)) +
+        the('k-tra', 'travee', '↩️ Hàng trả về', fmt(t.tra + n.tra) + ' đ', `${t.soTra} đơn có hàng trả` + (n.tra ? ` + ${fmt(n.tra)} đ khách trả lại hàng trừ nợ (${n.soTra} khoản)` : '')) +
         the('k-no', 'no', '📒 Tổng nợ phát sinh', fmt(t.no) + ' đ', `${t.soNo} đơn ghi nợ`) +
         the('k-cho', 'cho', '⏳ Chờ quyết toán (Bước 2)', `${t.soCho} đơn`, `${fmt(t.tienCho)} đ chưa quyết toán`);
       document.getElementById('bcKpi').insertAdjacentHTML('beforeend', veTheThieuThua());
+      // Thu nợ & tiền ngoài hoá đơn giao hàng (Sổ công nợ, thu hộ qua xe, trả trước, trả lại hàng, cấn trừ)
+      const dsThuNo = ngoai.filter(d => CAU_HINH.thungoai.loc(d));
+      document.getElementById('bcKpi').insertAdjacentHTML('beforeend',
+        the('k-ck', 'thungoai', '🧾 Thu nợ & tiền ngoài hoá đơn', fmt(n.ngoaiTm + n.ngoaiCk + n.ngoaiTra + n.canTru) + ' đ',
+          `${dsThuNo.length} khoản · Tiền mặt ${fmt(n.ngoaiTm)} · CK ${fmt(n.ngoaiCk)}` + (n.ngoaiTra ? ` · Trả hàng ${fmt(n.ngoaiTra)}` : '') + (n.canTru ? ` · Cấn trừ ${fmt(n.canTru)}` : '')));
+      if (n.chuaRo > 0) {
+        document.getElementById('bcKpi').insertAdjacentHTML('beforeend',
+          the('k-no', 'chuaro', '⚠️ Đã thu nợ — chưa rõ hình thức', fmt(n.chuaRo) + ' đ',
+            `${ngoai.filter(d => d.loaiThu === 'chua_ro').length} khoản chỉ ghi trên máy này, CHƯA cộng vào tiền mặt / CK — bấm để ghi nhận`));
+      }
+      if (n.chiTm + n.chiCk > 0) {
+        document.getElementById('bcKpi').insertAdjacentHTML('beforeend',
+          the('k-hoan', 'chihoan', '↩ Hoàn tiền trả trước cho khách', fmt(n.chiTm + n.chiCk) + ' đ', `Tiền mặt ${fmt(n.chiTm)} · Chuyển khoản ${fmt(n.chiCk)} (tiền chi ra)`));
+      }
       const dsHoan = ds.filter(d => hoanCuaDon(d) > 0);
       if (dsHoan.length) {
         document.getElementById('bcKpi').insertAdjacentHTML('beforeend',
@@ -755,11 +904,15 @@
       }
 
       const el = document.getElementById('bcCanDoi');
-      if (t.soHD === 0) { el.innerHTML = ''; return; }
+      // Ghi chú tiền ngoài hoá đơn (đã cộng vào các thẻ) & lỗi đọc dữ liệu
+      const ghiChuNgoai = (n.soNgoai ? `<div class="bc-balance ok" style="margin-top:6px; background:#eff6ff; border-color:#bfdbfe; color:#1e3a8a; cursor:pointer;" onclick="moChiTiet('thungoai')">💼 Ngoài hoá đơn giao hàng: tiền mặt ${fmt(n.ngoaiTm)} đ · chuyển khoản ${fmt(n.ngoaiCk)} đ · khách trả lại hàng ${fmt(n.ngoaiTra)} đ${n.canTru ? ` · cấn trừ trả trước ${fmt(n.canTru)} đ (không có tiền mới)` : ''} — đã cộng vào các thẻ Tiền mặt / Chuyển khoản / Hàng trả về. Bấm để xem.</div>` : '') +
+        (n.chuaRo > 0 ? `<div class="bc-balance bad" style="margin-top:6px; cursor:pointer;" onclick="moChiTiet('chuaro')">⚠️ ${fmt(n.chuaRo)} đ đã thu nợ nhưng chỉ ghi trên máy (chưa rõ tiền mặt hay chuyển khoản) nên CHƯA cộng vào quỹ — bấm để ghi nhận hình thức.</div>` : '') +
+        ghiChuThuNgoai.map(x => `<div class="bc-balance bad" style="margin-top:6px;">⚠️ ${H(x)}</div>`).join('');
+      if (t.soHD === 0) { el.innerHTML = ghiChuNgoai; return; }
       if (t.soLech === 0) {
-        el.innerHTML = `<div class="bc-balance ok">✅ Đối soát cân đối: ${t.soQT} đơn đã quyết toán khớp 100% (Xuất kho = Tiền mặt + Chuyển khoản + Trả về + Nợ)${t.soCho ? ` · còn ${t.soCho} đơn chờ quyết toán` : ''}.</div>`;
+        el.innerHTML = `<div class="bc-balance ok">✅ Đối soát cân đối: ${t.soQT} đơn đã quyết toán khớp 100% (Xuất kho = Tiền mặt + Chuyển khoản + Trả về + Nợ)${t.soCho ? ` · còn ${t.soCho} đơn chờ quyết toán` : ''}.</div>` + ghiChuNgoai;
       } else {
-        el.innerHTML = `<div class="bc-balance bad" style="cursor:pointer;" onclick="moChiTiet('lech')">⚠️ Có ${t.soLech} đơn đã quyết toán bị lệch tổng cộng ${(t.lech > 0 ? '+' : '') + fmt(t.lech)} đ — bấm để xem các đơn lệch.</div>`;
+        el.innerHTML = `<div class="bc-balance bad" style="cursor:pointer;" onclick="moChiTiet('lech')">⚠️ Có ${t.soLech} đơn đã quyết toán bị lệch tổng cộng ${(t.lech > 0 ? '+' : '') + fmt(t.lech)} đ — bấm để xem các đơn lệch.</div>` + ghiChuNgoai;
       }
     }
 
@@ -772,7 +925,7 @@
       });
       const dots = Array.from(map.values()).sort((a, b) => (vnSangKhoa(b.ngay) + b.xe).localeCompare(vnSangKhoa(a.ngay) + a.xe));
       const body = document.getElementById('bcBangDot');
-      if (!dots.length) {
+      if (!dots.length && !thuNgoaiDaLoc().length) {
         body.innerHTML = '<tr><td colspan="12" class="bc-empty">Không có chuyến xe nào trong khoảng ngày đã chọn.</td></tr>';
         document.getElementById('bcFootDot').innerHTML = '';
         return;
@@ -798,11 +951,29 @@
             <td>${tt}${lech}</td>
           </tr>`;
       }).join('');
-      const T = tongHop(ds);
+      // Dòng tiền ngoài hoá đơn giao hàng (thu nợ, thu hộ qua xe, trả trước, trả lại hàng) — không thuộc chuyến nào
+      const N = tongHop(thuNgoaiDaLoc());
+      if (N.soNgoai) {
+        body.insertAdjacentHTML('beforeend', `
+          <tr class="bc-click" onclick="moChiTiet('thungoai')" style="background:#eff6ff;">
+            <td>—</td>
+            <td colspan="2"><b>💼 Thu nợ / trả trước / trả lại hàng</b><div style="font-size:11px; color:var(--text-muted);">Ngoài hoá đơn giao hàng — theo ngày thu</div></td>
+            <td class="num">${N.soNgoai}</td>
+            <td class="num">–</td>
+            <td class="num" style="color:#15803d;">${fmt(N.ngoaiTm)}</td>
+            <td class="num" style="color:#1d4ed8;">${fmt(N.ngoaiCk)}</td>
+            <td class="num" style="color:#b45309;">${fmt(N.ngoaiTra)}</td>
+            <td class="num">–</td>
+            <td class="num">–</td>
+            <td class="num">–</td>
+            <td>${N.chuaRo > 0 ? `<span class="bc-tag warn">${fmt(N.chuaRo)} đ chưa rõ hình thức</span>` : '<span class="bc-tag done">Đã cộng vào tổng</span>'}</td>
+          </tr>`);
+      }
+      const T = tongHop(ds.concat(thuNgoaiDaLoc()));
       const TT = tongThieuThua(dsDotCoNopTien());
       document.getElementById('bcFootDot').innerHTML = `
         <tr>
-          <td colspan="3">TỔNG CỘNG (${dots.length} chuyến)</td>
+          <td colspan="3">TỔNG CỘNG (${dots.length} chuyến${N.soNgoai ? ` + ${N.soNgoai} khoản ngoài hoá đơn` : ''})</td>
           <td class="num">${T.soHD}</td>
           <td class="num">${fmt(T.xuat)}</td>
           <td class="num">${fmt(T.tm)}</td>
@@ -818,9 +989,12 @@
     // ---------------- CHI TIẾT (DRILL-DOWN) ----------------
     const CAU_HINH = {
       xuat:    { tieuDe: '🚚 Tất cả đơn hàng xuất kho', loc: d => true },
-      tienmat: { tieuDe: '💵 Các đơn thanh toán tiền mặt', loc: d => d.tm > 0 },
-      ck:      { tieuDe: '🏦 Các đơn chuyển khoản', loc: d => d.ck > 0 },
-      travee:  { tieuDe: '↩️ Các đơn có hàng trả về', loc: d => d.tra > 0 },
+      tienmat: { tieuDe: '💵 Các đơn thanh toán tiền mặt', loc: d => d.tm > 0 || (d.laThuNgoai && d.tm < 0), coNgoai: true },
+      ck:      { tieuDe: '🏦 Các đơn chuyển khoản', loc: d => d.ck > 0 || (d.laThuNgoai && d.ck < 0), coNgoai: true },
+      travee:  { tieuDe: '↩️ Các đơn có hàng trả về', loc: d => d.tra > 0, coNgoai: true },
+      thungoai:{ tieuDe: '🧾 Thu nợ & tiền ngoài hoá đơn giao hàng', loc: d => d.laThuNgoai && ['thu_no', 'thu_ho_xe', 'tra_truoc', 'tra_lai_hang', 'can_tru'].includes(d.loaiThu), coNgoai: true },
+      chuaro:  { tieuDe: '⚠️ Đã thu nợ nhưng chưa rõ hình thức (chỉ ghi trên máy này)', loc: d => d.loaiThu === 'chua_ro', coNgoai: true },
+      chihoan: { tieuDe: '↩ Hoàn tiền trả trước cho khách', loc: d => d.loaiThu === 'hoan_tra_truoc', coNgoai: true },
       no:      { tieuDe: '📒 Các đơn phát sinh nợ', loc: d => d.no > 0 },
       cho:     { tieuDe: '⏳ Các đơn chờ quyết toán', loc: d => !d.daQT },
       lech:    { tieuDe: '⚠️ Các đơn quyết toán bị lệch', loc: d => d.daQT && Math.abs(lechCuaDon(d)) > 1 },
@@ -832,7 +1006,8 @@
       const cfg = CAU_HINH[key];
       if (!cfg) return;
       let rows, title = cfg.tieuDe;
-      const ds = duLieuDaLoc();
+      // Bảng tiền mặt / CK / trả về / thu nợ: gồm cả các khoản ngoài hoá đơn giao hàng
+      const ds = cfg.coNgoai ? duLieuDaLoc().concat(thuNgoaiDaLoc()) : duLieuDaLoc();
       if (key === 'dot') {
         rows = ds.filter(d => d.maDot === param);
         if (rows.length) title = `🚚 Chuyến ${rows[0].xe} — ${rows[0].ngay}${rows[0].taiXe ? ' — Tài xế ' + rows[0].taiXe : ''}`;
@@ -846,6 +1021,9 @@
       if (!giuNguyenTim) document.getElementById('bcModalTim').value = '';
       document.getElementById('bcModal').classList.add('show');
       veChiTiet();
+      // Nạp trạng thái ô "Kiểm tra" của bảng này rồi vẽ lại
+      const ctMo = chiTietHienTai;
+      napKiemTraBC(rows).then(() => { if (chiTietHienTai === ctMo) veChiTiet(); });
     }
 
     function dongChiTiet() { document.getElementById('bcModal').classList.remove('show'); }
@@ -870,7 +1048,19 @@
       if (tongHoanChiTiet > 0 && ['hoan', 'dot', 'xuat', 'ck', 'tienmat'].includes(k)) {
         chips.push(`<div class="bc-chip" style="color:#b45309;">↩ Hoàn TM cho khách (CK dư): <b>${fmt(tongHoanChiTiet)} đ</b></div>`);
       }
-      if (k === 'ck' || k === 'dot' || k === 'xuat') {
+      // Khoản ngoài hoá đơn giao hàng trong bảng này
+      if (t.soNgoai && ['tienmat', 'ck', 'travee'].includes(k)) {
+        const phan = k === 'tienmat' ? t.ngoaiTm : (k === 'ck' ? t.ngoaiCk : t.ngoaiTra);
+        chips.push(`<div class="bc-chip" style="color:#1d4ed8;">💼 Trong đó ngoài hoá đơn (thu nợ / trả trước / trả hàng): <b>${fmt(phan)} đ</b></div>`);
+      }
+      if (k === 'thungoai') {
+        chips.push(`<div class="bc-chip">💵 Tiền mặt: <b>${fmt(t.ngoaiTm)} đ</b></div>`, `<div class="bc-chip">🏦 Chuyển khoản: <b>${fmt(t.ngoaiCk)} đ</b></div>`);
+        if (t.ngoaiTra) chips.push(`<div class="bc-chip">📦 Khách trả lại hàng: <b>${fmt(t.ngoaiTra)} đ</b></div>`);
+        if (t.canTru) chips.push(`<div class="bc-chip">🔁 Cấn trừ trả trước (không có tiền mới): <b>${fmt(t.canTru)} đ</b></div>`);
+      }
+      if (k === 'chuaro') chips.push(`<div class="bc-chip" style="color:#b91c1c;">⚠️ Chưa rõ hình thức: <b>${fmt(t.chuaRo)} đ</b> — bấm "Ghi nhận" ở từng dòng để chọn tiền mặt / chuyển khoản</div>`);
+      if (k === 'chihoan') chips.push(`<div class="bc-chip" style="color:#b45309;">↩ Chi hoàn: tiền mặt <b>${fmt(t.chiTm)} đ</b> · chuyển khoản <b>${fmt(t.chiCk)} đ</b></div>`);
+      if (k === 'ck' || k === 'dot' || k === 'xuat' || k === 'thungoai') {
         const mapNH = {};
         rows.forEach(d => { if (d.ck > 0) { const n = d.nganHang || 'Chưa rõ tài khoản'; mapNH[n] = (mapNH[n] || 0) + d.ck; } });
         Object.keys(mapNH).forEach(n => chips.push(`<div class="bc-chip">🏦 ${H(n)}: <b>${fmt(mapNH[n])} đ</b></div>`));
@@ -886,15 +1076,20 @@
           if (ntDot.thua > 0) chips.push(`<div class="bc-chip" style="color:#0e7490;">🔺 Thừa: <b>${fmt(ntDot.thua)} đ</b> — ghi nhận cho người nộp</div>`);
         }
       }
+      const soDaKT = rows.filter(d => daKiemTraBC(d)).length;
+      chips.push(`<div class="bc-chip" style="color:${soDaKT === rows.length && rows.length ? '#15803d' : '#475569'};">☑ Đã kiểm tra: <b>${soDaKT}/${rows.length}</b>${kiemTraNguonBC === 'may' ? ' <span style="color:#b45309;">(lưu tạm trên máy này — cần chạy sql/17)</span>' : ''}</div>`);
       document.getElementById('bcModalChips').innerHTML = chips.join('');
+      const chkTatCa = document.getElementById('bcKTTatCa');
+      if (chkTatCa) { chkTatCa.checked = rows.length > 0 && soDaKT === rows.length; chkTatCa.indeterminate = soDaKT > 0 && soDaKT < rows.length; }
 
       const body = document.getElementById('bcModalBody');
       if (!rows.length) {
-        body.innerHTML = '<tr><td colspan="10" class="bc-empty">Không có đơn hàng nào.</td></tr>';
+        body.innerHTML = '<tr><td colspan="11" class="bc-empty">Không có đơn hàng nào.</td></tr>';
         document.getElementById('bcModalFoot').innerHTML = '';
         return;
       }
       body.innerHTML = rows.map((d, i) => {
+        if (d.laThuNgoai) return dongChiTietThuNgoai(d, i);
         const lech = lechCuaDon(d);
         let tt;
         if (!d.daQT) tt = '<span class="bc-tag wait">⏳ Chờ quyết toán</span>';
@@ -913,18 +1108,175 @@
             <td class="num">${d.tra ? fmt(d.tra) : '–'}</td>
             <td class="num">${d.no ? fmt(d.no) : '–'}</td>
             <td>${tt}</td>
+            ${oKiemTraBC(d, i)}
           </tr>`;
       }).join('');
       document.getElementById('bcModalFoot').innerHTML = `
         <tr>
-          <td colspan="4">TỔNG CỘNG (${rows.length} đơn)</td>
+          <td colspan="4">TỔNG CỘNG (${rows.length} ${t.soNgoai ? 'khoản' : 'đơn'})</td>
           <td class="num">${fmt(t.xuat)}</td>
           <td class="num">${fmt(t.tm)}</td>
           <td class="num">${fmt(t.ck)}</td>
           <td class="num">${fmt(t.tra)}</td>
           <td class="num">${fmt(t.no)}</td>
           <td></td>
+          <td style="text-align:center;">${soDaKT}/${rows.length}</td>
         </tr>`;
+    }
+
+    // Dòng khoản ngoài hoá đơn giao hàng trong bảng chi tiết
+    const NHAN_THU_NGOAI = {
+      thu_no: ['🧾 Thu nợ tại quỹ', '#1d4ed8', '#eff6ff'],
+      thu_ho_xe: ['🚚 Thu hộ nợ cũ qua xe', '#1d4ed8', '#eff6ff'],
+      tra_truoc: ['💚 Khách trả trước', '#15803d', '#f0fdf4'],
+      tra_lai_hang: ['📦 Khách trả lại hàng trừ nợ', '#b45309', '#fff7ed'],
+      can_tru: ['🔁 Cấn trừ trả trước', '#475569', '#f1f5f9'],
+      hoan_tra_truoc: ['↩ Hoàn tiền trả trước', '#b45309', '#fff7ed'],
+      chua_ro: ['⚠️ Đã thu — chưa rõ hình thức', '#b91c1c', '#fef2f2']
+    };
+    function dongChiTietThuNgoai(d, i) {
+      const [nhan, mau, nen] = NHAN_THU_NGOAI[d.loaiThu] || ['Khoản khác', '#475569', '#f1f5f9'];
+      let tt = `<span class="bc-tag" style="color:${mau}; background:${nen}; border:1px solid ${mau}33;">${nhan}</span>`;
+      if (d.loaiThu === 'can_tru') tt += `<div style="font-size:11px; color:var(--text-muted);">${fmt(d.canTru)} đ — không có tiền mới vào quỹ</div>`;
+      if (d.loaiThu === 'chua_ro') tt += `<div style="font-size:11px; color:#b91c1c; font-weight:700;">${fmt(d.chuaRo)} đ</div>` +
+        `<button type="button" class="btn btn-outline" style="height:24px; padding:0 8px; font-size:11px; margin-top:3px;" onclick="ghiNhanHinhThucChuaRo(${i})">Ghi nhận TM / CK</button>`;
+      const nguon = d.maDot ? `${H(d.xe)}${d.taiXe ? ' · ' + H(d.taiXe) : ''}` : (d.loaiThu === 'chua_ro' ? 'Sổ công nợ (chỉ trên máy này)' : (['tra_truoc', 'hoan_tra_truoc'].includes(d.loaiThu) ? 'Sổ tiền khách trả trước' : 'Sổ công nợ'));
+      const oTien = (v, chi) => chi ? `<span style="color:#b45309;">−${fmt(chi)}</span>` : (v ? fmt(v) : '–');
+      return `
+          <tr style="background:${nen}55;">
+            <td>${i + 1}</td>
+            <td><b>${H(d.maHD || '—')}</b></td>
+            <td>${H(d.tenKH)}<div style="font-size:11px; color:var(--text-muted);">${H(d.maKH)}</div></td>
+            <td>${H(d.ngay)}<div style="font-size:11px; color:var(--text-muted);">${nguon}</div></td>
+            <td class="num">–</td>
+            <td class="num">${oTien(d.tm, d.chiTm)}</td>
+            <td class="num">${oTien(d.ck, d.chiCk)}${(d.ck || d.chiCk) && d.nganHang ? `<div style="font-size:10.5px; color:var(--text-muted);">${H(d.nganHang)}</div>` : ''}</td>
+            <td class="num">${d.tra ? fmt(d.tra) : '–'}</td>
+            <td class="num">–</td>
+            <td>${tt}${d.ghiChu ? `<div style="font-size:10.5px; color:var(--text-muted); max-width:260px;">${H(d.ghiChu)}</div>` : ''}</td>
+            ${oKiemTraBC(d, i)}
+          </tr>`;
+    }
+
+    // ---------------- Ô TÍCH "KIỂM TRA" (kế toán trưởng xác nhận đã kiểm tra từng khoản) ----------------
+    // Lưu trên máy chủ bảng kiem_tra_bao_cao (sql/17) để mọi máy cùng thấy; chưa có bảng thì lưu tạm trên máy.
+    // Mỗi bảng chi tiết (tiền mặt, chuyển khoản, trả về, nợ…) có ô tích riêng cho từng khoản.
+    const BANG_KIEM_TRA_BC = 'kiem_tra_bao_cao';
+    const KHOA_LS_KIEM_TRA_BC = 'tmh_kiem_tra_bao_cao';
+    const kiemTraBC = new Map();   // khoá → { da, nguoi, luc }
+    let kiemTraNguonBC = 'cloud';
+
+    function khoaKiemTraBC(d) {
+      const nhom = chiTietHienTai.key === 'dot' ? 'dot' : (chiTietHienTai.key || 'chung');
+      return nhom + '|' + (d.laThuNgoai ? d.khoa : `HD|${d.maDot}|${d.maHD}`);
+    }
+    function daKiemTraBC(d) { const x = kiemTraBC.get(khoaKiemTraBC(d)); return !!(x && x.da); }
+    function nguoiKiemTraBC() {
+      try {
+        const p = JSON.parse(localStorage.getItem('nhan_su_profile') || '{}');
+        return (p.ho_ten || 'Không rõ') + (p.so_dien_thoai ? ` (${p.so_dien_thoai})` : '');
+      } catch (e) { return 'Không rõ'; }
+    }
+    function docKiemTraTrenMayBC() { try { return JSON.parse(localStorage.getItem(KHOA_LS_KIEM_TRA_BC) || '{}') || {}; } catch (e) { return {}; } }
+    const laLoiThieuBangKT = e => !!e && (e.code === 'PGRST205' || e.code === '42P01' || /kiem_tra_bao_cao/i.test(String(e.message || '')));
+
+    async function napKiemTraBC(rows) {
+      const cacKhoa = Array.from(new Set((rows || []).map(khoaKiemTraBC)));
+      const trenMay = docKiemTraTrenMayBC();
+      cacKhoa.forEach(k => { if (trenMay[k]) kiemTraBC.set(k, trenMay[k]); });
+      if (typeof sb === 'undefined' || !cacKhoa.length) return;
+      try {
+        for (let i = 0; i < cacKhoa.length; i += 150) {
+          const { data, error } = await sb.from(BANG_KIEM_TRA_BC).select('*').in('khoa', cacKhoa.slice(i, i + 150));
+          if (error) { if (laLoiThieuBangKT(error)) { kiemTraNguonBC = 'may'; return; } throw error; }
+          kiemTraNguonBC = 'cloud';
+          (data || []).forEach(r => kiemTraBC.set(r.khoa, { da: !!r.da_kiem_tra, nguoi: r.nguoi_kiem_tra || '', luc: r.kiem_tra_luc || '' }));
+        }
+      } catch (e) { console.warn('Không đọc được trạng thái kiểm tra:', e); }
+    }
+
+    async function luuKiemTraBC(dsKhoa, da) {
+      const nguoi = nguoiKiemTraBC(), luc = new Date().toISOString();
+      if (typeof sb !== 'undefined' && kiemTraNguonBC !== 'may') {
+        const { error } = await sb.from(BANG_KIEM_TRA_BC).upsert(dsKhoa.map(k => ({ khoa: k, da_kiem_tra: da, nguoi_kiem_tra: nguoi, kiem_tra_luc: luc })), { onConflict: 'khoa' });
+        if (error && !laLoiThieuBangKT(error)) { alert('❌ Chưa lưu được ô kiểm tra: ' + (error.message || error)); return false; }
+        if (error) kiemTraNguonBC = 'may';
+      }
+      if (kiemTraNguonBC === 'may' || typeof sb === 'undefined') {
+        const trenMay = docKiemTraTrenMayBC();
+        dsKhoa.forEach(k => { trenMay[k] = { da: da, nguoi: nguoi, luc: luc }; });
+        try { localStorage.setItem(KHOA_LS_KIEM_TRA_BC, JSON.stringify(trenMay)); } catch (e) {}
+      }
+      dsKhoa.forEach(k => kiemTraBC.set(k, { da: da, nguoi: nguoi, luc: luc }));
+      return true;
+    }
+
+    function oKiemTraBC(d, i) {
+      const x = kiemTraBC.get(khoaKiemTraBC(d));
+      const da = !!(x && x.da);
+      const ai = da && x.nguoi ? `<div style="font-size:10px; color:#15803d; line-height:1.2; margin-top:2px;">${H(String(x.nguoi).replace(/\s*\(.*\)$/, ''))}<br>${x.luc ? H(new Date(x.luc).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })) : ''}</div>` : '';
+      return `<td style="text-align:center; ${da ? 'background:#f0fdf4;' : ''}"><input type="checkbox" ${da ? 'checked' : ''} onchange="tickKiemTraBC(this, ${i})" style="width:17px; height:17px; cursor:pointer;" title="Tích khi đã kiểm tra khoản này">${ai}</td>`;
+    }
+
+    async function tickKiemTraBC(el, i) {
+      const d = dsChiTietSauTim()[i];
+      if (!d) return;
+      const ok = await luuKiemTraBC([khoaKiemTraBC(d)], !!el.checked);
+      if (!ok) el.checked = !el.checked;
+      veChiTiet();
+    }
+
+    async function tickTatCaKiemTraBC(el) {
+      const rows = dsChiTietSauTim();
+      if (!rows.length) { el.checked = false; return; }
+      const da = !!el.checked;
+      if (!confirm(`${da ? 'Tích ĐÃ KIỂM TRA' : 'BỎ tích kiểm tra'} cho tất cả ${rows.length} khoản đang hiện trong bảng?`)) { veChiTiet(); return; }
+      await luuKiemTraBC(rows.map(khoaKiemTraBC), da);
+      veChiTiet();
+    }
+
+    // ---------------- GHI NHẬN HÌNH THỨC CHO KHOẢN ĐÃ THU CHỈ GHI TRÊN MÁY ----------------
+    // Khoản "Đã thu" trong Sổ công nợ trên máy này nhưng không có dòng thu_no (vd "Đã thu quỹ" ở Bước 2):
+    // chọn tiền mặt / chuyển khoản → ghi 1 dòng thu_no (mọi máy, Báo cáo & phiếu thu Bước 3 đều thấy),
+    // đồng thời dời mốc đối chiếu của đơn trên máy này để số đã thu không bị cộng 2 lần.
+    async function ghiNhanHinhThucChuaRo(i) {
+      const d = dsChiTietSauTim()[i];
+      if (!d || d.loaiThu !== 'chua_ro') return;
+      if (window.TMH_CHE_DO_XEM) { alert('🔒 Đang ở chế độ chỉ xem — không ghi nhận được.'); return; }
+      if (typeof sb === 'undefined') { alert('❌ Chưa kết nối máy chủ.'); return; }
+      const chon = prompt(`Khoản ${fmt(d.chuaRo)} đ của ${d.tenKH} (HĐ ${d.maHD}) ngày ${d.ngay} đã thu bằng hình thức nào?\n\n1 = Tiền mặt\n2 = Chuyển khoản\n\nNhập 1 hoặc 2:`, '1');
+      if (chon === null) return;
+      let hinhThuc = '', taiKhoan = '';
+      if (String(chon).trim() === '1') hinhThuc = 'Tiền mặt';
+      else if (String(chon).trim() === '2') {
+        hinhThuc = 'Chuyển khoản';
+        let dsNH = [];
+        try { dsNH = (JSON.parse(localStorage.getItem('tmh_danh_muc_tai_khoan_ngan_hang') || '[]') || []).map(n => n.ten_tk).filter(Boolean); } catch (e) {}
+        try { const { data } = await sb.from('tai_khoan_ngan_hang').select('ten_tk'); if (Array.isArray(data) && data.length) dsNH = data.map(n => n.ten_tk).filter(Boolean); } catch (e) {}
+        const so = prompt('Tài khoản ngân hàng nhận tiền:\n\n' + dsNH.map((n, j) => `${j + 1} = ${n}`).join('\n') + '\n\nNhập số thứ tự:', '1');
+        if (so === null) return;
+        taiKhoan = dsNH[parseInt(so, 10) - 1] || '';
+        if (!taiKhoan) { alert('⚠️ Số thứ tự tài khoản không hợp lệ.'); return; }
+      } else { alert('⚠️ Vui lòng nhập 1 (tiền mặt) hoặc 2 (chuyển khoản).'); return; }
+      if (!confirm(`Ghi nhận ${fmt(d.chuaRo)} đ của ${d.tenKH} (HĐ ${d.maHD}) là ${hinhThuc.toUpperCase()}${taiKhoan ? ' qua ' + taiKhoan : ''}, ngày thu ${d.ngay}?\n\nKhoản này sẽ được cộng vào ${hinhThuc === 'Tiền mặt' ? 'tiền mặt' : 'chuyển khoản'} của báo cáo và có trong phiếu thu Bước 3.`)) return;
+      const { error } = await sb.from('thu_no').insert([{
+        id_don_no: d.id, ma_hd: d.maHD || '', ma_dot: d.maDotNo || '', ma_kh: d.maKH || '', ten_kh: d.tenKH || '',
+        so_tien: d.chuaRo, hinh_thuc: hinhThuc, tai_khoan_nhan: taiKhoan, nguoi_thu: nguoiKiemTraBC(),
+        ghi_chu: `Ghi nhận hình thức từ Báo cáo tổng hợp — khoản đã thu chỉ ghi trên máy${d.ghiChu ? ' (' + d.ghiChu + ')' : ''}`,
+        ngay_thu: d.ngayIso
+      }]);
+      if (error) { alert('❌ Chưa ghi nhận được: ' + (error.message || error)); return; }
+      // Dời mốc đối chiếu trên máy này: phần "chỉ trên máy" nay đã nằm trên máy chủ → không cộng 2 lần
+      try {
+        const so = JSON.parse(localStorage.getItem('tmh_theo_doi_cong_no') || '[]') || [];
+        const don = so.find(x => x && x.id === d.id);
+        if (don) {
+          don.daThuCloudDaDongBo = (d.moc || 0) + d.chuaRo;
+          localStorage.setItem('tmh_theo_doi_cong_no', JSON.stringify(so));
+        }
+      } catch (e) {}
+      alert(`✅ Đã ghi nhận ${fmt(d.chuaRo)} đ là ${hinhThuc}.`);
+      await taiBaoCao();
     }
 
     // ---------------- XUẤT EXCEL ----------------
@@ -940,16 +1292,21 @@
     function xuatExcelChiTiet() {
       const rows = dsChiTietSauTim();
       const aoa = [[chiTietHienTai.title.replace(/^[^\wÀ-ỹ]+/, '')], [],
-        ['STT', 'Mã HĐ', 'Khách hàng', 'Ngày', 'Chuyến xe', 'Tài xế', 'Xuất kho', 'Tiền mặt', 'Chuyển khoản', 'Ngân hàng nhận', 'Trả về', 'Nợ', 'Trạng thái']];
-      rows.forEach((d, i) => aoa.push([i + 1, d.maHD, d.tenKH, d.ngay, d.xe, d.taiXe, d.thanhTien, d.tm, d.ck, d.nganHang, d.tra, d.no, d.daQT ? 'Đã quyết toán' : 'Chờ quyết toán']));
+        ['STT', 'Mã HĐ', 'Khách hàng', 'Ngày', 'Chuyến xe', 'Tài xế', 'Xuất kho', 'Tiền mặt', 'Chuyển khoản', 'Ngân hàng nhận', 'Trả về', 'Nợ', 'Trạng thái', 'Đã kiểm tra']];
+      const oKT = d => { const x = kiemTraBC.get(khoaKiemTraBC(d)); return x && x.da ? `Đã kiểm tra — ${x.nguoi || ''}${x.luc ? ' ' + new Date(x.luc).toLocaleString('vi-VN') : ''}` : ''; };
+      rows.forEach((d, i) => aoa.push(d.laThuNgoai
+        ? [i + 1, d.maHD, d.tenKH, d.ngay, d.xe || '', d.taiXe || '', 0, d.tm - d.chiTm, d.ck - d.chiCk, d.nganHang, d.tra, 0,
+          ((NHAN_THU_NGOAI[d.loaiThu] || ['Khoản khác'])[0]).replace(/^[^\wÀ-ỹ]+/, '') + (d.canTru ? ` ${d.canTru}` : '') + (d.chuaRo ? ` ${d.chuaRo}` : ''), oKT(d)]
+        : [i + 1, d.maHD, d.tenKH, d.ngay, d.xe, d.taiXe, d.thanhTien, d.tm, d.ck, d.nganHang, d.tra, d.no, d.daQT ? 'Đã quyết toán' : 'Chờ quyết toán', oKT(d)]));
       const t = tongHop(rows);
-      aoa.push(['', 'TỔNG CỘNG', '', '', '', '', t.xuat, t.tm, t.ck, '', t.tra, t.no, '']);
-      taiFileExcel(`BaoCao_ChiTiet_${ymdLocal(new Date())}.xlsx`, aoa, [5, 16, 30, 12, 16, 14, 14, 14, 14, 26, 14, 14, 18]);
+      aoa.push(['', 'TỔNG CỘNG', '', '', '', '', t.xuat, t.tm, t.ck, '', t.tra, t.no, '', `${rows.filter(d => daKiemTraBC(d)).length}/${rows.length} đã kiểm tra`]);
+      taiFileExcel(`BaoCao_ChiTiet_${ymdLocal(new Date())}.xlsx`, aoa, [5, 16, 30, 12, 16, 14, 14, 14, 14, 26, 14, 14, 26, 34]);
     }
 
     function xuatExcelTongHop() {
       const ds = duLieuDaLoc();
       const t = tongHop(ds);
+      const n = tongHop(thuNgoaiDaLoc());   // tiền ngoài hoá đơn giao hàng
       const dsDotTT = dsDotCoNopTien();
       const tt = tongThieuThua(dsDotTT);
       const tu = document.getElementById('bcTuNgay').value, den = document.getElementById('bcDenNgay').value;
@@ -958,9 +1315,16 @@
         [`Từ ${isoSangVN(tu)} đến ${isoSangVN(den)}`], [],
         ['Chỉ tiêu', 'Số đơn', 'Số tiền (đ)'],
         ['Tổng đơn hàng xuất kho', t.soHD, t.xuat],
-        ['Thanh toán tiền mặt', t.soTM, t.tm],
-        ['Chuyển khoản', t.soCK, t.ck],
-        ['Hàng trả về', t.soTra, t.tra],
+        ['Thanh toán tiền mặt (bán hàng + thu nợ / trả trước)', t.soTM + n.soTM, t.tm + n.tm],
+        ['   – Tiền mặt thu theo hoá đơn giao hàng', t.soTM, t.tm],
+        ['   – Tiền mặt thu nợ / khách trả trước', n.soTM, n.tm],
+        ['Chuyển khoản (bán hàng + thu nợ / trả trước)', t.soCK + n.soCK, t.ck + n.ck],
+        ['   – Chuyển khoản theo hoá đơn giao hàng', t.soCK, t.ck],
+        ['   – Chuyển khoản thu nợ / khách trả trước', n.soCK, n.ck],
+        ['Hàng trả về (lúc giao + khách trả lại hàng trừ nợ)', t.soTra + n.soTra, t.tra + n.tra],
+        ['Cấn trừ tiền trả trước vào nợ (không có tiền mới)', thuNgoaiDaLoc().filter(d => d.canTru > 0).length, n.canTru],
+        ['Đã thu nợ nhưng chưa rõ hình thức (chỉ ghi trên máy)', thuNgoaiDaLoc().filter(d => d.chuaRo > 0).length, n.chuaRo],
+        ['Hoàn tiền trả trước cho khách (tiền chi ra)', thuNgoaiDaLoc().filter(d => d.chiTm + d.chiCk > 0).length, n.chiTm + n.chiCk],
         ['Tổng nợ phát sinh', t.soNo, t.no],
         ['Chờ quyết toán', t.soCho, t.tienCho],
         ['Hoàn tiền mặt cho khách chuyển khoản dư', ds.filter(d => hoanCuaDon(d) > 0).length, ds.reduce((s, d) => s + hoanCuaDon(d), 0)],
@@ -998,6 +1362,15 @@
             hen = setTimeout(taiBaoCao, 1500);
           })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'phieu_nop_tien' }, () => {
+            clearTimeout(hen);
+            hen = setTimeout(taiBaoCao, 1500);
+          })
+          // Thu nợ / tiền khách trả trước (ngoài hoá đơn giao hàng) thay đổi → cập nhật báo cáo
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'thu_no' }, () => {
+            clearTimeout(hen);
+            hen = setTimeout(taiBaoCao, 1500);
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'khach_tra_truoc' }, () => {
             clearTimeout(hen);
             hen = setTimeout(taiBaoCao, 1500);
           })

@@ -302,6 +302,35 @@ function luuSoPhieuThuTiepTheo() {
   hienThiToast(`✅ Số phiếu thu tiếp theo: ${dinhDangSoPT(so)}`);
 }
 
+/**
+ * Định dạng file Excel xuất cho MISA (dùng chung các file của Bước 3): dòng 1 là tiêu đề cột — nền xanh
+ * nhạt, chữ đậm, xuống dòng, kẻ viền, có bộ lọc; dữ liệu từ dòng 2 có viền mảnh. Chỉ đổi giao diện,
+ * không đổi dữ liệu. cotSo: chỉ số (0-based) các cột số tiền → định dạng #,##0.
+ */
+function dinhDangTieuDeExcelMisa(ws, soDong, soCot, cotSo) {
+  if (!ws || !soCot) return;
+  const vien = { style: "thin", color: { rgb: "A6A6A6" } };
+  const kieuVien = { top: vien, bottom: vien, left: vien, right: vien };
+  const cotTien = new Set(cotSo || []);
+  for (let c = 0; c < soCot; c++) {
+    const o = ws[XLSX.utils.encode_cell({ r: 0, c: c })];
+    if (o) o.s = {
+      font: { bold: true, sz: 10, color: { rgb: /\(\*\)/.test(String(o.v || "")) ? "C00000" : "000000" } },
+      fill: { patternType: "solid", fgColor: { rgb: "D9F2D0" } },
+      alignment: { wrapText: true, vertical: "bottom", horizontal: "left" },
+      border: kieuVien
+    };
+    for (let r = 1; r < soDong; r++) {
+      const d = ws[XLSX.utils.encode_cell({ r: r, c: c })];
+      if (!d) continue;
+      d.s = { font: { sz: 10 }, border: kieuVien, alignment: { vertical: "center" } };
+      if (cotTien.has(c) && typeof d.v === "number") { d.z = "#,##0"; d.s.numFmt = "#,##0"; }
+    }
+  }
+  ws["!rows"] = [{ hpt: 45 }];
+  ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(0, soDong - 1), c: soCot - 1 } }) };
+}
+
 function xuatPhieuThuTienMat() { return xuatPhieuThuAMIS("tm"); }
 function xuatPhieuThuTienGui() { return xuatPhieuThuAMIS("ck"); }
 
@@ -317,16 +346,9 @@ async function xuatPhieuThuAMIS(loai) {
 
   const soCT = duKienSoPhieuThu(ds, true);   // cấp & lưu số chứng từ (khoản đã xuất giữ số cũ)
   const tieuDe = loai === "tm" ? TIEU_DE_PT_TIEN_MAT : TIEU_DE_PT_TIEN_GUI;
-  const aoa = [
-    [loai === "tm" ? "FILE MẪU PHIẾU THU ĐỂ NHẬP VÀO PHẦN MỀM AMIS ACCOUNTING" : "FILE MẪU PHIẾU THU TIỀN GỬI ĐỂ NHẬP VÀO PHẦN MỀM AMIS ACCOUNTING"],
-    ["Hướng dẫn:"],
-    ["- Điền dữ liệu vào các cột tương ứng trên file này"],
-    ["- Các cột có dấu (*) là những cột bắt buộc"],
-    ["- Nếu muốn nhập nhiều thông tin hơn người dùng có thể tải mẫu đầy đủ/hoặc tự thêm cột trên mẫu cơ bản"],
-    ["- Các dòng dữ liệu phía dưới chỉ là ví dụ minh họa"],
-    Array.from({ length: tieuDe.length }, (_, i) => i === 11 ? "Chi tiết hạch toán" : ""),
-    tieuDe.slice()
-  ];
+  // Dòng 1 là tiêu đề cột, dữ liệu từ dòng 2 (bỏ 7 dòng hướng dẫn của file mẫu) — để copy nhanh
+  // các dòng dữ liệu dán vào file mẫu AMIS (cột giữ đúng thứ tự như mẫu)
+  const aoa = [tieuDe.slice()];
   ds.forEach(r => {
     const dienGiai = `Thu tiền của ${r.tenKH}`;
     const lyDoChiTiet = `${dienGiai} - ${r.thamChieu || r.tenNguon}`;
@@ -351,18 +373,18 @@ async function xuatPhieuThuAMIS(loai) {
 
   try {
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws["!merges"] = [{ s: { r: 6, c: 11 }, e: { r: 6, c: tieuDe.length - 1 } }];
     ws["!cols"] = tieuDe.map((t, i) => ({ wch: [12, 12, 11, 14, 36, 24, 20, 30, 42, 12, 10, 40, 10, 9, 14, 16].concat(new Array(20).fill(12))[i] || 12 }));
+    dinhDangTieuDeExcelMisa(ws, aoa.length, tieuDe.length, [14]);   // cột Số tiền (O) định dạng số
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, loai === "tm" ? "Phieu thu" : "Phieu thu tien gui");
     const ngays = ds.map(r => khoaNgayPT(r.ngay)).filter(k => k !== "99999999").sort();
     const khoang = ngays.length ? (ngays[0] === ngays[ngays.length - 1] ? ngays[0] : `${ngays[0]}-${ngays[ngays.length - 1]}`) : new Date().toISOString().slice(0, 10).replace(/-/g, "");
-    const tenFile = `${loai === "tm" ? "phieu_thu_tien_mat" : "phieu_thu_tien_gui"}_${khoang}.xls`;
-    XLSX.writeFile(wb, tenFile, { bookType: "xls" });
+    const tenFile = `${loai === "tm" ? "phieu_thu_tien_mat" : "phieu_thu_tien_gui"}_${khoang}.xlsx`;
+    XLSX.writeFile(wb, tenFile);
     const soDau = soCT.get(ds[0].khoa), soCuoi = soCT.get(ds[ds.length - 1].khoa);
     await veBangPhieuThuMisa();
     alert(`✅ ĐÃ XUẤT PHIẾU THU ${tenLoai}!\n\n• File: ${tenFile}\n• ${ds.length} phiếu thu — tổng ${formatTien(ds.reduce((s, r) => s + r.soTien, 0))} đ\n• Số chứng từ: ${soDau}${ds.length > 1 ? " … " + soCuoi : ""}\n\n` +
-      `📌 AMIS Accounting ➡ ${loai === "tm" ? "Quỹ ➡ Thu tiền" : "Ngân hàng ➡ Thu tiền gửi"} ➡ Nhập khẩu từ Excel ➡ chọn file vừa tải.`);
+      `📌 File có tiêu đề cột ở dòng 1, dữ liệu từ dòng 2: copy các dòng dữ liệu dán vào file mẫu AMIS (${loai === "tm" ? "phieu_thu_tien_mat" : "phieu_thu_tien_gui"}) từ dòng 9, rồi AMIS ➡ ${loai === "tm" ? "Quỹ ➡ Thu tiền" : "Ngân hàng ➡ Thu tiền gửi"} ➡ Nhập khẩu từ Excel.`);
   } catch (err) {
     alert("❌ Lỗi xuất file phiếu thu: " + ((err && err.message) || err));
   }

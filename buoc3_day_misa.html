@@ -442,8 +442,8 @@
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <button type="button" class="btn btn-outline" onclick="lamMoiPhieuThuMisa()"><span>🔄</span> Làm mới</button>
-          <button type="button" class="btn btn-success" onclick="xuatPhieuThuTienMat()"><span>💵</span> Phiếu Thu Tiền Mặt (.xls)</button>
-          <button type="button" class="btn btn-primary" onclick="xuatPhieuThuTienGui()"><span>🏦</span> Phiếu Thu Tiền Gửi (.xls)</button>        </div>
+          <button type="button" class="btn btn-success" onclick="xuatPhieuThuTienMat()"><span>💵</span> Phiếu Thu Tiền Mặt (Excel)</button>
+          <button type="button" class="btn btn-primary" onclick="xuatPhieuThuTienGui()"><span>🏦</span> Phiếu Thu Tiền Gửi (Excel)</button>        </div>
       </div>
 
       <div id="ghiChuPhieuThuMisa" style="display:none; padding:10px 14px; border-radius:var(--radius-md); font-size:12.5px; border:1px solid #e9d5ff; background:#faf5ff; color:#6b21a8;"></div>
@@ -1355,6 +1355,8 @@
         });
 
         const ws = XLSX.utils.aoa_to_sheet(rowsData);
+        // Giao diện: tiêu đề dòng 1 nền xanh, chữ đậm, có bộ lọc (phieu_thu_misa.js) — không đổi dữ liệu
+        if (typeof dinhDangTieuDeExcelMisa === 'function') dinhDangTieuDeExcelMisa(ws, rowsData.length, headers.length, [11, 12, 13]);
         ws['!cols'] = [
           { wch: 13 }, { wch: 13 }, { wch: 16 }, { wch: 15 }, { wch: 28 }, { wch: 15 },
           { wch: 14 }, { wch: 36 }, { wch: 12 }, { wch: 30 }, { wch: 8 }, { wch: 10 },
@@ -1467,6 +1469,8 @@
         });
 
         const ws = XLSX.utils.aoa_to_sheet(rowsData);
+        // Giao diện: tiêu đề dòng 1 nền xanh, chữ đậm, có bộ lọc (phieu_thu_misa.js) — không đổi dữ liệu
+        if (typeof dinhDangTieuDeExcelMisa === 'function') dinhDangTieuDeExcelMisa(ws, rowsData.length, headers.length, [11, 12, 13]);
 
         // Định dạng độ rộng cột tối ưu
         ws['!cols'] = [
