@@ -618,6 +618,12 @@
           <label style="color:#c2410c; font-weight:800;">📦 Trả Lại Hàng (đ) — khách không bán được, trả hàng thay tiền:</label>
           <input type="text" id="modalTraLaiHangThu" class="form-control" style="font-size:15px; font-weight:800; color:#c2410c;"
             value="0" oninput="nhapTraLaiHangModal(this)">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:4px;">
+            <button type="button" class="btn btn-outline" style="height:28px; padding:0 10px; font-size:11.5px; color:#c2410c; border-color:#fdba74; font-weight:800;" onclick="moChonHangTraLai()">
+              📦 Chọn mặt hàng trả (theo hoá đơn đã mua)
+            </button>
+            <span id="tomTatHangTraLai" style="font-size:11.5px; color:#9a3412; font-weight:700;"></span>
+          </div>
           <div style="font-size:11px; color:#9a3412; margin-top:2px;">
             Vd: nợ 1.500.000 → khách trả 1.000.000 tiền mặt + 500.000 trả lại hàng. Phần trả hàng trừ vào nợ nhưng KHÔNG tính vào tiền quỹ và không xuất phiếu thu ở Bước 3 (kế toán lập chứng từ hàng bán trả lại trong MISA).
           </div>
@@ -1030,6 +1036,50 @@
               <!-- Render động -->
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- CHỌN MẶT HÀNG KHÁCH TRẢ LẠI ĐỂ TRỪ NỢ (theo hoá đơn đã mua) -->
+  <!-- ======================================================== -->
+  <div id="modalChonHangTraLai" class="modal-overlay no-print" style="display:none; z-index:10001;" onclick="if(event.target===this) dongChonHangTraLai()">
+    <div class="modal-card modal-card-large">
+      <div class="modal-header">
+        <div>
+          <div style="font-weight:800; font-size:14px; color:var(--text-main);" id="chtlTieuDe">📦 Chọn Mặt Hàng Khách Trả Lại</div>
+          <div style="font-size:11.5px; color:var(--text-muted);" id="chtlThongBao">Nhập số lượng khách trả của từng mặt hàng trong hoá đơn</div>
+        </div>
+        <button type="button" class="btn btn-outline" style="height:28px; padding:0 8px; font-weight:800;" onclick="dongChonHangTraLai()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="table-container" style="max-height:380px; overflow-y:auto;">
+          <table class="table-cong-no">
+            <thead>
+              <tr>
+                <th style="width:95px;">Mã Hàng</th>
+                <th style="min-width:180px;">Tên Hàng</th>
+                <th style="width:55px; text-align:center;">ĐVT</th>
+                <th style="width:75px; text-align:right;">SL Mua</th>
+                <th style="width:75px; text-align:right;">Đã Trả</th>
+                <th style="width:105px; text-align:right;">Thành Tiền</th>
+                <th style="width:135px; text-align:center;">SL Khách Trả</th>
+                <th style="width:105px; text-align:right;">Tiền Trả</th>
+              </tr>
+            </thead>
+            <tbody id="chtlBody">
+              <!-- Render động -->
+            </tbody>
+          </table>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-top:10px;">
+          <div style="font-size:13px;">Tổng tiền hàng trả: <b id="chtlTong" style="font-size:15px; color:#c2410c;">0 đ</b></div>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn btn-outline" onclick="chtlDatTatCa(false)">Bỏ chọn hết</button>
+            <button type="button" class="btn btn-outline" onclick="dongChonHangTraLai()">Hủy</button>
+            <button type="button" class="btn btn-primary" onclick="xacNhanChonHangTraLai()">✅ Xác Nhận Hàng Trả</button>
+          </div>
         </div>
       </div>
     </div>
@@ -3366,7 +3416,7 @@
           <tr>
             <td style="text-align:center; font-weight:700; color:var(--text-muted);">${i + 1}</td>
             <td style="white-space:nowrap;">${r.ngay_thu ? dinhDangNgayVN(r.ngay_thu) : '--'}</td>
-            <td>${escapeHtml(r.hinh_thuc || '--')}${r.tai_khoan_nhan ? `<div style="font-size:10.5px; color:var(--text-muted);">${escapeHtml(r.tai_khoan_nhan)}</div>` : ''}${r.da_day_misa ? `<div style="font-size:10.5px; color:#b45309; font-weight:700;">Đã đẩy MISA</div>` : ''}</td>
+            <td>${escapeHtml(r.hinh_thuc || '--')}${r.tai_khoan_nhan ? `<div style="font-size:10.5px; color:var(--text-muted);">${escapeHtml(r.tai_khoan_nhan)}</div>` : ''}${r.da_day_misa ? `<div style="font-size:10.5px; color:#b45309; font-weight:700;">Đã đẩy MISA</div>` : ''}${Array.isArray(r.hang_tra_lai) && r.hang_tra_lai.length ? `<div style="font-size:10.5px; color:#c2410c; font-weight:700;">📦 ${escapeHtml(tomTatHangTraLai(r.hang_tra_lai))}</div>` : ''}</td>
             <td class="num-cell" style="color:#16a34a; font-weight:800;">${formatTien(st)}</td>
             <td style="font-size:11.5px;">${escapeHtml(r.nguoi_thu || '--')}</td>
             <td style="font-size:11.5px; color:var(--text-muted);">${escapeHtml(r.ghi_chu || '--')}</td>
@@ -3728,7 +3778,7 @@
       document.getElementById('modalConLai').value = '';
       document.getElementById('modalTienMatThu').value = '';
       document.getElementById('modalChuyenKhoanThu').value = '0';
-      { const oTH = document.getElementById('modalTraLaiHangThu'); if (oTH) oTH.value = '0'; }
+      { const oTH = document.getElementById('modalTraLaiHangThu'); if (oTH) oTH.value = '0'; if (typeof datLaiHangTraLaiDangChon === 'function') datLaiHangTraLaiDangChon(); }
       capNhatTongTienThuModal();
       document.getElementById('modalNgayThu').value = new Date().toISOString().slice(0, 10);
       document.getElementById('modalGhiChu').value = '';
@@ -3769,6 +3819,173 @@
       capNhatTongTienThuModal();
     }
 
+    // ========================================================
+    // CHỌN MẶT HÀNG KHÁCH TRẢ LẠI ĐỂ TRỪ NỢ (THEO HOÁ ĐƠN ĐÃ MUA)
+    // --------------------------------------------------------
+    // Liệt kê các mặt hàng của hoá đơn nợ (chi_tiet_hoa_don, dự phòng dữ liệu trên máy), trừ đi
+    // số lượng khách ĐÃ trả trước đó (hàng trả về lúc quyết toán xe — luu_tru.hang_tra_ve, và các
+    // lần trả lại hàng trừ nợ còn hiệu lực — thu_no.hang_tra_lai). Chọn số lượng từng mặt hàng →
+    // tổng tiền tự điền vào ô "Trả Lại Hàng"; chi tiết được lưu kèm dòng thu "Trả lại hàng".
+    // ========================================================
+    let hangTraLaiDangChon = [];   // [{maHang, tenHang, dvt, km, soLuong, thanhTien}] đã xác nhận cho lần thu đang nhập
+    let chtlDong = [];             // các dòng đang hiện trong modal chọn hàng
+    let chtlIdDon = '';            // đơn nợ đang chọn hàng
+
+    function khoaHangTraLai(h) { return chuanMaHD(h.maHang) + '|' + (h.km ? 1 : 0); }
+
+    function tomTatHangTraLai(ds) {
+      return (ds || []).map(h => `${h.maHang}${h.km ? ' (KM)' : ''} × ${(parseFloat(h.soLuong) || 0).toLocaleString('vi-VN', { maximumFractionDigits: 3 })}`).join(', ');
+    }
+
+    function veTomTatHangTraLai() {
+      const o = document.getElementById('tomTatHangTraLai');
+      if (!o) return;
+      o.textContent = hangTraLaiDangChon.length
+        ? `Đã chọn ${hangTraLaiDangChon.length} mặt hàng (${formatTien(hangTraLaiDangChon.reduce((s, h) => s + (h.thanhTien || 0), 0))} đ): ${tomTatHangTraLai(hangTraLaiDangChon)}`
+        : '';
+    }
+
+    function datLaiHangTraLaiDangChon() {
+      hangTraLaiDangChon = [];
+      veTomTatHangTraLai();
+    }
+
+    // Số lượng từng mặt hàng khách ĐÃ trả trước đó cho hoá đơn này (đọc được bảng nào thì trừ bảng đó)
+    async function laySoLuongDaTraCuaHD(don) {
+      const daTra = new Map();
+      const cong = h => { if (h && h.maHang) daTra.set(khoaHangTraLai(h), (daTra.get(khoaHangTraLai(h)) || 0) + (parseFloat(h.soLuong) || 0)); };
+      if (typeof sb === 'undefined') return daTra;
+      try {
+        const { data, error } = await sb.from('luu_tru').select('hang_tra_ve').eq('ma_hd', don.maHD);
+        if (!error) (data || []).forEach(r => (Array.isArray(r.hang_tra_ve) ? r.hang_tra_ve : []).forEach(cong));
+      } catch (e) {}
+      try {
+        const { data, error } = await sb.from('thu_no').select('so_tien, hang_tra_lai').eq('id_don_no', don.id);
+        if (!error) (data || []).forEach(r => {
+          if ((parseFloat(r.so_tien) || 0) > 0 && Array.isArray(r.hang_tra_lai)) r.hang_tra_lai.forEach(cong);
+        });
+      } catch (e) {}
+      return daTra;
+    }
+
+    async function moChonHangTraLai() {
+      const id = document.getElementById('modalSelDonNo').value;
+      const don = danhSachCongNo.find(d => d.id === id);
+      if (!don) { alert('⚠️ Vui lòng chọn đơn nợ cần thu trước, rồi mới chọn mặt hàng khách trả.'); return; }
+      chtlIdDon = id;
+      chtlDong = [];
+      document.getElementById('chtlTieuDe').textContent = `📦 Chọn mặt hàng khách trả lại — HĐ ${don.maHD} — ${don.tenKH}`;
+      document.getElementById('chtlThongBao').textContent = 'Nhập số lượng khách trả của từng mặt hàng trong hoá đơn';
+      document.getElementById('chtlBody').innerHTML = '<tr><td colspan="8" style="text-align:center; padding:18px;">⏳ Đang tải hàng hoá của hoá đơn...</td></tr>';
+      document.getElementById('chtlTong').textContent = '0 đ';
+      document.getElementById('modalChonHangTraLai').style.display = 'flex';
+
+      await napHangHoaChoCacDon([don]);
+      const dong = hangHoaTheoHD.get(chuanMaHD(don.maHD)) || [];
+      const daTra = await laySoLuongDaTraCuaHD(don);
+      if (chtlIdDon !== id) return;
+
+      // Gộp các dòng cùng mã hàng (+ KM) — hoá đơn có thể tách 1 mặt hàng thành nhiều dòng
+      const gop = new Map();
+      dong.forEach(h => {
+        const k = khoaHangTraLai(h);
+        if (!gop.has(k)) gop.set(k, { maHang: chuanMaHD(h.maHang), tenHang: h.tenHang || '', dvt: h.dvt || '', km: !!h.km, soLuong: 0, thanhTien: 0 });
+        const g = gop.get(k);
+        g.soLuong += parseFloat(h.soLuong) || 0;
+        g.thanhTien += parseFloat(h.thanhTien) || 0;
+      });
+      const daChon = new Map(hangTraLaiDangChon.map(h => [khoaHangTraLai(h), parseFloat(h.soLuong) || 0]));
+      chtlDong = Array.from(gop.entries()).map(([k, g]) => {
+        const slDaTra = Math.min(g.soLuong, daTra.get(k) || 0);
+        const conTra = Math.max(0, Math.round((g.soLuong - slDaTra) * 1000) / 1000);
+        return Object.assign(g, { daTra: slDaTra, conTra: conTra, slTra: Math.min(conTra, daChon.get(k) || 0) });
+      });
+      const cl = (don.conLai !== undefined) ? don.conLai : Math.max(0, (don.soTienNo || 0) - (don.daThu || 0));
+      document.getElementById('chtlThongBao').innerHTML = `Nợ còn lại của đơn: <b style="color:#dc2626;">${formatTien(cl)} đ</b> · Chỉ trả được tối đa số lượng còn lại (SL mua − đã trả trước đó)`;
+      veChonHangTraLai();
+    }
+
+    function tienTraCuaDongCHTL(d) {
+      return d.soLuong > 0 ? Math.round(d.thanhTien * Math.min(d.slTra, d.soLuong) / d.soLuong) : 0;
+    }
+
+    function veChonHangTraLai() {
+      const body = document.getElementById('chtlBody');
+      if (!chtlDong.length) {
+        body.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:18px; color:#b91c1c;">Không tìm thấy chi tiết hàng hoá của hoá đơn này (chưa lưu chi tiết ở Bước 1). Hãy đóng lại và nhập trực tiếp số tiền hàng trả.</td></tr>';
+        capNhatTongCHTL();
+        return;
+      }
+      const soLuongVN = n => (parseFloat(n) || 0).toLocaleString('vi-VN', { maximumFractionDigits: 3 });
+      body.innerHTML = chtlDong.map((d, i) => `
+        <tr id="chtlDong_${i}" style="${d.slTra > 0 ? 'background:#fff7ed;' : ''}${d.conTra <= 0 ? ' opacity:0.55;' : ''}">
+          <td style="font-weight:700; font-family:monospace;">${escapeHtml(d.maHang)}${d.km ? ' <span style="color:#16a34a; font-size:10px;">KM</span>' : ''}</td>
+          <td>${escapeHtml(d.tenHang)}</td>
+          <td style="text-align:center;">${escapeHtml(d.dvt)}</td>
+          <td class="num-cell">${soLuongVN(d.soLuong)}</td>
+          <td class="num-cell" style="color:${d.daTra > 0 ? '#c2410c' : 'var(--text-muted)'};">${d.daTra > 0 ? soLuongVN(d.daTra) : '–'}</td>
+          <td class="num-cell">${formatTien(d.thanhTien)}</td>
+          <td style="text-align:center; white-space:nowrap;">
+            ${d.conTra > 0 ? `
+              <input type="number" min="0" max="${d.conTra}" step="any" class="form-control" style="width:72px; display:inline-block; height:28px; padding:0 4px; text-align:center; font-weight:700;"
+                value="${d.slTra || ''}" placeholder="0" oninput="chtlNhapSL(${i}, this.value)">
+              <button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:10.5px;" onclick="chtlNhapSL(${i}, ${d.conTra}, true)" title="Trả hết số còn lại của mặt hàng này">Hết</button>
+            ` : '<span style="font-size:11px; color:var(--text-muted);">Đã trả hết</span>'}
+          </td>
+          <td class="num-cell" style="font-weight:800; color:#c2410c;" id="chtlTien_${i}">${d.slTra > 0 ? formatTien(tienTraCuaDongCHTL(d)) : '–'}</td>
+        </tr>`).join('');
+      capNhatTongCHTL();
+    }
+
+    function chtlNhapSL(i, val, veLai) {
+      const d = chtlDong[i];
+      if (!d) return;
+      const sl = Math.max(0, Math.min(d.conTra, parseFloat(String(val).replace(',', '.')) || 0));
+      d.slTra = Math.round(sl * 1000) / 1000;
+      if (veLai) { veChonHangTraLai(); return; }
+      const oTien = document.getElementById('chtlTien_' + i);
+      if (oTien) oTien.textContent = d.slTra > 0 ? formatTien(tienTraCuaDongCHTL(d)) : '–';
+      const dong = document.getElementById('chtlDong_' + i);
+      if (dong) dong.style.background = d.slTra > 0 ? '#fff7ed' : '';
+      capNhatTongCHTL();
+    }
+
+    function chtlDatTatCa(traHet) {
+      chtlDong.forEach(d => { d.slTra = traHet ? d.conTra : 0; });
+      veChonHangTraLai();
+    }
+
+    function capNhatTongCHTL() {
+      document.getElementById('chtlTong').textContent = formatTien(chtlDong.reduce((s, d) => s + (d.slTra > 0 ? tienTraCuaDongCHTL(d) : 0), 0)) + ' đ';
+    }
+
+    function dongChonHangTraLai() {
+      document.getElementById('modalChonHangTraLai').style.display = 'none';
+      chtlIdDon = '';
+    }
+
+    function xacNhanChonHangTraLai() {
+      if (!chtlDong.length) { dongChonHangTraLai(); return; }
+      const ds = chtlDong.filter(d => d.slTra > 1e-9).map(d => ({
+        maHang: d.maHang, tenHang: d.tenHang, dvt: d.dvt, km: d.km, soLuong: d.slTra, thanhTien: tienTraCuaDongCHTL(d)
+      }));
+      const tong = ds.reduce((s, h) => s + h.thanhTien, 0);
+      const don = danhSachCongNo.find(d => d.id === chtlIdDon);
+      const cl = don ? ((don.conLai !== undefined) ? don.conLai : Math.max(0, (don.soTienNo || 0) - (don.daThu || 0))) : 0;
+      if (don && tong > cl + 1) {
+        alert(`⚠️ Tổng tiền hàng trả (${formatTien(tong)} đ) lớn hơn số nợ còn lại của đơn (${formatTien(cl)} đ).\n\nVui lòng giảm bớt số lượng hàng trả.`);
+        return;
+      }
+      hangTraLaiDangChon = ds;
+      dongChonHangTraLai();
+      const oTH = document.getElementById('modalTraLaiHangThu');
+      if (oTH) {
+        oTH.value = String(tong);
+        nhapTraLaiHangModal(oTH); // điền tổng tiền hàng trả + tự bớt ô Tiền mặt
+      }
+      veTomTatHangTraLai();
+    }
+
     async function moThuNoChoDon(id) {
       await moModalThuNoTaiQuy();
       const donMoi = danhSachCongNo.find(d => d.id === id);
@@ -3802,7 +4019,7 @@
         document.getElementById('modalConLai').value = '';
         document.getElementById('modalTienMatThu').value = '';
         document.getElementById('modalChuyenKhoanThu').value = '0';
-        { const oTH = document.getElementById('modalTraLaiHangThu'); if (oTH) oTH.value = '0'; }
+        { const oTH = document.getElementById('modalTraLaiHangThu'); if (oTH) oTH.value = '0'; if (typeof datLaiHangTraLaiDangChon === 'function') datLaiHangTraLaiDangChon(); }
         capNhatTongTienThuModal();
         return;
       }
@@ -3813,7 +4030,7 @@
       // tách bớt 1 phần sang ô Chuyển Khoản nếu khách trả cùng lúc cả 2 hình thức
       document.getElementById('modalTienMatThu').value = formatTien(cl);
       document.getElementById('modalChuyenKhoanThu').value = '0';
-      { const oTH = document.getElementById('modalTraLaiHangThu'); if (oTH) oTH.value = '0'; }
+      { const oTH = document.getElementById('modalTraLaiHangThu'); if (oTH) oTH.value = '0'; if (typeof datLaiHangTraLaiDangChon === 'function') datLaiHangTraLaiDangChon(); }
       capNhatTongTienThuModal();
       document.getElementById('modalGhiChu').value = `${don.tenKH} nộp nợ HĐ ${don.maHD}`;
     }
@@ -3845,6 +4062,19 @@
       if (soTienThu <= 0 && traLaiHang <= 0) {
         alert("⚠️ Vui lòng nhập số tiền Tiền mặt / Chuyển khoản hoặc số tiền hàng Trả lại lớn hơn 0!");
         return;
+      }
+      // Trả lại hàng: phải chọn đúng mặt hàng khách trả (theo hoá đơn đã mua)
+      const dsHangTraLai = traLaiHang > 0 ? hangTraLaiDangChon.slice() : [];
+      if (traLaiHang > 0) {
+        const tongHangChon = dsHangTraLai.reduce((s, h) => s + (h.thanhTien || 0), 0);
+        if (!dsHangTraLai.length) {
+          if (!confirm(`⚠️ Bạn CHƯA CHỌN mặt hàng khách trả lại (${formatTien(traLaiHang)} đ).\n\n` +
+            `Bấm [Hủy] rồi bấm "📦 Chọn mặt hàng trả" để chọn đúng hàng khách trả theo hoá đơn đã mua.\n` +
+            `Bấm [OK] để vẫn lưu KHÔNG có chi tiết mặt hàng (chỉ dùng khi hoá đơn không có dữ liệu hàng hoá).`)) return;
+        } else if (Math.abs(tongHangChon - traLaiHang) > 1) {
+          if (!confirm(`⚠️ Số tiền trả lại hàng (${formatTien(traLaiHang)} đ) KHÁC tổng tiền các mặt hàng đã chọn (${formatTien(tongHangChon)} đ).\n\n` +
+            `Bấm [OK] để vẫn lưu, [Hủy] để sửa lại.`)) return;
+        }
       }
       const nhNhan = chuyenKhoanThu > 0 ? document.getElementById('modalNganHangNhan').value : '';
       if (chuyenKhoanThu > 0 && !nhNhan) {
@@ -3960,14 +4190,26 @@
         }
         // Phần khách TRẢ LẠI HÀNG: 1 dòng riêng để trừ nợ trên mọi máy (Bước 3 không xuất phiếu thu)
         if (traLaiHang > 0) {
-          dongThuNo.push({
+          const dongTraHang = {
             id_don_no: id, ma_hd: don.maHD || '', ma_dot: don.maDot || '',
             ma_kh: don.maKH || '', ten_kh: don.tenKH || '',
             so_tien: traLaiHang, hinh_thuc: (typeof HINH_THUC_TRA_LAI_HANG !== 'undefined' ? HINH_THUC_TRA_LAI_HANG : 'Trả lại hàng'), tai_khoan_nhan: '',
-            nguoi_thu: layNguoiThaoTac(), ghi_chu: `Khách trả lại hàng trừ nợ HĐ ${don.maHD || ''}${ghiChu ? ' — ' + ghiChu : ''}`, ngay_thu: ngayThu
-          });
+            nguoi_thu: layNguoiThaoTac(),
+            ghi_chu: `Khách trả lại hàng trừ nợ HĐ ${don.maHD || ''}${dsHangTraLai.length ? ' — Hàng trả: ' + tomTatHangTraLai(dsHangTraLai) : ''}${ghiChu ? ' — ' + ghiChu : ''}`,
+            ngay_thu: ngayThu
+          };
+          // Chi tiết mặt hàng khách trả (cột hang_tra_lai — sql/14_thu_no_hang_tra_lai.sql)
+          if (dsHangTraLai.length) dongTraHang.hang_tra_lai = dsHangTraLai;
+          dongThuNo.push(dongTraHang);
         }
         resInsert = await sb.from('thu_no').insert(dongThuNo);
+        // Máy chủ chưa có cột hang_tra_lai (chưa chạy sql/14) → ghi lại không kèm cột này
+        // (chi tiết mặt hàng vẫn nằm trong ghi chú của dòng trả hàng)
+        if (resInsert.error && /hang_tra_lai/i.test(String(resInsert.error.message || resInsert.error.details || ''))) {
+          console.warn('⚠️ Chưa có cột thu_no.hang_tra_lai — hãy chạy sql/14_thu_no_hang_tra_lai.sql. Ghi khoản trả hàng không kèm chi tiết cột.', resInsert.error);
+          dongThuNo.forEach(r => { delete r.hang_tra_lai; });
+          resInsert = await sb.from('thu_no').insert(dongThuNo);
+        }
         if (resInsert.error && laLoiThieuBangThuNo(resInsert.error)) {
           banThuNoChuaSanSang = true;
           console.warn('⚠️ Bảng thu_no chưa được tạo trên Supabase — khoản thu này chỉ lưu cục bộ. Hãy chạy sql/07_thu_no_dong_bo.sql trên Supabase để bật đồng bộ.', resInsert.error);
