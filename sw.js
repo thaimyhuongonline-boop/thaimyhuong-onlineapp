@@ -7,7 +7,7 @@
  * - Bỏ qua cache hoàn toàn đối với dữ liệu đám mây Supabase
  * ==================================================================== */
 
-const CACHE_VERSION = 'tmh-pwa-v1.0.39';
+const CACHE_VERSION = 'tmh-pwa-v1.0.40';
 const CACHE_NAME = `thaimyhuong-${CACHE_VERSION}`;
 
 // Danh sách tài nguyên cốt lõi tải trước khi cài đặt
@@ -30,6 +30,7 @@ const PRECACHE_ASSETS = [
   './searchable-select.js',
   './khach_tra_truoc.js',
   './han_muc_cong_no.js',
+  './phieu_thu_misa.js',
   './danh_muc_dieu_xe.js',
   './logo.png',
   './manifest.json',

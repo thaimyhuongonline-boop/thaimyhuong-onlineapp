@@ -18,6 +18,7 @@
   <script src="config.js"></script>
   <script src="phan_quyen.js"></script>
   <script src="khach_tra_truoc.js"></script>
+  <script src="phieu_thu_misa.js"></script>
   <script src="pwa.js"></script>
   <link rel="stylesheet" href="layout.css">
   <style>
@@ -404,6 +405,97 @@
               <td colspan="6" style="text-align:right;">TỔNG CỘNG:</td>
               <td style="text-align:right;" id="footThuNoTien">0</td>
               <td colspan="4"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- ================================================================ -->
+      <!-- PHIẾU THU AMIS (TIỀN MẶT & TIỀN GỬI) — phieu_thu_misa.js          -->
+      <!-- Theo "Cách điền phiếu thu.docx": 2 file đúng mẫu nhập khẩu AMIS    -->
+      <!-- ================================================================ -->
+      <div class="guide-box" style="background:#fdf4ff; border-color:#e9d5ff;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="font-size:24px;">🧾</div>
+          <div>
+            <div style="font-weight:800; color:#6b21a8; font-size:13.5px;">Phiếu Thu AMIS Accounting (Tiền mặt & Tiền gửi ngân hàng):</div>
+            <div style="font-size:12px; color:#7e22ce; margin-top:2px;">
+              Tự lập phiếu thu đúng 2 file mẫu AMIS: <b>Nợ 1111</b> (tiền mặt) / <b>Nợ 11211–11215</b> (tiền gửi theo tài khoản nhận) — <b>Có 1311</b>, số chứng từ <b>PT00001…</b> chạy theo thứ tự, không trùng.
+              Gồm: tiền thu theo hoá đơn của <b>chuyến / ngày đang chọn ở trên</b> (chuyến đã quyết toán Bước 2), <b>thu nợ khách hàng</b> và <b>tiền khách trả trước</b> nhận vào (theo bộ lọc khu vực Cấn trừ công nợ).
+              <br>⚠️ <b>Tránh ghi tiền 2 lần:</b> khi nhập phiếu thu cho tiền thu theo hoá đơn, dùng nút <b>"File Bán Hàng Ghi Nợ 1311"</b> bên dưới thay cho file bán hàng cũ (hạch toán Nợ 1111/1121); phiếu thu nợ / trả trước dùng thay cho file "Cấn trừ công nợ".
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-meta-bar">
+        <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; font-size:12.5px; font-weight:700; color:var(--text-muted);">
+          <label style="display:flex; align-items:center; gap:5px; cursor:pointer;"><input type="checkbox" id="ptNguonHoaDon" checked onchange="veBangPhieuThuMisa()"> Tiền thu theo hoá đơn (chuyến đang chọn)</label>
+          <label style="display:flex; align-items:center; gap:5px; cursor:pointer;"><input type="checkbox" id="ptNguonThuNo" checked onchange="veBangPhieuThuMisa()"> Thu nợ khách hàng</label>
+          <label style="display:flex; align-items:center; gap:5px; cursor:pointer;"><input type="checkbox" id="ptNguonTraTruoc" checked onchange="veBangPhieuThuMisa()"> Khách trả trước / trả dư</label>
+          <label style="display:flex; align-items:center; gap:5px; cursor:pointer;" title="Khoản đã xuất phiếu thu trước đó (đã có số PT) sẽ không xuất lại — bỏ tích để xuất lại đúng số cũ"><input type="checkbox" id="ptBoQuaDaXuat" checked onchange="veBangPhieuThuMisa()"> Bỏ qua khoản đã xuất phiếu thu</label>
+          <span style="display:flex; align-items:center; gap:5px;">Số tiếp theo: PT
+            <input type="number" id="ptSoTiepTheo" min="1" step="1" class="form-control" style="width:95px; height:30px;" onchange="suaSoPhieuThuTiepTheo(this)">
+            <button type="button" class="btn btn-outline" style="height:30px; padding:0 8px; font-size:11.5px;" onclick="luuSoPhieuThuTiepTheo()">Lưu số</button>
+          </span>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" class="btn btn-outline" onclick="lamMoiPhieuThuMisa()"><span>🔄</span> Làm mới</button>
+          <button type="button" class="btn btn-success" onclick="xuatPhieuThuTienMat()"><span>💵</span> Phiếu Thu Tiền Mặt (.xls)</button>
+          <button type="button" class="btn btn-primary" onclick="xuatPhieuThuTienGui()"><span>🏦</span> Phiếu Thu Tiền Gửi (.xls)</button>
+          <button type="button" class="btn btn-outline" onclick="xuatFileBanHangGhiNo1311()" title="File bán hàng giống nút xanh phía trên nhưng mọi hoá đơn Nợ 1311 — dùng kèm phiếu thu"><span>📥</span> File Bán Hàng Ghi Nợ 1311</button>
+        </div>
+      </div>
+
+      <div id="ghiChuPhieuThuMisa" style="display:none; padding:10px 14px; border-radius:var(--radius-md); font-size:12.5px; border:1px solid #e9d5ff; background:#faf5ff; color:#6b21a8;"></div>
+
+      <div class="kpi-grid">
+        <div class="kpi-card" style="border-left: 4px solid #16a34a;">
+          <div class="kpi-title" style="color:#16a34a;"><span>💵</span> Phiếu Thu Tiền Mặt</div>
+          <div class="kpi-value" style="color:#16a34a;" id="kpiPTTienMat">0 đ</div>
+          <div class="kpi-sub" id="kpiPTTienMatSub">0 phiếu thu · Nợ 1111 / Có 1311</div>
+        </div>
+        <div class="kpi-card" style="border-left: 4px solid #2563eb;">
+          <div class="kpi-title" style="color:#2563eb;"><span>🏦</span> Phiếu Thu Tiền Gửi</div>
+          <div class="kpi-value" style="color:#2563eb;" id="kpiPTTienGui">0 đ</div>
+          <div class="kpi-sub" id="kpiPTTienGuiSub">0 phiếu thu · Nợ 1121x / Có 1311</div>
+        </div>
+        <div class="kpi-card" style="border-left: 4px solid #dc2626;">
+          <div class="kpi-title" style="color:#dc2626;"><span>⚠️</span> Cần Kiểm Tra</div>
+          <div class="kpi-value" style="color:#dc2626;" id="kpiPTCanhBao">Không có</div>
+          <div class="kpi-sub">Thiếu mã khách / chưa rõ TK ngân hàng</div>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <div style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-weight:800; color:var(--text-main); font-size:13.5px;">
+          <span>📑</span> Bảng Phiếu Thu Chuẩn AMIS (xem trước)
+        </div>
+        <table class="table-misa" id="tablePhieuThuMisa">
+          <thead>
+            <tr>
+              <th style="width:35px; text-align:center;">STT</th>
+              <th style="width:95px; text-align:center;">Loại</th>
+              <th style="width:85px;">Ngày Thu</th>
+              <th style="width:95px;">Số CT</th>
+              <th style="width:100px;">Mã KH</th>
+              <th style="min-width:170px;">Tên Khách Hàng</th>
+              <th style="min-width:170px;">Nguồn</th>
+              <th style="width:65px; text-align:center;">TK Nợ</th>
+              <th style="width:65px; text-align:center;">TK Có</th>
+              <th style="width:110px; text-align:right;">Số Tiền</th>
+              <th style="width:170px;">Ngân Hàng</th>
+              <th style="min-width:160px;">Trạng Thái</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyPhieuThuMisa">
+            <tr><td colspan="12" style="text-align:center; padding:26px; color:var(--text-muted);">Đang lập phiếu thu...</td></tr>
+          </tbody>
+          <tfoot>
+            <tr style="background:#f8fafc; font-weight:800; border-top:2px solid var(--border-color);">
+              <td colspan="9" style="text-align:right;">TỔNG CỘNG:</td>
+              <td style="text-align:right;" id="footPTTien">0</td>
+              <td colspan="2"></td>
             </tr>
           </tfoot>
         </table>
@@ -1032,6 +1124,8 @@
         badgeLoi.className = "badge-status badge-done";
         badgeLoi.innerHTML = "✅ 100% dòng hợp lệ sẵn sàng xuất MISA";
       }
+      // Phiếu thu AMIS (phieu_thu_misa.js) lập lại theo chuyến / ngày vừa chọn
+      if (typeof veBangPhieuThuMisa === 'function') veBangPhieuThuMisa();
     }
 
     // ========================================================
@@ -1216,6 +1310,8 @@
       document.getElementById('kpiThuNoTong').textContent = formatTien(tong) + ' đ';
       document.getElementById('kpiThuNoSoDong').textContent = `${danhSachThuNoMisa.length} khoản thu nợ`;
       document.getElementById('footThuNoTien').textContent = formatTien(tong);
+      // Phiếu thu AMIS (phieu_thu_misa.js) lập lại theo dữ liệu thu nợ mới
+      if (typeof veBangPhieuThuMisa === 'function') veBangPhieuThuMisa();
     }
 
     function xuatFileExcelThuNoMisa() {
