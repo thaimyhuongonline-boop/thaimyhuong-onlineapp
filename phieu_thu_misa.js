@@ -16,7 +16,8 @@
  *      DƯ không tính ở đây (đã nằm ở sổ tiền khách trả trước — nguồn 3).
  *   2. Thu nợ khách hàng (khu vực "Cấn trừ công nợ" bên trên) bằng tiền mặt / chuyển khoản.
  *   3. Tiền khách trả trước / trả dư NHẬN vào (hoàn tiền cho khách là phiếu chi — không lấy).
- * Chỉ bổ sung — không thay đổi các file MISA đã có của Bước 3.
+ * Thứ tự nhập MISA: file bán hàng của Bước 3 (MỌI hoá đơn Nợ 1311 – Có 5111) → phiếu thu tiền mặt →
+ * phiếu thu tiền gửi. Khách lẻ (không có mã) dùng mã "KHÁCH LẺ".
  * ==================================================================== */
 
 // Tài khoản MISA của từng tài khoản ngân hàng — theo "Cách điền phiếu thu.docx"
@@ -30,6 +31,10 @@ const TK_NGAN_HANG_PHIEU_THU = [
 const TK_TIEN_MAT_PHIEU_THU = "1111";
 const TK_TIEN_GUI_CHUNG_PHIEU_THU = "1121";
 const TK_CO_PHIEU_THU = "1311";
+// Bán hàng: MỌI hoá đơn hạch toán công nợ Nợ 1311 – Có 5111; tiền khách trả nhập sau bằng phiếu thu
+const TK_CONG_NO_BAN_HANG = "1311";
+// Khách lẻ (không có mã khách hàng trên KiotViet) → mã đối tượng trong MISA
+const MA_KHACH_LE_MISA = "KHÁCH LẺ";
 const LY_DO_PHIEU_THU = "Thu tiền khách hàng (không theo hóa đơn)";
 const KHOA_LS_SO_PHIEU_THU = "tmh_so_phieu_thu_misa";
 
@@ -175,9 +180,9 @@ function taoDanhSachPhieuThuMisa() {
 
   const st = docSoPhieuThuMisa();
   const ds = Array.from(theoKhoa.values()).map(r => {
-    const maKH = r.maKH && r.maKH !== "KH_LE" ? r.maKH : "KH_LE";
+    // Khách lẻ (không có mã, hoặc mã cũ KH_LE) → mã "KHÁCH LẺ" trong MISA
+    const maKH = r.maKH && r.maKH !== "KH_LE" ? r.maKH : MA_KHACH_LE_MISA;
     const canhBao = [];
-    if (maKH === "KH_LE") canhBao.push("Khách chưa có mã — đang để KH_LE, cần có trong danh mục MISA");
     if (!r.ngay) canhBao.push("Không rõ ngày thu");
     if (r.loai === "ck" && r.nh && r.nh.canhBao) canhBao.push(r.nh.canhBao);
     return Object.assign(r, {
@@ -360,33 +365,5 @@ async function xuatPhieuThuAMIS(loai) {
       `📌 AMIS Accounting ➡ ${loai === "tm" ? "Quỹ ➡ Thu tiền" : "Ngân hàng ➡ Thu tiền gửi"} ➡ Nhập khẩu từ Excel ➡ chọn file vừa tải.`);
   } catch (err) {
     alert("❌ Lỗi xuất file phiếu thu: " + ((err && err.message) || err));
-  }
-}
-
-/**
- * File bán hàng dùng KÈM phiếu thu: giống file "Tải File Excel Import MISA" nhưng mọi hoá đơn hạch toán
- * Nợ 1311 (tiền thu được ghi bằng phiếu thu Nợ 1111/1121x – Có 1311) → không ghi tiền 2 lần.
- */
-function xuatFileBanHangGhiNo1311() {
-  const dsDong = (typeof danhSachDongMisa !== "undefined" && Array.isArray(danhSachDongMisa)) ? danhSachDongMisa : [];
-  if (!dsDong.length) { alert("⚠️ Chưa có dữ liệu bán hàng của chuyến / ngày đang chọn phía trên."); return; }
-  const doiTK = tk => (tk === "1111" || tk === "1121" || tk === "131") ? TK_CO_PHIEU_THU : tk;
-  const aoa = [["Ngày hạch toán (*)", "Ngày chứng từ (*)", "Số chứng từ (*)", "Mã khách hàng (*)", "Tên khách hàng", "Địa chỉ", "Mã số thuế", "Diễn giải",
-    "Mã hàng (*)", "Tên hàng", "ĐVT", "Số lượng (*)", "Đơn giá", "Thành tiền (*)", "TK Nợ (*)", "TK Có (*)", "Tài khoản ngân hàng", "Nhân viên bán hàng"]];
-  dsDong.forEach(r => aoa.push([r.ngayHT, r.ngayCT, r.soCT, r.maKH, r.tenKH, "", "", r.dienGiai, r.maHang, r.tenHang, r.dvt, r.soLuong, r.donGia,
-    r.thanhTien, doiTK(r.tkNo), doiTK(r.tkCo), "", r.nguoiBan || ""]));
-  try {
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws["!cols"] = [13, 13, 16, 15, 28, 15, 14, 32, 16, 28, 10, 12, 14, 16, 10, 10, 20, 18].map(w => ({ wch: w }));
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "ChungTuBanHangMISA");
-    const ten = (typeof cheDoNgayMisa !== "undefined" && cheDoNgayMisa)
-      ? `MISA_BanHang_GhiNo1311_Ngay_${cheDoNgayMisa.ngay.replace(/\//g, "-")}.xlsx`
-      : `MISA_BanHang_GhiNo1311_${(typeof dotHienTai !== "undefined" && dotHienTai) ? String(dotHienTai.xe || "").replace(/[^a-zA-Z0-9]/g, "_") : "TMH"}_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    XLSX.writeFile(wb, ten);
-    alert(`✅ ĐÃ XUẤT FILE BÁN HÀNG GHI NỢ 1311!\n\n• File: ${ten}\n• ${dsDong.length} dòng — mọi hoá đơn hạch toán Nợ 1311 / Có 5111\n\n` +
-      `📌 Dùng file này THAY cho "Tải File Excel Import MISA" khi nhập phiếu thu cho tiền thu theo hoá đơn, để tiền không bị ghi 2 lần.`);
-  } catch (err) {
-    alert("❌ Lỗi xuất file: " + ((err && err.message) || err));
   }
 }

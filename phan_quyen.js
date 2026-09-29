@@ -40,7 +40,7 @@ const DANH_MUC_CHUC_NANG = [
   { id: "quyettoan.danh_dau_thu_quy", module: "quyettoan", loai: "ghi", label: "Đánh dấu \"Đã thu quỹ\" trong sổ công nợ", ham: ["danhDauDaThuXong"] },
   { id: "quyettoan.in", module: "quyettoan", loai: "doc", label: "In bảng kê quyết toán", ham: ["inBangQuyetToan"] },
   // B3: Đẩy MISA & kho lưu trữ
-  { id: "misa.xuat_file", module: "misa", loai: "doc", label: "Xuất file / copy dữ liệu MISA", ham: ["xuatFileExcelMISA", "copyDuLieuBangMISA", "xuatFileExcelThuNoMisa", "xuatPhieuThuTienMat", "xuatPhieuThuTienGui", "xuatFileBanHangGhiNo1311", "luuSoPhieuThuTiepTheo"] },
+  { id: "misa.xuat_file", module: "misa", loai: "doc", label: "Xuất file / copy dữ liệu MISA", ham: ["xuatFileExcelMISA", "copyDuLieuBangMISA", "xuatFileExcelThuNoMisa", "xuatPhieuThuTienMat", "xuatPhieuThuTienGui", "luuSoPhieuThuTiepTheo"] },
   { id: "misa.danh_dau_day", module: "misa", loai: "ghi", label: "Đánh dấu đã đẩy MISA", ham: ["danhDauDaDayMISA", "danhDauDaDayMisaThuNo"] },
   { id: "misa.sua_luu_tru", module: "misa", loai: "ghi", label: "Sửa / xoá / khôi phục kho lưu trữ", ham: ["moModalSuaDot", "luuSuaDot", "xoaDot", "xoaCacDongDaChon", "khoiPhucLichSu"] },
   // Báo cáo tổng hợp
