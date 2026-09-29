@@ -2543,7 +2543,8 @@
               kq.chan.push(moTaChan);
               // Ghi riêng để lối XOÁ chuyến giữ lại đơn nợ này (không đụng tới khoản đã thu)
               // thay vì chặn hẳn — xem xoaChuyenXeDaQuyetToan. Lối Làm mới chuyến vẫn chặn như cũ.
-              kq.noThuNoiKhac.push({ id_don_no: r.id_don_no, ma_hd: r.ma_hd, ten_kh: r.ten_kh, so_tien: st, moTa, moTaChan });
+              kq.noThuNoiKhac.push({ id_don_no: r.id_don_no, ma_hd: r.ma_hd, ten_kh: r.ten_kh, so_tien: st,
+                da_day_misa: !!r.da_day_misa, row: r, moTa, moTaChan });
             }
           }
         });
@@ -2624,6 +2625,47 @@
         alert('❌ Không đọc được dữ liệu của chuyến trên máy chủ nên chưa làm mới: ' + ((e && e.message) || e) + '\n\nKhông có dữ liệu nào bị thay đổi.');
         return;
       }
+      // 1b. HOÀN LẠI GẠCH NỢ ĐỂ TÍNH LẠI XE
+      // Xe tính tiền xong đã ghi nợ hoá đơn, khách trả nợ và kế toán đã gạch nợ ở Sổ theo dõi
+      // công nợ; vài ngày sau phát hiện xe tính sai, muốn tính lại thì trước đây bị chặn hẳn.
+      // Nay hỏi người dùng có HOÀN LẠI khoản gạch nợ đó không — hoá đơn trở về CHƯA THU
+      // (khoản thu trên máy chủ về 0 và ghi rõ lý do) rồi mới làm mới chuyến.
+      // Khoản gạch nợ ĐÃ ĐẨY MISA vẫn chặn như cũ vì bút toán bên MISA không tự sửa được.
+      let tongHoanGachNo = 0, soHoanGachNo = 0;
+      if (Array.isArray(kt.noThuNoiKhac) && kt.noThuNoiKhac.length) {
+        const hoanDuoc = kt.noThuNoiKhac.filter(x => !x.da_day_misa && x.row);
+        if (hoanDuoc.length) {
+          const tongHoan = hoanDuoc.reduce((s, x) => s + (x.so_tien || 0), 0);
+          // Khi gạch nợ có phần khách trả dư ghi vào Sổ tiền khách trả trước thì nhắc kiểm tra lại
+          let nhacDu = '';
+          try {
+            if (typeof BANG_TRA_TRUOC !== 'undefined') {
+              const { data: du } = await sb.from(BANG_TRA_TRUOC).select('ma_hd, so_tien')
+                .eq('nguon', 'thu_tai_quy_du').in('ma_hd', hoanDuoc.map(x => x.ma_hd).filter(Boolean));
+              const tongDu = (du || []).reduce((s, r) => s + (parseFloat(r.so_tien) || 0), 0);
+              if (tongDu > 0) nhacDu = `\n⚠️ Lần gạch nợ này còn ${formatTien(tongDu)} đ khách trả dư đã ghi vào Sổ tiền khách trả trước — khoản dư đó GIỮ NGUYÊN, cần kiểm tra lại sau khi tính lại xe.\n`;
+            }
+          } catch (e) {}
+          const dongHoi = hoanDuoc.map(x => '• ' + x.moTa).join('\n');
+          if (!confirm(
+            `💰 CHUYẾN "${tenChuyen}" CÓ ${hoanDuoc.length} KHOẢN GẠCH NỢ ĐÃ THU Ở SỔ THEO DÕI CÔNG NỢ:\n\n${dongHoi}\n\n` +
+            `Muốn tính lại xe thì các hoá đơn nợ trên phải trở về trạng thái CHƯA THU.\n\n` +
+            `Bấm [OK] để HOÀN LẠI ${formatTien(tongHoan)} đ gạch nợ (hoá đơn về CHƯA THU) rồi làm mới chuyến.\n` +
+            nhacDu +
+            `\n📌 Sau khi tính lại xe và Lưu Quyết Toán, nhớ vào Sổ theo dõi công nợ GẠCH NỢ LẠI khoản khách đã trả.\n` +
+            `\nBấm [Hủy / Cancel] để giữ nguyên, không thay đổi gì.`
+          )) return taiLaiDanhSachDot();
+          const boChan = new Set();
+          hoanDuoc.forEach(x => {
+            kt.dongHoanThuNo.push(x.row);
+            tongHoanGachNo += x.so_tien || 0;
+            soHoanGachNo++;
+            boChan.add(x.moTaChan);
+          });
+          kt.chan = kt.chan.filter(c => !boChan.has(c));
+        }
+      }
+
       if (kt.chan.length) {
         alert(`❌ CHƯA LÀM MỚI ĐƯỢC CHUYẾN "${tenChuyen}":\n\n${kt.chan.map(x => '• ' + x).join('\n')}\n\n` +
           `Cần điều chỉnh các khoản trên trước. Nếu chỉ cần sửa số liệu quyết toán, hãy sửa trực tiếp rồi bấm Lưu Quyết Toán (không cần làm mới).\n\nKhông có dữ liệu nào bị thay đổi.`);
@@ -2642,6 +2684,7 @@
       }
       const dongXacNhan =
         `• ${kt.dsMaHD.length} hoá đơn: xoá tiền mặt / chuyển khoản / trả về / nợ đã nhập\n` +
+        (soHoanGachNo ? `• Hoàn lại ${soHoanGachNo} khoản gạch nợ đã thu ở Sổ theo dõi công nợ (${formatTien(tongHoanGachNo)} đ) — hoá đơn trở về CHƯA THU\n` : '') +
         (kt.idNo.length ? `• Gỡ ${kt.idNo.length} đơn nợ (${formatTien(kt.tongNo)} đ) khỏi Sổ theo dõi công nợ\n` : '') +
         (kt.tongThuNoCu ? `• Hoàn lại thu nợ cũ qua xe ${formatTien(kt.tongThuNoCu)} đ (khách nợ lại như trước khi thu)\n` : '') +
         (kt.tongCanTru ? `• Trả lại ${formatTien(kt.tongCanTru)} đ tiền trả trước đã cấn trừ vào nợ của chuyến\n` : '') +
@@ -2761,6 +2804,7 @@
         ghiNhatKy('ghi_du_lieu', {
           module: 'quyettoan', doi_tuong: maDot,
           noi_dung: `Làm mới chuyến xe ${tenChuyen} về Chờ tính tiền — gỡ ${kt.idNo.length} đơn nợ (${formatTien(kt.tongNo)} đ), ` +
+            (soHoanGachNo ? `hoàn lại ${soHoanGachNo} khoản gạch nợ đã thu ở Sổ công nợ (${formatTien(tongHoanGachNo)} đ — hoá đơn về chưa thu), ` : '') +
             `hoàn thu nợ cũ ${formatTien(kt.tongThuNoCu)} đ, trả lại cấn trừ trả trước ${formatTien(kt.tongCanTru)} đ, ` +
             `gỡ trả dư ${formatTien(kt.tongTraDu)} đ, huỷ phiếu nộp tiền` + (loi.length ? ` — CÒN LỖI: ${loi.join('; ')}` : ''),
           chi_tiet: { maDot, dsMaHD: kt.dsMaHD, idNo: kt.idNo, phieuTruoc: p, dsGiaoLai: kt.dsGiaoLai, loi }
@@ -2771,7 +2815,8 @@
       await taiLaiDanhSachDot();
       alert((loi.length ? `⚠️ ĐÃ ĐƯA CHUYẾN "${tenChuyen}" VỀ CHỜ TÍNH TIỀN, NHƯNG CÒN VIỆC CHƯA XONG:\n\n${loi.map(x => '• ' + x).join('\n')}`
         : `✅ ĐÃ ĐƯA CHUYẾN "${tenChuyen}" VỀ CHỜ TÍNH TIỀN.`) +
-        `\n\nCông nợ, thu nợ và phiếu nộp tiền đã ghi của chuyến đã được gỡ. Nhập lại số liệu rồi bấm Lưu Quyết Toán như chuyến mới.`);
+        `\n\nCông nợ, thu nợ và phiếu nộp tiền đã ghi của chuyến đã được gỡ. Nhập lại số liệu rồi bấm Lưu Quyết Toán như chuyến mới.` +
+        (soHoanGachNo ? `\n\n📌 ĐÃ HOÀN LẠI ${soHoanGachNo} khoản gạch nợ (${formatTien(tongHoanGachNo)} đ) — các hoá đơn đó đã trở về CHƯA THU. Sau khi tính lại xe và Lưu Quyết Toán, nhớ vào Sổ theo dõi công nợ GẠCH NỢ LẠI khoản khách đã trả.` : ''));
     }
 
     function napDuLieuHoaDonCuaDot(dot) {
