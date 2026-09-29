@@ -46,7 +46,8 @@ const DANH_MUC_CHUC_NANG = [
   // Báo cáo tổng hợp
   { id: "baocao.xuat_excel", module: "baocao", loai: "doc", label: "Xuất Excel báo cáo", ham: ["xuatExcelTongHop", "xuatExcelChiTiet"] },
   // Theo dõi công nợ
-  { id: "congno.thu_no", module: "congno", loai: "ghi", label: "Thu nợ tại quỹ", ham: ["moModalThuNoTaiQuy", "moThuNoChoDon", "moThuNoChoKhachHang", "luuThuNoTaiQuy"] },
+  { id: "congno.thu_no", module: "congno", loai: "ghi", label: "Thu nợ tại quỹ (kể cả thu nợ hàng loạt, hoàn lại khoản gạch nợ)", ham: ["moModalThuNoTaiQuy", "moThuNoChoDon", "moThuNoChoKhachHang", "luuThuNoTaiQuy", "moThuNoHangLoat", "luuThuNoHangLoat", "moHoanGachNo", "hoanLaiKhoanGachNo"] },
+  { id: "congno.han_muc", module: "congno", loai: "ghi", label: "Đặt hạn mức công nợ & nhóm khách hàng", ham: ["luuHanMucCaNhan", "moSuaNhomHanMuc", "luuNhomHanMuc", "xoaNhomHanMucCongNo"] },
   { id: "congno.them_don", module: "congno", loai: "ghi", label: "Thêm đơn nợ ngoài bảng kê", ham: ["moModalThemDonThuCong", "luuDonNoThuCong"] },
   { id: "congno.xoa_don", module: "congno", loai: "ghi", label: "Xoá đơn nợ / hoàn tác xoá", ham: ["xoaDonNo", "xoaDonNoTrongModal", "hoanTacXoaDonNo"] },
   { id: "congno.in_xuat", module: "congno", loai: "doc", label: "In đối chiếu & xuất Excel công nợ", ham: ["inDoiChieuCongNoTuBoLoc", "inDoiChieuChoKhach", "inDoiChieuChoKhachDangXem", "xuatExcelCongNo", "xuatExcelBaoCaoCongNo", "inBaoCaoCongNo", "xuatBaoCaoExcelTheoMau"] },

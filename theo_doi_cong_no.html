@@ -17,6 +17,7 @@
   <script src="config.js"></script>
   <script src="phan_quyen.js"></script>
   <script src="khach_tra_truoc.js"></script>
+  <script src="han_muc_cong_no.js"></script>
   <script src="pwa.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <link rel="stylesheet" href="layout.css">
@@ -425,6 +426,9 @@
         <button type="button" class="btn btn-outline" style="border-color:#86efac; color:#15803d; font-weight:800;" onclick="moSoTraTruoc()" title="Sổ tiền khách trả trước / trả dư: ghi nhận, cấn trừ (có hỏi trước), hoàn tiền">
           <span>💚</span> Khách Trả Trước
         </button>
+        <button type="button" class="btn btn-outline" style="border-color:#fca5a5; color:#b91c1c; font-weight:800;" onclick="moHanMucCongNo()" title="Đặt hạn mức công nợ (số ngày được nợ · số tiền nợ tối đa) cho khách cá nhân và nhóm khách hàng">
+          <span>⚖️</span> Hạn Mức Công Nợ <span id="hmSoViPham" style="display:none; background:#dc2626; color:#fff; border-radius:9999px; padding:0 7px; font-size:11px; margin-left:2px;"></span>
+        </button>
       </div>
     </div>
 
@@ -513,6 +517,7 @@
             <option value="chua_thu">⏳ Chưa thu</option>
             <option value="da_thu_mot_phan">⚠️ Thu một phần</option>
             <option value="da_thu_du">✅ Đã thu đủ</option>
+            <option value="vuot_han_muc">⚖️ Vượt hạn mức / quá hạn</option>
           </select>
 
           <!-- NÚT THÊM ĐƠN THỦ CÔNG NGOÀI BẢNG KÊ (VỊ TRÍ KHUNG ĐỎ USER YÊU CẦU) -->
@@ -1036,6 +1041,136 @@
             <tbody id="tbodyLichSuDon">
               <!-- Render động -->
             </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- HẠN MỨC CÔNG NỢ: MẶC ĐỊNH CÁ NHÂN & NHÓM KHÁCH HÀNG        -->
+  <!-- ======================================================== -->
+  <div id="modalHanMucCongNo" class="modal-overlay no-print" style="display:none;" onclick="if(event.target===this) dongHanMucCongNo()">
+    <div class="modal-card modal-card-bao-cao">
+      <div class="modal-header">
+        <div>
+          <div style="font-weight:800; font-size:14.5px; color:var(--text-main);">⚖️ Hạn Mức Công Nợ Khách Hàng</div>
+          <div style="font-size:11.5px; color:var(--text-muted);" id="hmNguonLuu">Số ngày được nợ (tính từ ngày nợ của từng hoá đơn) · số tiền nợ tối đa — 0 = không giới hạn</div>
+        </div>
+        <button type="button" class="btn btn-outline" style="height:28px; padding:0 8px; font-weight:800;" onclick="dongHanMucCongNo()">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- A. Mặc định khách cá nhân -->
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:var(--radius-sm); padding:10px 12px;">
+          <div style="font-weight:800; color:var(--text-main); margin-bottom:6px;">👤 Hạn mức mặc định — khách cá nhân (không thuộc nhóm nào)</div>
+          <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+            <div class="form-group" style="margin:0;">
+              <label>Số ngày được nợ:</label>
+              <input type="number" id="hmCaNhanNgay" class="form-control" min="0" step="1" style="width:120px; font-weight:800;">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label>Số tiền nợ tối đa (đ):</label>
+              <input type="text" id="hmCaNhanTien" class="form-control" style="width:170px; font-weight:800; color:#b91c1c;" oninput="formatInputTienModal(this)">
+            </div>
+            <button type="button" class="btn btn-primary" style="height:34px;" onclick="luuHanMucCaNhan()">💾 Lưu mặc định cá nhân</button>
+            <span id="hmCaNhanThongKe" style="font-size:12px; color:var(--text-muted);"></span>
+          </div>
+        </div>
+
+        <!-- B. Nhóm khách hàng -->
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-top:12px;">
+          <div style="font-weight:800; color:var(--text-main);">👥 Nhóm khách hàng — hạn mức riêng (thay cho mặc định cá nhân)</div>
+          <button type="button" class="btn btn-primary" style="height:30px; font-size:12px;" onclick="moSuaNhomHanMuc('')">➕ Tạo nhóm mới</button>
+        </div>
+        <div class="table-container" style="max-height:230px; overflow-y:auto; margin-top:6px;">
+          <table class="table-cong-no">
+            <thead>
+              <tr>
+                <th style="min-width:150px;">Tên Nhóm</th>
+                <th style="width:85px; text-align:center;">Số Ngày</th>
+                <th style="width:120px; text-align:right;">Hạn Mức Tiền</th>
+                <th style="width:120px; text-align:center;">Cách Tính</th>
+                <th style="width:90px; text-align:center;">Thành Viên</th>
+                <th style="width:120px; text-align:right;">Nợ Hiện Tại</th>
+                <th style="min-width:150px;">Tình Trạng</th>
+                <th style="width:110px; text-align:center;">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="hmBodyNhom"></tbody>
+          </table>
+        </div>
+
+        <!-- C. Sửa / tạo nhóm -->
+        <div id="hmKhungSuaNhom" style="display:none; margin-top:12px; background:#fff7ed; border:1px solid #fed7aa; border-radius:var(--radius-sm); padding:10px 12px;">
+          <div style="font-weight:800; color:#9a3412; margin-bottom:6px;" id="hmTieuDeSuaNhom">➕ Tạo nhóm khách hàng</div>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:10px;">
+            <div class="form-group" style="margin:0;">
+              <label>Tên nhóm:</label>
+              <input type="text" id="hmTenNhom" class="form-control" placeholder="vd: Chuỗi AU MART" style="font-weight:800;">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label>Số ngày được nợ:</label>
+              <input type="number" id="hmNgayNhom" class="form-control" min="0" step="1" style="font-weight:800;">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label>Số tiền nợ tối đa (đ):</label>
+              <input type="text" id="hmTienNhom" class="form-control" style="font-weight:800; color:#b91c1c;" oninput="formatInputTienModal(this)">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label>Cách tính hạn mức tiền:</label>
+              <select id="hmCachTinhNhom" class="form-control" style="font-weight:700;">
+                <option value="tong_nhom">Tổng nợ CẢ NHÓM ≤ hạn mức</option>
+                <option value="tung_khach">MỖI khách trong nhóm ≤ hạn mức</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group" style="margin:8px 0 0;">
+            <label>Ghi chú:</label>
+            <input type="text" id="hmGhiChuNhom" class="form-control" placeholder="vd: Hợp đồng chuỗi, thanh toán cuối tuần">
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-top:10px;">
+            <div style="font-weight:800; color:#9a3412;">Thành viên: <span id="hmSoThanhVien">0</span> khách</div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <input type="text" id="hmTimKhach" class="form-control" placeholder="🔍 Tìm khách (vd: au mart)" style="width:210px; height:30px;" oninput="veDanhSachKhachHM()">
+              <button type="button" class="btn btn-outline" style="height:30px; font-size:11.5px;" onclick="hmChonKhachDangTim(true)" title="Tích tất cả khách đang hiện theo ô tìm kiếm">☑ Chọn khách đang tìm</button>
+              <button type="button" class="btn btn-outline" style="height:30px; font-size:11.5px;" onclick="hmChonKhachDaTichTrenSo()" title="Thêm các khách đang tích chọn ở bảng công nợ">＋ Khách đang tích ở sổ</button>
+              <button type="button" class="btn btn-outline" style="height:30px; font-size:11.5px;" onclick="hmChonKhachDangTim(false)">☐ Bỏ chọn khách đang tìm</button>
+            </div>
+          </div>
+          <div class="table-container" style="max-height:240px; overflow-y:auto; margin-top:6px; background:#fff;">
+            <table class="table-cong-no">
+              <thead>
+                <tr>
+                  <th style="width:34px; text-align:center;">✓</th>
+                  <th>Khách Hàng</th>
+                  <th style="width:110px;">Mã KH</th>
+                  <th style="width:120px; text-align:right;">Còn Nợ</th>
+                  <th style="min-width:150px;">Đang Thuộc</th>
+                </tr>
+              </thead>
+              <tbody id="hmBodyKhach"></tbody>
+            </table>
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px;">
+            <button type="button" class="btn btn-outline" onclick="dongSuaNhomHanMuc()">Hủy</button>
+            <button type="button" class="btn btn-primary" onclick="luuNhomHanMuc()">💾 Lưu nhóm</button>
+          </div>
+        </div>
+
+        <!-- D. Khách đang vượt hạn mức / quá hạn -->
+        <div style="font-weight:800; color:#b91c1c; margin-top:12px;">🔴 Khách đang vượt hạn mức / có đơn quá hạn: <span id="hmSoKhachViPham">0</span></div>
+        <div class="table-container" style="max-height:260px; overflow-y:auto; margin-top:6px;">
+          <table class="table-cong-no">
+            <thead>
+              <tr>
+                <th>Khách Hàng</th>
+                <th style="width:150px;">Áp Dụng</th>
+                <th style="width:150px;">Hạn Mức</th>
+                <th style="width:120px; text-align:right;">Đang Nợ</th>
+                <th style="min-width:220px;">Vi Phạm</th>
+              </tr>
+            </thead>
+            <tbody id="hmBodyViPham"></tbody>
           </table>
         </div>
       </div>
@@ -1856,6 +1991,8 @@
       const locTT = document.getElementById('locTrangThai')?.value || 'tat_ca';
       const tuNgay = document.getElementById('locTuNgay')?.value || '';
       const denNgay = document.getElementById('locDenNgay')?.value || '';
+      // Đánh giá hạn mức công nợ (số ngày / số tiền) trên toàn sổ — dùng cho huy hiệu & bộ lọc
+      tinhLaiDanhGiaHanMuc();
 
       // Lọc danh sách đơn nợ ban đầu
       let dsLoc = danhSachCongNo.filter(d => {
@@ -1866,6 +2003,7 @@
         if (locTT === 'chua_thu' && (d.trangThai === 'da_thu_du' || conLai <= 0 || daThu > 0)) return false;
         if (locTT === 'da_thu_mot_phan' && (conLai <= 0 || daThu === 0)) return false;
         if (locTT === 'da_thu_du' && (d.trangThai !== 'da_thu_du' && conLai > 0)) return false;
+        if (locTT === 'vuot_han_muc' && !donViPhamHanMuc(d)) return false;
 
         // 2. Lọc khách hàng: Chuẩn hóa chuỗi an toàn Unicode
         if (locKH && locKH !== 'tat_ca') {
@@ -1985,6 +2123,7 @@
                   <b style="color:var(--text-main); font-size:13px;">${escapeHtml(k.tenKH)}</b>
                   ${k.maKH ? `<div style="font-size:11px; color:var(--text-muted);">${escapeHtml(k.maKH)}</div>` : ''}
                   ${htmlBadgeTraTruoc(k.tenKH)}
+                  ${htmlBadgeHanMucKhach(k.tenKH)}
                 </td>
                 <td>${escapeHtml(k.nguoiBan || '--')}</td>
                 <td style="text-align:center;">
@@ -2093,7 +2232,7 @@
               <tr class="${donDaChon.has(d.id) ? 'dong-da-chon' : ''}">
                 <td class="o-chon"><input type="checkbox" data-id="${escapeHtml(d.id)}" ${donDaChon.has(d.id) ? 'checked' : ''} onchange="chonDonNoCongNo(this)" title="Tích để đưa đơn này vào báo cáo"></td>
                 <td style="text-align:center; font-weight:700; color:var(--text-muted);">${i + 1}</td>
-                <td style="white-space:nowrap;">${d.ngayGiao || d.ngayGhiNo || '--'}</td>
+                <td style="white-space:nowrap;">${d.ngayGiao || d.ngayGhiNo || '--'}${htmlBadgeQuaHanDon(d)}</td>
                 <td style="text-align:center;"><b style="font-family:monospace; font-size:12.5px;">${escapeHtml(d.maHD)}</b></td>
                 <td>
                   <b style="color:var(--text-main);">${escapeHtml(d.tenKH)}</b>
@@ -2199,6 +2338,7 @@
       if (locTT === 'chua_thu' && (d.trangThai === 'da_thu_du' || conLai <= 0 || daThu > 0)) return false;
       if (locTT === 'da_thu_mot_phan' && (conLai <= 0 || daThu === 0)) return false;
       if (locTT === 'da_thu_du' && (d.trangThai !== 'da_thu_du' && conLai > 0)) return false;
+      if (locTT === 'vuot_han_muc' && !donViPhamHanMuc(d)) return false;
       const ngay = ngayNoCuaDon(d);
       if (ngay) {
         if (tuNgay && ngay < tuNgay) return false;
@@ -3559,6 +3699,303 @@
         `Đơn nợ này còn lại ${formatTien(don.conLai)} đ (đã thu ${formatTien(don.daThu)} đ).\n\n` +
         `📌 Giờ hãy vào ĐÚNG khách hàng đã trả tiền và bấm "💰 Thu nợ" để gạch nợ lại khoản này.`);
     }
+
+    // ========================================================
+    // HẠN MỨC CÔNG NỢ — MẶC ĐỊNH CÁ NHÂN & NHÓM KHÁCH HÀNG (bộ máy dùng chung: han_muc_cong_no.js)
+    // --------------------------------------------------------
+    // • Khách cá nhân: mặc định 05 ngày · 6.000.000 đ (sửa được).
+    // • Nhóm khách hàng (vd. chuỗi AU MART): hạn mức riêng, tính theo TỔNG nợ cả nhóm hoặc
+    //   từng khách trong nhóm. Mỗi khách chỉ thuộc 1 nhóm.
+    // • Sổ công nợ: tô đỏ khách vượt hạn mức tiền / có đơn quá số ngày được nợ, bộ lọc
+    //   "⚖️ Vượt hạn mức / quá hạn", số khách vi phạm hiện trên nút ⚖️. Chỉ cảnh báo, không chặn.
+    // ========================================================
+    let danhGiaHanMucHienTai = null;   // kết quả danhGiaHanMucCongNo trên toàn sổ (tính lại mỗi lần vẽ bảng)
+    let hmNhomDangSua = null;          // nhóm đang tạo / sửa
+    let hmChonKhach = new Map();       // khoá tên KH → { maKH, tenKH } đang tích trong khung sửa nhóm
+    let hmDsKhachDangHien = [];        // [[khoá, {tenKH, maKH, conLai}]] đang hiện trong khung sửa nhóm
+
+    function donChoHanMuc(d) {
+      return { maHD: d.maHD, maKH: d.maKH || '', tenKH: khoaKhachCongNo(d), conLai: conLaiCuaDon(d), ngayNo: ngayNoCuaDon(d) || d.ngayGiao || d.ngayGhiNo || '' };
+    }
+
+    function tinhLaiDanhGiaHanMuc() {
+      if (typeof danhGiaHanMucCongNo !== 'function' || typeof _cauHinhHanMuc === 'undefined' || !_cauHinhHanMuc) {
+        danhGiaHanMucHienTai = null;
+        return null;
+      }
+      danhGiaHanMucHienTai = danhGiaHanMucCongNo(_cauHinhHanMuc, danhSachCongNo.map(donChoHanMuc));
+      const so = Array.from(danhGiaHanMucHienTai.theoKhach.values()).filter(g => g.viPham).length;
+      const o = document.getElementById('hmSoViPham');
+      if (o) { o.textContent = so; o.style.display = so ? '' : 'none'; }
+      return danhGiaHanMucHienTai;
+    }
+
+    function trangThaiHMKhach(tenKH) {
+      return danhGiaHanMucHienTai && typeof khoaTenKhachHM === 'function' ? (danhGiaHanMucHienTai.theoKhach.get(khoaTenKhachHM(tenKH)) || null) : null;
+    }
+
+    function donViPhamHanMuc(d) {
+      const g = trangThaiHMKhach(khoaKhachCongNo(d));
+      return !!(g && g.viPham && conLaiCuaDon(d) > 0);
+    }
+
+    function htmlBadgeHanMucKhach(tenKH) {
+      const g = trangThaiHMKhach(tenKH);
+      if (!g) return '';
+      const hm = g.hanMuc;
+      const kieu = 'font-size:10.5px; padding:1px 6px;';
+      const tieuDe = escapeHtml(`Hạn mức ${hm.nhom ? 'nhóm "' + hm.nhom.ten + '"' : 'cá nhân'}: ${moTaHanMucHM(hm)}` + (g.viPham ? ' — ' + moTaViPhamHM(g).join('; ') : ''));
+      let html = '';
+      if (g.vuotTien) html += `<span class="badge-status" style="${kieu} background:#fef2f2; color:#b91c1c; border:1px solid #fca5a5;" title="${tieuDe}">🔴 Vượt hạn mức ${formatTien(hm.soTien)}${hm.nhom && hm.cachTinh === 'tong_nhom' ? ' (cả nhóm)' : ''}</span>`;
+      if (g.quaHan) html += `<span class="badge-status" style="${kieu} background:#fff7ed; color:#c2410c; border:1px solid #fdba74;" title="${tieuDe}">⏰ ${g.dsQuaHan.length} đơn quá hạn ${hm.soNgay} ngày</span>`;
+      if (hm.nhom) html += `<span class="badge-status" style="${kieu} background:#f1f5f9; color:#334155; border:1px solid #cbd5e1;" title="${tieuDe}">👥 ${escapeHtml(hm.nhom.ten)}</span>`;
+      return html ? `<div style="display:flex; gap:3px; flex-wrap:wrap; margin-top:3px;">${html}</div>` : '';
+    }
+
+    function htmlBadgeQuaHanDon(d) {
+      if (!(conLaiCuaDon(d) > 0)) return '';
+      const g = trangThaiHMKhach(khoaKhachCongNo(d));
+      if (!g || !g.quaHan) return '';
+      const x = g.dsQuaHan.find(q => q.maHD === d.maHD);
+      if (!x) return '';
+      return `<div><span class="badge-status" style="font-size:10px; padding:1px 5px; background:#fff7ed; color:#c2410c; border:1px solid #fdba74;" title="Được nợ ${g.hanMuc.soNgay} ngày — đơn đã nợ ${x.tuoi} ngày">⏰ Quá hạn ${x.quaHan} ngày</span></div>`;
+    }
+
+    async function moHanMucCongNo() {
+      document.getElementById('modalHanMucCongNo').style.display = 'flex';
+      dongSuaNhomHanMuc();
+      document.getElementById('hmBodyNhom').innerHTML = '<tr><td colspan="8" style="text-align:center; padding:14px;">⏳ Đang tải hạn mức...</td></tr>';
+      if (typeof taiCauHinhHanMuc !== 'function') {
+        document.getElementById('hmBodyNhom').innerHTML = '<tr><td colspan="8" style="text-align:center; padding:14px; color:#b91c1c;">Trình duyệt đang dùng bản cũ — bấm Ctrl + F5 để tải lại trang.</td></tr>';
+        return;
+      }
+      await taiCauHinhHanMuc(true);
+      veHanMucCongNo();
+    }
+
+    function dongHanMucCongNo() {
+      document.getElementById('modalHanMucCongNo').style.display = 'none';
+    }
+
+    function veHanMucCongNo() {
+      const cfg = _cauHinhHanMuc;
+      if (!cfg) return;
+      const dg = tinhLaiDanhGiaHanMuc();
+      const oNguon = document.getElementById('hmNguonLuu');
+      oNguon.innerHTML = cfg.nguon === 'cloud'
+        ? '☁️ Lưu trên máy chủ — mọi máy dùng chung · Số ngày tính từ ngày nợ của từng hoá đơn · 0 = không giới hạn'
+        : (cfg.thieuBang
+          ? '<b style="color:#b91c1c;">⚠️ Máy chủ chưa có bảng hạn mức — đang lưu TẠM trên máy này. Nhờ quản trị chạy sql/15_han_muc_cong_no.sql trong Supabase SQL Editor.</b>'
+          : `<b style="color:#b45309;">⚠️ Không đọc được máy chủ (${escapeHtml(cfg.loi || 'lỗi mạng')}) — đang dùng bản lưu trên máy này.</b>`);
+
+      document.getElementById('hmCaNhanNgay').value = cfg.caNhan.soNgay;
+      document.getElementById('hmCaNhanTien').value = formatTien(cfg.caNhan.soTien);
+      const dsG = dg ? Array.from(dg.theoKhach.values()) : [];
+      const caNhan = dsG.filter(g => !g.hanMuc.nhom);
+      document.getElementById('hmCaNhanThongKe').textContent =
+        `${caNhan.length} khách cá nhân đang nợ · ${caNhan.filter(g => g.viPham).length} khách vượt hạn mức / quá hạn`;
+
+      // Bảng nhóm
+      const body = document.getElementById('hmBodyNhom');
+      if (!cfg.nhom.length) {
+        body.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:14px; color:var(--text-muted);">Chưa có nhóm khách hàng nào. Bấm "➕ Tạo nhóm mới" (vd: chuỗi AU MART) để đặt hạn mức riêng.</td></tr>';
+      } else {
+        body.innerHTML = cfg.nhom.map(n => {
+          const tv = dsG.filter(g => g.hanMuc.nhom && g.hanMuc.nhom.id === n.id);
+          const no = dg ? (dg.tongNhom.get(n.id) || 0) : 0;
+          const soVP = tv.filter(g => g.viPham).length;
+          const vuotNhom = n.cachTinh === 'tong_nhom' && n.soTien > 0 && no > n.soTien + 0.5;
+          const tinhTrang = vuotNhom
+            ? `<span style="color:#b91c1c; font-weight:800;">🔴 Cả nhóm vượt ${formatTien(no - n.soTien)} đ</span>` + (tv.some(g => g.quaHan) ? `<div style="font-size:11px; color:#c2410c;">⏰ ${tv.filter(g => g.quaHan).length} khách có đơn quá hạn</div>` : '')
+            : (soVP ? `<span style="color:#b91c1c; font-weight:800;">🔴 ${soVP} khách vượt hạn mức / quá hạn</span>` : '<span style="color:#16a34a; font-weight:700;">✅ Trong hạn mức</span>');
+          return `
+            <tr>
+              <td><b>${escapeHtml(n.ten)}</b>${n.ghiChu ? `<div style="font-size:11px; color:var(--text-muted);">${escapeHtml(n.ghiChu)}</div>` : ''}</td>
+              <td style="text-align:center; font-weight:800;">${n.soNgay > 0 ? n.soNgay : '∞'}</td>
+              <td class="num-cell" style="color:#b91c1c;">${n.soTien > 0 ? formatTien(n.soTien) : '∞'}</td>
+              <td style="text-align:center; font-size:11.5px;">${n.cachTinh === 'tong_nhom' ? 'Tổng cả nhóm' : 'Từng khách'}</td>
+              <td style="text-align:center;">${n.thanhVien.length}</td>
+              <td class="num-cell" style="font-weight:800;">${formatTien(no)}</td>
+              <td style="font-size:12px;">${tinhTrang}</td>
+              <td style="text-align:center;">
+                <div style="display:flex; gap:4px; justify-content:center;">
+                  <button type="button" class="btn btn-outline" style="height:26px; padding:0 8px; font-size:11px;" onclick="moSuaNhomHanMuc(${escapeHtml(JSON.stringify(n.id))})">✎ Sửa</button>
+                  <button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:11px; color:#dc2626; border-color:#fca5a5;" onclick="xoaNhomHanMucCongNo(${escapeHtml(JSON.stringify(n.id))})" title="Xoá nhóm (khách trở về hạn mức cá nhân)">🗑️</button>
+                </div>
+              </td>
+            </tr>`;
+        }).join('');
+      }
+
+      // Khách đang vi phạm
+      const vp = dsG.filter(g => g.viPham).sort((a, b) => (b.noSoVoiHanMuc - a.noSoVoiHanMuc) || a.tenKH.localeCompare(b.tenKH, 'vi'));
+      document.getElementById('hmSoKhachViPham').textContent = vp.length;
+      document.getElementById('hmBodyViPham').innerHTML = vp.length ? vp.map(g => `
+        <tr>
+          <td><b>${escapeHtml(g.tenKH)}</b>${g.maKH ? `<div style="font-size:11px; color:var(--text-muted);">${escapeHtml(g.maKH)}</div>` : ''}</td>
+          <td style="font-size:12px;">${g.hanMuc.nhom ? '👥 ' + escapeHtml(g.hanMuc.nhom.ten) + (g.hanMuc.cachTinh === 'tong_nhom' ? ' <span style="color:var(--text-muted);">(tổng nhóm)</span>' : '') : '👤 Cá nhân'}</td>
+          <td style="font-size:12px;">${escapeHtml(moTaHanMucHM(g.hanMuc))}</td>
+          <td class="num-cell" style="font-weight:800; color:#dc2626;">${formatTien(g.tongNo)}</td>
+          <td style="font-size:11.5px; color:#b91c1c;">${moTaViPhamHM(g).map(x => '• ' + escapeHtml(x)).join('<br>')}</td>
+        </tr>`).join('')
+        : '<tr><td colspan="5" style="text-align:center; padding:14px; color:#16a34a; font-weight:700;">✅ Không có khách nào vượt hạn mức hay quá hạn.</td></tr>';
+    }
+
+    async function luuHanMucCaNhan() {
+      if (chanNeuChiXem()) return;
+      const soNgay = parseInt(document.getElementById('hmCaNhanNgay').value, 10);
+      const soTien = parseVNNumber_(document.getElementById('hmCaNhanTien').value);
+      if (isNaN(soNgay) || soNgay < 0) { alert('⚠️ Số ngày được nợ phải là số nguyên ≥ 0 (0 = không giới hạn).'); return; }
+      if (!(soTien >= 0)) { alert('⚠️ Số tiền nợ tối đa không hợp lệ.'); return; }
+      if (!confirm(`💾 Lưu hạn mức MẶC ĐỊNH cho khách cá nhân:\n\n• Số ngày được nợ: ${soNgay > 0 ? soNgay + ' ngày' : 'không giới hạn'}\n• Số tiền nợ tối đa: ${soTien > 0 ? formatTien(soTien) + ' đ' : 'không giới hạn'}\n\nÁp dụng cho mọi khách không thuộc nhóm nào.`)) return;
+      const kq = await luuCacDongHanMuc([dongTuCaNhanHM({ soNgay: soNgay, soTien: soTien })]);
+      if (!kq.ok) { alert('❌ Chưa lưu được hạn mức: ' + kq.loi); return; }
+      veHanMucCongNo();
+      veBangCongNo();
+      baoNhanhCongNo(kq.nguon === 'cloud' ? '✅ Đã lưu hạn mức mặc định cá nhân (mọi máy dùng chung).' : '⚠️ Đã lưu hạn mức TẠM trên máy này — cần chạy sql/15_han_muc_cong_no.sql để dùng chung.');
+    }
+
+    function moSuaNhomHanMuc(id) {
+      if (chanNeuChiXem()) return;
+      const cfg = _cauHinhHanMuc;
+      if (!cfg) return;
+      const n = id ? cfg.nhom.find(x => x.id === id) : null;
+      hmNhomDangSua = n ? JSON.parse(JSON.stringify(n))
+        : { id: '', ten: '', soNgay: cfg.caNhan.soNgay, soTien: cfg.caNhan.soTien, cachTinh: 'tong_nhom', thanhVien: [], ghiChu: '' };
+      hmChonKhach = new Map(hmNhomDangSua.thanhVien.map(tv => [khoaTenKhachHM(tv.tenKH || tv.maKH), { maKH: tv.maKH || '', tenKH: tv.tenKH || tv.maKH || '' }]));
+      document.getElementById('hmTieuDeSuaNhom').textContent = n ? `✎ Sửa nhóm "${n.ten}"` : '➕ Tạo nhóm khách hàng';
+      document.getElementById('hmTenNhom').value = hmNhomDangSua.ten;
+      document.getElementById('hmNgayNhom').value = hmNhomDangSua.soNgay;
+      document.getElementById('hmTienNhom').value = formatTien(hmNhomDangSua.soTien);
+      document.getElementById('hmCachTinhNhom').value = hmNhomDangSua.cachTinh;
+      document.getElementById('hmGhiChuNhom').value = hmNhomDangSua.ghiChu || '';
+      document.getElementById('hmTimKhach').value = '';
+      document.getElementById('hmKhungSuaNhom').style.display = '';
+      veDanhSachKhachHM();
+      document.getElementById('hmKhungSuaNhom').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function dongSuaNhomHanMuc() {
+      hmNhomDangSua = null;
+      hmChonKhach = new Map();
+      const k = document.getElementById('hmKhungSuaNhom');
+      if (k) k.style.display = 'none';
+    }
+
+    // Danh sách khách để chọn vào nhóm: khách có trong sổ công nợ + thành viên đã lưu của nhóm
+    function veDanhSachKhachHM() {
+      if (!hmNhomDangSua) return;
+      const cfg = _cauHinhHanMuc;
+      const map = new Map();
+      danhSachCongNo.forEach(d => {
+        const ten = khoaKhachCongNo(d);
+        const k = khoaTenKhachHM(ten);
+        if (!map.has(k)) map.set(k, { tenKH: ten, maKH: d.maKH || '', conLai: 0 });
+        const g = map.get(k);
+        g.conLai += conLaiCuaDon(d);
+        if (!g.maKH && d.maKH) g.maKH = d.maKH;
+      });
+      hmChonKhach.forEach((v, k) => { if (!map.has(k)) map.set(k, { tenKH: v.tenKH, maKH: v.maKH, conLai: 0 }); });
+      const tk = chuanHoaChuoiVN(document.getElementById('hmTimKhach').value.trim());
+      hmDsKhachDangHien = Array.from(map.entries())
+        .filter(([, v]) => !tk || chuanHoaChuoiVN(v.tenKH).includes(tk) || chuanHoaChuoiVN(v.maKH).includes(tk))
+        .sort((a, b) => (Number(hmChonKhach.has(b[0])) - Number(hmChonKhach.has(a[0]))) || a[1].tenKH.localeCompare(b[1].tenKH, 'vi'));
+      document.getElementById('hmSoThanhVien').textContent = hmChonKhach.size;
+      document.getElementById('hmBodyKhach').innerHTML = hmDsKhachDangHien.length ? hmDsKhachDangHien.map(([k, v], i) => {
+        const nhomKhac = cfg ? cfg.nhom.find(n => n.id !== hmNhomDangSua.id && n.thanhVien.some(tv => laThanhVienHM(tv, v))) : null;
+        const chon = hmChonKhach.has(k);
+        return `
+          <tr style="${chon ? 'background:#fff7ed;' : ''}">
+            <td style="text-align:center;"><input type="checkbox" ${chon ? 'checked' : ''} onchange="hmTichKhach(${i}, this.checked)"></td>
+            <td><b>${escapeHtml(v.tenKH)}</b></td>
+            <td style="font-size:11.5px;">${escapeHtml(v.maKH || '--')}</td>
+            <td class="num-cell">${formatTien(v.conLai)}</td>
+            <td style="font-size:11.5px;">${nhomKhac ? `👥 ${escapeHtml(nhomKhac.ten)}${chon ? ' <b style="color:#c2410c;">→ chuyển sang nhóm này</b>' : ''}` : (chon ? '<b style="color:#15803d;">Nhóm này</b>' : '👤 Cá nhân')}</td>
+          </tr>`;
+      }).join('') : '<tr><td colspan="5" style="text-align:center; padding:12px; color:var(--text-muted);">Không tìm thấy khách hàng phù hợp.</td></tr>';
+    }
+
+    function hmTichKhach(i, chon) {
+      const x = hmDsKhachDangHien[i];
+      if (!x) return;
+      if (chon) hmChonKhach.set(x[0], { maKH: x[1].maKH || '', tenKH: x[1].tenKH }); else hmChonKhach.delete(x[0]);
+      veDanhSachKhachHM();
+    }
+
+    function hmChonKhachDangTim(chon) {
+      hmDsKhachDangHien.forEach(([k, v]) => { if (chon) hmChonKhach.set(k, { maKH: v.maKH || '', tenKH: v.tenKH }); else hmChonKhach.delete(k); });
+      veDanhSachKhachHM();
+    }
+
+    function hmChonKhachDaTichTrenSo() {
+      const ds = layDonDaChon();
+      if (!ds.length && !khachDaChon.size) { alert('ℹ️ Chưa tích khách hàng / hoá đơn nào ở bảng công nợ.'); return; }
+      khachDaChon.forEach(ten => {
+        const d = danhSachCongNo.find(x => khoaKhachCongNo(x) === ten);
+        hmChonKhach.set(khoaTenKhachHM(ten), { maKH: (d && d.maKH) || '', tenKH: ten });
+      });
+      ds.forEach(d => hmChonKhach.set(khoaTenKhachHM(khoaKhachCongNo(d)), { maKH: d.maKH || '', tenKH: khoaKhachCongNo(d) }));
+      veDanhSachKhachHM();
+    }
+
+    async function luuNhomHanMuc() {
+      if (chanNeuChiXem()) return;
+      const cfg = _cauHinhHanMuc;
+      const n = hmNhomDangSua;
+      if (!cfg || !n) return;
+      const ten = document.getElementById('hmTenNhom').value.trim();
+      const soNgay = parseInt(document.getElementById('hmNgayNhom').value, 10);
+      const soTien = parseVNNumber_(document.getElementById('hmTienNhom').value);
+      const cachTinh = document.getElementById('hmCachTinhNhom').value === 'tung_khach' ? 'tung_khach' : 'tong_nhom';
+      const ghiChu = document.getElementById('hmGhiChuNhom').value.trim();
+      if (!ten) { alert('⚠️ Vui lòng nhập tên nhóm.'); return; }
+      if (cfg.nhom.some(x => x.id !== n.id && khoaTenKhachHM(x.ten) === khoaTenKhachHM(ten))) { alert(`⚠️ Đã có nhóm tên "${ten}".`); return; }
+      if (isNaN(soNgay) || soNgay < 0) { alert('⚠️ Số ngày được nợ phải là số nguyên ≥ 0 (0 = không giới hạn).'); return; }
+      if (!(soTien >= 0)) { alert('⚠️ Số tiền nợ tối đa không hợp lệ.'); return; }
+      const thanhVien = Array.from(hmChonKhach.values());
+      if (!thanhVien.length && !confirm(`Nhóm "${ten}" chưa có thành viên nào. Vẫn lưu?`)) return;
+      const id = n.id || ('NHOM_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)).toUpperCase();
+
+      // Mỗi khách chỉ thuộc 1 nhóm → khách đang ở nhóm khác được chuyển sang nhóm này
+      const dongSua = [];
+      const chuyen = [];
+      cfg.nhom.filter(g => g.id !== id).forEach(g => {
+        const giu = g.thanhVien.filter(tv => !thanhVien.some(m => laThanhVienHM(tv, m)));
+        if (giu.length !== g.thanhVien.length) {
+          chuyen.push(`• ${g.thanhVien.length - giu.length} khách từ nhóm "${g.ten}"`);
+          dongSua.push(dongTuNhomHM(Object.assign({}, g, { thanhVien: giu })));
+        }
+      });
+      if (!confirm(`💾 Lưu nhóm "${ten}"?\n\n• Hạn mức: ${soNgay > 0 ? soNgay + ' ngày' : 'không giới hạn ngày'} · ${soTien > 0 ? formatTien(soTien) + ' đ' : 'không giới hạn tiền'}` +
+        ` (${cachTinh === 'tong_nhom' ? 'tính TỔNG nợ cả nhóm' : 'tính cho TỪNG khách'})\n• ${thanhVien.length} khách thành viên` +
+        (chuyen.length ? `\n\nKhách đang thuộc nhóm khác sẽ được CHUYỂN sang nhóm này:\n${chuyen.join('\n')}` : ''))) return;
+      dongSua.unshift(dongTuNhomHM({ id: id, ten: ten, soNgay: soNgay, soTien: soTien, cachTinh: cachTinh, thanhVien: thanhVien, ghiChu: ghiChu }));
+      const kq = await luuCacDongHanMuc(dongSua);
+      if (!kq.ok) { alert('❌ Chưa lưu được nhóm: ' + kq.loi); return; }
+      dongSuaNhomHanMuc();
+      veHanMucCongNo();
+      veBangCongNo();
+      baoNhanhCongNo(kq.nguon === 'cloud' ? `✅ Đã lưu nhóm "${ten}" (${thanhVien.length} khách).` : `⚠️ Đã lưu nhóm "${ten}" TẠM trên máy này — cần chạy sql/15_han_muc_cong_no.sql để dùng chung.`);
+    }
+
+    async function xoaNhomHanMucCongNo(id) {
+      if (chanNeuChiXem()) return;
+      const n = _cauHinhHanMuc && _cauHinhHanMuc.nhom.find(x => x.id === id);
+      if (!n) return;
+      if (!confirm(`🗑️ Xoá nhóm "${n.ten}" (${n.thanhVien.length} khách)?\n\nCác khách trong nhóm sẽ trở về hạn mức MẶC ĐỊNH cá nhân.`)) return;
+      const kq = await xoaDongHanMuc(id);
+      if (!kq.ok) { alert('❌ Chưa xoá được nhóm: ' + kq.loi); return; }
+      if (hmNhomDangSua && hmNhomDangSua.id === id) dongSuaNhomHanMuc();
+      veHanMucCongNo();
+      veBangCongNo();
+      baoNhanhCongNo(`🗑️ Đã xoá nhóm "${n.ten}".`);
+    }
+
+    // Tải hạn mức khi mở trang → vẽ lại bảng để hiện cảnh báo vượt hạn mức / quá hạn
+    window.addEventListener('DOMContentLoaded', () => {
+      if (typeof taiCauHinhHanMuc !== 'function') return;
+      taiCauHinhHanMuc().then(() => { try { veBangCongNo(); } catch (e) {} }).catch(() => {});
+    });
 
     // ========================================================
     // THU NỢ HÀNG LOẠT (CÁC ĐƠN NỢ ĐÃ TÍCH CHỌN)

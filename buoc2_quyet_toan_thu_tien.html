@@ -18,6 +18,7 @@
   <script src="config.js"></script>
   <script src="phan_quyen.js"></script>
   <script src="khach_tra_truoc.js"></script>
+  <script src="han_muc_cong_no.js"></script>
   <script src="pwa.js"></script>
   <script src="searchable-select.js"></script>
   <link rel="stylesheet" href="layout.css">
@@ -5180,6 +5181,11 @@
         `\n\nBước 3 (MISA) sẽ CHƯA trừ được hàng của các hoá đơn này. Bấm nút "📦 Chọn hàng trả" ở cột Hàng trả để chọn.\n\n` +
         `Bấm [OK] để vẫn lưu, [Hủy / Cancel] để quay lại chọn hàng.`
       )) return;
+      // Hạn mức công nợ: khách phát sinh nợ trong chuyến mà vượt hạn mức tiền / đang có đơn quá hạn → hỏi lại
+      // (lỗi bất ngờ khi kiểm tra hạn mức thì bỏ qua cảnh báo — không được chặn việc lưu quyết toán)
+      let dongYHanMuc = true;
+      try { dongYHanMuc = await kiemTraHanMucTruocQuyetToan(); } catch (e) { console.warn('Không kiểm tra được hạn mức công nợ:', e); }
+      if (!dongYHanMuc) return;
       // Lấy số liệu công nợ mới nhất & kiểm tra thu nợ trước khi lưu (chống thu trùng)
       const chuanBiThuNo = await chuanBiCanTruThuNoCu();
       if (!chuanBiThuNo) return;
@@ -5207,6 +5213,49 @@
       // Khách trả dư / thu nợ vượt → hỏi ghi vào Sổ tiền khách trả trước; khách có tiền trả trước
       // mà phát sinh nợ mới → hỏi có cấn trừ không (không bao giờ tự trừ)
       if (dotHienTai && dotHienTai.daQuyetToan) await xuLyTraTruocSauQuyetToan();
+    }
+
+    // ========================================================
+    // HẠN MỨC CÔNG NỢ KHI LƯU QUYẾT TOÁN (dùng han_muc_cong_no.js)
+    // --------------------------------------------------------
+    // Khách phát sinh nợ mới trong chuyến: cộng nợ đang có trên sổ công nợ (trừ các hoá đơn của
+    // chính chuyến này — sẽ được ghi lại theo số mới) với nợ mới, so với hạn mức cá nhân / nhóm;
+    // đồng thời xem khách có đơn nợ cũ quá số ngày được nợ không. Có vi phạm → HỎI trước khi lưu
+    // (chỉ cảnh báo, người dùng vẫn lưu được). Trả về false nếu người dùng chọn dừng lại.
+    // ========================================================
+    async function kiemTraHanMucTruocQuyetToan() {
+      if (typeof danhGiaHanMucCongNo !== 'function' || typeof taiCauHinhHanMuc !== 'function') return true;
+      const dsNoMoi = danhSachHoaDonQuyetToan.filter(h => (h.noPhatSinh || 0) > 0.5);
+      if (!dsNoMoi.length) return true;
+      let cfg;
+      try { cfg = await taiCauHinhHanMuc(true); } catch (e) { return true; }
+      const ngayChuyen = chuanHoaNgayISO(dotHienTai.ngayRaw) || chuanHoaNgayISO(dotHienTai.ngayGiao) || ngayHomNayHanMuc();
+      const setMaChuyen = new Set(danhSachHoaDonQuyetToan.map(h => String(h.maHD || '').toUpperCase()));
+      const dsDon = [];
+      (docSoCongNo() || []).forEach(d => {
+        if (!d || setMaChuyen.has(String(d.maHD || '').toUpperCase())) return;
+        const conLai = (d.conLai !== undefined) ? d.conLai : Math.max(0, (d.soTienNo || 0) - (d.daThu || 0));
+        dsDon.push({ maHD: d.maHD, maKH: d.maKH || '', tenKH: (d.tenKH || 'Khách Lẻ').trim(), conLai: conLai, ngayNo: d.ngayGiao || d.ngayGhiNo || '' });
+      });
+      dsNoMoi.forEach(h => dsDon.push({ maHD: h.maHD, maKH: h.maKH || '', tenKH: (h.tenKH || 'Khách Lẻ').trim(), conLai: h.noPhatSinh, ngayNo: ngayChuyen }));
+      const kq = danhGiaHanMucCongNo(cfg, dsDon);
+      const daXet = new Set();
+      const viPham = [];
+      dsNoMoi.forEach(h => {
+        const k = khoaTenKhachHM(h.tenKH || 'Khách Lẻ');
+        if (daXet.has(k)) return;
+        daXet.add(k);
+        const g = kq.theoKhach.get(k);
+        if (g && g.viPham) viPham.push(g);
+      });
+      if (!viPham.length) return true;
+      return confirm(
+        `⚖️ ${viPham.length} KHÁCH PHÁT SINH NỢ TRONG CHUYẾN NÀY ĐANG VƯỢT HẠN MỨC CÔNG NỢ:\n\n` +
+        viPham.map(g => `• ${g.tenKH} — hạn mức ${g.hanMuc.nhom ? 'nhóm "' + g.hanMuc.nhom.ten + '"' : 'cá nhân'} ${moTaHanMucHM(g.hanMuc)}:\n` +
+          moTaViPhamHM(g).map(x => '    – ' + x).join('\n')).join('\n') +
+        `\n\n(Tính cả nợ mới của chuyến này; nợ cũ lấy theo Sổ theo dõi công nợ trên máy này.)\n\n` +
+        `Bấm [OK] để VẪN LƯU quyết toán, [Hủy / Cancel] để quay lại kiểm tra.`
+      );
     }
 
     // ========================================================
