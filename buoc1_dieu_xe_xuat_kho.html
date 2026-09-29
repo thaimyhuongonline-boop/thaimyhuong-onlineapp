@@ -1975,6 +1975,7 @@
       veDanhSachCheckboxHD();
       chayTaoPhieu();
       chuyenDangXemLai = { maDot: dot.maDot, dot: dot, maHDBoSung: new Set() };
+      chupDuLieuChuyenDangXemLai();
 
       // Hiển thị banner đang xem lại
       const banner = document.getElementById('bannerDangXemLai');
@@ -1996,6 +1997,10 @@
         duLieuKiotViet = duLieuTamTruocKhiXemLai.duLieuKiotViet || [];
         duLieuTamTruocKhiXemLai = null;
       } else {
+        // Bỏ dữ liệu chuyến vừa xem trước khi nạp danh sách chờ (danh sách chờ trống thì
+        // napDuLieuTuBuoc1 dừng sớm → HĐ của chuyến đã lưu nằm lại trên danh sách chia xe)
+        danhSachHoaDon = [];
+        duLieuKiotViet = [];
         napDuLieuTuBuoc1();
       }
 
@@ -2019,6 +2024,32 @@
     // thì CHỈ ghi các HĐ bổ sung vào đúng chuyến đó (cùng mã chuyến), các HĐ cũ của chuyến giữ nguyên
     // (không ghi đè số liệu). Chuyến đã quyết toán ở Bước 2 thì không bổ sung được.
     // ========================================================
+    // Ảnh chụp dữ liệu chuyến đang xem lại (HĐ + dòng hàng, kể cả HĐ bổ sung chưa lưu) — nếu có tiến trình
+    // nào lỡ thay dữ liệu đang hiện thì khôi phục lại trước khi bổ sung / lưu, không để chuyến bị "0 HĐ"
+    function chupDuLieuChuyenDangXemLai() {
+      if (!chuyenDangXemLai) return;
+      chuyenDangXemLai.anhChup = {
+        danhSachHoaDon: (danhSachHoaDon || []).map(h => Object.assign({}, h)),
+        duLieuKiotViet: (duLieuKiotViet || []).slice()
+      };
+    }
+
+    function khoiPhucDuLieuChuyenDangXemLai() {
+      const c = chuyenDangXemLai;
+      if (!c || !c.anhChup) return false;
+      // Chỉ khôi phục khi dữ liệu chuyến bị thay TOÀN BỘ (không còn HĐ nào của chuyến) — người dùng tự
+      // bỏ bớt vài HĐ trên danh sách thì giữ nguyên thao tác của họ
+      const coMa = new Set((danhSachHoaDon || []).map(h => h.maHD));
+      if (!c.anhChup.danhSachHoaDon.length || c.anhChup.danhSachHoaDon.some(h => coMa.has(h.maHD))) return false;
+      danhSachHoaDon = c.anhChup.danhSachHoaDon.map(h => Object.assign({}, h));
+      duLieuKiotViet = c.anhChup.duLieuKiotViet.slice();
+      veDanhSachCheckboxHD();
+      chayTaoPhieu();
+      capNhatBannerBoSungXemLai();
+      console.warn('♻️ Đã khôi phục dữ liệu chuyến đang xem lại (dữ liệu đang hiện bị thay bởi tiến trình khác).');
+      return true;
+    }
+
     async function kiemTraChuyenBoSungDuoc(maDot) {
       let daQT = false;
       try {
@@ -2053,6 +2084,7 @@
     }
 
     async function luuBoSungVaoChuyenDaLuu() {
+      khoiPhucDuLieuChuyenDangXemLai();
       const c = chuyenDangXemLai;
       const dot = c.dot;
       const maDot = c.maDot;
@@ -2164,6 +2196,7 @@
       hdBoSung.forEach(h => { h.laBoSung = false; c.maHDBoSung.delete(h.maHD); });
       veDanhSachCheckboxHD();
       capNhatBannerBoSungXemLai();
+      chupDuLieuChuyenDangXemLai();
       alert(`✅ ĐÃ BỔ SUNG ${hdBoSung.length} HÓA ĐƠN (${formatTien(tongBS)} đ) VÀO CHUYẾN "${xe} (${ngayGiao})".\n\n` +
         `Chuyến hiện có ${dotLS.soLuongHD} HĐ. Bảng kê & Phiếu xuất kho đang hiện là bản đầy đủ — bấm In A4 / Xuất Excel để in lại.\n` +
         `Bước 2 (quyết toán) sẽ thấy các hoá đơn bổ sung trong chuyến này.`);
@@ -2480,6 +2513,21 @@
       if (typeof taiKiotTamTuSupabase !== 'function') return;
       try {
         const kiotCloud = await taiKiotTamTuSupabase();
+        // ĐANG XEM LẠI CHUYẾN ĐÃ LƯU: KHÔNG được thay dữ liệu chuyến đang xem bằng danh sách chờ chia xe.
+        // (Lỗi cũ: bấm "Nạp / Bổ Sung File Excel" → hộp chọn file đóng → sự kiện focus chạy hàm này →
+        //  chuyến đang xem còn 0 HĐ nên không bổ sung được vào xe cũ.) Chỉ cập nhật bản lưu danh sách chờ
+        //  trên máy để khi bấm "Thoát Xem Lại" thấy danh sách chờ mới nhất.
+        if (chuyenDangXemLai) {
+          if (kiotCloud && Array.isArray(kiotCloud.duLieu) && kiotCloud.duLieu.length > 0) {
+            localStorage.setItem("tmh_kiotviet_data", JSON.stringify(kiotCloud.duLieu));
+            localStorage.setItem("tmh_danh_sach_ten_file", JSON.stringify(kiotCloud.danhSachTenFile || []));
+          } else {
+            localStorage.removeItem("tmh_kiotviet_data");
+            localStorage.removeItem("tmh_danh_sach_ten_file");
+          }
+          duLieuTamTruocKhiXemLai = null; // thoát xem lại sẽ nạp lại danh sách chờ từ bản vừa cập nhật
+          return;
+        }
         if (kiotCloud && Array.isArray(kiotCloud.duLieu) && kiotCloud.duLieu.length > 0) {
           duLieuKiotViet = kiotCloud.duLieu;
           localStorage.setItem("tmh_kiotviet_data", JSON.stringify(duLieuKiotViet));
@@ -4306,6 +4354,7 @@
       // Trước đây bước 0 bên dưới thay dữ liệu chuyến đang xem bằng danh sách chờ chia xe nên chỉ còn đơn mới.
       let boSungVaoChuyen = null;
       if (chuyenDangXemLai) {
+        khoiPhucDuLieuChuyenDangXemLai();
         const c = chuyenDangXemLai;
         const tenChuyen = `${c.dot.xe || ''} (${c.dot.ngayGiao || ''})`;
         if (confirm(`📌 ĐANG XEM LẠI CHUYẾN XE ĐÃ LƯU "${tenChuyen}" — ${danhSachHoaDon.length} HĐ.\n\n` +
@@ -4546,6 +4595,7 @@
           veDanhSachCheckboxHD();
           chayTaoPhieu();
           capNhatBannerBoSungXemLai();
+          chupDuLieuChuyenDangXemLai();
           if (!maMoi.length) {
             alert('ℹ️ File vừa chọn không có hoá đơn MỚI nào để bổ sung (các hoá đơn đã có trong chuyến' +
               (daChiaXe && daChiaXe.size ? ' hoặc đã được chia vào chuyến khác' : '') + ').');
