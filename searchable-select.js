@@ -173,7 +173,8 @@
       dangMo = true;
       wrap.classList.add('is-open');
       input.setAttribute('aria-expanded', 'true');
-      input.placeholder = nhanHienTai() || placeholder;
+      // opts.goiYKhiMo (tuỳ chọn): câu gợi ý hiện trong ô khi đang mở để gõ tìm; không truyền → hiện mục đang chọn như cũ
+      input.placeholder = opts.goiYKhiMo || nhanHienTai() || placeholder;
       if (!giuNoiDung) input.value = '';
       list.hidden = false;
       veDanhSach(giuNoiDung ? input.value : '');

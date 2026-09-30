@@ -1755,6 +1755,17 @@
       if (window.TMHSearchSelect) TMHSearchSelect.enhance(document.getElementById('inputNguoiNop'), { placeholder: '🔍 Gõ tên người nộp...' });
       await taiDanhSachNguoiNop();
 
+      // 3c. Ô "Chuyến xe": gõ để tìm nhanh theo tên xe / tài xế / ngày (không dấu vẫn ra, vd "hd3 sang", "xanh").
+      // Thẻ <select> gốc vẫn giữ nguyên (chỉ ẩn) nên việc nạp danh sách, bộ lọc, chọn chuyến chạy như cũ.
+      const selChuyenXeTK = document.getElementById('selChuyenXe');
+      if (window.TMHSearchSelect && selChuyenXeTK && TMHSearchSelect.enhance(selChuyenXeTK, { placeholder: '🔍 Gõ tên xe để tìm chuyến...', goiYKhiMo: '🔍 Gõ tên xe / tài xế / ngày để tìm nhanh (vd: hd3 sang, xanh)...' })) {
+        const khungTK = selChuyenXeTK.parentNode;   // khung bọc ô tìm kiếm: giữ đúng chỗ của ô chọn cũ trên hàng
+        khungTK.style.cssText = 'flex:1; min-width:300px; width:auto;';
+        const dsTK = khungTK.querySelector('.tmh-ss-list');
+        // Danh sách kết quả: cao hơn và rộng theo nội dung để mỗi chuyến nằm gọn trên 1 dòng
+        if (dsTK) dsTK.style.cssText = 'max-height:420px; right:auto; min-width:100%; width:max-content; max-width:92vw;';
+      }
+
       // 4. Tải danh sách đợt và tự động chọn chuyến xe
       await taiLaiDanhSachDot();
 
