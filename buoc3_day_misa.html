@@ -19,6 +19,7 @@
   <script src="phan_quyen.js"></script>
   <script src="khach_tra_truoc.js"></script>
   <script src="phieu_thu_misa.js"></script>
+  <script src="misa_ban_hang.js"></script>
   <script src="pwa.js"></script>
   <link rel="stylesheet" href="layout.css">
   <style>
@@ -180,7 +181,7 @@
             <div style="font-size:12px; color:#15803d; margin-top:2px;">
               <b>Bước 1:</b> Bấm nút xanh <b>"Tải File Excel Import MISA"</b> ở trên (mọi hoá đơn <b>Nợ 1311 – Có 5111</b>) ➡ 
               <b>Bước 2:</b> Mở MISA vào phân hệ <b>Bán hàng</b> ➡ Bấm <b>Tiện ích</b> ➡ <b>Nhập khẩu từ Excel</b> ➡ 
-              <b>Bước 3:</b> Chọn file vừa tải về và bấm <b>Thực hiện</b>.<br><b>Sau đó</b> xuống khu vực <b>"Phiếu Thu AMIS"</b> cuối trang, tải <b>Phiếu thu tiền mặt</b> và <b>Phiếu thu tiền gửi</b> để nhập tiền khách đã trả (Nợ 1111 / 11211…11215 – Có 1311).
+              <b>Bước 3:</b> Chọn file vừa tải về và bấm <b>Thực hiện</b>.<br>📄 File theo đúng <b>mẫu MISA 70 cột</b>: phương thức thanh toán <b>"Chưa thu tiền"</b>, TK Nợ <b>1311</b>, TK doanh thu / thuế GTGT theo Danh mục Định khoản hàng hoá; ô <b>I2, J2</b> (tô vàng) là <b>số chứng từ / số phiếu xuất bắt đầu</b> — sửa cho nối tiếp sổ MISA, các dòng dưới tự chạy.<br><b>Sau đó</b> xuống khu vực <b>"Phiếu Thu AMIS"</b> cuối trang, tải <b>Phiếu thu tiền mặt</b> và <b>Phiếu thu tiền gửi</b> để nhập tiền khách đã trả (Nợ 1111 / 11211…11215 – Có 1311).
             </div>
           </div>
         </div>
@@ -948,6 +949,10 @@
           tkThanhToan: tkThanhToan,             // 1111 / 1121 / 131 / 5212: cách khách trả (chỉ để thống kê)
           nganHangThu: (tkNo === "1121") ? nganHang : "",
           nguoiBan: nguoiBan,
+          // Dùng cho file bán hàng theo mẫu MISA 70 cột (misa_ban_hang.js): cột Số xe, Mã NV bán hàng, Hàng khuyến mại
+          xe: dot.xe || "",
+          nguoiBanQT: String(infoQT.nguoiBan || "").trim(),
+          laKM: !!r['KM'],
           hopLe: !!(maKH && maHang && thanhTien > 0)
         });
       });
@@ -1419,6 +1424,10 @@
         alert("⚠️ Không có dòng dữ liệu nào để xuất file MISA!");
         return;
       }
+
+      // File bán hàng đúng mẫu nhập khẩu MISA 70 cột của kế toán (misa_ban_hang.js): "Chưa thu tiền", Nợ 1311,
+      // số chứng từ chạy bằng công thức. Chỉ khi không nạp được misa_ban_hang.js mới dùng mẫu 18 cột cũ bên dưới.
+      if (typeof xuatFileBanHangTheoMauMisa === 'function') return xuatFileBanHangTheoMauMisa();
 
       try {
         // Cấu trúc tiêu đề chuẩn theo mẫu Excel Nhập khẩu của MISA SME/AMIS
