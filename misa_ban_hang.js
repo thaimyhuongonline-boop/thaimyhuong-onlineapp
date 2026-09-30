@@ -38,6 +38,7 @@ const SO_BAT_DAU_PXK_MISA = "PXK00001";   // ô J2 — số phiếu xuất bắt
 const PHUONG_THUC_TT_BAN_HANG_MISA = "Chưa thu tiền";
 const TK_NO_BAN_HANG_MISA = "1311";
 const TK_NO_HANG_KM_MISA = "13881";
+const MA_DONG_HOA_DON_GTGT_MISA = "HĐ";   // dòng "Hóa Đơn GTGT" trên KiotViet — không phải hàng hoá, loại khỏi file
 const TK_THUE_GTGT_BAN_HANG_MISA = "33311";
 const MA_KHO_MAC_DINH_MISA = "KHO01";
 const TK_KHO_MAC_DINH_MISA = "1561";
@@ -145,6 +146,11 @@ function taoWorkbookBanHangMisa(dsDong) {
   const soTK = v => /^\d+$/.test(String(v)) ? Number(v) : v;   // tài khoản dạng số như file mẫu
   const xeDangChon = (typeof dotHienTai !== "undefined" && dotHienTai && dotHienTai.xe) || "";
 
+  // Dòng "HĐ — Hóa Đơn GTGT" của KiotViet chỉ ghi chú khách lấy hoá đơn (không phải hàng hoá, 0 đ) → không đưa vào file
+  const laDongGhiChuHD = r => khoaMaHangBH(r.maHang).normalize("NFC") === MA_DONG_HOA_DON_GTGT_MISA && Math.round(parseFloat(r.thanhTien) || 0) === 0;
+  const soDongGoc = dsDong.length;
+  dsDong = dsDong.filter(r => !laDongGhiChuHD(r));
+
   // Các dòng của cùng 1 hoá đơn đứng liền nhau (công thức cột I, J chạy số theo cột AA), giữ thứ tự hoá đơn
   const theoHD = new Map();
   dsDong.forEach(r => {
@@ -155,7 +161,7 @@ function taoWorkbookBanHangMisa(dsDong) {
   const ds = [];
   theoHD.forEach(nhom => nhom.forEach(r => ds.push(r)));
 
-  const kq = { soDong: ds.length, soChungTu: theoHD.size, tongTruocThue: 0, tongThue: 0, chuaDinhKhoan: new Map(), chuaThueSuat: new Map(), thieuMaNV: new Set() };
+  const kq = { soDong: ds.length, soDongBoHD: soDongGoc - ds.length, soChungTu: theoHD.size, tongTruocThue: 0, tongThue: 0, chuaDinhKhoan: new Map(), chuaThueSuat: new Map(), thieuMaNV: new Set() };
   const aoa = [TIEU_DE_BAN_HANG_MISA.slice()];
   let soBH = SO_BAT_DAU_BH_MISA, soPXK = SO_BAT_DAU_PXK_MISA;
 
@@ -286,6 +292,7 @@ async function xuatFileBanHangTheoMauMisa() {
   try {
     await napDanhMucBanHangMisa();
     const kq = taoWorkbookBanHangMisa(dsDong);
+    if (!kq.soDong) { alert("⚠️ Không có dòng hàng hoá nào để xuất file MISA (chỉ có dòng ghi chú \"HĐ — Hóa Đơn GTGT\")."); return; }
     if (kq.chuaDinhKhoan.size && !confirm(`⚠️ ${kq.chuaDinhKhoan.size} mã hàng CHƯA có định khoản (TK doanh thu, TK giá vốn, thuế GTGT) trong Danh mục "Định khoản hàng hoá":\n\n` +
       lietKe(kq.chuaDinhKhoan) + `\n\nCác dòng này sẽ để trống TK doanh thu / TK giá vốn và thuế 0% — cần điền tay trên Excel (hoặc bổ sung Danh mục rồi xuất lại).\n\nBấm [OK] để vẫn xuất file, [Hủy] để bổ sung Danh mục trước.`)) return;
 
@@ -301,6 +308,7 @@ async function xuatFileBanHangTheoMauMisa() {
       `• Tiền hàng trước thuế: ${tien(kq.tongTruocThue)} đ · Thuế GTGT: ${tien(kq.tongThue)} đ · Tổng: ${tien(kq.tongTruocThue + kq.tongThue)} đ\n\n` +
       `📌 Ô I2 và J2 (tô vàng) là SỐ BẮT ĐẦU của Số chứng từ / Số phiếu xuất — sửa cho nối tiếp sổ MISA, các dòng dưới tự chạy theo công thức.\n` +
       `📌 Mọi hoá đơn: "Chưa thu tiền" — Nợ 1311; tiền khách trả nhập sau bằng Phiếu thu ở cuối trang.` +
+      (kq.soDongBoHD ? `\n📌 Đã loại ${kq.soDongBoHD} dòng "HĐ — Hóa Đơn GTGT" (không phải hàng hoá) khỏi file.` : "") +
       (kq.chuaThueSuat.size ? `\n\n⚠️ ${kq.chuaThueSuat.size} mã hàng chưa có thuế suất trong Danh mục "Định khoản hàng hoá" (đang để 0%):\n${lietKe(kq.chuaThueSuat)}` : "") +
       (kq.thieuMaNV.size ? `\n\nℹ️ Cột "Mã nhân viên bán hàng" để trống với ${kq.thieuMaNV.size} nhân viên chưa khai mã MISA (NVKD…) trong Danh mục "Nhân viên kinh doanh".` : ""));
   } catch (err) {
