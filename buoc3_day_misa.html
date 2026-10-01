@@ -1223,6 +1223,7 @@
             tkNganHang: tkNo === '1121' ? (r.tai_khoan_nhan || '') : '',
             daDayMisa: !!r.da_day_misa,
             dotGocDaDay: dotGocDaDay,
+            taoLuc: r.tao_luc || '',   // lúc ghi nhận gạch nợ trên app → cột "Ngày gạch nợ" của file phiếu thu
             nguon: 'thu_no',
             maHangMisa: 'THU_NO',
             tenHangMisa: 'Thu nợ khách hàng (cấn trừ công nợ)'
@@ -1258,6 +1259,7 @@
                 tkNganHang: tkTien === '1121' ? (r.tai_khoan_nhan || '') : '',
                 daDayMisa: !!r.da_day_misa,
                 dotGocDaDay: null,
+                taoLuc: r.luc || r.tao_luc || '',   // lúc ghi nhận khoản trả trước trên app → cột "Ngày gạch nợ"
                 nguon: 'tra_truoc',
                 chiRa: chiRa,
                 maHangMisa: r.loai === 'hoan' ? 'HOAN_TIEN' : 'TRA_TRUOC',

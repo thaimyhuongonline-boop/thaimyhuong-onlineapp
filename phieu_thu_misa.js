@@ -18,6 +18,8 @@
  *   3. Tiền khách trả trước / trả dư NHẬN vào (hoàn tiền cho khách là phiếu chi — không lấy).
  * Thứ tự nhập MISA: file bán hàng của Bước 3 (MỌI hoá đơn Nợ 1311 – Có 5111) → phiếu thu tiền mặt →
  * phiếu thu tiền gửi. Khách lẻ (không có mã) dùng mã "KHÁCH LẺ".
+ * File xuất có thêm cột "Ngày gạch nợ" TRƯỚC cột A (ngày ghi nhận gạch nợ trên app — khách chuyển khoản
+ * trước, ngày n+x mới phát hiện) để kế toán đối chiếu; cột này không dán vào mẫu AMIS (dán từ cột B).
  * ==================================================================== */
 
 // Tài khoản MISA của từng tài khoản ngân hàng — theo "Cách điền phiếu thu.docx"
@@ -36,6 +38,8 @@ const TK_CONG_NO_BAN_HANG = "1311";
 // Khách lẻ (không có mã khách hàng trên KiotViet) → mã đối tượng trong MISA
 const MA_KHACH_LE_MISA = "KHÁCH LẺ";
 const LY_DO_PHIEU_THU = "Thu tiền khách hàng (không theo hóa đơn)";
+// Cột thêm vào TRƯỚC cột A của 2 file phiếu thu (chỉ để ghi chú, không thuộc mẫu AMIS)
+const COT_NGAY_GACH_NO_PT = "Ngày gạch nợ";
 const KHOA_LS_SO_PHIEU_THU = "tmh_so_phieu_thu_misa";
 
 // Tiêu đề cột đúng từng chữ theo 2 file mẫu AMIS (dòng 8)
@@ -61,6 +65,13 @@ function ngayVNPhieuThu(v) {
   m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/);
   if (m) return `${m[1].padStart(2, "0")}/${m[2].padStart(2, "0")}/${m[3]}`;
   return "";
+}
+
+// Thời điểm ghi trên máy chủ (ISO, giờ UTC) → ngày Việt Nam dd/mm/yyyy (giờ +7); không đọc được → ""
+function ngayVNTuThoiDiemPT(v) {
+  const t = Date.parse(String(v || ""));
+  if (isNaN(t)) return "";
+  return ngayVNPhieuThu(new Date(t + 7 * 3600 * 1000).toISOString().slice(0, 10));
 }
 
 function khoaNgayPT(ngayVN) {
@@ -149,7 +160,9 @@ function taoDanhSachPhieuThuMisa() {
         const tach = tachTienHoaDonPT(parseFloat(h.tienMat || 0) || 0, parseFloat(h.chuyenKhoan || 0) || 0, phaiTra);
         const goc = {
           ngay: ngay, maKH: String(h.maKH || "").trim().toUpperCase(), tenKH: String(h.tenKH || "Khách Lẻ").trim(),
-          nguon: "hoa_don", tenNguon: "Thu tiền hoá đơn (Bước 2)", thamChieu: `HĐ ${maHD} — xe ${dot.xe || ""}`
+          nguon: "hoa_don", tenNguon: "Thu tiền hoá đơn (Bước 2)", thamChieu: `HĐ ${maHD} — xe ${dot.xe || ""}`,
+          // Tiền thu theo hoá đơn khi giao hàng: gạch luôn trong chuyến → ngày gạch nợ = ngày giao
+          ngayGachNo: ngay
         };
         if (tach.tmNo > 0.5) them(Object.assign({}, goc, { khoa: `HD|${maHD}|TM`, loai: "tm", soTien: Math.round(tach.tmNo) }));
         if (tach.ckNo > 0.5) them(Object.assign({}, goc, { khoa: `HD|${maHD}|CK`, loai: "ck", soTien: Math.round(tach.ckNo), nh: timTKNganHangPT(h.taiKhoanNhan) }));
@@ -174,7 +187,9 @@ function taoDanhSachPhieuThuMisa() {
       nguon: laTraTruoc ? "tra_truoc" : "thu_no",
       tenNguon: laTraTruoc ? "Khách trả trước / trả dư" : "Thu nợ khách hàng",
       thamChieu: laTraTruoc ? `Trả trước ${r.soCT || ""}` : `HĐ ${r.soCT || ""}`,
-      nh: r.tkNo === "1121" ? timTKNganHangPT(r.tkNganHang) : null
+      nh: r.tkNo === "1121" ? timTKNganHangPT(r.tkNganHang) : null,
+      // Ngày gạch nợ: ngày thực tế ghi nhận trên app (khách chuyển khoản trước nhưng ngày n+x mới phát hiện, gạch nợ)
+      ngayGachNo: ngayVNTuThoiDiemPT(r.taoLuc) || ngayVNPhieuThu(r.ngayThu)
     });
   });
 
@@ -347,8 +362,10 @@ async function xuatPhieuThuAMIS(loai) {
   const soCT = duKienSoPhieuThu(ds, true);   // cấp & lưu số chứng từ (khoản đã xuất giữ số cũ)
   const tieuDe = loai === "tm" ? TIEU_DE_PT_TIEN_MAT : TIEU_DE_PT_TIEN_GUI;
   // Dòng 1 là tiêu đề cột, dữ liệu từ dòng 2 (bỏ 7 dòng hướng dẫn của file mẫu) — để copy nhanh
-  // các dòng dữ liệu dán vào file mẫu AMIS (cột giữ đúng thứ tự như mẫu)
-  const aoa = [tieuDe.slice()];
+  // các dòng dữ liệu dán vào file mẫu AMIS (cột giữ đúng thứ tự như mẫu, từ cột B).
+  // Cột A "Ngày gạch nợ" chỉ để kế toán ghi chú / đối chiếu (khoản khách chuyển trước, ngày n+x mới phát hiện
+  // và gạch nợ) — không thuộc mẫu AMIS, không dán vào file mẫu.
+  const aoa = [[COT_NGAY_GACH_NO_PT].concat(tieuDe)];
   ds.forEach(r => {
     const dienGiai = `Thu tiền của ${r.tenKH}`;
     const lyDoChiTiet = `${dienGiai} - ${r.thamChieu || r.tenNguon}`;
@@ -368,13 +385,21 @@ async function xuatPhieuThuAMIS(loai) {
       dong[11] = dienGiai;               // Diễn giải (hạch toán)
       dong[12] = r.tkNo; dong[13] = r.tkCo; dong[14] = r.soTien; dong[15] = r.maKH;
     }
-    aoa.push(dong);
+    aoa.push([r.ngayGachNo || ""].concat(dong));
   });
 
   try {
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws["!cols"] = tieuDe.map((t, i) => ({ wch: [12, 12, 11, 14, 36, 24, 20, 30, 42, 12, 10, 40, 10, 9, 14, 16].concat(new Array(20).fill(12))[i] || 12 }));
-    dinhDangTieuDeExcelMisa(ws, aoa.length, tieuDe.length, [14]);   // cột Số tiền (O) định dạng số
+    ws["!cols"] = [{ wch: 13 }].concat(tieuDe.map((t, i) => ({ wch: [12, 12, 11, 14, 36, 24, 20, 30, 42, 12, 10, 40, 10, 9, 14, 16].concat(new Array(20).fill(12))[i] || 12 })));
+    dinhDangTieuDeExcelMisa(ws, aoa.length, tieuDe.length + 1, [15]);   // cột Số tiền (P) định dạng số
+    // Ngày gạch nợ khác ngày thu (khách chuyển trước, phát hiện sau) → tô vàng để không bị sót
+    let soGachNoMuon = 0;
+    ds.forEach((r, i) => {
+      const o = ws[XLSX.utils.encode_cell({ r: i + 1, c: 0 })];
+      if (!o || !r.ngayGachNo || !r.ngay || r.ngayGachNo === r.ngay) return;
+      o.s = Object.assign({}, o.s, { font: { bold: true, sz: 10, color: { rgb: "9A3412" } }, fill: { patternType: "solid", fgColor: { rgb: "FEF3C7" } } });
+      soGachNoMuon++;
+    });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, loai === "tm" ? "Phieu thu" : "Phieu thu tien gui");
     const ngays = ds.map(r => khoaNgayPT(r.ngay)).filter(k => k !== "99999999").sort();
@@ -384,7 +409,9 @@ async function xuatPhieuThuAMIS(loai) {
     const soDau = soCT.get(ds[0].khoa), soCuoi = soCT.get(ds[ds.length - 1].khoa);
     await veBangPhieuThuMisa();
     alert(`✅ ĐÃ XUẤT PHIẾU THU ${tenLoai}!\n\n• File: ${tenFile}\n• ${ds.length} phiếu thu — tổng ${formatTien(ds.reduce((s, r) => s + r.soTien, 0))} đ\n• Số chứng từ: ${soDau}${ds.length > 1 ? " … " + soCuoi : ""}\n\n` +
-      `📌 File có tiêu đề cột ở dòng 1, dữ liệu từ dòng 2: copy các dòng dữ liệu dán vào file mẫu AMIS (${loai === "tm" ? "phieu_thu_tien_mat" : "phieu_thu_tien_gui"}) từ dòng 9, rồi AMIS ➡ ${loai === "tm" ? "Quỹ ➡ Thu tiền" : "Ngân hàng ➡ Thu tiền gửi"} ➡ Nhập khẩu từ Excel.`);
+      `📌 File có tiêu đề cột ở dòng 1, dữ liệu từ dòng 2: copy các dòng dữ liệu TỪ CỘT B dán vào file mẫu AMIS (${loai === "tm" ? "phieu_thu_tien_mat" : "phieu_thu_tien_gui"}) từ dòng 9, rồi AMIS ➡ ${loai === "tm" ? "Quỹ ➡ Thu tiền" : "Ngân hàng ➡ Thu tiền gửi"} ➡ Nhập khẩu từ Excel.\n` +
+      `📌 Cột A "Ngày gạch nợ" = ngày ghi nhận gạch nợ trên app, chỉ để ghi chú / đối chiếu (không dán vào mẫu AMIS)` +
+      (soGachNoMuon ? `.\n⚠️ ${soGachNoMuon} khoản có ngày gạch nợ KHÁC ngày thu (tô vàng ở cột A) — kiểm tra để không bị sót.` : "."));
   } catch (err) {
     alert("❌ Lỗi xuất file phiếu thu: " + ((err && err.message) || err));
   }
