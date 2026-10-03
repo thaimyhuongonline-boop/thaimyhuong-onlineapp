@@ -56,6 +56,7 @@ const DANH_MUC_CHUC_NANG = [
   { id: "congno.xem_tra_truoc", module: "congno", loai: "doc", label: "Xem sổ tiền khách trả trước / trả dư", ham: ["moSoTraTruoc", "xemLichSuTraTruoc"] },
   { id: "congno.tra_truoc", module: "congno", loai: "ghi", label: "Nhận tiền trả trước & cấn trừ vào nợ", ham: ["moModalNhanTraTruoc", "luuNhanTraTruoc", "moModalCanTruTraTruoc", "xacNhanCanTruTraTruoc"] },
   { id: "congno.hoan_tien", module: "congno", loai: "ghi", label: "Hoàn tiền trả trước cho khách", ham: ["moModalHoanTienTraTruoc", "luuHoanTienTraTruoc"] },
+  { id: "congno.kiem_tra", module: "congno", loai: "ghi", label: "Tích \"Đúng công nợ\" từng khách (chỉ tài khoản Cấp 1–2)", ham: ["tickKiemTraCongNo"] },
   // Danh mục
   { id: "danhmuc.them_sua", module: "danhmuc", loai: "ghi", label: "Thêm / sửa bản ghi danh mục", ham: ["moModalThem", "moModalSua", "xuLyLuuBanGhi"] },
   { id: "danhmuc.xoa", module: "danhmuc", loai: "ghi", label: "Xoá bản ghi danh mục", ham: ["xoaBanGhi"] },

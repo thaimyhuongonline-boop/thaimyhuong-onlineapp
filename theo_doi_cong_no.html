@@ -1532,6 +1532,9 @@
 
       // 5. Lắng nghe Realtime để tự động cập nhật khi người khác thu nợ / xoá đơn ở máy khác
       khoiTaoRealtimeCongNo();
+
+      // 6. Ô tích "Đúng công nợ" của quản lý (chạy nền, xong tự vẽ lại bảng)
+      napKiemTraCongNo();
     }
 
     // Tải danh mục tài khoản ngân hàng từ Danh mục hệ thống
@@ -1900,6 +1903,7 @@
           .on('postgres_changes', { event: '*', schema: 'public', table: 'cong_no_da_xoa' }, () => taiLaiDuLieuCongNoDebounce())
           .on('postgres_changes', { event: '*', schema: 'public', table: 'cong_no_ngoai_bang_ke' }, () => taiLaiDuLieuCongNoDebounce())
           .on('postgres_changes', { event: '*', schema: 'public', table: 'khach_tra_truoc' }, () => napSoDuTraTruoc())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'kiem_tra_bao_cao' }, () => napKiemTraCongNo())
           .subscribe();
       } catch (e) {
         console.warn('Không bật được Realtime cho sổ công nợ:', e);
@@ -2092,6 +2096,8 @@
         });
 
         const dsKH = Array.from(mapKH.values()).sort((a, b) => b.tongConLai - a.tongConLai);
+        // Tổng nợ của từng khách trên TOÀN sổ (không theo bộ lọc) — so với lúc quản lý tích "Đúng công nợ"
+        const congNoToanSo = tongCongNoToanSoTheoKhach();
         document.getElementById('lblSoLuongHienThi').textContent = `${dsKH.length} khách hàng`;
         dsDangHienThi = dsKH.map(k => k.tenKH);
 
@@ -2160,6 +2166,7 @@
                       🖨️ In
                     </button>
                   </div>
+                  ${oKiemTraCongNo(k.tenKH, congNoToanSo)}
                 </td>
               </tr>
             `;
@@ -2299,6 +2306,115 @@
     let dsDangHienThi = [];       // khoá các dòng đang hiện trên bảng (cho ô "chọn tất cả")
 
     function khoaKhachCongNo(d) { return (d.tenKH || 'Khách Lẻ').trim(); }
+
+    // ========================================================
+    // Ô TÍCH "ĐÚNG CÔNG NỢ" — quản lý xác nhận đã kiểm tra công nợ từng khách (cột Thao tác)
+    // Lưu chung bảng kiem_tra_bao_cao (sql/17, khoá "congno|KH|<tên khách>") để mọi máy cùng thấy;
+    // ghi_chu giữ tổng nợ / còn nợ của khách lúc tích → sau đó số nợ đổi (thêm đơn, thu nợ, xoá đơn…)
+    // thì ô tự bỏ tích và báo "cần kiểm tra lại". Chỉ tài khoản Cấp 1–2 (Toàn quyền / Quản lý) được tích.
+    // ========================================================
+    const BANG_KIEM_TRA_CN = 'kiem_tra_bao_cao';
+    const KHOA_LS_KIEM_TRA_CN = 'tmh_kiem_tra_cong_no';
+    const kiemTraCongNo = new Map();   // khoá → { da, nguoi, luc, no, con }
+    let kiemTraCongNoNguon = 'cloud';  // 'may' = chưa có bảng trên máy chủ, lưu tạm trên máy này
+
+    function khoaKiemTraCongNo(tenKH) { return 'congno|KH|' + String(tenKH || 'Khách Lẻ').trim(); }
+    const laLoiThieuBangKTCN = e => !!e && (e.code === 'PGRST205' || e.code === '42P01' || /kiem_tra_bao_cao/i.test(String(e.message || '')));
+    function docKiemTraCongNoTrenMay() { try { return JSON.parse(localStorage.getItem(KHOA_LS_KIEM_TRA_CN) || '{}') || {}; } catch (e) { return {}; } }
+
+    function duocTichKiemTraCongNo() {
+      if (window.TMH_CHE_DO_XEM) return false;
+      if (typeof laSupabaseAdmin === 'function' && laSupabaseAdmin()) return true;
+      if (typeof layQuyenChucNang === 'function' && !layQuyenChucNang('congno.kiem_tra')) return false;
+      const cap = (typeof _docCapVaMaTranHienTai === 'function') ? _docCapVaMaTranHienTai().cap : 3;
+      return cap <= 2;
+    }
+
+    // Tổng nợ / còn nợ của từng khách trên toàn sổ (không theo bộ lọc ngày, trạng thái, tìm kiếm)
+    function tongCongNoToanSoTheoKhach() {
+      const m = new Map();
+      danhSachCongNo.forEach(d => {
+        const k = khoaKhachCongNo(d);
+        const g = m.get(k) || { no: 0, con: 0 };
+        g.no += (d.soTienNo || 0);
+        g.con += conLaiCuaDon(d);
+        m.set(k, g);
+      });
+      return m;
+    }
+
+    async function napKiemTraCongNo() {
+      const trenMay = docKiemTraCongNoTrenMay();
+      Object.keys(trenMay).forEach(k => kiemTraCongNo.set(k, trenMay[k]));
+      if (typeof sb === 'undefined') return;
+      try {
+        const { data, error } = await sb.from(BANG_KIEM_TRA_CN).select('*').like('khoa', 'congno|KH|%');
+        if (error) { if (laLoiThieuBangKTCN(error)) kiemTraCongNoNguon = 'may'; else console.warn('Không đọc được ô kiểm tra công nợ:', error); return; }
+        kiemTraCongNoNguon = 'cloud';
+        (data || []).forEach(r => {
+          let snap = {};
+          try { snap = JSON.parse(r.ghi_chu || '{}') || {}; } catch (e) {}
+          kiemTraCongNo.set(r.khoa, { da: !!r.da_kiem_tra, nguoi: r.nguoi_kiem_tra || '', luc: r.kiem_tra_luc || '', no: snap.no, con: snap.con });
+        });
+      } catch (e) { console.warn('Không đọc được ô kiểm tra công nợ:', e); }
+      if (cheDoXemHienTai === 'khach_hang') veBangCongNo();
+    }
+
+    async function tickKiemTraCongNo(el) {
+      const tenKH = el.dataset.ktKh || '';
+      const da = !!el.checked;
+      if (!duocTichKiemTraCongNo()) {
+        el.checked = !da;
+        alert('🔒 Chỉ quản lý (tài khoản Cấp 1 – Toàn quyền, Cấp 2 – Quản lý) được tích "Đúng công nợ".');
+        return;
+      }
+      const g = tongCongNoToanSoTheoKhach().get(tenKH) || { no: 0, con: 0 };
+      const x = { da: da, nguoi: layNguoiThaoTac(), luc: new Date().toISOString(), no: Math.round(g.no), con: Math.round(g.con) };
+      const khoa = khoaKiemTraCongNo(tenKH);
+      el.disabled = true;
+      if (typeof sb !== 'undefined' && kiemTraCongNoNguon !== 'may') {
+        const { error } = await sb.from(BANG_KIEM_TRA_CN).upsert({ khoa: khoa, da_kiem_tra: da, nguoi_kiem_tra: x.nguoi, kiem_tra_luc: x.luc, ghi_chu: JSON.stringify({ no: x.no, con: x.con }) }, { onConflict: 'khoa' });
+        if (error && !laLoiThieuBangKTCN(error)) {
+          el.checked = !da; el.disabled = false;
+          alert('❌ Chưa lưu được ô kiểm tra công nợ: ' + (error.message || error));
+          return;
+        }
+        if (error) kiemTraCongNoNguon = 'may';
+      }
+      if (kiemTraCongNoNguon === 'may' || typeof sb === 'undefined') {
+        const trenMay = docKiemTraCongNoTrenMay();
+        trenMay[khoa] = x;
+        try { localStorage.setItem(KHOA_LS_KIEM_TRA_CN, JSON.stringify(trenMay)); } catch (e) {}
+      }
+      kiemTraCongNo.set(khoa, x);
+      veBangCongNo();
+    }
+
+    // Ô tích hiển thị dưới các nút ở cột Thao tác (chế độ xem theo khách hàng)
+    function oKiemTraCongNo(tenKH, congNoToanSo) {
+      const x = kiemTraCongNo.get(khoaKiemTraCongNo(tenKH));
+      const g = (congNoToanSo && congNoToanSo.get(tenKH)) || { no: 0, con: 0 };
+      const daDoi = !!(x && x.da && x.con !== undefined && x.con !== null &&
+        (Math.round(x.con) !== Math.round(g.con) || (x.no !== undefined && x.no !== null && Math.round(x.no) !== Math.round(g.no))));
+      const dung = !!(x && x.da && !daDoi);
+      const duoc = duocTichKiemTraCongNo();
+      const tenNguoi = x && x.nguoi ? String(x.nguoi).replace(/\s*\(.*\)$/, '') : '';
+      const luc = x && x.luc ? new Date(x.luc).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+      let ghiChu = '';
+      if (dung) ghiChu = `<div style="font-size:10px; color:#15803d; line-height:1.25; margin-top:2px;">${escapeHtml(tenNguoi)}${luc ? ' · ' + escapeHtml(luc) : ''}</div>`;
+      else if (daDoi) ghiChu = `<div style="font-size:10px; color:#b45309; font-weight:700; line-height:1.25; margin-top:2px;" title="Lúc kiểm tra (${escapeHtml(tenNguoi)} ${escapeHtml(luc)}): còn nợ ${formatTien(x.con)} đ — hiện còn nợ ${formatTien(g.con)} đ">⚠️ Số nợ đã đổi (lúc KT còn ${formatTien(x.con)} đ) — cần kiểm tra lại</div>`;
+      const tieuDe = duoc ? (dung ? 'Đã xác nhận đúng công nợ — bỏ tích nếu cần kiểm tra lại' : 'Quản lý tích khi đã kiểm tra đúng công nợ của khách này')
+        : 'Chỉ quản lý (Cấp 1–2) được tích ô này';
+      return `
+        <div style="margin-top:5px; padding:3px 6px; border-radius:6px; border:1px dashed ${dung ? '#86efac' : (daDoi ? '#fdba74' : '#cbd5e1')}; background:${dung ? '#f0fdf4' : (daDoi ? '#fff7ed' : '#f8fafc')}; text-align:center;">
+          <label style="display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:${dung ? '#15803d' : '#475569'}; cursor:${duoc ? 'pointer' : 'not-allowed'};" title="${escapeHtml(tieuDe)}">
+            <input type="checkbox" data-kt-kh="${escapeHtml(tenKH)}" ${dung ? 'checked' : ''} ${duoc ? '' : 'disabled'} onchange="tickKiemTraCongNo(this)" style="width:15px; height:15px; cursor:inherit; accent-color:#16a34a;">
+            ${dung ? '☑ Đúng công nợ' : 'Đúng công nợ'}
+          </label>
+          ${ghiChu}
+        </div>`;
+    }
+
     function conLaiCuaDon(d) { return (d.conLai !== undefined) ? d.conLai : Math.max(0, (d.soTienNo || 0) - (d.daThu || 0)); }
     function ngayNoCuaDon(d) { return chuanHoaNgayYYYYMMDD(d.ngayGiao || d.ngayGhiNo || ''); }
 
