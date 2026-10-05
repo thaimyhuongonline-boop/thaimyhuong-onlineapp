@@ -613,15 +613,13 @@
         duLieu = await taiTuSupabase(dsIso);
         nguonDuLieu = 'cloud';
         elNguon.innerHTML = '🟢 Dữ liệu trực tiếp từ Supabase · cập nhật ' + H(new Date().toLocaleTimeString('vi-VN'));
-        await taiNopTien();
-        await taiThuNgoai(tu, den);
+        await Promise.all([taiNopTien(), taiThuNgoai(tu, den)]);
       } catch (e) {
         console.warn('Không đọc được Supabase, dùng dữ liệu trên máy:', e);
         duLieu = taiTuMayNay(tu, den);
         nguonDuLieu = 'local';
         elNguon.innerHTML = '🟠 Mất kết nối Supabase — đang hiển thị dữ liệu lưu trên máy này (có thể chưa đầy đủ)';
-        await taiNopTien();
-        await taiThuNgoai(tu, den);
+        await Promise.all([taiNopTien(), taiThuNgoai(tu, den)]);
       } finally {
         dangTai = false;
       }
