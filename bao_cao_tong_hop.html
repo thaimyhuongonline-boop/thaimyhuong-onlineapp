@@ -1374,7 +1374,19 @@
             clearTimeout(hen);
             hen = setTimeout(taiBaoCao, 1500);
           })
-          .subscribe();
+          .subscribe((status) => {
+            const el = document.getElementById('bcNguon');
+            if (status === 'SUBSCRIBED') {
+              // Realtime đã kết nối: tải lại ngay để lấy dữ liệu mới nhất
+              if (!dangTai) taiBaoCao();
+              if (el && !el.textContent.includes('Đang tải'))
+                el.innerHTML = el.innerHTML.replace('🟢', '🟢⚡');
+            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+              console.warn('[BC] Realtime không hoạt động (' + status + ') — dùng làm mới tự động');
+              if (el && !el.textContent.includes('Đang tải'))
+                el.innerHTML = el.innerHTML.replace('🟢', '🟠(RT lỗi)');
+            }
+          });
       } catch (e) { console.warn('Không bật được realtime báo cáo:', e); }
     }
 
@@ -1388,8 +1400,8 @@
       document.addEventListener('keydown', e => { if (e.key === 'Escape') dongChiTiet(); });
       datKhoang('homnay');
       khoiTaoRealtime();
-      // Tự làm mới mỗi 2 phút đề phòng realtime bị mất kết nối
-      setInterval(() => { if (!dangTai) taiBaoCao(); }, 2 * 60 * 1000);
+      // Tự làm mới mỗi 30 giây đề phòng realtime bị mất kết nối
+      setInterval(() => { if (!dangTai) taiBaoCao(); }, 30 * 1000);
     });
   </script>
 </body>
