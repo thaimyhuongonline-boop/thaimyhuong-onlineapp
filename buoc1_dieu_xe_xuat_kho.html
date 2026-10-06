@@ -1622,7 +1622,7 @@
       // Đồng bộ nạp thêm từ Supabase luu_tru để nhân sự/quản trị máy khác cũng xem lại được
       if (typeof sb !== 'undefined') {
         try {
-          const { data } = await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(200);
+          const { data } = await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(2000);
           if (data && data.length > 0 && typeof chuyenDoiLuuTruThanhDanhSachDot === 'function') {
             const dsDotSB = chuyenDoiLuuTruThanhDanhSachDot(data);
             dsDotSB.forEach(dSB => {
@@ -2335,7 +2335,7 @@
       // 1. Đồng bộ lịch sử chuyến xe từ Supabase luu_tru (để xem lại biểu mẫu có ngay trên mọi máy)
       if (typeof sb !== 'undefined') {
         try {
-          const { data: dataLT } = await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(250);
+          const { data: dataLT } = await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(2000);
           if (dataLT && dataLT.length > 0 && typeof chuyenDoiLuuTruThanhDanhSachDot === 'function') {
             const dsDotSB = chuyenDoiLuuTruThanhDanhSachDot(dataLT);
             let lichSu = [];
@@ -2572,7 +2572,7 @@
     async function dongBoLichSuDotVeTrang() {
       if (typeof sb === 'undefined') return;
       try {
-        const { data: dataLT } = await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(250);
+        const { data: dataLT } = await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(2000);
         if (dataLT && dataLT.length > 0 && typeof chuyenDoiLuuTruThanhDanhSachDot === 'function') {
           const dsDotSB = chuyenDoiLuuTruThanhDanhSachDot(dataLT);
           let lichSu = [];
