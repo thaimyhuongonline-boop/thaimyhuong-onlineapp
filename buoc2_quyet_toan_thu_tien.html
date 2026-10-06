@@ -2049,6 +2049,8 @@
       let maDotChon = dsLoc[0].maDot;
       if (paramMaDot && dsLoc.some(d => d.maDot === paramMaDot)) {
         maDotChon = paramMaDot;
+      } else if (isAutoSync && dotHienTai && dsLoc.some(d => d.maDot === dotHienTai.maDot)) {
+        maDotChon = dotHienTai.maDot; // Khi auto-sync: luôn giữ nguyên chuyến đang xem nếu còn trong danh sách
       } else if (maDotDangChonTruocDo && dsLoc.some(d => d.maDot === maDotDangChonTruocDo)) {
         maDotChon = maDotDangChonTruocDo;
       }
@@ -2061,12 +2063,14 @@
 
     // Tự động đồng bộ thời gian thực cho Bước 2
     function khoiTaoRealtimeDongBoB2() {
+      let _henSyncB2 = null;
+      const _debounceSyncB2 = () => { clearTimeout(_henSyncB2); _henSyncB2 = setTimeout(() => { _henSyncB2 = null; taiLaiDanhSachDot(true); }, 800); };
       if (typeof sb !== 'undefined') {
         try {
           sb.channel('tmh_realtime_buoc2')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'luu_tru' }, () => {
               console.log("⚡ Nhận sự kiện Realtime luu_tru");
-              taiLaiDanhSachDot(true);
+              _debounceSyncB2();
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'thu_no' }, () => {
               // Có người vừa thu nợ ở đâu đó — đồng bộ lại để không chọn nhầm đơn đã thu
@@ -2083,13 +2087,9 @@
         }
       }
 
-      window.addEventListener('focus', () => {
-        taiLaiDanhSachDot(true);
-      });
+      window.addEventListener('focus', _debounceSyncB2);
 
-      setInterval(() => {
-        taiLaiDanhSachDot(true);
-      }, 20000);
+      setInterval(_debounceSyncB2, 20000);
     }
 
     // Khi người dùng chọn chuyến xe
