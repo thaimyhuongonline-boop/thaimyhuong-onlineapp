@@ -4564,10 +4564,12 @@
                 if (ltRow) maDotCu = ltRow.ma_dot;
               }
             } catch (e) {}
+            const tenChuyenCu = daChiaXe ? (Array.from(daChiaXe.values())[0] || '') : '';
             const msgTrung = `⚠️ Tất cả ${daChiaXe.size} hóa đơn trong file đều ĐÃ ĐƯỢC CHIA XE trước đó: ` +
               Array.from(daChiaXe.entries()).slice(0, 8).map(([m, x]) => `${m} (${x})`).join(', ') + (daChiaXe.size > 8 ? ' …' : '') +
-              `\n\nĐơn cần giao lại hãy nạp qua nút "Đơn hẹn giao lại".`;
-            if (maDotCu && confirm(msgTrung + `\n\n❓ Bấm [OK] để xem lại biểu mẫu chuyến đó ngay.`)) {
+              `\n\n👉 Nếu đây là đơn GIAO LẠI cho ngày mới → bấm [Hủy] rồi dùng nút "🔄 Đơn hẹn giao lại" màu cam để thêm vào chuyến hôm nay.` +
+              (maDotCu ? `\n\n❓ Bấm [OK] chỉ khi muốn XEM LẠI biểu mẫu chuyến CŨ "${tenChuyenCu}" đã lưu.` : `\n\nHãy dùng nút "🔄 Đơn hẹn giao lại" để thêm vào chuyến hôm nay.`);
+            if (maDotCu && confirm(msgTrung)) {
               await xemLaiMotChuyenXe(maDotCu);
             } else if (!maDotCu) {
               alert(msgTrung);
