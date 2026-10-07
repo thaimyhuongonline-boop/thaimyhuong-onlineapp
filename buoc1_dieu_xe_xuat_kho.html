@@ -222,6 +222,11 @@
       background: #dcfce7;
       font-weight: bold;
     }
+    .row-tong-toan-phieu {
+      background: #dbeafe;
+      color: #1e3a8a;
+      font-weight: bold;
+    }
     .row-km {
       background: #fff7ed;
       color: #c2410c;
@@ -408,6 +413,12 @@
       .row-tong {
         background: #dcfce7 !important;
         font-weight: bold !important;
+      }
+      .row-tong-toan-phieu {
+        background: #dbeafe !important;
+        font-weight: bold !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
       .row-km {
         background: #fff7ed !important;
@@ -837,6 +848,19 @@
         </div>
         <div style="padding:8px 18px; background:#f1f5f9; border-bottom:1px solid var(--border-subtle); font-size:12px; color:var(--text-muted);">
           Chọn một chuyến xe bên dưới để mở lại Phiếu Xuất Kho (Mẫu 2) và Bảng Kê Thu Tiền (Mẫu 1) để xem lại, in A4 hoặc xuất Excel:
+        </div>
+        <!-- BỘ LỌC TÌM NHANH CHUYẾN XE -->
+        <div style="padding:10px 18px; border-bottom:1px solid var(--border-subtle); display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <input type="text" id="locXemLaiTuKhoa" class="form-control" placeholder="🔍 Tìm xe, tài xế, ngày (vd: hd2 sang 06/10)…" autocomplete="off" spellcheck="false"
+            style="flex:1; min-width:200px; height:34px; font-size:13px;" oninput="locDanhSachChuyenXeDaLam()">
+          <input type="date" id="locXemLaiNgay" class="form-control" title="Lọc theo ngày giao" style="width:150px; height:34px; font-size:13px;" onchange="locDanhSachChuyenXeDaLam()">
+          <select id="locXemLaiTrangThai" class="form-control" style="width:160px; height:34px; font-size:13px;" onchange="locDanhSachChuyenXeDaLam()">
+            <option value="tat_ca">Tất cả trạng thái</option>
+            <option value="cho">⏳ Chờ tính tiền</option>
+            <option value="da_qt">✅ Đã quyết toán</option>
+          </select>
+          <button type="button" class="btn btn-outline btn-sm" style="height:34px;" onclick="xoaLocXemLaiChuyenXe()" title="Xoá bộ lọc, hiện tất cả chuyến">✕ Xoá lọc</button>
+          <span id="demXemLaiChuyenXe" style="font-size:12px; color:var(--text-muted); font-weight:600;"></span>
         </div>
         <div id="danhSachChuyenXeDaLam" style="padding:14px 18px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:10px;">
           <!-- Render bằng JS -->
@@ -1614,6 +1638,9 @@
       const modal = document.getElementById('modalXemLaiBieuMau');
       const container = document.getElementById('danhSachChuyenXeDaLam');
       modal.style.display = 'flex';
+      if (window.matchMedia && window.matchMedia('(pointer: fine)').matches) {
+        setTimeout(() => { const o = document.getElementById('locXemLaiTuKhoa'); if (o) o.focus(); }, 60);
+      }
 
       let lichSu = [];
       try {
@@ -1657,6 +1684,7 @@
             <div style="font-size:12px; margin-top:4px;">Khi bạn chọn xe và bấm "Lưu Chuyến Xe", dữ liệu sẽ được lưu lại để bạn có thể mở xem lại, in A4 hoặc xuất Excel bất cứ lúc nào.</div>
           </div>
         `;
+        locDanhSachChuyenXeDaLam();
         return;
       }
 
@@ -1711,13 +1739,75 @@
         `;
         container.appendChild(item);
         if (laTrung) _trungEl = item;
+        // Dữ liệu cho bộ lọc tìm nhanh
+        const isoXL = (typeof chuanHoaNgayISO_ === 'function' ? chuanHoaNgayISO_(dot.ngayGiao || dot.ngayRaw) : '') || dotNgayISO;
+        item.dataset.tim = boDauXemLai_([dot.xe, dot.taiXe, dot.nvGiao, dot.nvThu, dot.maDot, dot.ngayGiao, dot.ngayRaw].concat(bienTheNgayXemLai_(isoXL)).join(' '));
+        item.dataset.ngay = isoXL || '';
+        item.dataset.qt = dot.daQuyetToan ? '1' : '0';
       });
+      // Chuyến chứa đơn trùng phải luôn thấy được → bỏ bộ lọc đang đặt
+      if (_trungEl) xoaLocXemLaiChuyenXe(true);
+      locDanhSachChuyenXeDaLam();
       // Scroll tới chuyến trùng sau khi modal đã render xong
       if (_trungEl) setTimeout(() => _trungEl.scrollIntoView({ behavior: 'smooth', block: 'center' }), 350);
     }
 
     function dongModalXemLaiChuyenXe() {
       document.getElementById('modalXemLaiBieuMau').style.display = 'none';
+    }
+
+    // ── Bộ lọc tìm nhanh trong danh sách chuyến xe đã lập ──
+    function boDauXemLai_(s) {
+      return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D')
+        .toLowerCase().replace(/\s+/g, ' ').trim();
+    }
+
+    // "2026-10-06" → gõ được cả 06/10/2026, 6/10/2026, 06/10, 6/10, 6-10
+    function bienTheNgayXemLai_(iso) {
+      const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!m) return [];
+      const d = String(+m[3]), t = String(+m[2]);
+      return [iso, `${m[3]}/${m[2]}/${m[1]}`, `${d}/${t}/${m[1]}`, `${m[3]}/${m[2]}`, `${d}/${t}`, `${d}-${t}`];
+    }
+
+    function locDanhSachChuyenXeDaLam() {
+      const container = document.getElementById('danhSachChuyenXeDaLam');
+      const dem = document.getElementById('demXemLaiChuyenXe');
+      if (!container) return;
+      const tuGo = boDauXemLai_(document.getElementById('locXemLaiTuKhoa')?.value || '').split(' ').filter(Boolean);
+      const ngay = document.getElementById('locXemLaiNgay')?.value || '';
+      const tt = document.getElementById('locXemLaiTrangThai')?.value || 'tat_ca';
+      const items = Array.from(container.children).filter(el => el.dataset && el.dataset.tim !== undefined);
+      let soHien = 0;
+      items.forEach(el => {
+        const khop = tuGo.every(t => el.dataset.tim.includes(t))
+          && (!ngay || el.dataset.ngay === ngay)
+          && (tt === 'tat_ca' || (tt === 'cho' ? el.dataset.qt === '0' : el.dataset.qt === '1'));
+        el.style.display = khop ? 'flex' : 'none';
+        if (khop) soHien++;
+      });
+      let rong = document.getElementById('xemLaiKhongKhop');
+      if (items.length && !soHien) {
+        if (!rong) {
+          rong = document.createElement('div');
+          rong.id = 'xemLaiKhongKhop';
+          rong.style.cssText = 'padding:30px 16px; text-align:center; color:var(--text-muted); font-size:13px;';
+          rong.textContent = 'Không có chuyến xe nào khớp bộ lọc. Bấm "✕ Xoá lọc" để xem tất cả.';
+          container.appendChild(rong);
+        }
+        rong.style.display = 'block';
+      } else if (rong) {
+        rong.style.display = 'none';
+      }
+      if (dem) dem.textContent = !items.length ? '' : (soHien === items.length ? `${items.length} chuyến` : `Đang hiện ${soHien}/${items.length} chuyến`);
+    }
+
+    function xoaLocXemLaiChuyenXe(khongVeLai) {
+      const tk = document.getElementById('locXemLaiTuKhoa'), ng = document.getElementById('locXemLaiNgay'), tt = document.getElementById('locXemLaiTrangThai');
+      if (tk) tk.value = '';
+      if (ng) ng.value = '';
+      if (tt) tt.value = 'tat_ca';
+      if (!khongVeLai) locDanhSachChuyenXeDaLam();
     }
 
     // ========================================================
@@ -3613,6 +3703,7 @@
         const kq = taoDongXuatKho_(item, 0);
         return { item: item, kq: kq };
       });
+      const hangHoaTatCaPXK = hangHoaHienThi.slice();   // trước khi lọc — cho dòng "Tổng cộng toàn phiếu"
 
       // 1. Lọc Loại Hàng: Hàng Bán riêng / Hàng Khuyến Mãi riêng
       if (boLocLoaiHang === 'hang_ban') {
@@ -3736,6 +3827,24 @@
       `;
       tbody.appendChild(trTongA);
 
+      // DÒNG TỔNG CỘNG TOÀN PHIẾU: tính trên TẤT CẢ hàng hoá, không đổi theo bộ lọc (chỉ hiện khi đang lọc)
+      let tongToanPhieuPXK = null;
+      if (nhanTongA !== "TỔNG CỘNG HÀNG HÓA") {
+        tongToanPhieuPXK = hangHoaTatCaPXK.reduce((s, x) => ({ chan: s.chan + x.kq.chan, le: s.le + x.kq.le, tien: s.tien + x.item.thanhTien }), { chan: 0, le: 0, tien: 0 });
+        const trTongToanPhieu = document.createElement('tr');
+        trTongToanPhieu.className = 'row-tong-toan-phieu';
+        trTongToanPhieu.innerHTML = `
+          <td colspan="5" style="text-align:right; font-weight:bold; padding-right:12px;">TỔNG CỘNG TOÀN PHIẾU (KHÔNG THEO BỘ LỌC)</td>
+          <td></td>
+          <td class="cell-num" style="font-weight:bold;">${tongToanPhieuPXK.chan}</td>
+          <td class="cell-num" style="font-weight:bold;">${tongToanPhieuPXK.le}</td>
+          <td></td>
+          <td class="cell-num" style="font-weight:bold;">${formatTien(tongToanPhieuPXK.tien)}</td>
+          <td></td>
+        `;
+        tbody.appendChild(trTongToanPhieu);
+      }
+
       // ── RENDER KHỐI B: CHỨNG TỪ ĐI KÈM ───────────────────────────
       let sumTienB = 0;
       const rowsExcelB = [];
@@ -3797,6 +3906,7 @@
       duLieuXuatExcel.sumLeA = sumLeA;
       duLieuXuatExcel.sumTienA = sumTienA;
       duLieuXuatExcel.sumTienB = sumTienB;
+      duLieuXuatExcel.tongToanPhieu = tongToanPhieuPXK;
     }
 
     // Chuyển Tab Xem Trước
@@ -3962,6 +4072,24 @@
           { s: { r: 3, c: 0 }, e: { r: 3, c: 10 } },
           { s: { r: rowTongHangIdx, c: 0 }, e: { r: rowTongHangIdx, c: 4 } }
         ];
+
+        // Dòng tổng cộng toàn phiếu (không theo bộ lọc) — chỉ có khi đang lọc
+        if (duLieuXuatExcel.tongToanPhieu) {
+          const tp = duLieuXuatExcel.tongToanPhieu;
+          const totalBlue = { font: { bold: true, sz: 10, name: "Times New Roman", color: { rgb: "1E3A8A" } }, fill: { fgColor: { rgb: "DBEAFE" } }, border: borderThin };
+          const rowToanPhieuIdx = wsData.length;
+          wsData.push([
+            { v: "TỔNG CỘNG TOÀN PHIẾU (KHÔNG THEO BỘ LỌC)", s: { ...totalBlue, alignment: { horizontal: "right" } } },
+            { v: "", s: totalBlue }, { v: "", s: totalBlue }, { v: "", s: totalBlue }, { v: "", s: totalBlue },
+            { v: "", s: totalBlue },
+            { v: tp.chan, t: "n", s: { ...totalBlue, alignment: { horizontal: "right" } } },
+            { v: tp.le, t: "n", s: { ...totalBlue, alignment: { horizontal: "right" } } },
+            { v: "", s: totalBlue },
+            { v: tp.tien, t: "n", z: "#,##0", s: { ...totalBlue, alignment: { horizontal: "right" } } },
+            { v: "", s: totalBlue }
+          ]);
+          mergesList.push({ s: { r: rowToanPhieuIdx, c: 0 }, e: { r: rowToanPhieuIdx, c: 4 } });
+        }
 
         // Khối B: Chứng Từ Đi Kèm
         if (duLieuXuatExcel.chungTu.length > 0) {
