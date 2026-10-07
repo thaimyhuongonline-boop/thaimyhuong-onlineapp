@@ -891,15 +891,12 @@
           the('k-no', 'chuaro', '⚠️ Đã thu nợ — chưa rõ hình thức', fmt(n.chuaRo) + ' đ',
             `${ngoai.filter(d => d.loaiThu === 'chua_ro').length} khoản chỉ ghi trên máy này, CHƯA cộng vào tiền mặt / CK — bấm để ghi nhận`));
       }
-      if (n.chiTm + n.chiCk > 0) {
-        document.getElementById('bcKpi').insertAdjacentHTML('beforeend',
-          the('k-hoan', 'chihoan', '↩ Hoàn tiền trả trước cho khách', fmt(n.chiTm + n.chiCk) + ' đ', `Tiền mặt ${fmt(n.chiTm)} · Chuyển khoản ${fmt(n.chiCk)} (tiền chi ra)`));
-      }
+      document.getElementById('bcKpi').insertAdjacentHTML('beforeend',
+        the('k-hoan', 'chihoan', '💸 Tiền chi ra (hoàn trả trước)', fmt(n.chiTm + n.chiCk) + ' đ', `Tiền mặt ${fmt(n.chiTm)} · Chuyển khoản ${fmt(n.chiCk)}` + (n.chiTm + n.chiCk === 0 ? ' · Không có phát sinh' : '')));
       const dsHoan = ds.filter(d => hoanCuaDon(d) > 0);
-      if (dsHoan.length) {
-        document.getElementById('bcKpi').insertAdjacentHTML('beforeend',
-          the('k-hoan', 'hoan', '↩ Hoàn TM cho khách (CK dư)', fmt(dsHoan.reduce((s, d) => s + hoanCuaDon(d), 0)) + ' đ', `${dsHoan.length} đơn khách chuyển khoản dư, tài xế trả lại tiền mặt`));
-      }
+      const tongHoan = dsHoan.reduce((s, d) => s + hoanCuaDon(d), 0);
+      document.getElementById('bcKpi').insertAdjacentHTML('beforeend',
+        the('k-hoan', 'hoan', '🔄 Tiền thối cho khách (CK dư)', fmt(tongHoan) + ' đ', `${dsHoan.length} đơn khách CK dư, tài xế trả lại tiền mặt` + (tongHoan === 0 ? ' · Không có phát sinh' : '')));
 
       const el = document.getElementById('bcCanDoi');
       // Ghi chú tiền ngoài hoá đơn (đã cộng vào các thẻ) & lỗi đọc dữ liệu
