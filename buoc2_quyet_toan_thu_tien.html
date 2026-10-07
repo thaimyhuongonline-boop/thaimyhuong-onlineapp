@@ -1844,7 +1844,9 @@
       // Đọc và hợp nhất từ Supabase luu_tru
       if (typeof sb !== 'undefined') {
         try {
-          const { data, error } = await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(5000);
+          const { data, error } = (typeof docLuuTruMoiNhat === 'function')
+            ? await docLuuTruMoiNhat(5000)
+            : await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(5000);
           if (!error && Array.isArray(data) && typeof chuyenDoiLuuTruThanhDanhSachDot === 'function') {
             const dsDotSB = chuyenDoiLuuTruThanhDanhSachDot(data);
             if (dsDotSB.length > 0) {

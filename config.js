@@ -247,6 +247,38 @@ function chuyenDoiLuuTruThanhDanhSachDot(rowsLuuTru) {
   });
 }
 
+// Máy chủ Supabase trả TỐI ĐA 1000 dòng mỗi lần đọc (.limit lớn hơn vẫn chỉ được 1000) → đọc luu_tru theo từng
+// trang 1000 dòng (mới nhất trước) tới toiDa dòng, rồi bổ sung hoá đơn cũ hơn của các chuyến đã có để không
+// chuyến nào bị thiếu hoá đơn. Lỗi bất kỳ trang nào → trả { data: null, error } như một lần đọc hỏng.
+async function docLuuTruMoiNhat(toiDa = 5000) {
+  const CO = 1000;
+  const theoMa = new Map();
+  let taoLucCuoi = null, conNua = false;
+  for (let tu = 0; tu < toiDa; tu += CO) {
+    const den = Math.min(tu + CO, toiDa) - 1;
+    const { data, error } = await sb.from('luu_tru').select('*')
+      .order('tao_luc', { ascending: false }).order('ma_hd', { ascending: true }).range(tu, den);
+    if (error) return { data: null, error };
+    (data || []).forEach(r => theoMa.set(r.ma_hd, r));
+    if (data && data.length) taoLucCuoi = data[data.length - 1].tao_luc;
+    conNua = !!data && data.length === den - tu + 1;
+    if (!conNua) break;
+  }
+  if (conNua && taoLucCuoi) {
+    const dsDot = Array.from(new Set(Array.from(theoMa.values()).map(r => r.ma_dot).filter(Boolean)));
+    for (let i = 0; i < dsDot.length; i += 100) {
+      for (let tu = 0; tu < 20000; tu += CO) {
+        const { data, error } = await sb.from('luu_tru').select('*')
+          .in('ma_dot', dsDot.slice(i, i + 100)).lte('tao_luc', taoLucCuoi).order('ma_hd').range(tu, tu + CO - 1);
+        if (error) return { data: null, error };
+        (data || []).forEach(r => { if (!theoMa.has(r.ma_hd)) theoMa.set(r.ma_hd, r); });
+        if (!data || data.length < CO) break;
+      }
+    }
+  }
+  return { data: Array.from(theoMa.values()), error: null };
+}
+
 /**
  * ĐỒNG BỘ DỮ LIỆU EXCEL KIOTVIET CHƯA CHIA XE LÊN SUPABASE (DÙNG CHUNG CHO MỌI MÁY)
  * Lưu vào bảng file_kiot_tam với id cố định 'kiot_chua_chia_xe'
