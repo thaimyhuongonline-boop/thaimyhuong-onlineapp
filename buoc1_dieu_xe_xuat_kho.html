@@ -4383,10 +4383,18 @@
         const hoiGhep = confirm(
           `📥 ĐANG CÓ ${soHDCu} HÓA ĐƠN TRONG DANH SÁCH!\n\n` +
           `• Bấm [OK] để GHÉP BỔ SUNG ${files.length > 1 ? files.length + ' file mới' : 'file mới'} vào danh sách hiện tại (giữ nguyên ${soHDCu} HĐ cũ).\n` +
-          `• Bấm [Hủy] để HỦY — không thay đổi gì (dùng nút "Xóa danh sách" nếu muốn xóa cũ nạp mới).`
+          `• Bấm [Hủy] nếu muốn NẠP MỚI thay thế (sẽ hỏi thêm 1 bước).`
         );
-        if (!hoiGhep) return; // Hủy = không làm gì, giữ nguyên danh sách cũ
-        // cheDoGhep vẫn true → ghép bổ sung
+        if (!hoiGhep) {
+          const hoiNapMoi = confirm(
+            `❓ Bạn muốn NẠP MỚI thay thế toàn bộ danh sách không?\n\n` +
+            `• Bấm [OK] để XÓA ${soHDCu} HĐ cũ và chỉ giữ file vừa chọn.\n` +
+            `• Bấm [Hủy] để HỦY hoàn toàn — không thay đổi gì.`
+          );
+          if (!hoiNapMoi) return; // Hủy hoàn toàn, không làm gì
+          cheDoGhep = false; // Nạp mới thay thế, không ghép
+        }
+        // cheDoGhep = true → ghép bổ sung; cheDoGhep = false → nạp mới
       }
 
       // Khởi tạo danh sách dòng tổng hợp
@@ -4563,7 +4571,7 @@
             const msgTrung = `⚠️ Tất cả ${daChiaXe.size} hóa đơn trong file đều ĐÃ ĐƯỢC CHIA XE trước đó (chuyến: ${tenChuyenCu}):\n` +
               Array.from(daChiaXe.keys()).slice(0, 10).join(', ') + (daChiaXe.size > 10 ? ` … và ${daChiaXe.size - 10} HĐ khác` : '') +
               `\n\n👉 Nếu đây là đơn GIAO LẠI cho ngày mới:\n   Đóng thông báo này → dùng nút "🔄 Đơn hẹn giao lại" màu cam.` +
-              `\n\n👉 Nếu muốn XEM LẠI chuyến cũ "${tenChuyenCu}":\n   Đóng thông báo này → kéo xuống phần "Lịch sử chuyến xe" → bấm nút "👁️ Xem Biểu Mẫu".`;
+              `\n\n👉 Nếu muốn XEM LẠI chuyến cũ "${tenChuyenCu}":\n   Đóng thông báo này → bấm nút "🕒 Xem Lại Biểu Mẫu Đã Làm" ở đầu trang.`;
             alert(msgTrung);
           } else {
             alert("⚠️ Không tìm thấy dòng dữ liệu hàng hóa hợp lệ nào trong file!");
