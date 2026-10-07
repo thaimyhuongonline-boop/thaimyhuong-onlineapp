@@ -357,6 +357,44 @@
     </div>
   </div>
 
+  <!-- MODAL HÀNG THỰC TẾ XUẤT THEO CHUYẾN XE -->
+  <div class="bc-modal no-print" id="bcModalTX" onclick="if(event.target===this) dongBangThucXuat()">
+    <div class="bc-modal-box">
+      <div class="bc-modal-head">
+        <div>
+          <div class="bc-card-title" style="font-size:16px;">📦 Hàng thực tế xuất theo chuyến xe = Xuất kho − Trả về + Tiền thối</div>
+          <div class="bc-card-sub" id="bcTXSub"></div>
+        </div>
+        <div style="display:flex; gap:6px; flex-shrink:0;">
+          <button type="button" class="btn btn-outline" style="height:30px; padding:0 10px; font-size:12px;" onclick="xuatExcelThucXuat()">📥 Xuất Excel</button>
+          <button type="button" class="btn btn-outline" style="height:30px; padding:0 10px; font-weight:800;" onclick="dongBangThucXuat()">✕</button>
+        </div>
+      </div>
+      <div class="bc-modal-body">
+        <div class="bc-chips" id="bcTXChips"></div>
+        <input type="text" id="bcTXTim" class="form-control" placeholder="🔍 Tìm chuyến xe, tài xế, ngày…" oninput="veBangThucXuat()">
+        <div class="bc-scroll" style="max-height:58vh; border:1px solid var(--border-color); border-radius:8px;">
+          <table class="bc-table">
+            <thead>
+              <tr>
+                <th>Ngày</th>
+                <th>Chuyến xe</th>
+                <th>Tài xế</th>
+                <th class="num">Số HĐ</th>
+                <th class="num">Xuất kho (đ)</th>
+                <th class="num">Trả về (đ)</th>
+                <th class="num">Tiền thối (đ)</th>
+                <th class="num">Thực tế xuất (đ)</th>
+              </tr>
+            </thead>
+            <tbody id="bcTXBody"></tbody>
+            <tfoot id="bcTXFoot"></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="layout.js"></script>
   <script>
     // ============================================================
@@ -957,7 +995,88 @@
         </tr>`;
     }
 
-    function veTatCa() { veKpi(); veBangDot(); veThieuThua(); veKhoanChuyen(); if (tabBC === 'hang') napHangHoa(); }
+    function veTatCa() {
+      veKpi(); veBangDot(); veThieuThua(); veKhoanChuyen(); if (tabBC === 'hang') napHangHoa();
+      if (document.getElementById('bcModalTX').classList.contains('show')) veBangThucXuat();
+    }
+
+    // ---------------- HÀNG THỰC TẾ XUẤT THEO CHUYẾN = Xuất kho − Trả về + Tiền thối ----------------
+    function dsThucXuatTheoChuyen() {
+      const ds = duLieuDaLoc().filter(d => !d.laThuNgoai);
+      const thoi = new Map(khoanTinhTienTheoChuyen(ds).map(k => [k.maDot, k.tienThoi]));
+      const map = new Map();
+      ds.forEach(d => {
+        if (!map.has(d.maDot)) map.set(d.maDot, { maDot: d.maDot, ngay: d.ngay, xe: d.xe, taiXe: d.taiXe, soHD: 0, xuat: 0, tra: 0 });
+        const g = map.get(d.maDot);
+        g.soHD++; g.xuat += d.thanhTien; g.tra += d.tra;
+      });
+      return Array.from(map.values())
+        .map(g => Object.assign(g, { tienThoi: thoi.get(g.maDot) || 0, thucTe: g.xuat - g.tra + (thoi.get(g.maDot) || 0) }))
+        .sort((a, b) => (vnSangKhoa(b.ngay) + b.xe).localeCompare(vnSangKhoa(a.ngay) + a.xe));
+    }
+
+    function dsThucXuatSauTim() {
+      const q = (document.getElementById('bcTXTim').value || '').trim().toLowerCase();
+      const ds = dsThucXuatTheoChuyen();
+      return q ? ds.filter(g => (g.ngay + ' ' + g.xe + ' ' + g.taiXe).toLowerCase().includes(q)) : ds;
+    }
+
+    function moBangThucXuat() {
+      const tu = document.getElementById('bcTuNgay').value, den = document.getElementById('bcDenNgay').value;
+      const xe = document.getElementById('bcXe').value;
+      document.getElementById('bcTXSub').textContent = `Từ ${isoSangVN(tu)} đến ${isoSangVN(den)}${xe ? ' · ' + xe : ''} · Tiền thối lấy từ phiếu nộp tiền Bước 2 · Bấm 1 chuyến để xem hoá đơn`;
+      document.getElementById('bcTXTim').value = '';
+      document.getElementById('bcModalTX').classList.add('show');
+      veBangThucXuat();
+    }
+
+    function dongBangThucXuat() { document.getElementById('bcModalTX').classList.remove('show'); }
+
+    function veBangThucXuat() {
+      const rows = dsThucXuatSauTim();
+      const tong = f => rows.reduce((s, g) => s + g[f], 0);
+      document.getElementById('bcTXChips').innerHTML = [
+        `<div class="bc-chip">Số chuyến: <b>${rows.length}</b></div>`,
+        `<div class="bc-chip">Xuất kho: <b>${fmt(tong('xuat'))} đ</b></div>`,
+        `<div class="bc-chip" style="color:#b45309;">− Trả về: <b>${fmt(tong('tra'))} đ</b></div>`,
+        `<div class="bc-chip" style="color:#047857;">+ Tiền thối: <b>${fmt(tong('tienThoi'))} đ</b></div>`,
+        `<div class="bc-chip" style="color:#0e7490;">= Thực tế xuất: <b>${fmt(tong('thucTe'))} đ</b></div>`
+      ].join('');
+      const body = document.getElementById('bcTXBody');
+      if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="8" class="bc-empty">Không có chuyến xe nào.</td></tr>';
+        document.getElementById('bcTXFoot').innerHTML = '';
+        return;
+      }
+      body.innerHTML = rows.map(g => `
+        <tr class="bc-click" onclick='dongBangThucXuat(); moChiTiet("dot", ${H(JSON.stringify(g.maDot))})' title="Bấm để xem hoá đơn của chuyến xe">
+          <td>${H(g.ngay)}</td>
+          <td><b>${H(g.xe)}</b></td>
+          <td>${H(g.taiXe)}</td>
+          <td class="num">${g.soHD}</td>
+          <td class="num">${fmt(g.xuat)}</td>
+          <td class="num" style="color:#b45309;">${fmt(g.tra)}</td>
+          <td class="num" style="color:#047857;">${fmt(g.tienThoi)}</td>
+          <td class="num" style="font-weight:800; color:#0e7490;">${fmt(g.thucTe)}</td>
+        </tr>`).join('');
+      document.getElementById('bcTXFoot').innerHTML = `<tr><td colspan="3">TỔNG CỘNG (${rows.length} chuyến)</td><td class="num">${tong('soHD')}</td><td class="num">${fmt(tong('xuat'))}</td><td class="num">${fmt(tong('tra'))}</td><td class="num">${fmt(tong('tienThoi'))}</td><td class="num">${fmt(tong('thucTe'))}</td></tr>`;
+    }
+
+    function xuatExcelThucXuat() {
+      const rows = dsThucXuatSauTim();
+      const tu = document.getElementById('bcTuNgay').value, den = document.getElementById('bcDenNgay').value;
+      const xe = document.getElementById('bcXe').value;
+      const aoa = [
+        ['HÀNG THỰC TẾ XUẤT THEO CHUYẾN XE (XUẤT KHO − TRẢ VỀ + TIỀN THỐI) — CÔNG TY TNHH THÁI MỸ HƯƠNG'],
+        [`Từ ${isoSangVN(tu)} đến ${isoSangVN(den)}${xe ? ' · ' + xe : ''}`], [],
+        ['Ngày', 'Chuyến xe', 'Tài xế', 'Số HĐ', 'Xuất kho', 'Trả về', 'Tiền thối', 'Thực tế xuất']
+      ];
+      rows.forEach(g => aoa.push([g.ngay, g.xe, g.taiXe, g.soHD, g.xuat, g.tra, g.tienThoi, g.thucTe]));
+      const tong = f => rows.reduce((s, g) => s + g[f], 0);
+      aoa.push(['TỔNG CỘNG', `${rows.length} chuyến`, '', tong('soHD'), tong('xuat'), tong('tra'), tong('tienThoi'), tong('thucTe')]);
+      taiFileExcel(`HangThucTeXuat_TheoChuyen_${ymdLocal(new Date())}.xlsx`, aoa, [12, 24, 16, 8, 16, 14, 12, 16]);
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') dongBangThucXuat(); });
 
     // ---------------- TAB: TỔNG HỢP TIỀN | HÀNG HOÁ THỰC TẾ XUẤT KHO ----------------
     let tabBC = 'tien';
@@ -1228,7 +1347,7 @@
         the('k-mat', 'tienmat', '💵 Thanh toán tiền mặt', fmt(t.tm + n.tm) + ' đ', `${t.soTM} đơn thu tiền mặt` + phuNgoai(n.tm, n.soTM)) +
         the('k-ck', 'ck', '🏦 Chuyển khoản', fmt(t.ck + n.ck) + ' đ', `${t.soCK} đơn chuyển khoản` + phuNgoai(n.ck, n.soCK)) +
         the('k-tra', 'travee', '↩️ Hàng trả về', fmt(t.tra + n.tra) + ' đ', `${t.soTra} đơn có hàng trả` + (n.tra ? ` + ${fmt(n.tra)} đ khách trả lại hàng trừ nợ (${n.soTra} khoản)` : '')) +
-        the('k-net-xuat', 'xuat', '📦 Hàng thực tế xuất (sau trừ trả về)', fmt(t.xuat - t.tra) + ' đ', `Xuất kho ${fmt(t.xuat)} đ − Trả về ${fmt(t.tra)} đ` + (tongTienThoi > 0 ? ` · Tiền thối TXe nộp: ${fmt(tongTienThoi)} đ` : '')) +
+        the('k-net-xuat', 'thucxuat', '📦 Hàng thực tế xuất (sau trừ trả về)', fmt(t.xuat - t.tra + tongTienThoi) + ' đ', `Xuất kho ${fmt(t.xuat)} đ − Trả về ${fmt(t.tra)} đ + Tiền thối ${fmt(tongTienThoi)} đ`) +
         the('k-no', 'no', '📒 Tổng nợ phát sinh', fmt(t.no) + ' đ', `${t.soNo} đơn ghi nợ`) +
         the('k-cho', 'cho', '⏳ Chờ quyết toán (Bước 2)', `${t.soCho} đơn`, `${fmt(t.tienCho)} đ chưa quyết toán`);
       document.getElementById('bcKpi').insertAdjacentHTML('beforeend', veTheThieuThua());
@@ -1363,6 +1482,7 @@
     };
 
     function moChiTiet(key, param, giuNguyenTim) {
+      if (key === 'thucxuat') { moBangThucXuat(); return; }
       if (key === 'khoanchuyen') {
         if (tabBC !== 'tien') chonTabBC('tien');
         const elK = document.getElementById('bcKhoanChuyen');
@@ -1736,6 +1856,7 @@
         ...(() => {
           const k = khoanTinhTienTheoChuyen(ds);
           return [
+            ['Hàng thực tế xuất (Xuất kho − Trả về + Tiền thối)', t.soHD, t.xuat - t.tra + k.reduce((s, x) => s + x.tienThoi, 0)],
             ['Tổng tiền chi (chi phí xe, Bước 2)', k.filter(x => x.tienChi > 0).length, k.reduce((s, x) => s + x.tienChi, 0)],
             ['Tổng tiền thu nợ cũ qua xe (Bước 2)', k.filter(x => x.thuNoCu > 0).length, k.reduce((s, x) => s + x.thuNoCu, 0)],
             ['Tổng tiền thối (tài xế nộp lại, Bước 2)', k.filter(x => x.tienThoi > 0).length, k.reduce((s, x) => s + x.tienThoi, 0)]
