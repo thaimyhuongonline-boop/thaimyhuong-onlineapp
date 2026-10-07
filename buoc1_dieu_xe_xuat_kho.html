@@ -1632,9 +1632,17 @@
                 lichSu.push(dSB);
               } else {
                 lichSu[idx].daQuyetToan = dSB.daQuyetToan;
+                // Bổ sung danhSachChiTiet từ cloud nếu localStorage thiếu (do lưu bị gián đoạn)
+                if (!lichSu[idx].danhSachChiTiet || lichSu[idx].danhSachChiTiet.length === 0) {
+                  lichSu[idx].danhSachChiTiet = dSB.danhSachChiTiet;
+                }
               }
             });
-            localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSu));
+            // Sắp xếp mới nhất lên đầu (cloud trips vừa push vào cuối cần sort lại)
+            lichSu.sort((a, b) => (b.taoLuc || '').localeCompare(a.taoLuc || ''));
+            try {
+              localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSu));
+            } catch (_) {}
           }
         } catch (err) {}
       }
@@ -4070,8 +4078,18 @@
         }
       });
 
-      lichSu.unshift(dotMoi);
-      localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSu));
+      // Lưu localStorage KHÔNG kèm cacDongChiTietKiotViet (dữ liệu lớn, tránh tràn quota 5MB)
+      // Khi xemLaiMotChuyenXe sẽ nạp cacDongChiTietKiotViet từ chi_tiet_hoa_don (Supabase)
+      const dotMoiLuu = { ...dotMoi, cacDongChiTietKiotViet: [] };
+      lichSu.unshift(dotMoiLuu);
+      try {
+        localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSu));
+      } catch (_eQuota) {
+        // Quota vượt giới hạn → cắt bớt còn 60 chuyến mới nhất rồi thử lại
+        try {
+          localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSu.slice(0, 60)));
+        } catch (_) {}
+      }
       localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dotMoi));
 
       // Xóa các đơn đã được phân vào chuyến xe này khỏi hàng đợi chờ giao lại

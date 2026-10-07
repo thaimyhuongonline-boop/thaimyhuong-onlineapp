@@ -1,16 +1,16 @@
-/* ====================================================================
- * sw.js — SERVICE WORKER PWA TỰ ĐỘNG CẬP NHẬT (AUTO-UPDATE)
- * THÁI MỸ HƯƠNG — KiotViet ➡ MISA
+﻿/* ====================================================================
+ * sw.js â€” SERVICE WORKER PWA Tá»° Äá»˜NG Cáº¬P NHáº¬T (AUTO-UPDATE)
+ * THÃI Má»¸ HÆ¯Æ NG â€” KiotViet âž¡ MISA
  * ====================================================================
- * - Chống "app chết" (Anti-Stale Cache): Luôn ưu tiên nạp bản mới từ mạng
- * - Tự động cập nhật code mới khi mở app hoặc tải lại trang
- * - Bỏ qua cache hoàn toàn đối với dữ liệu đám mây Supabase
+ * - Chá»‘ng "app cháº¿t" (Anti-Stale Cache): LuÃ´n Æ°u tiÃªn náº¡p báº£n má»›i tá»« máº¡ng
+ * - Tá»± Ä‘á»™ng cáº­p nháº­t code má»›i khi má»Ÿ app hoáº·c táº£i láº¡i trang
+ * - Bá» qua cache hoÃ n toÃ n Ä‘á»‘i vá»›i dá»¯ liá»‡u Ä‘Ã¡m mÃ¢y Supabase
  * ==================================================================== */
 
-const CACHE_VERSION = 'tmh-pwa-v1.0.50';
+const CACHE_VERSION = 'tmh-pwa-v1.0.51';
 const CACHE_NAME = `thaimyhuong-${CACHE_VERSION}`;
 
-// Danh sách tài nguyên cốt lõi tải trước khi cài đặt
+// Danh sÃ¡ch tÃ i nguyÃªn cá»‘t lÃµi táº£i trÆ°á»›c khi cÃ i Ä‘áº·t
 const PRECACHE_ASSETS = [
   './',
   './index.html',
@@ -41,18 +41,18 @@ const PRECACHE_ASSETS = [
   './icons/favicon.png'
 ];
 
-// 1. CÀI ĐẶT: Kích hoạt ngay lập tức (skipWaiting)
+// 1. CÃ€I Äáº¶T: KÃ­ch hoáº¡t ngay láº­p tá»©c (skipWaiting)
 self.addEventListener('install', (event) => {
-  console.log(`🚀 [ServiceWorker] Đang cài đặt phiên bản mới: ${CACHE_VERSION}`);
-  self.skipWaiting(); // Không chờ đóng tab, kích hoạt ngay
+  console.log(`ðŸš€ [ServiceWorker] Äang cÃ i Ä‘áº·t phiÃªn báº£n má»›i: ${CACHE_VERSION}`);
+  self.skipWaiting(); // KhÃ´ng chá» Ä‘Ã³ng tab, kÃ­ch hoáº¡t ngay
 
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      // Tải trước tài nguyên cốt lõi, không để lỗi 1 file làm hỏng toàn bộ
+      // Táº£i trÆ°á»›c tÃ i nguyÃªn cá»‘t lÃµi, khÃ´ng Ä‘á»ƒ lá»—i 1 file lÃ m há»ng toÃ n bá»™
       return Promise.allSettled(
         PRECACHE_ASSETS.map((url) =>
           cache.add(url).catch((err) => {
-            console.warn(`[SW Cache Warning] Bỏ qua nạp trước: ${url}`, err);
+            console.warn(`[SW Cache Warning] Bá» qua náº¡p trÆ°á»›c: ${url}`, err);
           })
         )
       );
@@ -60,28 +60,28 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// 2. KÍCH HOẠT: Chiếm quyền kiểm soát trang ngay (clients.claim) & xóa cache cũ
+// 2. KÃCH HOáº T: Chiáº¿m quyá»n kiá»ƒm soÃ¡t trang ngay (clients.claim) & xÃ³a cache cÅ©
 self.addEventListener('activate', (event) => {
-  console.log(`✨ [ServiceWorker] Phiên bản ${CACHE_VERSION} đã kích hoạt thành công!`);
+  console.log(`âœ¨ [ServiceWorker] PhiÃªn báº£n ${CACHE_VERSION} Ä‘Ã£ kÃ­ch hoáº¡t thÃ nh cÃ´ng!`);
 
   event.waitUntil(
     Promise.all([
-      // Chiếm quyền điều khiển tất cả các client đang mở
+      // Chiáº¿m quyá»n Ä‘iá»u khiá»ƒn táº¥t cáº£ cÃ¡c client Ä‘ang má»Ÿ
       self.clients.claim(),
 
-      // Quét và xóa toàn bộ cache của các phiên bản cũ
+      // QuÃ©t vÃ  xÃ³a toÃ n bá»™ cache cá»§a cÃ¡c phiÃªn báº£n cÅ©
       caches.keys().then((cacheNames) => {
         return Promise.all(
           cacheNames.map((cacheName) => {
             if (cacheName !== CACHE_NAME && cacheName.startsWith('thaimyhuong-')) {
-              console.log(`🧹 [ServiceWorker] Đang xóa bộ nhớ đệm cũ: ${cacheName}`);
+              console.log(`ðŸ§¹ [ServiceWorker] Äang xÃ³a bá»™ nhá»› Ä‘á»‡m cÅ©: ${cacheName}`);
               return caches.delete(cacheName);
             }
           })
         );
       })
     ]).then(() => {
-      // Thông báo cho tất cả các tab biết đã cập nhật bản mới
+      // ThÃ´ng bÃ¡o cho táº¥t cáº£ cÃ¡c tab biáº¿t Ä‘Ã£ cáº­p nháº­t báº£n má»›i
       return self.clients.matchAll({ type: 'window' }).then((clients) => {
         clients.forEach((client) => {
           client.postMessage({
@@ -94,12 +94,12 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// 3. ĐÓN BẮT YÊU CẦU MẠNG (FETCH STRATEGY)
+// 3. ÄÃ“N Báº®T YÃŠU Cáº¦U Máº NG (FETCH STRATEGY)
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
 
-  // A. BỎ QUA HOÀN TOÀN: Supabase API, REST, Auth, CDN ngoài cần real-time
+  // A. Bá»Ž QUA HOÃ€N TOÃ€N: Supabase API, REST, Auth, CDN ngoÃ i cáº§n real-time
   if (
     url.hostname.includes('supabase.co') ||
     url.pathname.includes('/rest/v1/') ||
@@ -107,11 +107,11 @@ self.addEventListener('fetch', (event) => {
     url.pathname.includes('/realtime/') ||
     req.method !== 'GET'
   ) {
-    return; // Để trình duyệt thực hiện request mạng bình thường
+    return; // Äá»ƒ trÃ¬nh duyá»‡t thá»±c hiá»‡n request máº¡ng bÃ¬nh thÆ°á»ng
   }
 
-  // B. ĐỐI VỚI CÁC TRANG HTML VÀ ĐIỀU HƯỚNG: Network-First (Ưu tiên mạng)
-  // Đảm bảo nhân viên mở app luôn thấy giao diện và code mới nhất
+  // B. Äá»I Vá»šI CÃC TRANG HTML VÃ€ ÄIá»€U HÆ¯á»šNG: Network-First (Æ¯u tiÃªn máº¡ng)
+  // Äáº£m báº£o nhÃ¢n viÃªn má»Ÿ app luÃ´n tháº¥y giao diá»‡n vÃ  code má»›i nháº¥t
   const isHtmlRequest =
     req.mode === 'navigate' ||
     (req.headers.get('accept') && req.headers.get('accept').includes('text/html')) ||
@@ -130,7 +130,7 @@ self.addEventListener('fetch', (event) => {
           return networkResponse;
         })
         .catch(() => {
-          // Khi mất kết nối internet thì mới lấy bản cache đã lưu
+          // Khi máº¥t káº¿t ná»‘i internet thÃ¬ má»›i láº¥y báº£n cache Ä‘Ã£ lÆ°u
           return caches.match(req).then((cached) => {
             return cached || caches.match('./index.html');
           });
@@ -139,8 +139,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // C. ĐỐI VỚI CÁC FILE TĨNH (CSS, JS, Hình ảnh, Font): Stale-While-Revalidate
-  // Nạp nhanh tức thì từ cache, đồng thời ngầm tải bản mới từ mạng để cập nhật
+  // C. Äá»I Vá»šI CÃC FILE TÄ¨NH (CSS, JS, HÃ¬nh áº£nh, Font): Stale-While-Revalidate
+  // Náº¡p nhanh tá»©c thÃ¬ tá»« cache, Ä‘á»“ng thá»i ngáº§m táº£i báº£n má»›i tá»« máº¡ng Ä‘á»ƒ cáº­p nháº­t
   event.respondWith(
     caches.match(req).then((cachedResponse) => {
       const fetchPromise = fetch(req)
@@ -160,7 +160,7 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// 4. LẮNG NGHE TIN NHẮN TỪ TRANG CLIENT
+// 4. Láº®NG NGHE TIN NHáº®N Tá»ª TRANG CLIENT
 self.addEventListener('message', (event) => {
   if (event.data === 'SKIP_WAITING' || (event.data && event.data.type === 'SKIP_WAITING')) {
     self.skipWaiting();
