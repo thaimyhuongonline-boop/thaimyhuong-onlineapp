@@ -4555,25 +4555,12 @@
 
         if (duLieuTongHop.length === 0) {
           if (daChiaXe && daChiaXe.size) {
-            // Tìm ma_dot của chuyến đã chứa các đơn này để mời xem lại
-            let maDotCu = null;
-            try {
-              const firstHD = Array.from(daChiaXe.keys())[0];
-              if (firstHD && typeof sb !== 'undefined') {
-                const { data: ltRow } = await sb.from('luu_tru').select('ma_dot').eq('ma_hd', firstHD).limit(1).maybeSingle();
-                if (ltRow) maDotCu = ltRow.ma_dot;
-              }
-            } catch (e) {}
-            const tenChuyenCu = daChiaXe ? (Array.from(daChiaXe.values())[0] || '') : '';
-            const msgTrung = `⚠️ Tất cả ${daChiaXe.size} hóa đơn trong file đều ĐÃ ĐƯỢC CHIA XE trước đó: ` +
-              Array.from(daChiaXe.entries()).slice(0, 8).map(([m, x]) => `${m} (${x})`).join(', ') + (daChiaXe.size > 8 ? ' …' : '') +
-              `\n\n👉 Nếu đây là đơn GIAO LẠI cho ngày mới → bấm [Hủy] rồi dùng nút "🔄 Đơn hẹn giao lại" màu cam để thêm vào chuyến hôm nay.` +
-              (maDotCu ? `\n\n❓ Bấm [OK] chỉ khi muốn XEM LẠI biểu mẫu chuyến CŨ "${tenChuyenCu}" đã lưu.` : `\n\nHãy dùng nút "🔄 Đơn hẹn giao lại" để thêm vào chuyến hôm nay.`);
-            if (maDotCu && confirm(msgTrung)) {
-              await xemLaiMotChuyenXe(maDotCu);
-            } else if (!maDotCu) {
-              alert(msgTrung);
-            }
+            const tenChuyenCu = Array.from(daChiaXe.values())[0] || '';
+            const msgTrung = `⚠️ Tất cả ${daChiaXe.size} hóa đơn trong file đều ĐÃ ĐƯỢC CHIA XE trước đó (chuyến: ${tenChuyenCu}):\n` +
+              Array.from(daChiaXe.keys()).slice(0, 10).join(', ') + (daChiaXe.size > 10 ? ` … và ${daChiaXe.size - 10} HĐ khác` : '') +
+              `\n\n👉 Nếu đây là đơn GIAO LẠI cho ngày mới:\n   Đóng thông báo này → dùng nút "🔄 Đơn hẹn giao lại" màu cam.` +
+              `\n\n👉 Nếu muốn XEM LẠI chuyến cũ "${tenChuyenCu}":\n   Đóng thông báo này → kéo xuống phần "Lịch sử chuyến xe" → bấm nút "👁️ Xem Biểu Mẫu".`;
+            alert(msgTrung);
           } else {
             alert("⚠️ Không tìm thấy dòng dữ liệu hàng hóa hợp lệ nào trong file!");
           }
