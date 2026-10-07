@@ -4554,11 +4554,27 @@
         }
 
         if (duLieuTongHop.length === 0) {
-          alert(daChiaXe && daChiaXe.size
-            ? `⚠️ Tất cả ${daChiaXe.size} hóa đơn trong file đều ĐÃ ĐƯỢC CHIA XE trước đó nên không nạp lại: ` +
+          if (daChiaXe && daChiaXe.size) {
+            // Tìm ma_dot của chuyến đã chứa các đơn này để mời xem lại
+            let maDotCu = null;
+            try {
+              const firstHD = Array.from(daChiaXe.keys())[0];
+              if (firstHD && typeof sb !== 'undefined') {
+                const { data: ltRow } = await sb.from('luu_tru').select('ma_dot').eq('ma_hd', firstHD).limit(1).maybeSingle();
+                if (ltRow) maDotCu = ltRow.ma_dot;
+              }
+            } catch (e) {}
+            const msgTrung = `⚠️ Tất cả ${daChiaXe.size} hóa đơn trong file đều ĐÃ ĐƯỢC CHIA XE trước đó: ` +
               Array.from(daChiaXe.entries()).slice(0, 8).map(([m, x]) => `${m} (${x})`).join(', ') + (daChiaXe.size > 8 ? ' …' : '') +
-              `\n\nĐơn cần giao lại hãy nạp qua nút "Đơn hẹn giao lại".`
-            : "⚠️ Không tìm thấy dòng dữ liệu hàng hóa hợp lệ nào trong file!");
+              `\n\nĐơn cần giao lại hãy nạp qua nút "Đơn hẹn giao lại".`;
+            if (maDotCu && confirm(msgTrung + `\n\n❓ Bấm [OK] để xem lại biểu mẫu chuyến đó ngay.`)) {
+              await xemLaiMotChuyenXe(maDotCu);
+            } else if (!maDotCu) {
+              alert(msgTrung);
+            }
+          } else {
+            alert("⚠️ Không tìm thấy dòng dữ liệu hàng hóa hợp lệ nào trong file!");
+          }
           return;
         }
 
