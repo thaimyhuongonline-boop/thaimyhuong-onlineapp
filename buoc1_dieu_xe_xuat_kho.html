@@ -918,6 +918,7 @@
 
     let duLieuKiotViet = [];
     let danhSachHoaDon = [];
+    let dangXuLyFile = false; // flag chặn dongBoKiotTamVeTrang wipe data khi đang upload
     let mapQuyCach = new Map();
     let tabHienTai = 'bangke';
     let boLocLoaiHang = 'all'; // 'all' | 'hang_ban' | 'hang_km'
@@ -2528,6 +2529,8 @@
           duLieuTamTruocKhiXemLai = null; // thoát xem lại sẽ nạp lại danh sách chờ từ bản vừa cập nhật
           return;
         }
+        // Đang xử lý file upload: tạm hoãn đồng bộ để tránh wipe duLieuKiotViet giữa chừng
+        if (dangXuLyFile) { console.log("☁️ [Cloud Sync] Đang xử lý file upload, tạm hoãn."); return; }
         if (kiotCloud && Array.isArray(kiotCloud.duLieu) && kiotCloud.duLieu.length > 0) {
           duLieuKiotViet = kiotCloud.duLieu;
           localStorage.setItem("tmh_kiotviet_data", JSON.stringify(duLieuKiotViet));
@@ -4453,6 +4456,7 @@
       };
 
       try {
+        dangXuLyFile = true;
         for (const file of files) {
           const ketQua = await docFileExcelPromise(file);
           if (!danhSachTenFile.includes(ketQua.fileName)) {
@@ -4571,8 +4575,10 @@
             const msgTrung = `⚠️ Tất cả ${daChiaXe.size} hóa đơn trong file đều ĐÃ ĐƯỢC CHIA XE trước đó (chuyến: ${tenChuyenCu}):\n` +
               Array.from(daChiaXe.keys()).slice(0, 10).join(', ') + (daChiaXe.size > 10 ? ` … và ${daChiaXe.size - 10} HĐ khác` : '') +
               `\n\n👉 Nếu đây là đơn GIAO LẠI cho ngày mới:\n   Đóng thông báo này → dùng nút "🔄 Đơn hẹn giao lại" màu cam.` +
-              `\n\n👉 Nếu muốn XEM LẠI chuyến cũ "${tenChuyenCu}":\n   Đóng thông báo này → bấm nút "🕒 Xem Lại Biểu Mẫu Đã Làm" ở đầu trang.`;
+              `\n\n👉 Nếu muốn XEM LẠI hoặc XÓA chuyến cũ "${tenChuyenCu}":\n   Đóng thông báo này → cửa sổ Lịch sử sẽ tự mở để bạn tìm và xử lý.`;
             alert(msgTrung);
+            // Tự động mở modal Lịch Sử — modal tự đồng bộ từ Supabase, giúp staff tìm thấy chuyến trùng ngay
+            moModalXemLaiChuyenXe();
           } else {
             alert("⚠️ Không tìm thấy dòng dữ liệu hàng hóa hợp lệ nào trong file!");
           }
@@ -4674,6 +4680,8 @@
 
       } catch (err) {
         alert("Lỗi đọc file Excel: " + err.message);
+      } finally {
+        dangXuLyFile = false; // luôn reset khi upload kết thúc (dù thành công, lỗi, hay return sớm)
       }
     }
 
