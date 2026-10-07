@@ -292,6 +292,14 @@
     }
 
     /* Nút chọn loại trả & nút điền nhanh */
+    .loc-hang-b2 { position: relative; }
+    .loc-hang-b2-list { position: fixed; z-index: 2000; width: 420px; max-width: 86vw; background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16); max-height: 320px; overflow-y: auto; padding: 4px; }
+    .loc-hang-b2-item { padding: 7px 10px; border-radius: 6px; font-size: 12.5px; color: #0f172a; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .loc-hang-b2-item.is-active, .loc-hang-b2-item:hover { background: #fff7ed; color: #9a3412; }
+    .loc-hang-b2-item small { color: #64748b; font-weight: 600; white-space: nowrap; }
+    .loc-hang-b2-note { padding: 8px 10px; font-size: 12px; color: #64748b; text-align: center; }
+    .chip-loc-hang-b2 { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 6px; background: #fff7ed; border: 1px solid #fdba74; color: #9a3412; font-size: 12px; font-weight: 700; }
+    .chip-loc-hang-b2 button { border: none; background: none; color: #b91c1c; font-weight: 900; cursor: pointer; font-size: 13px; padding: 0 2px; }
     .btn-loai-tra {
       padding: 4px 8px;
       font-size: 11px;
@@ -919,7 +927,14 @@
           <div style="font-weight:800; color:var(--text-main); font-size:13.5px; display:flex; align-items:center; gap:6px;">
             <span>📋</span> Bảng Quyết Toán Chi Tiết Hóa Đơn Theo Xe
           </div>
-          <div style="display:flex; gap:8px; align-items:center;">
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <span id="chipLocHangB2"></span>
+            <div class="loc-hang-b2">
+              <input type="text" id="timHangTraB2" class="form-control" placeholder="📦 Lọc đơn theo mặt hàng trả về..." autocomplete="off" spellcheck="false"
+                style="width:250px; height:30px; font-size:12px;" title="Gõ tên / mã hàng rồi bấm chọn → bảng chỉ còn các hoá đơn có mặt hàng đó"
+                onfocus="moGoiYHangB2()" oninput="moGoiYHangB2()" onkeydown="phimGoiYHangB2(event)">
+              <div id="goiYHangB2" class="loc-hang-b2-list" style="display:none;"></div>
+            </div>
             <input type="text" id="timKiemBang" class="form-control" placeholder="🔍 Tìm mã HĐ, khách hàng..." style="width:220px; height:30px; font-size:12px;" oninput="locBangQuyetToan()">
             <button type="button" class="btn btn-outline" style="height:30px; padding:0 8px; font-size:11.5px;" onclick="dongYThuDuTatCa()" title="Điền nhanh: Tất cả đơn giao đủ & thu tiền mặt">
               ⚡ Giao đủ & Thu TM hết
@@ -2935,6 +2950,7 @@
     function veBangQuyetToan() {
       const tbody = document.getElementById('tbodyQuyetToan');
       const tuKhoa = (document.getElementById('timKiemBang')?.value || '').trim().toLowerCase();
+      const locHang = locHangB2HieuLuc();
       tbody.innerHTML = '';
 
       if (danhSachHoaDonQuyetToan.length === 0) {
@@ -2947,6 +2963,8 @@
           const match = hd.maHD.toLowerCase().includes(tuKhoa) || hd.tenKH.toLowerCase().includes(tuKhoa);
           if (!match) return;
         }
+        const dongLocHang = locHang ? dongHangLocCuaHDB2(hd, locHang) : null;
+        if (locHang && !dongLocHang.length) return;
 
         const tr = document.createElement('tr');
         const badgeGL = hd.laGiaoLai ? `<span class="badge-status badge-giao-lai" title="Hàng giao lại">🔄 Giao lại</span>` : '';
@@ -2961,6 +2979,7 @@
           <td>
             <div style="font-weight:700; color:var(--text-main); font-size:12.5px;">${escapeHtml(hd.tenKH)}</div>
             <div style="font-size:11px; color:var(--text-muted);">${hd.nguoiBan ? 'NV: ' + hd.nguoiBan : ''} ${hd.maKH ? '• ' + hd.maKH : ''}</div>
+            ${dongLocHang ? htmlHangLocB2(dongLocHang, locHang) : ''}
           </td>
           <td style="text-align:right; font-weight:800; color:var(--text-main); font-size:12.5px;" class="input-tien">
             ${formatTien(hd.tienHD)}
@@ -3034,6 +3053,10 @@
         `;
         tbody.appendChild(tr);
       });
+      if (!tbody.children.length && (tuKhoa || locHang)) {
+        tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:25px; color:var(--text-muted);">Không có hoá đơn nào khớp bộ lọc${locHang ? ` (mặt hàng: ${escapeHtml(locHang.tenHang)})` : ''}.</td></tr>`;
+      }
+      veChipLocHangB2();
     }
 
     function locBangQuyetToan() {
@@ -3457,6 +3480,211 @@
     function tongTienHangTraVe(hd) {
       return (Array.isArray(hd.hangTraVe) ? hd.hangTraVe : []).reduce((s, h) => s + (parseFloat(h.thanhTien) || 0), 0);
     }
+
+    // ========================================================
+    // LỌC NHANH HOÁ ĐƠN THEO MẶT HÀNG TRẢ VỀ
+    // Gõ tên / mã hàng → bấm chọn → bảng quyết toán chỉ còn các hoá đơn có mặt hàng đó (kèm số lượng trong đơn).
+    // Dòng hàng nạp 1 lần cho cả chuyến vào hangHoaCuaHDB2 (cùng nguồn với "Chọn hàng trả").
+    // var: bảng có thể được vẽ trước khi script chạy tới đây
+    // ========================================================
+    var locHangB2 = null;              // { maDot, maHang, tenHang, dvt }
+    var daThuNapHangB2 = new Set();    // mã HĐ đã thử nạp dòng hàng
+    var dangNapHangB2 = null;
+    var goiYHangB2 = [], goiYHangB2Chon = -1;
+    const fmtSLB2 = v => (Math.round((v || 0) * 1000) / 1000).toLocaleString('vi-VN', { maximumFractionDigits: 3 });
+    const maHDB2 = hd => String((hd && hd.maHD) || '').trim().toUpperCase();
+
+    function locHangB2HieuLuc() {
+      if (!locHangB2) return null;
+      if (!dotHienTai || locHangB2.maDot !== dotHienTai.maDot) { locHangB2 = null; veChipLocHangB2(); return null; }
+      return locHangB2;
+    }
+
+    function dongHangLocCuaHDB2(hd, loc) {
+      return (hangHoaCuaHDB2.get(maHDB2(hd)) || []).filter(d => d.maHang === loc.maHang);
+    }
+
+    function htmlHangLocB2(dong, loc) {
+      const sl = dong.reduce((s, d) => s + d.soLuong, 0);
+      const coKM = dong.some(d => d.km);
+      return `<div style="margin-top:3px; display:inline-block; font-size:11px; font-weight:800; color:#9a3412; background:#fff7ed; border:1px solid #fdba74; border-radius:4px; padding:1px 6px;">📦 ${escapeHtml(loc.tenHang)}: ${fmtSLB2(sl)} ${escapeHtml(dong[0].dvt || loc.dvt || '')}${coKM ? ' (có KM)' : ''}</div>`;
+    }
+
+    function canNapHangB2() {
+      return danhSachHoaDonQuyetToan.some(hd => maHDB2(hd) && !hangHoaCuaHDB2.has(maHDB2(hd)) && !daThuNapHangB2.has(maHDB2(hd)));
+    }
+
+    async function napHangCuaChuyenB2() {
+      while (dangNapHangB2) await dangNapHangB2;
+      if (!dotHienTai || !canNapHangB2()) return;
+      const maDot = dotHienTai.maDot;
+      const dsMa = danhSachHoaDonQuyetToan.map(maHDB2).filter(m => m && !hangHoaCuaHDB2.has(m) && !daThuNapHangB2.has(m));
+      dangNapHangB2 = (async () => {
+        const setMa = new Set(dsMa);
+        const ganNhom = (ds, layMa) => {
+          const nhom = new Map();
+          ds.forEach(r => { const m = layMa(r); if (!setMa.has(m)) return; if (!nhom.has(m)) nhom.set(m, []); nhom.get(m).push(r); });
+          return nhom;
+        };
+        // 1. Dữ liệu chuyến trên máy
+        ganNhom(Array.isArray(dotHienTai.cacDongChiTietKiotViet) ? dotHienTai.cacDongChiTietKiotViet : [], r => String(r['Mã hóa đơn'] || '').trim().toUpperCase())
+          .forEach((ds, m) => { const dong = ds.map(chuanDongHangB2); if (dong.length) hangHoaCuaHDB2.set(m, dong); });
+        // 2. chi_tiet_hoa_don trên máy chủ (đọc theo trang — máy chủ trả tối đa 1000 dòng / lần)
+        let thieu = dsMa.filter(m => !hangHoaCuaHDB2.has(m));
+        if (thieu.length && typeof sb !== 'undefined') {
+          try {
+            for (let i = 0; i < thieu.length; i += 100) {
+              const phan = thieu.slice(i, i + 100);
+              const rows = [];
+              for (let tu = 0; tu < 20000; tu += 1000) {
+                const { data, error } = await sb.from('chi_tiet_hoa_don').select('*').in('ma_hd', phan).order('id').range(tu, tu + 999);
+                if (error) throw error;
+                rows.push(...(data || []));
+                if (!data || data.length < 1000) break;
+              }
+              ganNhom(rows, r => String(r.ma_hd || '').trim().toUpperCase()).forEach((ds, m) => {
+                // Bước 1 ghi 1 bộ dòng mỗi lần lưu chuyến → lấy bộ của chuyến này, không có thì bộ mới nhất
+                let bo = ds.filter(r => r.ma_dot === maDot);
+                if (!bo.length) {
+                  const moiNhat = ds.reduce((mx, r) => String(r.tao_luc || '') > mx ? String(r.tao_luc || '') : mx, '');
+                  bo = ds.filter(r => String(r.tao_luc || '') === moiNhat);
+                }
+                const dong = bo.map(r => chuanDongHangB2({ 'Mã hàng': r.ma_hang, 'Tên hàng': r.ten_hang, 'ĐVT': r.dvt, 'Số lượng': r.so_luong, 'Đơn giá': r.don_gia, 'Thành tiền': r.thanh_tien, 'KM': r.la_khuyen_mai }));
+                if (dong.length) hangHoaCuaHDB2.set(m, dong);
+              });
+            }
+          } catch (e) { console.warn('Không tải được hàng hoá của chuyến:', e); }
+        }
+        // 3. File KiotViet đã nạp trên máy
+        thieu = dsMa.filter(m => !hangHoaCuaHDB2.has(m));
+        if (thieu.length) {
+          try {
+            ganNhom(JSON.parse(localStorage.getItem('tmh_kiotviet_data') || '[]') || [], r => String(r['Mã hóa đơn'] || '').trim().toUpperCase())
+              .forEach((ds, m) => { if (hangHoaCuaHDB2.has(m)) return; const dong = ds.map(chuanDongHangB2); if (dong.length) hangHoaCuaHDB2.set(m, dong); });
+          } catch (e) {}
+        }
+        dsMa.forEach(m => daThuNapHangB2.add(m));
+      })();
+      try { await dangNapHangB2; } finally { dangNapHangB2 = null; }
+    }
+
+    function dsMatHangChuyenB2() {
+      const map = new Map();
+      danhSachHoaDonQuyetToan.forEach(hd => {
+        const daDem = new Set();
+        (hangHoaCuaHDB2.get(maHDB2(hd)) || []).forEach(d => {
+          if (!d.maHang || (d.maHang === 'HĐ' && !d.thanhTien)) return;
+          if (!map.has(d.maHang)) map.set(d.maHang, { maHang: d.maHang, tenHang: d.tenHang || d.maHang, dvt: d.dvt, soHD: 0, soLuong: 0 });
+          const g = map.get(d.maHang);
+          g.soLuong += d.soLuong;
+          if (!daDem.has(d.maHang)) { daDem.add(d.maHang); g.soHD++; }
+        });
+      });
+      return Array.from(map.values()).sort((a, b) => a.tenHang.localeCompare(b.tenHang, 'vi'));
+    }
+
+    async function moGoiYHangB2() {
+      const input = document.getElementById('timHangTraB2'), box = document.getElementById('goiYHangB2');
+      if (!input || !box) return;
+      box.style.display = 'block';
+      datViTriGoiYHangB2();
+      if (!dotHienTai || !danhSachHoaDonQuyetToan.length) {
+        box.innerHTML = '<div class="loc-hang-b2-note">Chưa có hoá đơn — hãy chọn chuyến xe trước.</div>';
+        return;
+      }
+      if (canNapHangB2()) {
+        box.innerHTML = '<div class="loc-hang-b2-note">⏳ Đang tải hàng hoá của chuyến…</div>';
+        await napHangCuaChuyenB2();
+        if (document.activeElement !== input) { box.style.display = 'none'; return; }
+      }
+      veGoiYHangB2();
+    }
+
+    function veGoiYHangB2() {
+      const input = document.getElementById('timHangTraB2'), box = document.getElementById('goiYHangB2');
+      const tuGo = boDauTV(input.value).split(' ').filter(Boolean);
+      const tatCa = dsMatHangChuyenB2();
+      goiYHangB2 = tuGo.length ? tatCa.filter(g => { const s = boDauTV(g.maHang + ' ' + g.tenHang); return tuGo.every(t => s.includes(t)); }) : tatCa;
+      goiYHangB2Chon = goiYHangB2.length ? 0 : -1;
+      const soThieu = danhSachHoaDonQuyetToan.filter(hd => !hangHoaCuaHDB2.has(maHDB2(hd))).length;
+      const dau = `<div class="loc-hang-b2-note" style="text-align:left; border-bottom:1px dashed #e2e8f0;">${goiYHangB2.length}/${tatCa.length} mặt hàng trong chuyến${soThieu ? ` · <span style="color:#b45309;">${soThieu} HĐ chưa có dòng hàng</span>` : ''}</div>`;
+      if (!goiYHangB2.length) {
+        box.innerHTML = dau + `<div class="loc-hang-b2-note">${tatCa.length ? 'Không có mặt hàng khớp.' : 'Chưa tìm thấy dòng hàng của chuyến này (chưa lưu chi tiết ở Bước 1).'}</div>`;
+        return;
+      }
+      box.innerHTML = dau + goiYHangB2.slice(0, 200).map((g, i) => `
+        <div class="loc-hang-b2-item${i === goiYHangB2Chon ? ' is-active' : ''}" data-i="${i}" onmousedown="event.preventDefault(); chonHangLocB2(${i})">
+          <span><b>${escapeHtml(g.tenHang)}</b> <small>${escapeHtml(g.maHang)}</small></span>
+          <small>${g.soHD} HĐ · ${fmtSLB2(g.soLuong)} ${escapeHtml(g.dvt || '')}</small>
+        </div>`).join('');
+    }
+
+    function phimGoiYHangB2(e) {
+      const box = document.getElementById('goiYHangB2');
+      if (e.key === 'Escape') { box.style.display = 'none'; e.target.blur(); return; }
+      if (box.style.display === 'none' || !goiYHangB2.length) return;
+      const toiDa = Math.min(goiYHangB2.length, 200) - 1;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        goiYHangB2Chon = Math.max(0, Math.min(toiDa, goiYHangB2Chon + (e.key === 'ArrowDown' ? 1 : -1)));
+        box.querySelectorAll('.loc-hang-b2-item').forEach(el => el.classList.toggle('is-active', +el.dataset.i === goiYHangB2Chon));
+        const el = box.querySelector(`.loc-hang-b2-item[data-i="${goiYHangB2Chon}"]`);
+        if (el) el.scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (goiYHangB2Chon >= 0) chonHangLocB2(goiYHangB2Chon);
+      }
+    }
+
+    function chonHangLocB2(i) {
+      const g = goiYHangB2[i];
+      if (!g || !dotHienTai) return;
+      locHangB2 = { maDot: dotHienTai.maDot, maHang: g.maHang, tenHang: g.tenHang, dvt: g.dvt };
+      const input = document.getElementById('timHangTraB2');
+      input.value = '';
+      input.blur();
+      document.getElementById('goiYHangB2').style.display = 'none';
+      veBangQuyetToan();
+    }
+
+    function boLocHangB2() {
+      locHangB2 = null;
+      veBangQuyetToan();
+    }
+
+    function veChipLocHangB2() {
+      const el = document.getElementById('chipLocHangB2');
+      if (!el) return;
+      if (!locHangB2) { el.innerHTML = ''; return; }
+      const soHD = danhSachHoaDonQuyetToan.filter(hd => dongHangLocCuaHDB2(hd, locHangB2).length).length;
+      el.innerHTML = `<span class="chip-loc-hang-b2" title="${escapeHtml(locHangB2.maHang)}">📦 ${escapeHtml(locHangB2.tenHang)} — ${soHD} đơn <button type="button" onclick="boLocHangB2()" title="Bỏ lọc mặt hàng">✕</button></span>`;
+    }
+
+    // Hộp gợi ý định vị cố định theo ô nhập: không bị khung bảng (có thanh cuộn riêng) cắt khi bảng chỉ còn ít đơn
+    function datViTriGoiYHangB2() {
+      const input = document.getElementById('timHangTraB2'), box = document.getElementById('goiYHangB2');
+      if (!input || !box) return;
+      const r = input.getBoundingClientRect();
+      const rong = Math.min(420, Math.floor(window.innerWidth * 0.86));
+      box.style.width = rong + 'px';
+      box.style.left = Math.max(8, Math.min(r.right - rong, window.innerWidth - rong - 8)) + 'px';
+      box.style.top = (r.bottom + 4) + 'px';
+      box.style.maxHeight = Math.max(160, Math.min(320, window.innerHeight - r.bottom - 12)) + 'px';
+    }
+
+    document.addEventListener('mousedown', e => {
+      const box = document.getElementById('goiYHangB2');
+      if (box && box.style.display !== 'none' && !(e.target.closest && e.target.closest('.loc-hang-b2'))) box.style.display = 'none';
+    });
+    // Cuộn trang / bàn phím điện thoại bật lên → dời hộp theo ô nhập (không đóng)
+    const dongBoViTriGoiYHangB2 = e => {
+      const box = document.getElementById('goiYHangB2');
+      if (!box || box.style.display === 'none') return;
+      if (e && e.target && e.target.closest && e.target.closest('#goiYHangB2')) return;
+      datViTriGoiYHangB2();
+    };
+    window.addEventListener('scroll', dongBoViTriGoiYHangB2, true);
+    window.addEventListener('resize', dongBoViTriGoiYHangB2);
 
     function htmlOHangTraVe(hd, idx) {
       const kieu = 'margin-top:3px; font-size:10.5px; font-weight:700; border-radius:4px; padding:2px 6px; cursor:pointer; border:1px dashed; text-align:center;';

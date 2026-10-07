@@ -385,6 +385,7 @@
                 <th class="num">Trả về (đ)</th>
                 <th class="num">Tiền thối (đ)</th>
                 <th class="num">Thực tế xuất (đ)</th>
+                <th style="text-align:center; white-space:nowrap;" title="Kế toán tích khi đã kiểm tra từng chuyến">Kiểm tra<br><input type="checkbox" id="bcTXKTTatCa" onchange="tickTatCaKiemTraThucXuat(this)" title="Tích / bỏ tích tất cả chuyến đang hiện" style="width:16px; height:16px; cursor:pointer;"></th>
               </tr>
             </thead>
             <tbody id="bcTXBody"></tbody>
@@ -1028,6 +1029,50 @@
       document.getElementById('bcTXTim').value = '';
       document.getElementById('bcModalTX').classList.add('show');
       veBangThucXuat();
+      napKiemTraThucXuat(dsThucXuatTheoChuyen()).then(() => { if (document.getElementById('bcModalTX').classList.contains('show')) veBangThucXuat(); });
+    }
+
+    // Ô tích "Kiểm tra" từng chuyến của bảng Hàng thực tế xuất (cùng bảng kiem_tra_bao_cao, khoá riêng của bảng này)
+    function khoaKiemTraThucXuat(maDot) { return 'thucxuat|DOT|' + maDot; }
+
+    async function napKiemTraThucXuat(rows) {
+      const cacKhoa = Array.from(new Set((rows || []).map(g => khoaKiemTraThucXuat(g.maDot))));
+      const trenMay = docKiemTraTrenMayBC();
+      cacKhoa.forEach(k => { if (trenMay[k]) kiemTraBC.set(k, trenMay[k]); });
+      if (typeof sb === 'undefined' || kiemTraNguonBC === 'may' || !cacKhoa.length) return;
+      try {
+        for (let i = 0; i < cacKhoa.length; i += 150) {
+          const { data, error } = await sb.from(BANG_KIEM_TRA_BC).select('*').in('khoa', cacKhoa.slice(i, i + 150));
+          if (error) { if (laLoiThieuBangKT(error)) { kiemTraNguonBC = 'may'; return; } throw error; }
+          (data || []).forEach(r => kiemTraBC.set(r.khoa, { da: !!r.da_kiem_tra, nguoi: r.nguoi_kiem_tra || '', luc: r.kiem_tra_luc || '' }));
+        }
+      } catch (e) { console.warn('Không đọc được tick bảng hàng thực tế xuất:', e); }
+    }
+
+    function daKiemTraThucXuat(g) { const x = kiemTraBC.get(khoaKiemTraThucXuat(g.maDot)); return !!(x && x.da); }
+
+    function oKiemTraThucXuat(g, i) {
+      const x = kiemTraBC.get(khoaKiemTraThucXuat(g.maDot));
+      const da = !!(x && x.da);
+      const ai = da && x.nguoi ? `<div style="font-size:10px; color:#15803d; line-height:1.2; margin-top:2px;">${H(String(x.nguoi).replace(/\s*\(.*\)$/, ''))}<br>${x.luc ? H(new Date(x.luc).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })) : ''}</div>` : '';
+      return `<td style="text-align:center; ${da ? 'background:#f0fdf4;' : ''}" onclick="event.stopPropagation()"><input type="checkbox" ${da ? 'checked' : ''} onchange="tickKiemTraThucXuat(this, ${i})" style="width:17px; height:17px; cursor:pointer;" title="Tích khi đã kiểm tra chuyến này">${ai}</td>`;
+    }
+
+    async function tickKiemTraThucXuat(el, i) {
+      const g = dsThucXuatSauTim()[i];
+      if (!g) return;
+      const ok = await luuKiemTraBC([khoaKiemTraThucXuat(g.maDot)], !!el.checked);
+      if (!ok) el.checked = !el.checked;
+      veBangThucXuat();
+    }
+
+    async function tickTatCaKiemTraThucXuat(el) {
+      const rows = dsThucXuatSauTim();
+      if (!rows.length) { el.checked = false; return; }
+      const da = !!el.checked;
+      if (!confirm(`${da ? 'Tích ĐÃ KIỂM TRA' : 'BỎ tích kiểm tra'} cho tất cả ${rows.length} chuyến đang hiện trong bảng?`)) { veBangThucXuat(); return; }
+      await luuKiemTraBC(rows.map(g => khoaKiemTraThucXuat(g.maDot)), da);
+      veBangThucXuat();
     }
 
     function dongBangThucXuat() { document.getElementById('bcModalTX').classList.remove('show'); }
@@ -1042,13 +1087,18 @@
         `<div class="bc-chip" style="color:#047857;">+ Tiền thối: <b>${fmt(tong('tienThoi'))} đ</b></div>`,
         `<div class="bc-chip" style="color:#0e7490;">= Thực tế xuất: <b>${fmt(tong('thucTe'))} đ</b></div>`
       ].join('');
+      const soDaKT = rows.filter(daKiemTraThucXuat).length;
+      document.getElementById('bcTXChips').insertAdjacentHTML('beforeend',
+        `<div class="bc-chip" style="color:${soDaKT === rows.length && rows.length ? '#15803d' : '#475569'};">☑ Đã kiểm tra: <b>${soDaKT}/${rows.length}</b>${kiemTraNguonBC === 'may' ? ' <span style="color:#b45309;">(lưu tạm trên máy này — cần chạy sql/17)</span>' : ''}</div>`);
+      const chkTatCa = document.getElementById('bcTXKTTatCa');
+      if (chkTatCa) { chkTatCa.checked = rows.length > 0 && soDaKT === rows.length; chkTatCa.indeterminate = soDaKT > 0 && soDaKT < rows.length; }
       const body = document.getElementById('bcTXBody');
       if (!rows.length) {
-        body.innerHTML = '<tr><td colspan="8" class="bc-empty">Không có chuyến xe nào.</td></tr>';
+        body.innerHTML = '<tr><td colspan="9" class="bc-empty">Không có chuyến xe nào.</td></tr>';
         document.getElementById('bcTXFoot').innerHTML = '';
         return;
       }
-      body.innerHTML = rows.map(g => `
+      body.innerHTML = rows.map((g, i) => `
         <tr class="bc-click" onclick='dongBangThucXuat(); moChiTiet("dot", ${H(JSON.stringify(g.maDot))})' title="Bấm để xem hoá đơn của chuyến xe">
           <td>${H(g.ngay)}</td>
           <td><b>${H(g.xe)}</b></td>
@@ -1058,8 +1108,9 @@
           <td class="num" style="color:#b45309;">${fmt(g.tra)}</td>
           <td class="num" style="color:#047857;">${fmt(g.tienThoi)}</td>
           <td class="num" style="font-weight:800; color:#0e7490;">${fmt(g.thucTe)}</td>
+          ${oKiemTraThucXuat(g, i)}
         </tr>`).join('');
-      document.getElementById('bcTXFoot').innerHTML = `<tr><td colspan="3">TỔNG CỘNG (${rows.length} chuyến)</td><td class="num">${tong('soHD')}</td><td class="num">${fmt(tong('xuat'))}</td><td class="num">${fmt(tong('tra'))}</td><td class="num">${fmt(tong('tienThoi'))}</td><td class="num">${fmt(tong('thucTe'))}</td></tr>`;
+      document.getElementById('bcTXFoot').innerHTML = `<tr><td colspan="3">TỔNG CỘNG (${rows.length} chuyến)</td><td class="num">${tong('soHD')}</td><td class="num">${fmt(tong('xuat'))}</td><td class="num">${fmt(tong('tra'))}</td><td class="num">${fmt(tong('tienThoi'))}</td><td class="num">${fmt(tong('thucTe'))}</td><td style="text-align:center;">${soDaKT}/${rows.length}</td></tr>`;
     }
 
     function xuatExcelThucXuat() {
@@ -1069,12 +1120,15 @@
       const aoa = [
         ['HÀNG THỰC TẾ XUẤT THEO CHUYẾN XE (XUẤT KHO − TRẢ VỀ + TIỀN THỐI) — CÔNG TY TNHH THÁI MỸ HƯƠNG'],
         [`Từ ${isoSangVN(tu)} đến ${isoSangVN(den)}${xe ? ' · ' + xe : ''}`], [],
-        ['Ngày', 'Chuyến xe', 'Tài xế', 'Số HĐ', 'Xuất kho', 'Trả về', 'Tiền thối', 'Thực tế xuất']
+        ['Ngày', 'Chuyến xe', 'Tài xế', 'Số HĐ', 'Xuất kho', 'Trả về', 'Tiền thối', 'Thực tế xuất', 'Đã kiểm tra']
       ];
-      rows.forEach(g => aoa.push([g.ngay, g.xe, g.taiXe, g.soHD, g.xuat, g.tra, g.tienThoi, g.thucTe]));
+      rows.forEach(g => {
+        const x = kiemTraBC.get(khoaKiemTraThucXuat(g.maDot));
+        aoa.push([g.ngay, g.xe, g.taiXe, g.soHD, g.xuat, g.tra, g.tienThoi, g.thucTe, x && x.da ? ('✓ ' + String(x.nguoi || '').replace(/\s*\(.*\)$/, '')).trim() : '']);
+      });
       const tong = f => rows.reduce((s, g) => s + g[f], 0);
-      aoa.push(['TỔNG CỘNG', `${rows.length} chuyến`, '', tong('soHD'), tong('xuat'), tong('tra'), tong('tienThoi'), tong('thucTe')]);
-      taiFileExcel(`HangThucTeXuat_TheoChuyen_${ymdLocal(new Date())}.xlsx`, aoa, [12, 24, 16, 8, 16, 14, 12, 16]);
+      aoa.push(['TỔNG CỘNG', `${rows.length} chuyến`, '', tong('soHD'), tong('xuat'), tong('tra'), tong('tienThoi'), tong('thucTe'), `${rows.filter(daKiemTraThucXuat).length}/${rows.length}`]);
+      taiFileExcel(`HangThucTeXuat_TheoChuyen_${ymdLocal(new Date())}.xlsx`, aoa, [12, 24, 16, 8, 16, 14, 12, 16, 20]);
     }
     document.addEventListener('keydown', e => { if (e.key === 'Escape') dongBangThucXuat(); });
 
