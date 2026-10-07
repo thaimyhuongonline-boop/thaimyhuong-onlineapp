@@ -4381,11 +4381,12 @@
 
       if (hienCo > 0 && !boSungVaoChuyen) {
         const hoiGhep = confirm(
-          `📥 PHÁT HIỆN ĐANG CÓ ${soHDCu} HÓA ĐƠN TRONG DANH SÁCH!\n\n` +
+          `📥 ĐANG CÓ ${soHDCu} HÓA ĐƠN TRONG DANH SÁCH!\n\n` +
           `• Bấm [OK] để GHÉP BỔ SUNG ${files.length > 1 ? files.length + ' file mới' : 'file mới'} vào danh sách hiện tại (giữ nguyên ${soHDCu} HĐ cũ).\n` +
-          `• Bấm [HỦY / Cancel] để XÓA CŨ VÀ NẠP MỚI (chỉ lấy dữ liệu file vừa chọn).`
+          `• Bấm [Hủy] để HỦY — không thay đổi gì (dùng nút "Xóa danh sách" nếu muốn xóa cũ nạp mới).`
         );
-        cheDoGhep = hoiGhep;
+        if (!hoiGhep) return; // Hủy = không làm gì, giữ nguyên danh sách cũ
+        // cheDoGhep vẫn true → ghép bổ sung
       }
 
       // Khởi tạo danh sách dòng tổng hợp
