@@ -4599,8 +4599,10 @@
         const maHDMoiNap = Array.from(new Set(duLieuTongHop.map(r => String(r['Mã hóa đơn'] || '').trim().toUpperCase())))
           .filter(m => m && !maHDTruocKhiNap.has(m));
         const daChiaXe = await timHoaDonDaChiaXe(maHDMoiNap);
+        let dongTrung = []; // lưu tạm để khôi phục nếu user chọn nạp lại
         if (daChiaXe && daChiaXe.size) {
           const soDongTruoc = duLieuTongHop.length;
+          dongTrung = duLieuTongHop.filter(r => daChiaXe.has(String(r['Mã hóa đơn'] || '').trim().toUpperCase()));
           duLieuTongHop = duLieuTongHop.filter(r => !daChiaXe.has(String(r['Mã hóa đơn'] || '').trim().toUpperCase()));
           tongDongMoiThem = Math.max(0, tongDongMoiThem - (soDongTruoc - duLieuTongHop.length));
         }
@@ -4610,16 +4612,24 @@
             const tenChuyenCu = Array.from(daChiaXe.values())[0] || '';
             const msgTrung = `⚠️ Tất cả ${daChiaXe.size} hóa đơn trong file đều ĐÃ ĐƯỢC CHIA XE trước đó (chuyến: ${tenChuyenCu}):\n` +
               Array.from(daChiaXe.keys()).slice(0, 10).join(', ') + (daChiaXe.size > 10 ? ` … và ${daChiaXe.size - 10} HĐ khác` : '') +
-              `\n\n👉 Nếu đây là đơn GIAO LẠI cho ngày mới:\n   Đóng thông báo này → dùng nút "🔄 Đơn hẹn giao lại" màu cam.` +
-              `\n\n👉 Nếu muốn XEM LẠI hoặc XÓA chuyến cũ "${tenChuyenCu}":\n   Đóng thông báo này → cửa sổ Lịch sử sẽ tự mở để bạn tìm và xử lý.`;
-            alert(msgTrung);
-            // Truyền tenChuyenCu để modal highlight đúng chuyến chứa đơn trùng
-            window._trungChuyenHighlight = tenChuyenCu;
-            moModalXemLaiChuyenXe();
+              `\n\n• Bấm [OK] = NẠP LẠI chuyến này (ghi đè chuyến cũ "${tenChuyenCu}")` +
+              `\n• Bấm [Hủy] = Mở Lịch sử để xem lại / xóa chuyến cũ` +
+              `\n\n👉 Nếu đây là đơn GIAO LẠI: Bấm [Hủy] rồi dùng nút "🔄 Đơn hẹn giao lại" màu cam.`;
+            const napLai = confirm(msgTrung);
+            if (napLai) {
+              // Khôi phục dòng trùng → tiếp tục upload ghi đè chuyến cũ
+              duLieuTongHop = dongTrung;
+              tongDongMoiThem = dongTrung.length;
+            } else {
+              // Mở Lịch Sử để xem/xóa chuyến cũ
+              window._trungChuyenHighlight = tenChuyenCu;
+              moModalXemLaiChuyenXe();
+              return;
+            }
           } else {
             alert("⚠️ Không tìm thấy dòng dữ liệu hàng hóa hợp lệ nào trong file!");
+            return;
           }
-          return;
         }
 
         // Lưu tự động cập nhật danh mục vào LocalStorage & Supabase
