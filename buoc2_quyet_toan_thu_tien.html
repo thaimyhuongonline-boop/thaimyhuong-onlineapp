@@ -1951,6 +1951,7 @@
 
       // Lọc và hiển thị dropdown theo bộ lọc trạng thái, xe, ngày
       await locVaRenderDropdownChuyenXe(isAutoSync);
+      if (!isAutoSync) daDungMaDotTuUrlB2 = true;   // lần nạp đầu đã xong: ?maDot= không còn hiệu lực
     }
 
     // Cập nhật danh sách xe vào bộ lọc xe (Dropdown lọc Xe)
@@ -1998,6 +1999,11 @@
     }
 
     // Lọc và render dropdown chọn chuyến xe: Lọc Từ ngày - Đến ngày, Trạng thái xe, Xe
+    // ?maDot= trên địa chỉ trang (Bước 1 chuyển sang sau khi lưu chuyến) chỉ dùng 1 LẦN lúc mở trang.
+    // Sau đó không được kéo người dùng về chuyến đó nữa (tự đồng bộ 20 giây, quay lại cửa sổ, đổi bộ lọc, tải lại danh sách)
+    // — trước đây cứ nhảy về chuyến cũ khi đang tính tiền chuyến khác.
+    var daDungMaDotTuUrlB2 = false;
+
     async function locVaRenderDropdownChuyenXe(isAutoSync = false) {
       const sel = document.getElementById('selChuyenXe');
       const locTT = document.getElementById('locTrangThaiChuyenXe')?.value || 'tat_ca';
@@ -2007,7 +2013,7 @@
       if (!sel) return;
 
       const urlParams = new URLSearchParams(window.location.search);
-      const paramMaDot = urlParams.get('maDot');
+      const paramMaDot = (!isAutoSync && !daDungMaDotTuUrlB2) ? urlParams.get('maDot') : null;
       const maDotDangChonTruocDo = sel.value || (dotHienTai ? dotHienTai.maDot : '');
 
       let dsLoc = [...danhSachTatCaDot];
@@ -2082,6 +2088,7 @@
       let maDotChon = dsLoc[0].maDot;
       if (paramMaDot && dsLoc.some(d => d.maDot === paramMaDot)) {
         maDotChon = paramMaDot;
+        daDungMaDotTuUrlB2 = true;
       } else if (isAutoSync && dotHienTai && dsLoc.some(d => d.maDot === dotHienTai.maDot)) {
         maDotChon = dotHienTai.maDot; // Khi auto-sync: luôn giữ nguyên chuyến đang xem nếu còn trong danh sách
       } else if (maDotDangChonTruocDo && dsLoc.some(d => d.maDot === maDotDangChonTruocDo)) {
