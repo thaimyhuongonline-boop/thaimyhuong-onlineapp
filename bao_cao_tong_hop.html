@@ -174,6 +174,7 @@
                 <th class="num">Thiếu (đ)</th>
                 <th class="num">Thừa (đ)</th>
                 <th>Trạng thái</th>
+                <th class="no-print">Tick</th>
               </tr>
             </thead>
             <tbody id="bcBangDot"></tbody>
@@ -343,7 +344,9 @@
         tm: tm, ck: ck, tra: tra, no: no,
         nganHang: r.tai_khoan_nhan || '',
         daQT: !!(r.da_quyet_toan || r.da_kiem_don),
-        giaoLai: !!r.la_giao_lai
+        giaoLai: !!r.la_giao_lai,
+        tienChi: parseFloat(r.tien_chi || 0),
+        tienThoi: parseFloat(r.tien_thoi || 0)
       };
     }
 
@@ -613,13 +616,13 @@
         duLieu = await taiTuSupabase(dsIso);
         nguonDuLieu = 'cloud';
         elNguon.innerHTML = '🟢 Dữ liệu trực tiếp từ Supabase · cập nhật ' + H(new Date().toLocaleTimeString('vi-VN'));
-        await Promise.all([taiNopTien(), taiThuNgoai(tu, den)]);
+        await Promise.all([taiNopTien(), taiThuNgoai(tu, den), napKiemTraBCBangDot()]);
       } catch (e) {
         console.warn('Không đọc được Supabase, dùng dữ liệu trên máy:', e);
         duLieu = taiTuMayNay(tu, den);
         nguonDuLieu = 'local';
         elNguon.innerHTML = '🟠 Mất kết nối Supabase — đang hiển thị dữ liệu lưu trên máy này (có thể chưa đầy đủ)';
-        await Promise.all([taiNopTien(), taiThuNgoai(tu, den)]);
+        await Promise.all([taiNopTien(), taiThuNgoai(tu, den), napKiemTraBCBangDot()]);
       } finally {
         dangTai = false;
       }
@@ -891,12 +894,20 @@
           the('k-no', 'chuaro', '⚠️ Đã thu nợ — chưa rõ hình thức', fmt(n.chuaRo) + ' đ',
             `${ngoai.filter(d => d.loaiThu === 'chua_ro').length} khoản chỉ ghi trên máy này, CHƯA cộng vào tiền mặt / CK — bấm để ghi nhận`));
       }
+      // Tiền chi ra + tiền thối — lấy từ luu_tru.tien_chi / tien_thoi (per trip, tránh cộng trùng)
+      const maDotDaThay = new Set();
+      let tongTienChi = 0, tongTienThoi = 0;
+      ds.forEach(d => {
+        if (!maDotDaThay.has(d.maDot)) {
+          maDotDaThay.add(d.maDot);
+          tongTienChi += d.tienChi || 0;
+          tongTienThoi += d.tienThoi || 0;
+        }
+      });
       document.getElementById('bcKpi').insertAdjacentHTML('beforeend',
-        the('k-hoan', 'chihoan', '💸 Tiền chi ra (hoàn trả trước)', fmt(n.chiTm + n.chiCk) + ' đ', `Tiền mặt ${fmt(n.chiTm)} · Chuyển khoản ${fmt(n.chiCk)}` + (n.chiTm + n.chiCk === 0 ? ' · Không có phát sinh' : '')));
-      const dsHoan = ds.filter(d => hoanCuaDon(d) > 0);
-      const tongHoan = dsHoan.reduce((s, d) => s + hoanCuaDon(d), 0);
+        the('k-hoan', 'chihoan', '💸 Tiền chi ra (tài xế chi)', fmt(tongTienChi) + ' đ', tongTienChi === 0 ? 'Không có phát sinh' : `${maDotDaThay.size} chuyến có phát sinh tiền chi`));
       document.getElementById('bcKpi').insertAdjacentHTML('beforeend',
-        the('k-hoan', 'hoan', '🔄 Tiền thối cho khách (CK dư)', fmt(tongHoan) + ' đ', `${dsHoan.length} đơn khách CK dư, tài xế trả lại tiền mặt` + (tongHoan === 0 ? ' · Không có phát sinh' : '')));
+        the('k-hoan', 'hoan', '🔄 Tiền thối (tài xế nộp lại)', fmt(tongTienThoi) + ' đ', tongTienThoi === 0 ? 'Không có phát sinh' : `${maDotDaThay.size} chuyến có phát sinh tiền thối`));
 
       const el = document.getElementById('bcCanDoi');
       // Ghi chú tiền ngoài hoá đơn (đã cộng vào các thẻ) & lỗi đọc dữ liệu
@@ -921,7 +932,7 @@
       const dots = Array.from(map.values()).sort((a, b) => (vnSangKhoa(b.ngay) + b.xe).localeCompare(vnSangKhoa(a.ngay) + a.xe));
       const body = document.getElementById('bcBangDot');
       if (!dots.length && !thuNgoaiDaLoc().length) {
-        body.innerHTML = '<tr><td colspan="12" class="bc-empty">Không có chuyến xe nào trong khoảng ngày đã chọn.</td></tr>';
+        body.innerHTML = '<tr><td colspan="13" class="bc-empty">Không có chuyến xe nào trong khoảng ngày đã chọn.</td></tr>';
         document.getElementById('bcFootDot').innerHTML = '';
         return;
       }
@@ -944,6 +955,7 @@
             ${oThieuThuaDot(dt.maDot, 'thieu')}
             ${oThieuThuaDot(dt.maDot, 'thua')}
             <td>${tt}${lech}</td>
+            ${oKiemTraBangDot(dt.maDot)}
           </tr>`;
       }).join('');
       // Dòng tiền ngoài hoá đơn giao hàng (thu nợ, thu hộ qua xe, trả trước, trả lại hàng) — không thuộc chuyến nào
@@ -962,6 +974,7 @@
             <td class="num">–</td>
             <td class="num">–</td>
             <td>${N.chuaRo > 0 ? `<span class="bc-tag warn">${fmt(N.chuaRo)} đ chưa rõ hình thức</span>` : '<span class="bc-tag done">Đã cộng vào tổng</span>'}</td>
+            <td class="no-print"></td>
           </tr>`);
       }
       const T = tongHop(ds.concat(thuNgoaiDaLoc()));
@@ -978,6 +991,7 @@
           <td class="num">${fmt(TT.thieu)}</td>
           <td class="num">${fmt(TT.thua)}</td>
           <td></td>
+          <td class="no-print"></td>
         </tr>`;
     }
 
@@ -1228,6 +1242,41 @@
       if (!confirm(`${da ? 'Tích ĐÃ KIỂM TRA' : 'BỎ tích kiểm tra'} cho tất cả ${rows.length} khoản đang hiện trong bảng?`)) { veChiTiet(); return; }
       await luuKiemTraBC(rows.map(khoaKiemTraBC), da);
       veChiTiet();
+    }
+
+    // ---------------- TICK KIỂM TRA PER-CHUYẾN TRONG BẢNG TỔNG KẾT ----------------
+    function khoaKiemTraBangDot(maDot) { return 'bc_dot|DOT|' + maDot; }
+
+    function oKiemTraBangDot(maDot) {
+      const k = khoaKiemTraBangDot(maDot);
+      const x = kiemTraBC.get(k);
+      const da = !!(x && x.da);
+      const ten = da && x.nguoi ? String(x.nguoi).replace(/\s*\(.*\)$/, '') : '';
+      const ai = ten ? `<div style="font-size:10px;color:#15803d;line-height:1.2;margin-top:2px;">${H(ten)}</div>` : '';
+      const maDotEsc = maDot.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      return `<td style="text-align:center;${da ? 'background:#f0fdf4;' : ''}" class="no-print"><input type="checkbox" ${da ? 'checked' : ''} onchange="tickKiemTraBangDot(this,'${maDotEsc}')" onclick="event.stopPropagation()" style="width:17px;height:17px;cursor:pointer;" title="Tích khi đã kiểm tra chuyến này">${ai}</td>`;
+    }
+
+    async function tickKiemTraBangDot(el, maDot) {
+      const ok = await luuKiemTraBC([khoaKiemTraBangDot(maDot)], !!el.checked);
+      if (!ok) { el.checked = !el.checked; return; }
+      veBangDot();
+    }
+
+    async function napKiemTraBCBangDot() {
+      const dsMaDot = Array.from(new Set(duLieu.map(d => d.maDot))).filter(Boolean);
+      if (!dsMaDot.length) return;
+      const cacKhoa = dsMaDot.map(khoaKiemTraBangDot);
+      const trenMay = docKiemTraTrenMayBC();
+      cacKhoa.forEach(k => { if (trenMay[k]) kiemTraBC.set(k, trenMay[k]); });
+      if (typeof sb === 'undefined' || kiemTraNguonBC === 'may') return;
+      try {
+        for (let i = 0; i < cacKhoa.length; i += 150) {
+          const { data, error } = await sb.from(BANG_KIEM_TRA_BC).select('*').in('khoa', cacKhoa.slice(i, i + 150));
+          if (error) { if (laLoiThieuBangKT(error)) { kiemTraNguonBC = 'may'; return; } return; }
+          (data || []).forEach(r => kiemTraBC.set(r.khoa, { da: !!r.da_kiem_tra, nguoi: r.nguoi_kiem_tra || '', luc: r.kiem_tra_luc || '' }));
+        }
+      } catch (e) { console.warn('Không đọc được tick bảng chuyến:', e); }
     }
 
     // ---------------- GHI NHẬN HÌNH THỨC CHO KHOẢN ĐÃ THU CHỈ GHI TRÊN MÁY ----------------
