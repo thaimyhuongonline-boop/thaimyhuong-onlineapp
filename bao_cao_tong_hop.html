@@ -877,12 +877,22 @@
           <span class="bc-kpi-sub">${phu}</span>
           <span class="bc-kpi-hint">Bấm để xem chi tiết →</span>
         </button>`;
+      // Tiền chi ra + tiền thối — tính trước để dùng trong card Hàng thực tế xuất
+      const maDotDaThay = new Set();
+      let tongTienChi = 0, tongTienThoi = 0;
+      ds.forEach(d => {
+        if (!maDotDaThay.has(d.maDot)) {
+          maDotDaThay.add(d.maDot);
+          tongTienChi += d.tienChi || 0;
+          tongTienThoi += d.tienThoi || 0;
+        }
+      });
       document.getElementById('bcKpi').innerHTML =
         the('k-xuat', 'xuat', '🚚 Tổng đơn hàng xuất kho', fmt(t.xuat) + ' đ', `${t.soHD} hoá đơn`) +
         the('k-mat', 'tienmat', '💵 Thanh toán tiền mặt', fmt(t.tm + n.tm) + ' đ', `${t.soTM} đơn thu tiền mặt` + phuNgoai(n.tm, n.soTM)) +
         the('k-ck', 'ck', '🏦 Chuyển khoản', fmt(t.ck + n.ck) + ' đ', `${t.soCK} đơn chuyển khoản` + phuNgoai(n.ck, n.soCK)) +
         the('k-tra', 'travee', '↩️ Hàng trả về', fmt(t.tra + n.tra) + ' đ', `${t.soTra} đơn có hàng trả` + (n.tra ? ` + ${fmt(n.tra)} đ khách trả lại hàng trừ nợ (${n.soTra} khoản)` : '')) +
-        the('k-net-xuat', 'xuat', '📦 Hàng thực tế xuất (sau trừ trả về)', fmt(t.xuat - t.tra) + ' đ', `Xuất kho ${fmt(t.xuat)} đ − Trả về ${fmt(t.tra)} đ`) +
+        the('k-net-xuat', 'xuat', '📦 Hàng thực tế xuất (sau trừ trả về)', fmt(t.xuat - t.tra) + ' đ', `Xuất kho ${fmt(t.xuat)} đ − Trả về ${fmt(t.tra)} đ` + (tongTienThoi > 0 ? ` · Tiền thối TXe nộp: ${fmt(tongTienThoi)} đ` : '')) +
         the('k-no', 'no', '📒 Tổng nợ phát sinh', fmt(t.no) + ' đ', `${t.soNo} đơn ghi nợ`) +
         the('k-cho', 'cho', '⏳ Chờ quyết toán (Bước 2)', `${t.soCho} đơn`, `${fmt(t.tienCho)} đ chưa quyết toán`);
       document.getElementById('bcKpi').insertAdjacentHTML('beforeend', veTheThieuThua());
@@ -896,16 +906,6 @@
           the('k-no', 'chuaro', '⚠️ Đã thu nợ — chưa rõ hình thức', fmt(n.chuaRo) + ' đ',
             `${ngoai.filter(d => d.loaiThu === 'chua_ro').length} khoản chỉ ghi trên máy này, CHƯA cộng vào tiền mặt / CK — bấm để ghi nhận`));
       }
-      // Tiền chi ra + tiền thối — lấy từ luu_tru.tien_chi / tien_thoi (per trip, tránh cộng trùng)
-      const maDotDaThay = new Set();
-      let tongTienChi = 0, tongTienThoi = 0;
-      ds.forEach(d => {
-        if (!maDotDaThay.has(d.maDot)) {
-          maDotDaThay.add(d.maDot);
-          tongTienChi += d.tienChi || 0;
-          tongTienThoi += d.tienThoi || 0;
-        }
-      });
       document.getElementById('bcKpi').insertAdjacentHTML('beforeend',
         the('k-hoan', 'chihoan', '💸 Tiền chi ra (tài xế chi)', fmt(tongTienChi) + ' đ', tongTienChi === 0 ? 'Không có phát sinh' : `${maDotDaThay.size} chuyến có phát sinh tiền chi`));
       document.getElementById('bcKpi').insertAdjacentHTML('beforeend',

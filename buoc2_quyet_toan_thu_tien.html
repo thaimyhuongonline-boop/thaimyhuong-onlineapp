@@ -2025,6 +2025,16 @@
         });
       }
 
+      // Nếu URL có maDot param nhưng chuyến đó bị bộ lọc ngày/xe/trạng thái loại ra
+      // → xóa bộ lọc để đảm bảo chuyến vừa tạo từ Bước 1 luôn được chọn đúng
+      if (!isAutoSync && paramMaDot && !dsLoc.some(d => d.maDot === paramMaDot) && danhSachTatCaDot.some(d => d.maDot === paramMaDot)) {
+        const elTuNgay = document.getElementById('locTuNgayChuyenXe');
+        const elDenNgay = document.getElementById('locDenNgayChuyenXe');
+        if (elTuNgay) elTuNgay.value = '';
+        if (elDenNgay) elDenNgay.value = '';
+        dsLoc = [...danhSachTatCaDot];
+      }
+
       sel.innerHTML = '';
       if (dsLoc.length === 0) {
         sel.innerHTML = `<option value="">⚠️ Không có chuyến xe nào theo bộ lọc</option>`;
