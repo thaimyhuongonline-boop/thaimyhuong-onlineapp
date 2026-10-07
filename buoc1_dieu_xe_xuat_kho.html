@@ -2330,6 +2330,52 @@
     }
 
     // ========================================================
+    // GIÁM SÁT DUNG LƯỢNG BỘ NHỚ TRÌNH DUYỆT (localStorage)
+    // Cảnh báo sớm để tránh mất dữ liệu khi đầy 5MB
+    // ========================================================
+
+    function tinhDungLuongLocalStorageMB() {
+      try {
+        let tongByte = 0;
+        for (let key in localStorage) {
+          if (Object.prototype.hasOwnProperty.call(localStorage, key)) {
+            tongByte += (key.length + (localStorage[key] || '').length) * 2;
+          }
+        }
+        return tongByte / (1024 * 1024);
+      } catch (e) { return 0; }
+    }
+
+    function kiemTraDungLuongLocalStorage() {
+      const MB = tinhDungLuongLocalStorageMB();
+      const GIOI_HAN = 5;
+      const NGUY_HIEM = 4.2; // >84%
+      const CANH_BAO = 3.5;  // >70%
+
+      let banner = document.getElementById('bannerDungLuongLS');
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'bannerDungLuongLS';
+        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999997;padding:8px 16px 8px 20px;font-size:13px;font-weight:600;display:none;align-items:center;justify-content:center;gap:10px;';
+        document.body.appendChild(banner);
+      }
+
+      if (MB >= NGUY_HIEM) {
+        banner.style.background = '#dc2626';
+        banner.style.color = '#fff';
+        banner.innerHTML = `🚨 BỘ NHỚ TRÌNH DUYỆT GẦN ĐẦY: ${MB.toFixed(1)} MB / ${GIOI_HAN} MB — Nguy cơ MẤT DỮ LIỆU khi lưu chuyến! Vào <b>Lịch Sử → Xóa</b> các chuyến xe cũ đã quyết toán để giải phóng chỗ.`;
+        banner.style.display = 'flex';
+      } else if (MB >= CANH_BAO) {
+        banner.style.background = '#f59e0b';
+        banner.style.color = '#1a1a1a';
+        banner.innerHTML = `⚠️ Bộ nhớ trình duyệt đang đầy dần: ${MB.toFixed(1)} MB / ${GIOI_HAN} MB — Nên vào <b>Lịch Sử → Xóa</b> bớt chuyến xe cũ để tránh mất dữ liệu.`;
+        banner.style.display = 'flex';
+      } else {
+        banner.style.display = 'none';
+      }
+    }
+
+    // ========================================================
     // KHỞI TẠO TRANG BƯỚC 2
     // ========================================================
 
@@ -2379,7 +2425,11 @@
                 }
               }
             });
-            localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSu));
+            lichSu.sort((a, b) => (b.taoLuc || '').localeCompare(a.taoLuc || ''));
+            try {
+              localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lichSu));
+            } catch (_) {}
+            kiemTraDungLuongLocalStorage();
           }
         } catch (e) {
           console.warn("Lỗi tải lịch sử từ Supabase:", e);
@@ -4091,6 +4141,7 @@
         } catch (_) {}
       }
       localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dotMoi));
+      kiemTraDungLuongLocalStorage();
 
       // Xóa các đơn đã được phân vào chuyến xe này khỏi hàng đợi chờ giao lại
       try {
