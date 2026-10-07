@@ -382,20 +382,31 @@
     }
 
     // Hàm lưu Supabase thông minh: tự động phát hiện và loại bỏ các cột schema Supabase chưa có (ví dụ PGRST204)
-    async function upsertSupabaseTuTu(tableName, payload) {
+    // onConflict (tuỳ chọn): cột dùng để nhận ra bản ghi cũ khi SỬA — vd ten_tk của tài khoản ngân hàng.
+    // Bảng có khoá chính "id" tự tăng mà không truyền cột này thì máy chủ hiểu là THÊM dòng mới → trùng tên → lỗi 409.
+    async function upsertSupabaseTuTu(tableName, payload, onConflict) {
       if (typeof sb === 'undefined') return { success: false, error: 'No sb client' };
 
       let currentPayload = Array.isArray(payload)
         ? payload.map(item => ({ ...item }))
         : { ...payload };
+      let cotNhanDien = onConflict || null;
 
       for (let attempt = 0; attempt < 10; attempt++) {
         try {
-          const { data, error } = await sb.from(tableName).upsert(currentPayload);
+          const { data, error } = cotNhanDien
+            ? await sb.from(tableName).upsert(currentPayload, { onConflict: cotNhanDien })
+            : await sb.from(tableName).upsert(currentPayload);
           if (!error) {
             return { success: true, data };
           }
           console.warn(`[Supabase upsert ${tableName}] Lần ${attempt + 1}:`, error);
+
+          // Cột nhận diện không có ràng buộc UNIQUE trên máy chủ → lưu như cũ (theo khoá chính của bảng)
+          if (cotNhanDien && (error.code === '42P10' || /no unique or exclusion constraint/i.test(String(error.message || '')))) {
+            cotNhanDien = null;
+            continue;
+          }
 
           // Phát hiện cột chưa tồn tại trong schema Supabase
           if (error.message && error.message.includes("Could not find the") && error.message.includes("column")) {
@@ -796,8 +807,18 @@
         return;
       }
 
-      // 1. Lưu vào Supabase bằng hàm tự loại trừ cột schema thiếu
-      await upsertSupabaseTuTu(tabHienTai, banGhiMoi);
+      // 1. Lưu vào Supabase bằng hàm tự loại trừ cột schema thiếu (nhận ra bản ghi cũ theo khoá của danh mục)
+      const kqCloud = await upsertSupabaseTuTu(tabHienTai, banGhiMoi, cfg.khoaChinh);
+
+      // Tài khoản ngân hàng chỉ có 1 "Mặc định" (Bước 2, Sổ công nợ tự chọn sẵn tài khoản này) → bỏ mặc định ở các tài khoản khác
+      const laDatMacDinhNH = tabHienTai === "tai_khoan_ngan_hang" && banGhiMoi.mac_dinh === true;
+      let loiBoMacDinh = "";
+      if (laDatMacDinhNH && kqCloud && kqCloud.success && typeof sb !== 'undefined') {
+        try {
+          const { error } = await sb.from("tai_khoan_ngan_hang").update({ mac_dinh: false }).eq("mac_dinh", true).neq("ten_tk", banGhiMoi.ten_tk);
+          if (error) loiBoMacDinh = error.message || String(error);
+        } catch (e) { loiBoMacDinh = (e && e.message) || String(e); }
+      }
 
       // 2. Lưu vào LocalStorage
       let dsLocal = [];
@@ -812,13 +833,23 @@
       } else {
         dsLocal.push(banGhiMoi);
       }
+      if (laDatMacDinhNH) {
+        dsLocal.forEach(r => { if (r && String(r[cfg.khoaChinh]).trim().toUpperCase() !== kMoi) r.mac_dinh = false; });
+      }
       localStorage.setItem(cfg.localKey, JSON.stringify(dsLocal));
 
       dongModalThemSua();
       await taiDuLieuHienTai();
       await capNhatTatCaBadges();
 
-      alert(`✅ Đã lưu bản ghi "${banGhiMoi[cfg.khoaChinh]}" thành công!`);
+      if (!kqCloud || !kqCloud.success) {
+        const e = kqCloud && kqCloud.error;
+        alert(`⚠️ Đã lưu "${banGhiMoi[cfg.khoaChinh]}" trên MÁY NÀY nhưng CHƯA lưu được lên máy chủ — máy khác và Bước 2 sẽ chưa thấy thay đổi.\n\nLỗi: ${(e && e.message) || e || 'không rõ'}`);
+        return;
+      }
+      alert(`✅ Đã lưu bản ghi "${banGhiMoi[cfg.khoaChinh]}" thành công!` +
+        (laDatMacDinhNH ? `\n\n⭐ "${banGhiMoi[cfg.khoaChinh]}" là tài khoản MẶC ĐỊNH duy nhất (đã bỏ mặc định ở các tài khoản khác).` : '') +
+        (loiBoMacDinh ? `\n\n⚠️ Chưa bỏ được mặc định ở tài khoản khác: ${loiBoMacDinh}` : ''));
     }
 
     // Xóa bản ghi
