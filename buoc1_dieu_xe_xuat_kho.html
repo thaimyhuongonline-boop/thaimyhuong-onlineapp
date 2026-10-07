@@ -4360,7 +4360,10 @@
         if (confirm(`📌 ĐANG XEM LẠI CHUYẾN XE ĐÃ LƯU "${tenChuyen}" — ${danhSachHoaDon.length} HĐ.\n\n` +
           `• Bấm [OK] để BỔ SUNG ${files.length > 1 ? files.length + ' file' : 'file'} vừa chọn vào CHÍNH CHUYẾN NÀY (giữ nguyên ${danhSachHoaDon.length} HĐ của chuyến; bấm "Lưu chuyến xe" để ghi đơn bổ sung vào chuyến).\n` +
           `• Bấm [Hủy / Cancel] để THOÁT XEM LẠI và nạp file vào danh sách chờ chia xe như bình thường.`)) {
-          if (!(await kiemTraChuyenBoSungDuoc(c.maDot))) return;
+          if (!(await kiemTraChuyenBoSungDuoc(c.maDot))) {
+            thoatCheDoXemLai();
+            return;
+          }
           boSungVaoChuyen = c;
         } else {
           thoatCheDoXemLai();
