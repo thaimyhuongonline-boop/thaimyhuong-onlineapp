@@ -1881,7 +1881,13 @@
                   }
                 } catch (e) {}
               }
-              localStorage.setItem("tmh_lich_su_dot", JSON.stringify(danhSachTatCaDot));
+              // Lưu localStorage: loại bỏ cacDongChiTietKiotViet (lớn, gây tràn 5MB quota)
+              const lsData = danhSachTatCaDot.map(d => d.cacDongChiTietKiotViet ? { ...d, cacDongChiTietKiotViet: [] } : d);
+              try {
+                localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lsData));
+              } catch (_) {
+                try { localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lsData.slice(0, 60))); } catch (_2) {}
+              }
               if (isAutoSync && coChuyenMoi) {
                 hienThiToast("🔔 Đã tự động nhận chuyến xe mới từ nhân sự điều xe!");
               }
@@ -2123,7 +2129,7 @@
         // Lưu lại vào localStorage của máy này để những lần mở sau không cần tải lại
         const idx = danhSachTatCaDot.findIndex(d => d.maDot === dot.maDot);
         if (idx >= 0) danhSachTatCaDot[idx] = dot;
-        localStorage.setItem("tmh_lich_su_dot", JSON.stringify(danhSachTatCaDot));
+        luuLichSuLS();
       } catch (e) {
         console.warn('Không tải được phiếu nộp tiền từ Supabase cho đợt', dot.maDot, e);
       }
@@ -2200,7 +2206,7 @@
     // Trả về lỗi xoá trên máy chủ (null nếu xoá được).
     async function donChuyenXeSauKhiXoa(maDotXoa) {
       danhSachTatCaDot = danhSachTatCaDot.filter(d => d.maDot !== maDotXoa);
-      localStorage.setItem("tmh_lich_su_dot", JSON.stringify(danhSachTatCaDot));
+      luuLichSuLS();
 
       try {
         const dotDangLuu = JSON.parse(localStorage.getItem("tmh_dot_quyet_toan_hien_tai") || "null");
@@ -2805,7 +2811,7 @@
       } catch (e) {}
       const idxDot = danhSachTatCaDot.findIndex(d => d.maDot === maDot);
       if (idxDot >= 0) danhSachTatCaDot[idxDot] = dot;
-      localStorage.setItem('tmh_lich_su_dot', JSON.stringify(danhSachTatCaDot));
+      luuLichSuLS();
       try {
         const dq = JSON.parse(localStorage.getItem('tmh_dot_quyet_toan_hien_tai') || 'null');
         if (dq && dq.maDot === maDot) localStorage.removeItem('tmh_dot_quyet_toan_hien_tai');
@@ -3250,7 +3256,7 @@
         if (idxDot >= 0) {
           danhSachTatCaDot[idxDot] = { ...dotHienTai };
         }
-        localStorage.setItem("tmh_lich_su_dot", JSON.stringify(danhSachTatCaDot));
+        luuLichSuLS();
         localStorage.setItem("tmh_dot_quyet_toan_hien_tai", JSON.stringify(dotHienTai));
 
         try {
@@ -5524,7 +5530,7 @@
       if (idx >= 0) danhSachTatCaDot[idx] = dotHienTai;
       else danhSachTatCaDot.unshift(dotHienTai);
 
-      localStorage.setItem("tmh_lich_su_dot", JSON.stringify(danhSachTatCaDot));
+      luuLichSuLS();
       localStorage.setItem("tmh_dot_quyet_toan_hien_tai", JSON.stringify(dotHienTai));
 
       // 4. Xử lý lưu trữ HÀNG ĐỢI GIAO LẠI (bước 1 & bước 2)
@@ -5858,6 +5864,13 @@
       const str = String(val).replace(/\./g, "").replace(/,/g, ".").trim();
       const n = parseFloat(str);
       return isNaN(n) ? 0 : n;
+    }
+
+    // Helper lưu tmh_lich_su_dot: loại bỏ cacDongChiTietKiotViet (tránh tràn quota 5MB)
+    function luuLichSuLS(ds) {
+      const lsData = (ds || danhSachTatCaDot).map(d => d.cacDongChiTietKiotViet ? { ...d, cacDongChiTietKiotViet: [] } : d);
+      try { localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lsData)); }
+      catch (_) { try { localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lsData.slice(0, 60))); } catch (_2) {} }
     }
 
     function hienThiToast(msg) {
