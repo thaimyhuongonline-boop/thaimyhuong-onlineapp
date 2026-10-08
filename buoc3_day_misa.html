@@ -155,7 +155,7 @@
     <div class="tmh-page-header">
       <div class="tmh-page-header-text">
         <h1 class="tmh-page-header-title">Bước 3: Đẩy Dữ Liệu Lên MISA (Kế Toán)</h1>
-        <p class="tmh-page-header-sub">Bán hàng hạch toán công nợ Nợ 1311 – Có 5111 cho MỌI hoá đơn, sau đó nhập phiếu thu tiền mặt (Nợ 1111) và tiền gửi ngân hàng (Nợ 11211…11215) – Có 1311; kiểm tra đầy đủ cột và xuất file Excel để nhập khẩu thẳng vào MISA.</p>
+        <p class="tmh-page-header-sub">Bán hàng hạch toán công nợ Nợ 1311 – Có TK doanh thu 5111x (theo Danh mục Định khoản hàng hoá, hàng khuyến mại Nợ 13881) cho MỌI hoá đơn, sau đó nhập phiếu thu tiền mặt (Nợ 1111) và tiền gửi ngân hàng (Nợ 11211…11215) – Có 1311; kiểm tra đầy đủ cột và xuất file Excel để nhập khẩu thẳng vào MISA.</p>
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
         <button type="button" class="btn btn-outline" onclick="copyDuLieuBangMISA()">
@@ -179,7 +179,7 @@
           <div>
             <div style="font-weight:800; color:#166534; font-size:13.5px;">Hướng dẫn nhập khẩu vào phần mềm MISA (SME / AMIS):</div>
             <div style="font-size:12px; color:#15803d; margin-top:2px;">
-              <b>Bước 1:</b> Bấm nút xanh <b>"Tải File Excel Import MISA"</b> ở trên (mọi hoá đơn <b>Nợ 1311 – Có 5111</b>) ➡ 
+              <b>Bước 1:</b> Bấm nút xanh <b>"Tải File Excel Import MISA"</b> ở trên (mọi hoá đơn <b>Nợ 1311 – Có 5111x</b> theo Danh mục Định khoản hàng hoá — cột TK Nợ / TK Có ở bảng dưới hiển thị đúng như file) ➡ 
               <b>Bước 2:</b> Mở MISA vào phân hệ <b>Bán hàng</b> ➡ Bấm <b>Tiện ích</b> ➡ <b>Nhập khẩu từ Excel</b> ➡ 
               <b>Bước 3:</b> Chọn file vừa tải về và bấm <b>Thực hiện</b>.<br>📄 File theo đúng <b>mẫu MISA 70 cột</b>: phương thức thanh toán <b>"Chưa thu tiền"</b>, TK Nợ <b>1311</b>, TK doanh thu / thuế GTGT theo Danh mục Định khoản hàng hoá; ô <b>I2, J2</b> (tô vàng) là <b>số chứng từ / số phiếu xuất bắt đầu</b> — sửa cho nối tiếp sổ MISA, các dòng dưới tự chạy.<br><b>Sau đó</b> xuống khu vực <b>"Phiếu Thu AMIS"</b> cuối trang, tải <b>Phiếu thu tiền mặt</b> và <b>Phiếu thu tiền gửi</b> để nhập tiền khách đã trả (Nợ 1111 / 11211…11215 – Có 1311).
             </div>
@@ -423,7 +423,7 @@
             <div style="font-size:12px; color:#7e22ce; margin-top:2px;">
               Tự lập phiếu thu đúng 2 file mẫu AMIS: <b>Nợ 1111</b> (tiền mặt) / <b>Nợ 11211–11215</b> (tiền gửi theo tài khoản nhận) — <b>Có 1311</b>, số chứng từ <b>PT00001…</b> chạy theo thứ tự, không trùng.
               Gồm: tiền thu theo hoá đơn của <b>chuyến / ngày đang chọn ở trên</b> (chuyến đã quyết toán Bước 2), <b>thu nợ khách hàng</b> và <b>tiền khách trả trước</b> nhận vào (theo bộ lọc khu vực Cấn trừ công nợ).
-              <br>📌 <b>Thứ tự nhập MISA:</b> (1) file bán hàng ở trên — mọi hoá đơn <b>Nợ 1311 – Có 5111</b> ➡ (2) <b>Phiếu thu tiền mặt</b> ➡ (3) <b>Phiếu thu tiền gửi</b>. Khách lẻ dùng mã <b>KHÁCH LẺ</b>.
+              <br>📌 <b>Thứ tự nhập MISA:</b> (1) file bán hàng ở trên — mọi hoá đơn <b>Nợ 1311 – Có 5111x</b> ➡ (2) <b>Phiếu thu tiền mặt</b> ➡ (3) <b>Phiếu thu tiền gửi</b>. Khách lẻ dùng mã <b>KHÁCH LẺ</b>.
               Phiếu thu nợ / trả trước ở đây dùng thay cho file "Cấn trừ công nợ" (không nhập cả hai để tránh ghi tiền 2 lần).
             </div>
           </div>
@@ -635,10 +635,28 @@
         tagStatus.innerHTML = "⏳ Chờ xuất MISA";
       }
 
-      await napDongHangChoDotMisa(dotHienTai);
+      await Promise.all([napDongHangChoDotMisa(dotHienTai), napDanhMucDinhKhoanB3()]);
 
       taoDuLieuDongMisa(dotHienTai);
     }
+
+    // Nạp Danh mục "Định khoản hàng hoá" + "Đổi mã khuyến mãi" (misa_ban_hang.js) để bảng hiển thị TK giống file tải về.
+    // Nạp lại tối đa 1 lần / phút; lỗi mạng thì giữ danh mục đã có (hoặc định khoản cũ 1311 – 5111).
+    let lucNapDanhMucDinhKhoanB3 = 0;
+    async function napDanhMucDinhKhoanB3() {
+      if (typeof napDanhMucBanHangMisa !== 'function') return;
+      if (typeof danhMucBanHangMisa !== 'undefined' && danhMucBanHangMisa && Date.now() - lucNapDanhMucDinhKhoanB3 < 60000) return;
+      try {
+        await napDanhMucBanHangMisa();
+        lucNapDanhMucDinhKhoanB3 = Date.now();
+      } catch (e) {
+        console.warn("Lỗi nạp Danh mục Định khoản hàng hoá:", e);
+      }
+    }
+
+    // TK Nợ / TK Có hiển thị: theo định khoản của file MISA nếu đã nạp Danh mục, không thì định khoản gốc
+    function tkNoHienThiMisa(r) { return r.tkNoMisa !== undefined ? r.tkNoMisa : r.tkNo; }
+    function tkCoHienThiMisa(r) { return r.tkCoMisa !== undefined ? r.tkCoMisa : r.tkCo; }
 
     // Nếu chưa có chi tiết dòng hàng hóa, tải từ Supabase chi_tiet_hoa_don
     async function napDongHangChoDotMisa(dot) {
@@ -739,7 +757,7 @@
       tagStatus.innerHTML = daDayHet ? "✅ Đã đẩy MISA (cả ngày)" : `⏳ Chờ xuất MISA (${dsDot.filter(d => !d.daDayMisa).length} xe chưa đẩy)`;
       document.getElementById('tbodyMisa').innerHTML = `<tr><td colspan="17" style="text-align:center; padding:30px; color:var(--text-muted);">⏳ Đang tổng hợp ${dsDot.length} chuyến xe ngày ${ngay}...</td></tr>`;
 
-      await Promise.all(dsDot.map(d => napDongHangChoDotMisa(d)));
+      await Promise.all(dsDot.map(d => napDongHangChoDotMisa(d)).concat([napDanhMucDinhKhoanB3()]));
       if (cheDoNgayMisa !== cd) return; // đã chọn chuyến / ngày khác (hoặc bấm lại) trong lúc tải
 
       // Tính từng chuyến như khi xuất riêng, rồi gộp
@@ -959,6 +977,10 @@
         });
       });
 
+      // TK Nợ / TK Có trên màn hình đúng như file bán hàng MISA tải về: TK doanh thu từng mặt hàng (51111, 51112…)
+      // theo Danh mục "Định khoản hàng hoá", hàng khuyến mại Nợ 13881 (misa_ban_hang.js)
+      if (typeof apDinhKhoanDongBanHangMisa === 'function') dsDongMoi.forEach(apDinhKhoanDongBanHangMisa);
+
       if (chiTinh) return { dong: dsDongMoi, kqTru: kqTruHangTra, hdCoQuyetToan: new Set(mapQuyetToan.keys()) };
       danhSachDongMisa = dsDongMoi;
       veBangMisa();
@@ -1069,6 +1091,13 @@
           if (!match) return;
         }
 
+        // TK theo file MISA tải về; mã hàng chưa có trong Danh mục Định khoản → file để trống TK doanh thu → báo ở đây
+        const tkNoHT = tkNoHienThiMisa(r), tkCoHT = tkCoHienThiMisa(r);
+        const oTkCo = tkCoHT
+          ? `<span class="badge-tk tk-co">${escapeHtml(tkCoHT)}</span>`
+          : `<span class="badge-tk" style="background:#fef3c7; color:#b45309;" title="Mã hàng chưa có trong Danh mục Định khoản hàng hoá — file MISA để trống TK doanh thu, cần bổ sung Danh mục hoặc điền tay">⚠️ Chưa có</span>`;
+        // Mã hàng ghi trên file MISA khác mã KiotViet (hàng khuyến mại đổi mã, mã khác số 0 ở đầu)
+        const maMisaKhac = r.maHangMisa && String(r.maHangMisa).toUpperCase() !== String(r.maHang || '').toUpperCase();
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td style="text-align:center; font-weight:700; color:var(--text-muted);">${r.stt}</td>
@@ -1078,14 +1107,14 @@
           <td><b>${escapeHtml(r.maKH)}</b></td>
           <td>${escapeHtml(r.tenKH)}</td>
           <td style="font-size:11px; color:var(--text-muted);">${escapeHtml(r.dienGiai)}</td>
-          <td><b>${escapeHtml(r.maHang)}</b></td>
+          <td><b>${escapeHtml(r.maHang)}</b>${maMisaKhac ? `<div style="font-size:10.5px; color:#7c3aed; font-weight:700;" title="Mã hàng ghi trên file MISA">→ ${escapeHtml(r.maHangMisa)}</div>` : ''}</td>
           <td>${escapeHtml(r.tenHang)}</td>
           <td style="text-align:center;">${r.dvt}</td>
-          <td style="text-align:right; font-weight:700;">${formatTien(r.soLuong)}</td>
+          <td style="text-align:right; font-weight:700;">${formatSoLuongMisa(r.soLuong)}</td>
           <td style="text-align:right;">${formatTien(r.donGia)}</td>
           <td style="text-align:right; font-weight:800; color:var(--text-main);">${formatTien(r.thanhTien)}</td>
-          <td style="text-align:center;"><span class="badge-tk tk-no">${r.tkNo}</span></td>
-          <td style="text-align:center;"><span class="badge-tk tk-co">${r.tkCo}</span></td>
+          <td style="text-align:center;"><span class="badge-tk tk-no">${escapeHtml(tkNoHT)}</span></td>
+          <td style="text-align:center;">${oTkCo}</td>
           <td style="color:#2563eb; font-weight:700;">${r.tkNganHang || ''}</td>
           <td style="text-align:center;">
             <span class="badge-status ${r.hopLe ? 'badge-done' : 'badge-pending'}">
@@ -1132,7 +1161,7 @@
       document.getElementById('kpiTK131').textContent = formatTien(tien131) + ' đ';
       document.getElementById('kpiTK5212').textContent = formatTien(tien5212) + ' đ';
 
-      document.getElementById('footMisaSL').textContent = formatTien(tongSL);
+      document.getElementById('footMisaSL').textContent = formatSoLuongMisa(tongSL);
       document.getElementById('footMisaTien').textContent = formatTien(tongTien);
 
       const badgeLoi = document.getElementById('badgeKiemTraLoi');
@@ -1474,8 +1503,8 @@
             r.soLuong,
             r.donGia,
             r.thanhTien,
-            r.tkNo,
-            r.tkCo,
+            tkNoHienThiMisa(r),
+            tkCoHienThiMisa(r),
             r.tkNganHang || "",
             r.nguoiBan || ""
           ]);
@@ -1483,7 +1512,15 @@
 
         const ws = XLSX.utils.aoa_to_sheet(rowsData);
         // Giao diện: tiêu đề dòng 1 nền xanh, chữ đậm, có bộ lọc (phieu_thu_misa.js) — không đổi dữ liệu
-        if (typeof dinhDangTieuDeExcelMisa === 'function') dinhDangTieuDeExcelMisa(ws, rowsData.length, headers.length, [11, 12, 13]);
+        if (typeof dinhDangTieuDeExcelMisa === 'function') dinhDangTieuDeExcelMisa(ws, rowsData.length, headers.length, [12, 13]);
+        // Cột Số lượng (L) giữ số lẻ 0,5 / 0,333 — không định dạng #,##0 (làm tròn thành 0 / 1)
+        for (let i = 1; i < rowsData.length; i++) {
+          const o = ws[XLSX.utils.encode_cell({ r: i, c: 11 })];
+          if (!o || typeof o.v !== 'number') continue;
+          const dd = Number.isInteger(o.v) ? "#,##0" : "#,##0.###";
+          o.z = dd;
+          if (o.s) o.s.numFmt = dd;
+        }
 
         // Định dạng độ rộng cột tối ưu
         ws['!cols'] = [
@@ -1532,7 +1569,7 @@
 
       let text = "Ngày HT\tNgày CT\tSố CT\tMã KH\tTên KH\tDiễn giải\tMã hàng\tTên hàng\tĐVT\tSố lượng\tĐơn giá\tThành tiền\tTK Nợ\tTK Có\tTK Ngân hàng\n";
       danhSachDongMisa.forEach(r => {
-        text += `${r.ngayHT}\t${r.ngayCT}\t${r.soCT}\t${r.maKH}\t${r.tenKH}\t${r.dienGiai}\t${r.maHang}\t${r.tenHang}\t${r.dvt}\t${r.soLuong}\t${r.donGia}\t${r.thanhTien}\t${r.tkNo}\t${r.tkCo}\t${r.tkNganHang}\n`;
+        text += `${r.ngayHT}\t${r.ngayCT}\t${r.soCT}\t${r.maKH}\t${r.tenKH}\t${r.dienGiai}\t${r.maHang}\t${r.tenHang}\t${r.dvt}\t${r.soLuong}\t${r.donGia}\t${r.thanhTien}\t${tkNoHienThiMisa(r)}\t${tkCoHienThiMisa(r)}\t${r.tkNganHang}\n`;
       });
 
       navigator.clipboard.writeText(text).then(() => {
@@ -1569,6 +1606,15 @@
     function formatTien(n) {
       if (isNaN(n) || n === null || n === undefined) return "0";
       return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+
+    // Số lượng giữ số lẻ (tối đa 3 chữ số như dữ liệu KiotViet): 0,5 · 0,333 · 1.250 — không làm tròn thành 0 / 1
+    function formatSoLuongMisa(n) {
+      const x = parseFloat(n);
+      if (!isFinite(x)) return "0";
+      const r = Math.round(x * 1000) / 1000;
+      const [nguyen, le] = Math.abs(r).toFixed(3).replace(/0+$/, '').replace(/\.$/, '').split('.');
+      return (r < 0 ? '-' : '') + nguyen.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + (le ? ',' + le : '');
     }
 
     function hienThiToast(msg) {

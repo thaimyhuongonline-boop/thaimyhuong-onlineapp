@@ -115,6 +115,50 @@ function timDinhKhoanBH(dm, maHang) {
   return null;
 }
 
+/**
+ * Định khoản 1 dòng của Bước 3 ĐÚNG NHƯ file bán hàng tải về (taoWorkbookBanHangMisa — cột AC, AI, AJ):
+ *   • Hàng khuyến mại (mã KM đổi sang mã thật, tiền 0): Nợ 13881 – Có TK doanh thu của mã thật
+ *   • Hàng trả lại: Nợ 5212 – Có 1311 (giữ bút toán của Bước 3)
+ *   • Còn lại: Nợ 1311 – Có TK doanh thu của mặt hàng (51111 / 51112 … theo Danh mục "Định khoản hàng hoá")
+ * Trả về { tkNo, tkCo, maHang, tenHang, laKM } — tkCo rỗng = mã hàng chưa có định khoản (file để trống cột AJ);
+ * null khi chưa nạp được Danh mục (giữ nguyên định khoản cũ trên màn hình). r.tkNo / r.tkCo là định khoản gốc của Bước 3.
+ */
+function dinhKhoanDongBanHangMisa(r, dm) {
+  dm = dm || danhMucBanHangMisa;
+  if (!r || !dm || !dm.dinhKhoan || !dm.dinhKhoan.size) return null;
+  let maHang = String(r.maHang || "").trim(), tenHang = String(r.tenHang || "").trim();
+  const doiMa = dm.doiMaKM.get(khoaMaHangBH(maHang));
+  if (doiMa) { maHang = doiMa.ma; tenHang = doiMa.ten || tenHang; }
+  const tongTien = Math.round(parseFloat(r.thanhTien) || 0);
+  const laKM = (!!doiMa || !!r.laKM) && tongTien === 0;
+  const dk = timDinhKhoanBH(dm, maHang);
+  if (dk && String(dk.ma_hang || "").trim() && khoaMaHangBH(dk.ma_hang) !== khoaMaHangBH(maHang)) maHang = String(dk.ma_hang).trim();
+  const tkDoanhThu = String((dk && dk.tk_doanh_thu) || "").trim();
+  const laTraLai = String(r.tkNo || "") === "5212";
+  return {
+    tkNo: laKM ? TK_NO_HANG_KM_MISA : (laTraLai ? "5212" : TK_NO_BAN_HANG_MISA),
+    tkCo: laTraLai ? String(r.tkCo || "") : tkDoanhThu,
+    maHang: maHang,
+    tenHang: tenHang,
+    laKM: laKM
+  };
+}
+
+/**
+ * Ghi định khoản của file MISA vào dòng của bảng Bước 3 (tkNoMisa, tkCoMisa) để màn hình hiển thị giống file tải về.
+ * Không sửa r.tkNo / r.tkCo gốc (file bán hàng vẫn tự tính như cũ).
+ */
+function apDinhKhoanDongBanHangMisa(r) {
+  const dk = dinhKhoanDongBanHangMisa(r);
+  if (!dk) return r;
+  r.tkNoMisa = dk.tkNo;
+  r.tkCoMisa = dk.tkCo;
+  r.maHangMisa = dk.maHang;
+  r.tenHangMisa = dk.tenHang;
+  r.chuaDinhKhoan = !dk.tkCo;
+  return r;
+}
+
 // dd/mm/yyyy (hoặc yyyy-mm-dd) → số ngày của Excel; không đọc được → null
 function soNgayExcelBH(v) {
   const s = String(v || "").trim();
