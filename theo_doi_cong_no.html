@@ -542,6 +542,10 @@
           <div style="font-size:12px; color:var(--text-muted);">
             Hiển thị: <b id="lblSoLuongHienThi" style="color:var(--text-main);">0</b> mục
           </div>
+          <!-- LỌC THEO NHÂN VIÊN BÁN HÀNG (lọc theo từng đơn nợ — áp dụng cả 2 tab) -->
+          <select id="locNVBanHang" class="form-control" style="max-width:240px; font-weight:700;" onchange="locDanhSachCongNo()" title="Lọc công nợ theo nhân viên bán hàng (NV bán của từng hoá đơn)">
+            <option value="tat_ca">🧑‍💼 Tất cả NV bán hàng</option>
+          </select>
         </div>
       </div>
 
@@ -1929,6 +1933,65 @@
         if (ten === valDangChon) opt.selected = true;
         sel.appendChild(opt);
       });
+
+      capNhatDropdownNVBanHang();
+    }
+
+    // Khoá so sánh NV bán hàng: bỏ phần SĐT phía sau tên
+    // ("Trần Cao Nguyên - 0905907601" và "Trần Cao Nguyên" là cùng 1 người)
+    function khoaNVBanHang(ten) {
+      const s = chuanHoaChuoiVN(ten).replace(/\s+/g, ' ');
+      if (!s) return '';
+      return s.replace(/\s*[-–—:,(\/]*\s*\+?\d[\d\s.\-]{6,}\d\)?$/, '').trim() || s;
+    }
+
+    // Đơn nợ có thuộc NV bán hàng đang chọn trong bộ lọc không
+    function donKhopLocNVBanHang(d, locNV) {
+      if (locNV === undefined) locNV = document.getElementById('locNVBanHang')?.value || 'tat_ca';
+      if (!locNV || locNV === 'tat_ca') return true;
+      const khoa = khoaNVBanHang(d.nguoiBan);
+      return locNV === '__chua_co_nv__' ? !khoa : khoa === locNV;
+    }
+
+    // Cập nhật danh sách NV bán hàng vào bộ lọc (lấy từ các đơn nợ đang có trong sổ)
+    function capNhatDropdownNVBanHang() {
+      const sel = document.getElementById('locNVBanHang');
+      if (!sel) return;
+      const valDangChon = sel.value;
+      const mapNV = new Map();   // khoá -> { soDon, tenHienThi: { tên gốc -> số lần } }
+      let coDonChuaCoNV = false;
+
+      danhSachCongNo.forEach(d => {
+        const khoa = khoaNVBanHang(d.nguoiBan);
+        if (!khoa) { coDonChuaCoNV = true; return; }
+        if (!mapNV.has(khoa)) mapNV.set(khoa, { soDon: 0, tenHienThi: new Map() });
+        const nv = mapNV.get(khoa);
+        const tenGoc = String(d.nguoiBan).trim().replace(/\s+/g, ' ');
+        nv.soDon++;
+        nv.tenHienThi.set(tenGoc, (nv.tenHienThi.get(tenGoc) || 0) + 1);
+      });
+
+      const dsNV = Array.from(mapNV.entries()).map(([khoa, nv]) => {
+        // Hiện cách ghi tên xuất hiện nhiều nhất (thường kèm SĐT như trên bảng)
+        const ten = Array.from(nv.tenHienThi.entries()).sort((a, b) => b[1] - a[1] || b[0].length - a[0].length)[0][0];
+        return { khoa, ten, soDon: nv.soDon };
+      }).sort((a, b) => a.ten.localeCompare(b.ten, 'vi'));
+
+      sel.innerHTML = '<option value="tat_ca">🧑‍💼 Tất cả NV bán hàng</option>';
+      dsNV.forEach(nv => {
+        const opt = document.createElement('option');
+        opt.value = nv.khoa;
+        opt.textContent = `${nv.ten} (${nv.soDon} đơn)`;
+        if (nv.khoa === valDangChon) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      if (coDonChuaCoNV) {
+        const opt = document.createElement('option');
+        opt.value = '__chua_co_nv__';
+        opt.textContent = '❔ Chưa có NV bán hàng';
+        if (valDangChon === '__chua_co_nv__') opt.selected = true;
+        sel.appendChild(opt);
+      }
     }
 
     // Cập nhật 4 chỉ số KPI
@@ -1993,6 +2056,7 @@
       const tuKhoa = (document.getElementById('timKiemCongNo')?.value || '').trim().toLowerCase();
       const locKH = document.getElementById('locKhachHang')?.value || 'tat_ca';
       const locTT = document.getElementById('locTrangThai')?.value || 'tat_ca';
+      const locNV = document.getElementById('locNVBanHang')?.value || 'tat_ca';
       const tuNgay = document.getElementById('locTuNgay')?.value || '';
       const denNgay = document.getElementById('locDenNgay')?.value || '';
       // Đánh giá hạn mức công nợ (số ngày / số tiền) trên toàn sổ — dùng cho huy hiệu & bộ lọc
@@ -2017,6 +2081,9 @@
             return false;
           }
         }
+
+        // 2b. Lọc NV bán hàng (theo NV bán của từng đơn nợ)
+        if (!donKhopLocNVBanHang(d, locNV)) return false;
 
         // 3. Lọc ngày: Chuẩn hóa mọi định dạng ngày sang YYYY-MM-DD để so sánh chính xác tuyệt đối
         const ngayGhiRaw = d.ngayGiao || d.ngayGhiNo || '';
@@ -2455,6 +2522,8 @@
       if (locTT === 'da_thu_mot_phan' && (conLai <= 0 || daThu === 0)) return false;
       if (locTT === 'da_thu_du' && (d.trangThai !== 'da_thu_du' && conLai > 0)) return false;
       if (locTT === 'vuot_han_muc' && !donViPhamHanMuc(d)) return false;
+      // Đang lọc 1 NV bán hàng → khách đã tích chỉ lấy các đơn của NV đó
+      if (!donKhopLocNVBanHang(d)) return false;
       const ngay = ngayNoCuaDon(d);
       if (ngay) {
         if (tuNgay && ngay < tuNgay) return false;
@@ -2478,6 +2547,8 @@
       const phan = [];
       if (tuNgay || denNgay) phan.push(`Ngày nợ ${tuNgay ? 'từ ' + dinhDangNgayVN(tuNgay) : ''} ${denNgay ? 'đến ' + dinhDangNgayVN(denNgay) : ''}`.trim());
       if (locTT && locTT.value !== 'tat_ca') phan.push(locTT.options[locTT.selectedIndex].text);
+      const locNV = document.getElementById('locNVBanHang');
+      if (locNV && locNV.value !== 'tat_ca' && locNV.selectedIndex >= 0) phan.push('NV bán: ' + locNV.options[locNV.selectedIndex].text.replace(/\s*\(\d+ đơn\)$/, ''));
       return phan.length ? ' · Lọc: ' + phan.join(' · ') : '';
     }
 
