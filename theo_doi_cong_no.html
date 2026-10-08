@@ -546,11 +546,6 @@
           <select id="locNVBanHang" class="form-control" style="max-width:240px; min-width:180px; font-weight:700;" onchange="locDanhSachCongNo()" title="Lọc công nợ theo nhân viên bán hàng (NV bán của từng hoá đơn)">
             <option value="tat_ca">🧑‍💼 Tất cả NV bán hàng</option>
           </select>
-          <!-- BỔ SUNG NV BÁN HÀNG CHO HOÁ ĐƠN BỊ TRỐNG TÊN (lấy từ file KiotViet gốc) -->
-          <button type="button" class="btn btn-outline" style="height:32px; padding:0 10px; font-size:11.5px; white-space:nowrap;" onclick="document.getElementById('fileKiotVietNguoiBanCN').click()" title="Hoá đơn bị trống tên NV bán hàng: nạp file KiotViet (Danh sách hoá đơn / Danh sách chi tiết hoá đơn) để lấy 'Người bán' theo đúng mã hoá đơn — chỉ điền hoá đơn đang trống, lưu lên máy chủ">
-            <span>📂</span> Bổ sung NV bán từ file KiotViet
-          </button>
-          <input type="file" id="fileKiotVietNguoiBanCN" accept=".xlsx,.xls,.csv" multiple style="display:none;" onchange="boSungNguoiBanTuFileKiotVietCN(this)">
         </div>
       </div>
 
@@ -1339,6 +1334,63 @@
   </div>
 
   <!-- ======================================================== -->
+  <!-- SỬA / THÊM TÊN NV BÁN HÀNG CHO ĐƠN NỢ (nút "✏️ NV bán")   -->
+  <!-- ======================================================== -->
+  <div id="modalSuaNVBan" class="modal-overlay no-print" style="display:none;" onclick="if(event.target===this) dongModalSuaNVBan()">
+    <div class="modal-card" style="max-width:760px;">
+      <div class="modal-header">
+        <div>
+          <div style="font-weight:800; font-size:14px; color:var(--text-main);">✏️ Sửa NV Bán Hàng</div>
+          <div style="font-size:11.5px; color:var(--text-muted);" id="snbTieuDe">Chọn tên NV bán hàng rồi tích các đơn nợ cần áp dụng</div>
+        </div>
+        <button type="button" class="btn btn-outline" style="height:28px; padding:0 8px; font-weight:800;" onclick="dongModalSuaNVBan()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group" style="margin-bottom:6px;">
+          <label><span style="color:#dc2626; font-weight:800;">*</span> NV Bán Hàng:</label>
+          <select id="snbChonNV" class="form-control" style="font-weight:700; font-size:13px;"></select>
+          <div id="snbGoiY" style="margin-top:5px; font-size:11.5px; color:#1d4ed8;"></div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap; margin-top:8px;">
+          <div style="font-size:12px; font-weight:800; color:var(--text-main);" id="snbDemChon">Áp dụng cho 0 đơn nợ đã tích</div>
+          <div style="display:flex; gap:6px;">
+            <button type="button" class="btn btn-outline" style="height:26px; padding:0 8px; font-size:11px;" onclick="chonDonSuaNVBan('trong')">Chọn đơn trống tên</button>
+            <button type="button" class="btn btn-outline" style="height:26px; padding:0 8px; font-size:11px;" onclick="chonDonSuaNVBan('tat_ca')">Chọn tất cả</button>
+            <button type="button" class="btn btn-outline" style="height:26px; padding:0 8px; font-size:11px;" onclick="chonDonSuaNVBan('bo')">Bỏ chọn</button>
+          </div>
+        </div>
+        <div class="table-container" style="max-height:300px; overflow-y:auto; margin-top:6px;">
+          <table class="table-cong-no">
+            <thead>
+              <tr>
+                <th class="o-chon"></th>
+                <th style="width:90px;">Ngày Nợ</th>
+                <th style="width:120px;">Mã HĐ</th>
+                <th style="width:110px;">Chuyến Xe</th>
+                <th style="width:105px; text-align:right;">Còn Nợ</th>
+                <th>NV Bán Hiện Tại</th>
+              </tr>
+            </thead>
+            <tbody id="snbTbody">
+              <!-- Render động -->
+            </tbody>
+          </table>
+        </div>
+
+        <div style="margin-top:10px; font-size:11.5px; color:var(--text-muted); background:#f5f3ff; border:1px solid #ddd6fe; border-radius:var(--radius-sm); padding:8px 10px;">
+          📌 Chỉ đổi <b>tên NV bán hàng</b> của hoá đơn, <b>không đụng số tiền</b>. Tên được lưu lên máy chủ (hoá đơn của chuyến xe) → mọi máy, Bước 3 (cột Mã NV bán hàng của file MISA) và báo cáo cùng thấy tên mới.
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:12px;">
+          <button type="button" class="btn btn-outline" onclick="dongModalSuaNVBan()">Hủy</button>
+          <button type="button" class="btn btn-primary" id="snbNutLuu" onclick="luuSuaNVBanHang()">💾 Lưu NV Bán Hàng</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
   <!-- MẪU IN BIÊN BẢN ĐỐI CHIẾU CÔNG NỢ CHI TIẾT A4             -->
   <!-- ======================================================== -->
   <div id="khuVucInDoiChieuCongNoA4" class="print-only">
@@ -1812,9 +1864,10 @@
                   item.maKH = r.ma_kh;
                   coThayDoi = true;
                 }
-                // Đơn nợ đang trống NV bán hàng → lấy tên trên máy chủ (vd. vừa bổ sung từ file KiotViet ở máy khác)
-                if (!String(item.nguoiBan || '').trim() && String(r.nguoi_ban || '').trim()) {
-                  item.nguoiBan = String(r.nguoi_ban).trim();
+                // NV bán hàng theo máy chủ (luu_tru là gốc — vd. vừa sửa "✏️ NV bán" ở máy khác / bổ sung ở Bước 3)
+                const nbMayChu = String(r.nguoi_ban || '').trim();
+                if (nbMayChu && nbMayChu !== String(item.nguoiBan || '').trim()) {
+                  item.nguoiBan = nbMayChu;
                   coThayDoi = true;
                 }
               }
@@ -1976,140 +2029,6 @@
       return locNV === '__chua_co_nv__' ? !khoa : khoa === locNV;
     }
 
-    // ========================================================
-    // BỔ SUNG NV BÁN HÀNG TỪ FILE KIOTVIET (nút "📂 Bổ sung NV bán từ file KiotViet")
-    // --------------------------------------------------------
-    // Hoá đơn của các chuyến từng "lưu lại" ở Bước 1 (trước bản sửa 08/10) bị mất tên người bán trên luu_tru
-    // → sổ công nợ trống cột NV Bán Hàng. Lấy "Người bán" theo ĐÚNG mã hoá đơn trong file KiotViet, CHỈ điền
-    // hoá đơn đang trống tên (không sửa tên đã có): ghi luu_tru.nguoi_ban trên máy chủ (máy khác tự nhận khi
-    // tải lại sổ) + đơn nợ trong sổ trên máy này.
-    // ========================================================
-    async function docNguoiBanTuFileKiotVietCN(file) {
-      const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
-      const map = new Map();
-      wb.SheetNames.forEach(tenSheet => {
-        XLSX.utils.sheet_to_json(wb.Sheets[tenSheet], { defval: '' }).forEach(r => {
-          let ma = '', nb = '';
-          Object.keys(r).forEach(k => {
-            const cot = String(k).normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase();
-            if (cot === 'mã hóa đơn' || cot === 'mã hoá đơn') ma = String(r[k] || '').trim().toUpperCase();
-            else if (cot === 'người bán') nb = String(r[k] || '').normalize('NFC').trim();
-          });
-          if (ma && nb && !map.has(ma)) map.set(ma, nb);
-        });
-      });
-      return map;
-    }
-
-    async function boSungNguoiBanTuFileKiotVietCN(input) {
-      const files = Array.from((input && input.files) || []);
-      if (input) input.value = '';
-      if (!files.length) return;
-      if (chanNeuChiXem()) return;
-      if (typeof sb === 'undefined') {
-        alert('❌ Chưa kết nối máy chủ — không bổ sung được NV bán hàng.');
-        return;
-      }
-
-      // 1. Đọc file: mã hoá đơn → người bán
-      const mapFile = new Map();
-      for (const f of files) {
-        try {
-          (await docNguoiBanTuFileKiotVietCN(f)).forEach((nb, ma) => { if (!mapFile.has(ma)) mapFile.set(ma, nb); });
-        } catch (e) {
-          alert(`❌ Không đọc được file "${f.name}": ${(e && e.message) || e}`);
-          return;
-        }
-      }
-      if (!mapFile.size) {
-        alert('⚠️ File không có cột "Mã hóa đơn" và "Người bán".\n\nHãy xuất file "Danh sách hoá đơn" hoặc "Danh sách chi tiết hoá đơn" trên KiotViet (đúng ngày bán của các hoá đơn) rồi nạp lại.');
-        return;
-      }
-      // Mã hoá đơn KiotViet sửa lại có đuôi .01 / .02… → so thêm theo mã gốc (chỉ khi mã gốc chỉ có 1 người bán)
-      const maGoc = ma => String(ma || '').split('.')[0];
-      const nbTheoMaGoc = new Map();
-      mapFile.forEach((nb, ma) => {
-        const g = maGoc(ma);
-        if (!nbTheoMaGoc.has(g)) nbTheoMaGoc.set(g, new Set());
-        nbTheoMaGoc.get(g).add(nb);
-      });
-      const timNguoiBan = ma => {
-        const m = chuanMaHD(ma);
-        if (mapFile.has(m)) return mapFile.get(m);
-        const s = nbTheoMaGoc.get(maGoc(m));
-        return (s && s.size === 1) ? Array.from(s)[0] : '';
-      };
-
-      baoNhanhCongNo('⏳ Đang đối chiếu hoá đơn trống tên NV bán hàng trên máy chủ…');
-      // 2. Hoá đơn trên máy chủ đang TRỐNG người bán (đọc theo trang — máy chủ trả tối đa 1000 dòng / lần)
-      const dsTrong = [];
-      try {
-        for (let tu = 0; ; tu += 1000) {
-          const { data, error } = await sb.from('luu_tru').select('ma_hd, nguoi_ban, ngay_giao')
-            .or('nguoi_ban.is.null,nguoi_ban.eq.').order('ma_hd').range(tu, tu + 999);
-          if (error) throw error;
-          dsTrong.push(...(data || []));
-          if (!data || data.length < 1000) break;
-        }
-      } catch (e) {
-        alert('❌ Không đọc được danh sách hoá đơn trên máy chủ: ' + ((e && e.message) || e) + '\n\nChưa có dữ liệu nào bị thay đổi.');
-        return;
-      }
-
-      // 3. Ghi máy chủ: gom theo người bán, CHỈ cập nhật dòng vẫn đang trống tên
-      const canDien = new Map();   // mã HĐ (đúng như trên luu_tru) → người bán
-      dsTrong.forEach(r => { const nb = timNguoiBan(r.ma_hd); if (nb) canDien.set(r.ma_hd, nb); });
-      const theoNguoiBan = new Map();
-      canDien.forEach((nb, ma) => { if (!theoNguoiBan.has(nb)) theoNguoiBan.set(nb, []); theoNguoiBan.get(nb).push(ma); });
-      let soGhiMayChu = 0, soLoi = 0;
-      const chiTietLoi = [];
-      for (const [nb, dsMa] of theoNguoiBan) {
-        for (let i = 0; i < dsMa.length; i += 150) {
-          const lo = dsMa.slice(i, i + 150);
-          try {
-            const { data, error } = await sb.from('luu_tru').update({ nguoi_ban: nb }).in('ma_hd', lo)
-              .or('nguoi_ban.is.null,nguoi_ban.eq.').select('ma_hd');
-            if (error) throw error;
-            soGhiMayChu += Array.isArray(data) ? data.length : 0;
-            if (!Array.isArray(data) || data.length < lo.length) {
-              soLoi += lo.length - (Array.isArray(data) ? data.length : 0);
-              if (chiTietLoi.length < 3) chiTietLoi.push(`${nb}: máy chủ không ghi ${lo.length - (Array.isArray(data) ? data.length : 0)} HĐ`);
-            }
-          } catch (e) {
-            soLoi += lo.length;
-            if (chiTietLoi.length < 3) chiTietLoi.push(`${nb}: ${(e && e.message) || e}`);
-          }
-        }
-      }
-
-      // 4. Sổ công nợ trên máy này: đơn nợ đang trống NV bán hàng
-      let soDonSo = 0;
-      danhSachCongNo.forEach(d => {
-        if (String(d.nguoiBan || '').trim()) return;
-        const nb = canDien.get(d.maHD) || timNguoiBan(d.maHD);
-        if (nb) { d.nguoiBan = nb; soDonSo++; }
-      });
-      if (soDonSo) ghiSoCongNo(danhSachCongNo);
-      capNhatDropdownKhachHang();
-      veBangCongNo();
-
-      // 5. Báo kết quả + hoá đơn còn trống tên (để nạp thêm file đúng ngày)
-      const conTrong = dsTrong.filter(r => !canDien.has(r.ma_hd));
-      const ngayConTrong = Array.from(new Set(conTrong.map(r => r.ngay_giao).filter(Boolean)))
-        .sort((a, b) => chuanHoaNgayYYYYMMDD(a).localeCompare(chuanHoaNgayYYYYMMDD(b)));
-      const soDonNoConTrong = danhSachCongNo.filter(d => !String(d.nguoiBan || '').trim()).length;
-      alert(`✅ Đã đọc ${mapFile.size} hoá đơn trong ${files.length} file KiotViet.\n\n` +
-        `• Máy chủ: điền NV bán hàng cho ${soGhiMayChu} hoá đơn đang trống tên` +
-        (soLoi ? `\n⚠️ ${soLoi} hoá đơn chưa ghi được lên máy chủ (${chiTietLoi.join('; ')})` : '') +
-        `\n• Sổ công nợ: điền tên cho ${soDonSo} đơn nợ` +
-        (conTrong.length
-          ? `\n\nCòn ${conTrong.length} hoá đơn trên máy chủ trống tên NV (không có trong file đã nạp)` +
-            (ngayConTrong.length ? ` — ngày giao: ${ngayConTrong.slice(0, 10).join(', ')}${ngayConTrong.length > 10 ? '…' : ''}` : '') +
-            `.\nXuất thêm file KiotViet của các ngày này rồi nạp tiếp.`
-          : `\n\n🎉 Máy chủ không còn hoá đơn nào trống tên NV bán hàng.`) +
-        (soDonNoConTrong ? `\n(Sổ công nợ còn ${soDonNoConTrong} đơn nợ chưa có NV bán hàng.)` : ''));
-    }
-
     // Cập nhật danh sách NV bán hàng vào bộ lọc (lấy từ các đơn nợ đang có trong sổ)
     function capNhatDropdownNVBanHang() {
       const sel = document.getElementById('locNVBanHang');
@@ -2148,6 +2067,238 @@
         opt.textContent = '❔ Chưa có NV bán hàng';
         if (valDangChon === '__chua_co_nv__') opt.selected = true;
         sel.appendChild(opt);
+      }
+    }
+
+    // ========================================================
+    // SỬA / THÊM TÊN NV BÁN HÀNG (nút "✏️ NV bán" ở cột Thao tác)
+    // --------------------------------------------------------
+    // Chọn tên trong danh sách NV bán hàng (Danh mục nv_kinh_doanh + tên đã có trong sổ) → ghi nguoi_ban của
+    // ĐÚNG các hoá đơn đã tích lên máy chủ (luu_tru; đơn ngoài bảng kê: cong_no_ngoai_bang_ke) rồi mới đổi
+    // trên sổ & lịch sử chuyến của máy này. Hoá đơn máy chủ không ghi được thì giữ nguyên (tránh mỗi máy 1 tên).
+    // ========================================================
+    let snbKhachDangSua = '';
+    let snbChon = new Set();
+    let snbDsNVCache = null, snbLucNapNV = 0;
+
+    function khoaTenNVGon(ten) {
+      return String(ten || '').normalize('NFC').split(/\s+-\s+/)[0].replace(/\s+/g, ' ').trim().toLowerCase();
+    }
+
+    function laDonNgoaiBangKeSNB(d) {
+      return !!(d && (d.ngoaiBangKe || d.xe === 'Ngoài bảng kê' || d.maDot === 'NGOAI_BANG_KE'));
+    }
+
+    function dsDonSuaNVBan() {
+      return danhSachCongNo.filter(d => khoaKhachCongNo(d) === snbKhachDangSua)
+        .sort((a, b) => String(ngayNoCuaDon(b)).localeCompare(String(ngayNoCuaDon(a))) || String(b.maHD).localeCompare(String(a.maHD)));
+    }
+
+    // Danh sách NV bán hàng cho ô chọn: mã MISA NVKDxx (Danh mục) trước, rồi tên đã có trong sổ, rồi danh mục khác
+    async function napDanhSachNVBanHangSNB() {
+      const theoKhoa = new Map();   // tên gọn → { ten, ma, uuTien }
+      const them = (ten, ma, uuTien) => {
+        ten = String(ten || '').normalize('NFC').replace(/\s+/g, ' ').trim();
+        const k = khoaTenNVGon(ten);
+        if (!k) return;
+        const cu = theoKhoa.get(k);
+        if (!cu || uuTien < cu.uuTien) theoKhoa.set(k, { ten, ma: ma || (cu && cu.ma) || '', uuTien });
+        else if (ma && !cu.ma) cu.ma = ma;
+      };
+      if (!snbDsNVCache || Date.now() - snbLucNapNV > 60000) {
+        if (typeof sb !== 'undefined') {
+          try {
+            const { data, error } = await sb.from('nv_kinh_doanh').select('ma_nv, ho_ten, so_dien_thoai');
+            if (!error && Array.isArray(data)) { snbDsNVCache = data; snbLucNapNV = Date.now(); }
+          } catch (e) { console.warn('Không đọc được danh mục NV kinh doanh:', e); }
+        }
+      }
+      (snbDsNVCache || []).forEach(r => {
+        const ma = String(r.ma_nv || '').trim();
+        const laMaMisa = /^NVKD/i.test(ma);
+        let ten = String(r.ho_ten || '').trim();
+        if (!laMaMisa && ten && r.so_dien_thoai && !/\d{3}/.test(ten)) ten += ' - ' + String(r.so_dien_thoai).trim();
+        them(ten, laMaMisa ? ma : '', laMaMisa ? 0 : 2);
+      });
+      danhSachCongNo.forEach(d => them(d.nguoiBan, '', 1));
+      try {
+        JSON.parse(localStorage.getItem('tmh_danh_muc_nv_kinh_doanh') || '[]').forEach(n => them(n.ho_ten || n.ten_nv || n.ten, '', 3));
+      } catch (e) {}
+      return Array.from(theoKhoa.values()).sort((a, b) => a.ten.localeCompare(b.ten, 'vi'));
+    }
+
+    // Gợi ý: NV bán các hoá đơn khác của chính khách này (trong sổ + hoá đơn trước trên máy chủ theo mã KH)
+    async function goiYNVChoKhachSNB(dsDonKhach) {
+      const dem = new Map();
+      dsDonKhach.forEach(d => {
+        const nb = String(d.nguoiBan || '').trim();
+        if (nb) dem.set(nb, (dem.get(nb) || 0) + 1);
+      });
+      const maKH = (dsDonKhach.find(d => d.maKH) || {}).maKH;
+      if (maKH && typeof sb !== 'undefined') {
+        try {
+          const setMaSo = new Set(dsDonKhach.map(d => chuanMaHD(d.maHD)));
+          const { data, error } = await sb.from('luu_tru').select('ma_hd, nguoi_ban').eq('ma_kh', maKH).neq('nguoi_ban', '')
+            .order('tao_luc', { ascending: false }).limit(30);
+          if (!error && Array.isArray(data)) data.forEach(r => {
+            const nb = String(r.nguoi_ban || '').trim();
+            if (nb && !setMaSo.has(chuanMaHD(r.ma_hd))) dem.set(nb, (dem.get(nb) || 0) + 1);
+          });
+        } catch (e) { console.warn('Không đọc được hoá đơn trước của khách:', e); }
+      }
+      return Array.from(dem.entries()).map(([ten, so]) => ({ ten, so })).sort((a, b) => b.so - a.so);
+    }
+
+    async function moSuaNVBanHang(tenKHRaw, idDon) {
+      if (chanNeuChiXem()) return;
+      const tenKH = decodeURIComponent(tenKHRaw);
+      snbKhachDangSua = tenKH;
+      const dsDon = dsDonSuaNVBan();
+      if (!dsDon.length) { snbKhachDangSua = ''; alert('⚠️ Không tìm thấy đơn nợ của khách này trong sổ.'); return; }
+      const laTrong = d => !String(d.nguoiBan || '').trim();
+      snbChon = new Set(idDon ? [idDon] : (dsDon.some(laTrong) ? dsDon.filter(laTrong) : dsDon).map(d => d.id));
+
+      document.getElementById('snbTieuDe').textContent = `${tenKH} — ${dsDon.length} đơn nợ trong sổ`;
+      const sel = document.getElementById('snbChonNV');
+      sel.innerHTML = '<option value="">⏳ Đang tải danh sách NV bán hàng…</option>';
+      document.getElementById('snbGoiY').innerHTML = '';
+      const nut = document.getElementById('snbNutLuu');
+      nut.disabled = false;
+      nut.textContent = '💾 Lưu NV Bán Hàng';
+      document.getElementById('modalSuaNVBan').style.display = 'flex';
+      veBangSuaNVBan();
+
+      const [dsNV, goiY] = await Promise.all([napDanhSachNVBanHangSNB(), goiYNVChoKhachSNB(dsDon)]);
+      if (snbKhachDangSua !== tenKH) return;   // đã đóng / mở khách khác
+
+      const donDau = idDon ? dsDon.find(d => d.id === idDon) : null;
+      let chonSan = String((donDau && donDau.nguoiBan) || '').trim();
+      if (!chonSan && goiY.length) chonSan = goiY[0].ten;
+      const coSan = dsNV.some(nv => nv.ten === chonSan);
+      sel.innerHTML = '<option value="">-- Chọn NV bán hàng --</option>' +
+        (chonSan && !coSan ? `<option value="${escapeHtml(chonSan)}">${escapeHtml(chonSan)}</option>` : '') +
+        dsNV.map(nv => `<option value="${escapeHtml(nv.ten)}">${escapeHtml(nv.ten)}${nv.ma ? ' · ' + escapeHtml(nv.ma) : ''}</option>`).join('');
+      sel.value = chonSan || '';
+      document.getElementById('snbGoiY').innerHTML = goiY.length
+        ? '💡 Các hoá đơn khác của khách này do ' + goiY.slice(0, 3).map(g => `<b>${escapeHtml(g.ten)}</b> (${g.so} HĐ)`).join(', ') + ' bán' +
+          (!(donDau && String(donDau.nguoiBan || '').trim()) ? ' — đã chọn sẵn tên bán nhiều nhất, kiểm tra lại trước khi lưu.' : '.')
+        : '';
+    }
+
+    function veBangSuaNVBan() {
+      const ds = dsDonSuaNVBan();
+      document.getElementById('snbTbody').innerHTML = ds.map(d => `
+        <tr class="${snbChon.has(d.id) ? 'dong-da-chon' : ''}">
+          <td class="o-chon"><input type="checkbox" class="snb-chk" value="${escapeHtml(d.id)}" ${snbChon.has(d.id) ? 'checked' : ''} onchange="capNhatChonSuaNVBan(this)"></td>
+          <td style="white-space:nowrap;">${escapeHtml(d.ngayGiao || d.ngayGhiNo || '--')}</td>
+          <td><b style="font-family:monospace; font-size:12.5px;">${escapeHtml(d.maHD || '')}</b></td>
+          <td>${laDonNgoaiBangKeSNB(d) ? 'Ngoài bảng kê' : escapeHtml(d.xe || '--')}</td>
+          <td class="num-cell" style="color:#dc2626;">${formatTien(conLaiCuaDon(d))}</td>
+          <td>${String(d.nguoiBan || '').trim() ? escapeHtml(d.nguoiBan) : '<span style="color:#dc2626; font-weight:700;">(trống)</span>'}</td>
+        </tr>`).join('');
+      document.getElementById('snbDemChon').textContent = `Áp dụng cho ${ds.filter(d => snbChon.has(d.id)).length}/${ds.length} đơn nợ đã tích`;
+    }
+
+    function capNhatChonSuaNVBan(chk) {
+      if (chk.checked) snbChon.add(chk.value); else snbChon.delete(chk.value);
+      veBangSuaNVBan();
+    }
+
+    function chonDonSuaNVBan(kieu) {
+      const ds = dsDonSuaNVBan();
+      if (kieu === 'bo') snbChon = new Set();
+      else if (kieu === 'trong') snbChon = new Set(ds.filter(d => !String(d.nguoiBan || '').trim()).map(d => d.id));
+      else snbChon = new Set(ds.map(d => d.id));
+      veBangSuaNVBan();
+    }
+
+    function dongModalSuaNVBan() {
+      document.getElementById('modalSuaNVBan').style.display = 'none';
+      snbKhachDangSua = '';
+      snbChon = new Set();
+    }
+
+    async function luuSuaNVBanHang() {
+      if (chanNeuChiXem()) return;
+      const nb = String(document.getElementById('snbChonNV').value || '').trim();
+      if (!nb) { alert('⚠️ Hãy chọn tên NV bán hàng.'); return; }
+      const dsTich = dsDonSuaNVBan().filter(d => snbChon.has(d.id));
+      if (!dsTich.length) { alert('⚠️ Hãy tích ít nhất 1 đơn nợ cần đổi NV bán hàng.'); return; }
+      const canDoi = dsTich.filter(d => String(d.nguoiBan || '').trim() !== nb);
+      if (!canDoi.length) { alert(`ℹ️ ${dsTich.length} đơn đã tích đều đang là NV "${nb}" rồi.`); return; }
+      if (typeof sb === 'undefined') {
+        alert('❌ Chưa kết nối máy chủ nên chưa đổi được NV bán hàng (phải lưu trên máy chủ để mọi máy cùng thấy).');
+        return;
+      }
+      const coTenCu = canDoi.filter(d => String(d.nguoiBan || '').trim());
+      if (coTenCu.length && !confirm(`⚠️ ${coTenCu.length} đơn đang có tên NV bán hàng KHÁC:\n\n` +
+        coTenCu.slice(0, 8).map(d => `• ${d.maHD} — ${d.nguoiBan}`).join('\n') + (coTenCu.length > 8 ? `\n… và ${coTenCu.length - 8} đơn khác` : '') +
+        `\n\nĐổi sang "${nb}"?`)) return;
+
+      const nut = document.getElementById('snbNutLuu');
+      nut.disabled = true;
+      nut.textContent = '⏳ Đang lưu…';
+      const daGhi = new Set();   // mã HĐ máy chủ đã ghi
+      const loi = [];
+      const chiMayNay = [];      // đơn ngoài bảng kê máy chủ không cho sửa
+      try {
+        // a) Hoá đơn của chuyến xe → luu_tru
+        const maLT = Array.from(new Set(canDoi.filter(d => !laDonNgoaiBangKeSNB(d)).map(d => d.maHD).filter(Boolean)));
+        for (let i = 0; i < maLT.length; i += 150) {
+          try {
+            const { data, error } = await sb.from('luu_tru').update({ nguoi_ban: nb }).in('ma_hd', maLT.slice(i, i + 150)).select('ma_hd');
+            if (error) throw error;
+            (data || []).forEach(r => daGhi.add(chuanMaHD(r.ma_hd)));
+          } catch (e) { loi.push((e && e.message) || String(e)); }
+        }
+        // b) Đơn ngoài bảng kê → cong_no_ngoai_bang_ke
+        for (const d of canDoi.filter(laDonNgoaiBangKeSNB)) {
+          try {
+            const { data, error } = await sb.from('cong_no_ngoai_bang_ke').update({ nguoi_ban: nb }).eq('id', d.id).select('id');
+            if (error || !Array.isArray(data) || !data.length) chiMayNay.push(d.maHD);
+          } catch (e) { chiMayNay.push(d.maHD); }
+        }
+      } finally {
+        nut.disabled = false;
+        nut.textContent = '💾 Lưu NV Bán Hàng';
+      }
+
+      // c) Máy này: chỉ đổi đơn máy chủ đã ghi (đơn ngoài bảng kê luôn đổi trên máy này)
+      let soDoi = 0;
+      const khongGhi = [];
+      canDoi.forEach(d => {
+        if (laDonNgoaiBangKeSNB(d) || daGhi.has(chuanMaHD(d.maHD))) { d.nguoiBan = nb; soDoi++; }
+        else khongGhi.push(d.maHD);
+      });
+      if (daGhi.size) {
+        try {
+          const ls = JSON.parse(localStorage.getItem('tmh_lich_su_dot') || '[]');
+          let doiLS = false;
+          ls.forEach(dot => (dot.danhSachChiTiet || []).forEach(it => {
+            if (it && daGhi.has(chuanMaHD(it.maHD || it.ma_hd)) && it.nguoiBan !== nb) { it.nguoiBan = nb; doiLS = true; }
+          }));
+          if (doiLS) localStorage.setItem('tmh_lich_su_dot', JSON.stringify(ls));
+        } catch (e) { console.warn('Không cập nhật được lịch sử chuyến trên máy:', e); }
+      }
+      if (soDoi) {
+        ghiSoCongNo(danhSachCongNo);
+        capNhatDropdownKhachHang();
+        veBangCongNo();
+        if (khachHangDangXemLichSu) moLichSuDonKhachHang(encodeURIComponent(khachHangDangXemLichSu));
+      }
+
+      if (khongGhi.length) {
+        veBangSuaNVBan();
+        alert(`❌ Máy chủ chưa ghi được NV bán hàng cho ${khongGhi.length} hoá đơn (giữ nguyên tên cũ, chưa đổi gì):\n` +
+          khongGhi.slice(0, 10).join(', ') + (khongGhi.length > 10 ? '…' : '') +
+          (loi.length ? `\n\nLỗi: ${loi[0]}` : '\n\n(Hoá đơn không còn trên máy chủ hoặc máy chủ không cho sửa.)') +
+          (soDoi ? `\n\n✅ ${soDoi} đơn khác đã đổi sang "${nb}".` : ''));
+        return;
+      }
+      dongModalSuaNVBan();
+      baoNhanhCongNo(`✅ Đã lưu NV bán hàng "${nb}" cho ${soDoi} đơn nợ`);
+      if (chiMayNay.length) {
+        alert(`ℹ️ Đơn ngoài bảng kê ${chiMayNay.join(', ')}: máy chủ chưa cho sửa NV bán hàng nên tên mới chỉ lưu trên máy này.`);
       }
     }
 
@@ -2389,6 +2540,10 @@
                       onclick="inDoiChieuChoKhach(${escapeHtml(JSON.stringify(encodeURIComponent(k.tenKH)))})">
                       🖨️ In
                     </button>
+                    <button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:11px; color:#7c3aed; border-color:#c4b5fd;"
+                      onclick="moSuaNVBanHang(${escapeHtml(JSON.stringify(encodeURIComponent(k.tenKH)))})" title="Sửa / thêm tên NV bán hàng cho các đơn nợ của khách này">
+                      ✏️ NV bán
+                    </button>
                   </div>
                   ${oKiemTraCongNo(k.tenKH, congNoToanSo)}
                 </td>
@@ -2491,6 +2646,9 @@
                         ↩️ Hoàn gạch
                       </button>
                     ` : ''}
+                    <button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:11px; color:#7c3aed; border-color:#c4b5fd;" onclick="moSuaNVBanHang(${escapeHtml(JSON.stringify(encodeURIComponent(d.tenKH || 'Khách Lẻ')))}, ${escapeHtml(JSON.stringify(d.id))})" title="Sửa / thêm tên NV bán hàng của đơn nợ này">
+                      ✏️ NV
+                    </button>
                     <button type="button" class="btn btn-outline" style="height:26px; padding:0 6px; font-size:11px; color:#dc2626; border-color:#fca5a5;" onclick="xoaDonNo(${escapeHtml(JSON.stringify(d.id))})" title="Xoá dòng này">
                       🗑️
                     </button>
