@@ -2251,6 +2251,8 @@
         ...r, ngay: ngayGiao, xe: xe, taiXe: taiXe, giaoHang: nvGiao, thuTien: nvThu,
         tienMat: 0, chuyenKhoan: 0, traVe: 0, noPhatSinh: 0, maDot: maDot, laGiaoLai: false
       }));
+      // Hoá đơn bổ sung trống "Người bán" → giữ tên đã có trên máy chủ (không ghi đè thành rỗng)
+      await giuNguoiBanKhiLuuChuyen(chiTietBS, null, [cacDongBS, dongBangKe]);
 
       // 1. Máy chủ: chỉ ghi các HĐ bổ sung (cùng mã chuyến) — không đụng dòng của các HĐ cũ
       if (typeof sb !== 'undefined') {
@@ -4150,6 +4152,55 @@
     // LƯU ĐỢT NÀY VÀO LỊCH SỬ SANG BƯỚC 3
     // ========================================================
 
+    // GIỮ TÊN NV BÁN HÀNG KHI LƯU CHUYẾN: hoá đơn đang trống "Người bán" (dòng hàng dựng lại từ chi_tiet_hoa_don
+    // khi lưu lại chuyến, đơn hẹn giao lại tải từ máy chủ…) → lấy tên đã có của CHÍNH hoá đơn đó trên luu_tru
+    // (rồi tới lịch sử chuyến trên máy này), để lưu chuyến không ghi đè người bán thành rỗng.
+    // Điền luôn vào các danh sách kèm theo (Bảng kê đang hiện, dòng hàng KiotViet). Trả về số HĐ đã điền.
+    async function giuNguoiBanKhiLuuChuyen(dsChiTiet, lichSu, cacDanhSachKem) {
+      const khoaMa = v => String(v || '').trim().toUpperCase();
+      const canTim = (dsChiTiet || []).filter(it => it && khoaMa(it.maHD || it.ma_hd) && !String(it.nguoiBan || '').trim());
+      if (!canTim.length) return 0;
+      const dsMa = Array.from(new Set(canTim.map(it => khoaMa(it.maHD || it.ma_hd))));
+      const tenTheoHD = new Map();
+      // 1. Máy chủ luu_tru: tên đang lưu của hoá đơn (kể cả do máy khác lưu / đã bổ sung ở Bước 3)
+      if (typeof sb !== 'undefined') {
+        for (let i = 0; i < dsMa.length; i += 150) {
+          try {
+            const { data, error } = await sb.from('luu_tru').select('ma_hd, nguoi_ban').in('ma_hd', dsMa.slice(i, i + 150));
+            if (!error && Array.isArray(data)) data.forEach(r => {
+              const ma = khoaMa(r.ma_hd), nb = String(r.nguoi_ban || '').trim();
+              if (ma && nb) tenTheoHD.set(ma, nb);
+            });
+          } catch (e) { console.warn('Không đọc được người bán trên luu_tru:', e); }
+        }
+      }
+      // 2. Lịch sử chuyến trên máy này
+      (lichSu || []).forEach(d => (d.danhSachChiTiet || []).forEach(it => {
+        const ma = khoaMa(it && (it.maHD || it.ma_hd)), nb = String((it && (it.nguoiBan || it.nguoi_ban)) || '').trim();
+        if (ma && nb && !tenTheoHD.has(ma)) tenTheoHD.set(ma, nb);
+      }));
+      if (!tenTheoHD.size) return 0;
+
+      let soDien = 0;
+      canTim.forEach(it => {
+        const nb = tenTheoHD.get(khoaMa(it.maHD || it.ma_hd));
+        if (nb) { it.nguoiBan = nb; soDien++; }
+      });
+      (cacDanhSachKem || []).forEach(ds => (ds || []).forEach(r => {
+        if (!r) return;
+        if ('Mã hóa đơn' in r) {
+          if (String(r['Người bán'] || '').trim()) return;
+          const nb = tenTheoHD.get(khoaMa(r['Mã hóa đơn']));
+          if (nb) r['Người bán'] = nb;
+        } else if (!String(r.nguoiBan || '').trim()) {
+          const nb = tenTheoHD.get(khoaMa(r.maHD || r.ma_hd));
+          if (nb) r.nguoiBan = nb;
+        }
+      }));
+      if (soDien) console.log(`👤 Giữ tên NV bán hàng cho ${soDien} hoá đơn đang trống tên khi lưu chuyến.`);
+      return soDien;
+    }
+
     async function luuSangBuoc3() {
       // Đang xem lại chuyến đã lưu và có HĐ vừa nạp bổ sung → ghi bổ sung vào CHÍNH chuyến đó (không tạo chuyến mới)
       if (chuyenDangXemLai && chuyenDangXemLai.maHDBoSung && chuyenDangXemLai.maHDBoSung.size) return luuBoSungVaoChuyenDaLuu();
@@ -4253,6 +4304,9 @@
       } catch (e) {
         lichSu = [];
       }
+
+      // Hoá đơn trống "Người bán" → giữ tên đã có trên máy chủ / lịch sử (không ghi đè thành rỗng)
+      await giuNguoiBanKhiLuuChuyen(dotMoi.danhSachChiTiet, lichSu, [cacDongChiTiet, duLieuXuatExcel && duLieuXuatExcel.bangKe]);
 
       // TỰ ĐỘNG ĐỒNG BỘ ĐƠN GIAO LẠI VỚI BƯỚC 3:
       const tapHopMaHDMoi = new Set(hoaDonDuocChon.map(h => h.maHD));

@@ -535,7 +535,7 @@
           </button>
         </div>
 
-        <div style="display:flex; align-items:center; gap:8px;">
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
           <button type="button" class="btn btn-outline" style="height:32px; padding:0 10px; font-size:11.5px;" onclick="inDoiChieuCongNoTuBoLoc()">
             <span>🖨️</span> In Đối Chiếu
           </button>
@@ -543,9 +543,14 @@
             Hiển thị: <b id="lblSoLuongHienThi" style="color:var(--text-main);">0</b> mục
           </div>
           <!-- LỌC THEO NHÂN VIÊN BÁN HÀNG (lọc theo từng đơn nợ — áp dụng cả 2 tab) -->
-          <select id="locNVBanHang" class="form-control" style="max-width:240px; font-weight:700;" onchange="locDanhSachCongNo()" title="Lọc công nợ theo nhân viên bán hàng (NV bán của từng hoá đơn)">
+          <select id="locNVBanHang" class="form-control" style="max-width:240px; min-width:180px; font-weight:700;" onchange="locDanhSachCongNo()" title="Lọc công nợ theo nhân viên bán hàng (NV bán của từng hoá đơn)">
             <option value="tat_ca">🧑‍💼 Tất cả NV bán hàng</option>
           </select>
+          <!-- BỔ SUNG NV BÁN HÀNG CHO HOÁ ĐƠN BỊ TRỐNG TÊN (lấy từ file KiotViet gốc) -->
+          <button type="button" class="btn btn-outline" style="height:32px; padding:0 10px; font-size:11.5px; white-space:nowrap;" onclick="document.getElementById('fileKiotVietNguoiBanCN').click()" title="Hoá đơn bị trống tên NV bán hàng: nạp file KiotViet (Danh sách hoá đơn / Danh sách chi tiết hoá đơn) để lấy 'Người bán' theo đúng mã hoá đơn — chỉ điền hoá đơn đang trống, lưu lên máy chủ">
+            <span>📂</span> Bổ sung NV bán từ file KiotViet
+          </button>
+          <input type="file" id="fileKiotVietNguoiBanCN" accept=".xlsx,.xls,.csv" multiple style="display:none;" onchange="boSungNguoiBanTuFileKiotVietCN(this)">
         </div>
       </div>
 
@@ -1753,6 +1758,11 @@
                   item.ngayGiao = dot.ngayGiao || dot.ngay_giao;
                   coThayDoi = true;
                 }
+                // Đơn nợ đang trống NV bán hàng → lấy tên khi lịch sử chuyến đã có
+                if (!String(item.nguoiBan || '').trim() && String(h.nguoiBan || h.nguoi_ban || '').trim()) {
+                  item.nguoiBan = String(h.nguoiBan || h.nguoi_ban).trim();
+                  coThayDoi = true;
+                }
               }
             }
           });
@@ -1802,6 +1812,11 @@
                   item.maKH = r.ma_kh;
                   coThayDoi = true;
                 }
+                // Đơn nợ đang trống NV bán hàng → lấy tên trên máy chủ (vd. vừa bổ sung từ file KiotViet ở máy khác)
+                if (!String(item.nguoiBan || '').trim() && String(r.nguoi_ban || '').trim()) {
+                  item.nguoiBan = String(r.nguoi_ban).trim();
+                  coThayDoi = true;
+                }
               }
             });
           }
@@ -1825,7 +1840,15 @@
             (data || []).forEach(r => {
               const idNo = r.id || `NO_${r.ma_hd}`;
               if (docDsIdDaXoa().includes(idNo)) return;
-              if (danhSachCongNo.some(d => d.id === idNo)) return;
+              const daCo = danhSachCongNo.find(d => d.id === idNo);
+              if (daCo) {
+                // Đơn nợ đang trống NV bán hàng → lấy tên trên máy chủ
+                if (!String(daCo.nguoiBan || '').trim() && String(r.nguoi_ban || '').trim()) {
+                  daCo.nguoiBan = String(r.nguoi_ban).trim();
+                  coThayDoi = true;
+                }
+                return;
+              }
               danhSachCongNo.push({
                 id: idNo,
                 maHD: r.ma_hd || '',
@@ -1951,6 +1974,140 @@
       if (!locNV || locNV === 'tat_ca') return true;
       const khoa = khoaNVBanHang(d.nguoiBan);
       return locNV === '__chua_co_nv__' ? !khoa : khoa === locNV;
+    }
+
+    // ========================================================
+    // BỔ SUNG NV BÁN HÀNG TỪ FILE KIOTVIET (nút "📂 Bổ sung NV bán từ file KiotViet")
+    // --------------------------------------------------------
+    // Hoá đơn của các chuyến từng "lưu lại" ở Bước 1 (trước bản sửa 08/10) bị mất tên người bán trên luu_tru
+    // → sổ công nợ trống cột NV Bán Hàng. Lấy "Người bán" theo ĐÚNG mã hoá đơn trong file KiotViet, CHỈ điền
+    // hoá đơn đang trống tên (không sửa tên đã có): ghi luu_tru.nguoi_ban trên máy chủ (máy khác tự nhận khi
+    // tải lại sổ) + đơn nợ trong sổ trên máy này.
+    // ========================================================
+    async function docNguoiBanTuFileKiotVietCN(file) {
+      const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+      const map = new Map();
+      wb.SheetNames.forEach(tenSheet => {
+        XLSX.utils.sheet_to_json(wb.Sheets[tenSheet], { defval: '' }).forEach(r => {
+          let ma = '', nb = '';
+          Object.keys(r).forEach(k => {
+            const cot = String(k).normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase();
+            if (cot === 'mã hóa đơn' || cot === 'mã hoá đơn') ma = String(r[k] || '').trim().toUpperCase();
+            else if (cot === 'người bán') nb = String(r[k] || '').normalize('NFC').trim();
+          });
+          if (ma && nb && !map.has(ma)) map.set(ma, nb);
+        });
+      });
+      return map;
+    }
+
+    async function boSungNguoiBanTuFileKiotVietCN(input) {
+      const files = Array.from((input && input.files) || []);
+      if (input) input.value = '';
+      if (!files.length) return;
+      if (chanNeuChiXem()) return;
+      if (typeof sb === 'undefined') {
+        alert('❌ Chưa kết nối máy chủ — không bổ sung được NV bán hàng.');
+        return;
+      }
+
+      // 1. Đọc file: mã hoá đơn → người bán
+      const mapFile = new Map();
+      for (const f of files) {
+        try {
+          (await docNguoiBanTuFileKiotVietCN(f)).forEach((nb, ma) => { if (!mapFile.has(ma)) mapFile.set(ma, nb); });
+        } catch (e) {
+          alert(`❌ Không đọc được file "${f.name}": ${(e && e.message) || e}`);
+          return;
+        }
+      }
+      if (!mapFile.size) {
+        alert('⚠️ File không có cột "Mã hóa đơn" và "Người bán".\n\nHãy xuất file "Danh sách hoá đơn" hoặc "Danh sách chi tiết hoá đơn" trên KiotViet (đúng ngày bán của các hoá đơn) rồi nạp lại.');
+        return;
+      }
+      // Mã hoá đơn KiotViet sửa lại có đuôi .01 / .02… → so thêm theo mã gốc (chỉ khi mã gốc chỉ có 1 người bán)
+      const maGoc = ma => String(ma || '').split('.')[0];
+      const nbTheoMaGoc = new Map();
+      mapFile.forEach((nb, ma) => {
+        const g = maGoc(ma);
+        if (!nbTheoMaGoc.has(g)) nbTheoMaGoc.set(g, new Set());
+        nbTheoMaGoc.get(g).add(nb);
+      });
+      const timNguoiBan = ma => {
+        const m = chuanMaHD(ma);
+        if (mapFile.has(m)) return mapFile.get(m);
+        const s = nbTheoMaGoc.get(maGoc(m));
+        return (s && s.size === 1) ? Array.from(s)[0] : '';
+      };
+
+      baoNhanhCongNo('⏳ Đang đối chiếu hoá đơn trống tên NV bán hàng trên máy chủ…');
+      // 2. Hoá đơn trên máy chủ đang TRỐNG người bán (đọc theo trang — máy chủ trả tối đa 1000 dòng / lần)
+      const dsTrong = [];
+      try {
+        for (let tu = 0; ; tu += 1000) {
+          const { data, error } = await sb.from('luu_tru').select('ma_hd, nguoi_ban, ngay_giao')
+            .or('nguoi_ban.is.null,nguoi_ban.eq.').order('ma_hd').range(tu, tu + 999);
+          if (error) throw error;
+          dsTrong.push(...(data || []));
+          if (!data || data.length < 1000) break;
+        }
+      } catch (e) {
+        alert('❌ Không đọc được danh sách hoá đơn trên máy chủ: ' + ((e && e.message) || e) + '\n\nChưa có dữ liệu nào bị thay đổi.');
+        return;
+      }
+
+      // 3. Ghi máy chủ: gom theo người bán, CHỈ cập nhật dòng vẫn đang trống tên
+      const canDien = new Map();   // mã HĐ (đúng như trên luu_tru) → người bán
+      dsTrong.forEach(r => { const nb = timNguoiBan(r.ma_hd); if (nb) canDien.set(r.ma_hd, nb); });
+      const theoNguoiBan = new Map();
+      canDien.forEach((nb, ma) => { if (!theoNguoiBan.has(nb)) theoNguoiBan.set(nb, []); theoNguoiBan.get(nb).push(ma); });
+      let soGhiMayChu = 0, soLoi = 0;
+      const chiTietLoi = [];
+      for (const [nb, dsMa] of theoNguoiBan) {
+        for (let i = 0; i < dsMa.length; i += 150) {
+          const lo = dsMa.slice(i, i + 150);
+          try {
+            const { data, error } = await sb.from('luu_tru').update({ nguoi_ban: nb }).in('ma_hd', lo)
+              .or('nguoi_ban.is.null,nguoi_ban.eq.').select('ma_hd');
+            if (error) throw error;
+            soGhiMayChu += Array.isArray(data) ? data.length : 0;
+            if (!Array.isArray(data) || data.length < lo.length) {
+              soLoi += lo.length - (Array.isArray(data) ? data.length : 0);
+              if (chiTietLoi.length < 3) chiTietLoi.push(`${nb}: máy chủ không ghi ${lo.length - (Array.isArray(data) ? data.length : 0)} HĐ`);
+            }
+          } catch (e) {
+            soLoi += lo.length;
+            if (chiTietLoi.length < 3) chiTietLoi.push(`${nb}: ${(e && e.message) || e}`);
+          }
+        }
+      }
+
+      // 4. Sổ công nợ trên máy này: đơn nợ đang trống NV bán hàng
+      let soDonSo = 0;
+      danhSachCongNo.forEach(d => {
+        if (String(d.nguoiBan || '').trim()) return;
+        const nb = canDien.get(d.maHD) || timNguoiBan(d.maHD);
+        if (nb) { d.nguoiBan = nb; soDonSo++; }
+      });
+      if (soDonSo) ghiSoCongNo(danhSachCongNo);
+      capNhatDropdownKhachHang();
+      veBangCongNo();
+
+      // 5. Báo kết quả + hoá đơn còn trống tên (để nạp thêm file đúng ngày)
+      const conTrong = dsTrong.filter(r => !canDien.has(r.ma_hd));
+      const ngayConTrong = Array.from(new Set(conTrong.map(r => r.ngay_giao).filter(Boolean)))
+        .sort((a, b) => chuanHoaNgayYYYYMMDD(a).localeCompare(chuanHoaNgayYYYYMMDD(b)));
+      const soDonNoConTrong = danhSachCongNo.filter(d => !String(d.nguoiBan || '').trim()).length;
+      alert(`✅ Đã đọc ${mapFile.size} hoá đơn trong ${files.length} file KiotViet.\n\n` +
+        `• Máy chủ: điền NV bán hàng cho ${soGhiMayChu} hoá đơn đang trống tên` +
+        (soLoi ? `\n⚠️ ${soLoi} hoá đơn chưa ghi được lên máy chủ (${chiTietLoi.join('; ')})` : '') +
+        `\n• Sổ công nợ: điền tên cho ${soDonSo} đơn nợ` +
+        (conTrong.length
+          ? `\n\nCòn ${conTrong.length} hoá đơn trên máy chủ trống tên NV (không có trong file đã nạp)` +
+            (ngayConTrong.length ? ` — ngày giao: ${ngayConTrong.slice(0, 10).join(', ')}${ngayConTrong.length > 10 ? '…' : ''}` : '') +
+            `.\nXuất thêm file KiotViet của các ngày này rồi nạp tiếp.`
+          : `\n\n🎉 Máy chủ không còn hoá đơn nào trống tên NV bán hàng.`) +
+        (soDonNoConTrong ? `\n(Sổ công nợ còn ${soDonNoConTrong} đơn nợ chưa có NV bán hàng.)` : ''));
     }
 
     // Cập nhật danh sách NV bán hàng vào bộ lọc (lấy từ các đơn nợ đang có trong sổ)
