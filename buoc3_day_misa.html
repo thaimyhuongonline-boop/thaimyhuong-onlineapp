@@ -161,6 +161,9 @@
         <button type="button" class="btn btn-outline" onclick="copyDuLieuBangMISA()">
           <span>📋</span> Copy Bảng Dữ Liệu
         </button>
+        <button type="button" class="btn btn-outline" onclick="if (typeof moMaNhanVienBanHangMisa === 'function') moMaNhanVienBanHangMisa();" title="Nhập / sửa mã nhân viên bán hàng trên MISA (NVKD…) cho người bán của chuyến đang chọn — điền vào cột X của file">
+          <span>👤</span> Mã NV bán hàng (MISA)
+        </button>
         <button type="button" class="btn btn-primary" onclick="xuatFileExcelMISA()" style="font-weight:800;">
           <span>📥</span> Tải File Excel Import MISA (1 Click)
         </button>
@@ -181,7 +184,7 @@
             <div style="font-size:12px; color:#15803d; margin-top:2px;">
               <b>Bước 1:</b> Bấm nút xanh <b>"Tải File Excel Import MISA"</b> ở trên (mọi hoá đơn <b>Nợ 1311 – Có 5111x</b> theo Danh mục Định khoản hàng hoá — cột TK Nợ / TK Có ở bảng dưới hiển thị đúng như file) ➡ 
               <b>Bước 2:</b> Mở MISA vào phân hệ <b>Bán hàng</b> ➡ Bấm <b>Tiện ích</b> ➡ <b>Nhập khẩu từ Excel</b> ➡ 
-              <b>Bước 3:</b> Chọn file vừa tải về và bấm <b>Thực hiện</b>.<br>📄 File theo đúng <b>mẫu MISA 70 cột</b>: phương thức thanh toán <b>"Chưa thu tiền"</b>, TK Nợ <b>1311</b>, TK doanh thu / thuế GTGT theo Danh mục Định khoản hàng hoá; ô <b>I2, J2</b> (tô vàng) là <b>số chứng từ / số phiếu xuất bắt đầu</b> — sửa cho nối tiếp sổ MISA, các dòng dưới tự chạy.<br><b>Sau đó</b> xuống khu vực <b>"Phiếu Thu AMIS"</b> cuối trang, tải <b>Phiếu thu tiền mặt</b> và <b>Phiếu thu tiền gửi</b> để nhập tiền khách đã trả (Nợ 1111 / 11211…11215 – Có 1311).
+              <b>Bước 3:</b> Chọn file vừa tải về và bấm <b>Thực hiện</b>.<br>📄 File theo đúng <b>mẫu MISA 69 cột</b> (nhập thẳng, không cần xoá cột): phương thức thanh toán <b>"Chưa thu tiền"</b>, TK Nợ <b>1311</b>, TK doanh thu / thuế GTGT theo Danh mục Định khoản hàng hoá, <b>mã nhân viên bán hàng</b> (cột X) theo nút <b>"👤 Mã NV bán hàng (MISA)"</b>, <b>số xe</b> ở cột BI "Mã thống kê"; ô <b>H2, I2</b> (tô vàng) là <b>số chứng từ / số phiếu xuất bắt đầu</b> — sửa cho nối tiếp sổ MISA, các dòng dưới tự chạy.<br><b>Sau đó</b> xuống khu vực <b>"Phiếu Thu AMIS"</b> cuối trang, tải <b>Phiếu thu tiền mặt</b> và <b>Phiếu thu tiền gửi</b> để nhập tiền khách đã trả (Nợ 1111 / 11211…11215 – Có 1311).
             </div>
           </div>
         </div>
@@ -969,7 +972,7 @@
           tkThanhToan: tkThanhToan,             // 1111 / 1121 / 131 / 5212: cách khách trả (chỉ để thống kê)
           nganHangThu: (tkNo === "1121") ? nganHang : "",
           nguoiBan: nguoiBan,
-          // Dùng cho file bán hàng theo mẫu MISA 70 cột (misa_ban_hang.js): cột Số xe, Mã NV bán hàng, Hàng khuyến mại
+          // Dùng cho file bán hàng theo mẫu MISA 69 cột (misa_ban_hang.js): Mã thống kê (số xe), Mã NV bán hàng, Hàng khuyến mại
           xe: dot.xe || "",
           nguoiBanQT: String(infoQT.nguoiBan || "").trim(),
           laKM: !!r['KM'],
@@ -1458,7 +1461,7 @@
         return;
       }
 
-      // File bán hàng đúng mẫu nhập khẩu MISA 70 cột của kế toán (misa_ban_hang.js): "Chưa thu tiền", Nợ 1311,
+      // File bán hàng đúng mẫu nhập khẩu MISA 69 cột của kế toán (misa_ban_hang.js): "Chưa thu tiền", Nợ 1311,
       // số chứng từ chạy bằng công thức. Chỉ khi không nạp được misa_ban_hang.js mới dùng mẫu 18 cột cũ bên dưới.
       if (typeof xuatFileBanHangTheoMauMisa === 'function') return xuatFileBanHangTheoMauMisa();
 

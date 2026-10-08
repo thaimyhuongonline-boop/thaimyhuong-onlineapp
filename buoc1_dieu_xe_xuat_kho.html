@@ -2073,6 +2073,15 @@
         } catch (e) {}
       }
 
+      // Dòng hàng dựng lại từ máy chủ (chi_tiet_hoa_don không có cột người bán) → lấy "NV bán" của hoá đơn ở luu_tru
+      // (dot.danhSachChiTiet), để lưu lại chuyến không xoá mất người bán (cột Mã nhân viên bán hàng của file MISA ở Bước 3)
+      const nguoiBanTheoHD = new Map((dot.danhSachChiTiet || []).map(it => [String(it.maHD || it.ma_hd || '').trim().toUpperCase(), String(it.nguoiBan || it.nguoi_ban || '').trim()]));
+      (duLieuKiotViet || []).forEach(r => {
+        if (!r || String(r['Người bán'] || '').trim()) return;
+        const nb = nguoiBanTheoHD.get(String(r['Mã hóa đơn'] || '').trim().toUpperCase());
+        if (nb) r['Người bán'] = nb;
+      });
+
       // Nạp danh sách hóa đơn
       if (Array.isArray(dot.danhSachChiTiet) && dot.danhSachChiTiet.length > 0) {
         danhSachHoaDon = dot.danhSachChiTiet.map(item => ({
