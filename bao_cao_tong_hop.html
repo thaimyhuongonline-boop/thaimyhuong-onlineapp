@@ -97,6 +97,18 @@
     .bc-modal-box { background: #fff; border-radius: 14px; width: 100%; max-width: 1320px; max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 24px 60px rgba(15,23,42,.35); }
     .bc-modal-head { padding: 14px 18px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
     .bc-modal-body { padding: 14px 18px; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+    /* Cửa sổ chi tiết đơn hàng: rộng hơn + bảng gọn để thấy hết mọi cột (kể cả Tiền chi / Tiền thối), không phải kéo ngang */
+    #bcModal .bc-modal-box { max-width: 1760px; }
+    #bcModal table.bc-table { font-size: 12px; }
+    #bcModal table.bc-table th { white-space: normal; padding: 7px 6px; font-size: 10.5px; letter-spacing: .2px; vertical-align: bottom; }
+    #bcModal table.bc-table td { padding: 7px 6px; }
+    #bcModal table.bc-table th:nth-child(3) { min-width: 140px; }
+    #bcModal table.bc-table td.num div { white-space: normal; min-width: 90px; }   /* tên ngân hàng dưới số tiền CK được xuống dòng */
+    @media (max-width: 1400px) {
+      #bcModal { padding: 8px; }
+      #bcModal .bc-modal-body { padding: 12px 10px; }
+      #bcModal table.bc-table th, #bcModal table.bc-table td { padding-left: 5px; padding-right: 5px; }
+    }
     .bc-chips { display: flex; gap: 8px; flex-wrap: wrap; }
     .bc-chip { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 10px; font-size: 12px; }
     .bc-chip b { font-variant-numeric: tabular-nums; }
