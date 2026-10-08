@@ -567,10 +567,13 @@
                 danhSachTatCaDot[idx].daQuyetToan = dotSB.daQuyetToan;
                 danhSachTatCaDot[idx].soLuongHD = dotSB.soLuongHD;
                 danhSachTatCaDot[idx].tongTien = dotSB.tongTien;
+                const chiTietMayNay = danhSachTatCaDot[idx].danhSachChiTiet || [];
                 // Chuyến không quyết toán trên máy này → lấy số liệu quyết toán mới nhất (tiền, trả về, hàng trả) từ máy chủ
                 if (!danhSachTatCaDot[idx].danhSachChiTiet || danhSachTatCaDot[idx].danhSachChiTiet.length === 0 || !danhSachTatCaDot[idx].thoiGianQuyetToan) {
                   danhSachTatCaDot[idx].danhSachChiTiet = dotSB.danhSachChiTiet;
                 }
+                // Người bán (cột Mã NV bán hàng của file MISA): hoá đơn thiếu tên → lấy ở máy chủ, không có thì giữ tên đã có trên máy này
+                giuNguoiBanB3(danhSachTatCaDot[idx].danhSachChiTiet, [dotSB.danhSachChiTiet, chiTietMayNay]);
               }
             });
             localStorage.setItem("tmh_lich_su_dot", JSON.stringify(danhSachTatCaDot));
@@ -655,6 +658,71 @@
       } catch (e) {
         console.warn("Lỗi nạp Danh mục Định khoản hàng hoá:", e);
       }
+    }
+
+    // Điền "nguoiBan" cho hoá đơn đang trống tên từ các danh sách hoá đơn khác (cùng mã HĐ)
+    function giuNguoiBanB3(dsChiTiet, cacNguon) {
+      if (!Array.isArray(dsChiTiet)) return;
+      const theoMa = new Map();
+      (cacNguon || []).forEach(ds => (ds || []).forEach(it => {
+        const ma = String((it && (it.maHD || it.ma_hd)) || '').trim().toUpperCase(), nb = String((it && it.nguoiBan) || '').trim();
+        if (ma && nb && !theoMa.has(ma)) theoMa.set(ma, nb);
+      }));
+      dsChiTiet.forEach(it => {
+        if (!it || String(it.nguoiBan || '').trim()) return;
+        const nb = theoMa.get(String(it.maHD || it.ma_hd || '').trim().toUpperCase());
+        if (nb) it.nguoiBan = nb;
+      });
+    }
+
+    // ========================================================
+    // BỔ SUNG NGƯỜI BÁN TỪ FILE KIOTVIET (nút "📂 Nạp file KiotViet" trong bảng Mã NV bán hàng — misa_ban_hang.js)
+    // --------------------------------------------------------
+    // Hoá đơn của chuyến từng lưu lại ở Bước 1 bị mất "NV bán" → cột X (Mã nhân viên bán hàng) của file MISA trống.
+    // Lấy "Người bán" theo ĐÚNG mã hoá đơn trong file "Danh sách chi tiết hoá đơn" của KiotViet, chỉ điền hoá đơn
+    // đang TRỐNG tên: ghi luu_tru.nguoi_ban trên máy chủ + lịch sử chuyến trên máy này, rồi dựng lại bảng.
+    // ========================================================
+    async function boSungNguoiBanTuFileKiotVietB3(mapNguoiBan) {
+      const khoaMa = v => String(v || '').trim().toUpperCase();
+      const canDien = new Map();   // mã HĐ → người bán
+      danhSachTatCaDot.forEach(d => (d.danhSachChiTiet || []).forEach(it => {
+        const ma = khoaMa(it.maHD || it.ma_hd);
+        if (ma && !String(it.nguoiBan || '').trim() && mapNguoiBan.has(ma)) canDien.set(ma, mapNguoiBan.get(ma));
+      }));
+      danhSachDongMisa.forEach(r => {
+        const ma = khoaMa(r.soCT);
+        if (ma && !(r.nguoiBan || r.nguoiBanQT) && mapNguoiBan.has(ma)) canDien.set(ma, mapNguoiBan.get(ma));
+      });
+      if (!canDien.size) return { soHD: 0 };
+
+      // 1. Máy chủ: luu_tru.nguoi_ban (máy khác + lần sau cũng có tên)
+      let loiMayChu = 0;
+      const chiTietLoi = [];
+      const dsCan = Array.from(canDien.entries());
+      for (let i = 0; i < dsCan.length; i += 10) {
+        await Promise.all(dsCan.slice(i, i + 10).map(async ([ma, nb]) => {
+          let loi = '';
+          try {
+            if (typeof sb === 'undefined') loi = 'chưa kết nối máy chủ';
+            else {
+              const { data, error } = await sb.from('luu_tru').update({ nguoi_ban: nb }).eq('ma_hd', ma).select('ma_hd');
+              if (error) loi = error.message || String(error);
+              else if (!Array.isArray(data) || !data.length) loi = 'máy chủ không ghi';
+            }
+          } catch (e) { loi = (e && e.message) || String(e); }
+          if (loi) { loiMayChu++; if (chiTietLoi.length < 3) chiTietLoi.push(`${ma} (${loi})`); }
+        }));
+      }
+
+      // 2. Máy này: lịch sử chuyến → bảng Bước 3 / file MISA dùng ngay
+      const nguonFile = [Array.from(canDien, ([maHD, nguoiBan]) => ({ maHD, nguoiBan }))];
+      danhSachTatCaDot.forEach(d => giuNguoiBanB3(d.danhSachChiTiet, nguonFile));
+      try { localStorage.setItem("tmh_lich_su_dot", JSON.stringify(danhSachTatCaDot)); } catch (e) {}
+
+      // 3. Dựng lại bảng đang xem
+      if (cheDoNgayMisa) await chonNgayMisa(cheDoNgayMisa.ngay);
+      else if (dotHienTai) taoDuLieuDongMisa(dotHienTai);
+      return { soHD: canDien.size, loiMayChu, chiTietLoi: chiTietLoi.join('; ') };
     }
 
     // TK Nợ / TK Có hiển thị: theo định khoản của file MISA nếu đã nạp Danh mục, không thì định khoản gốc

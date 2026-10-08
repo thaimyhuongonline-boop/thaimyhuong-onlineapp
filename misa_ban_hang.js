@@ -166,9 +166,31 @@ async function luuMaNhanVienMisa(dsCap) {
 }
 
 /**
+ * Đọc file KiotViet "Danh sách chi tiết hoá đơn" (.xlsx / .xls / .csv — loại file Bước 1 nạp) →
+ * Map mã hoá đơn (viết hoa) → "Người bán". Dùng bổ sung người bán cho hoá đơn bị mất tên.
+ */
+async function docNguoiBanTuFileKiotViet(file) {
+  const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+  const map = new Map();
+  wb.SheetNames.forEach(tenSheet => {
+    XLSX.utils.sheet_to_json(wb.Sheets[tenSheet], { defval: "" }).forEach(r => {
+      let ma = "", nb = "";
+      Object.keys(r).forEach(k => {
+        const cot = String(k).normalize("NFC").replace(/\s+/g, " ").trim().toLowerCase();
+        if (cot === "mã hóa đơn" || cot === "mã hoá đơn") ma = String(r[k] || "").trim().toUpperCase();
+        else if (cot === "người bán") nb = String(r[k] || "").normalize("NFC").trim();
+      });
+      if (ma && nb && !map.has(ma)) map.set(ma, nb);
+    });
+  });
+  return map;
+}
+
+/**
  * Bảng nhập mã nhân viên bán hàng MISA cho người bán của các dòng Bước 3.
  * tuyChon.khiXuat = true: mở từ nút xuất file (có nút "Bỏ qua, xuất để trống").
- * Trả về Promise: "luu" (đã lưu & nạp lại Danh mục) | "boqua" | null (đóng / huỷ).
+ * Hoá đơn chưa có tên người bán → nút "Nạp file KiotViet" (trang Bước 3 có hàm boSungNguoiBanTuFileKiotVietB3).
+ * Trả về Promise: "luu" (đã lưu & nạp lại Danh mục) | "boqua" | "napfile" (đã bổ sung người bán, mở lại bảng) | null (đóng / huỷ).
  */
 function moBangMaNhanVienMisa(dsDong, tuyChon) {
   tuyChon = tuyChon || {};
@@ -199,8 +221,13 @@ function moBangMaNhanVienMisa(dsDong, tuyChon) {
             Cột <b>X "Mã nhân viên bán hàng"</b> của file MISA lấy mã nhân viên trên MISA (<b>NVKD…</b>) theo tên người bán KiotViet.
             ${soThieu ? `<span style="color:#b45309; font-weight:700;">${soThieu} người bán chưa có mã</span> (nền vàng) — nhập mã rồi bấm Lưu.` : "Tất cả người bán đã có mã — có thể sửa nếu sai."}
             Mã lưu vào Danh mục <b>"Nhân viên kinh doanh"</b> trên máy chủ, các lần xuất sau và máy khác tự điền.
-            ${soHDKhongTen ? `<br>ℹ️ ${soHDKhongTen} hoá đơn không có tên người bán trên KiotViet → cột X để trống.` : ""}
           </div>
+          ${soHDKhongTen ? `<div style="padding:8px 10px; background:#fef2f2; border:1px solid #fecaca; border-radius:6px; color:#991b1b; font-size:12.5px; line-height:1.5;">
+            ⚠️ <b>${soHDKhongTen} hoá đơn chưa có tên người bán</b> nên cột X của các hoá đơn này để trống (dù đã nhập mã).
+            ${typeof boSungNguoiBanTuFileKiotVietB3 === "function" ? `Xuất file <b>"Danh sách chi tiết hoá đơn"</b> trên KiotViet (đúng ngày bán của các hoá đơn) rồi nạp vào đây — app lấy "Người bán" theo mã hoá đơn, lưu lên máy chủ.
+            <div style="margin-top:6px;"><button type="button" class="btn btn-outline" data-nut="napfile">📂 Nạp file KiotViet để lấy người bán</button>
+            <input type="file" accept=".xlsx,.xls,.csv" multiple data-file style="display:none;"></div>` : ""}
+          </div>` : ""}
           ${ds.length ? `<div style="max-height:52vh; overflow:auto; border:1px solid #e2e8f0; border-radius:6px;">
             <table style="width:100%; border-collapse:collapse; font-size:13px;">
               <thead><tr style="background:#f1f5f9; position:sticky; top:0;">
@@ -227,6 +254,34 @@ function moBangMaNhanVienMisa(dsDong, tuyChon) {
     el.querySelectorAll('[data-nut="dong"]').forEach(b => b.onclick = () => xong(null));
     const nutBoQua = el.querySelector('[data-nut="boqua"]');
     if (nutBoQua) nutBoQua.onclick = () => xong("boqua");
+    // Nạp file KiotViet → bổ sung người bán cho hoá đơn đang thiếu tên (trang dựng lại bảng), rồi mở lại bảng này
+    const nutNap = el.querySelector('[data-nut="napfile"]'), oFile = el.querySelector("[data-file]");
+    if (nutNap && oFile) {
+      const chuNut = nutNap.textContent;
+      const traNut = () => { nutNap.disabled = false; nutNap.textContent = chuNut; oFile.value = ""; };
+      nutNap.onclick = () => oFile.click();
+      oFile.onchange = async () => {
+        const dsFile = Array.from(oFile.files || []);
+        if (!dsFile.length) return;
+        baoLoi("");
+        nutNap.disabled = true;
+        nutNap.textContent = "⏳ Đang đọc file...";
+        try {
+          const map = new Map();
+          for (const f of dsFile) (await docNguoiBanTuFileKiotViet(f)).forEach((v, k) => { if (!map.has(k)) map.set(k, v); });
+          if (!map.size) { baoLoi('⚠️ File không có cột "Mã hóa đơn" và "Người bán" — chọn file "Danh sách chi tiết hoá đơn" xuất từ KiotViet.'); traNut(); return; }
+          nutNap.textContent = "⏳ Đang lưu người bán...";
+          const kq = await boSungNguoiBanTuFileKiotVietB3(map);
+          if (!kq || !kq.soHD) { baoLoi(`⚠️ File có ${map.size} hoá đơn nhưng không trùng hoá đơn nào đang thiếu tên người bán — kiểm tra lại ngày xuất file trên KiotViet.`); traNut(); return; }
+          alert(`✅ Đã lấy người bán cho ${kq.soHD} hoá đơn từ file KiotViet.` +
+            (kq.loiMayChu ? `\n\n⚠️ ${kq.loiMayChu} hoá đơn CHƯA lưu được lên máy chủ (máy này vẫn xuất file được; máy khác chưa thấy): ${kq.chiTietLoi || ""}` : ""));
+          xong("napfile");
+        } catch (e) {
+          baoLoi("⚠️ Không đọc được file: " + escBH((e && e.message) || e));
+          traNut();
+        }
+      };
+    }
     const nutLuu = el.querySelector('[data-nut="luu"]');
     if (nutLuu) nutLuu.onclick = async () => {
       const dsCap = [], daDung = new Map(), loi = [];
@@ -262,10 +317,13 @@ function moBangMaNhanVienMisa(dsDong, tuyChon) {
 
 /** Nút "Mã NV bán hàng (MISA)" của Bước 3 — xem / sửa mã cho người bán của chuyến (ngày) đang chọn */
 async function moMaNhanVienBanHangMisa() {
-  const dsDong = (typeof danhSachDongMisa !== "undefined" && Array.isArray(danhSachDongMisa)) ? danhSachDongMisa : [];
-  if (!dsDong.length) { alert("⚠️ Chọn chuyến xe (hoặc ngày) có dữ liệu trước để xem người bán."); return; }
+  const layDsDong = () => (typeof danhSachDongMisa !== "undefined" && Array.isArray(danhSachDongMisa)) ? danhSachDongMisa : [];
+  if (!layDsDong().length) { alert("⚠️ Chọn chuyến xe (hoặc ngày) có dữ liệu trước để xem người bán."); return; }
   await napDanhMucBanHangMisa();
-  await moBangMaNhanVienMisa(dsDong, {});
+  // Nạp file KiotViet xong → bảng Bước 3 đã dựng lại → mở lại với người bán vừa bổ sung
+  for (let lan = 0; lan < 5; lan++) {
+    if (await moBangMaNhanVienMisa(layDsDong(), {}) !== "napfile") break;
+  }
 }
 
 // Định khoản của mã hàng; KiotViet ghi "05102" còn Danh mục ghi "5102" (hoặc ngược lại) vẫn khớp
@@ -493,19 +551,26 @@ function taoWorkbookBanHangMisa(dsDong) {
 
 /** Nút "Tải File Excel Import MISA" của Bước 3 — xuất file bán hàng đúng mẫu MISA */
 async function xuatFileBanHangTheoMauMisa() {
-  const dsDong = (typeof danhSachDongMisa !== "undefined" && Array.isArray(danhSachDongMisa)) ? danhSachDongMisa : [];
+  let dsDong = (typeof danhSachDongMisa !== "undefined" && Array.isArray(danhSachDongMisa)) ? danhSachDongMisa : [];
   if (!dsDong.length) { alert("⚠️ Không có dòng dữ liệu nào để xuất file MISA!"); return; }
   const tien = n => (typeof formatTien === "function") ? formatTien(n) : String(Math.round(n));
   const lietKe = map => Array.from(map.entries()).slice(0, 10).map(x => `• ${x[0]} — ${x[1]}`).join("\n") + (map.size > 10 ? `\n… và ${map.size - 10} mã khác` : "");
 
   try {
     await napDanhMucBanHangMisa();
-    // Cột X "Mã nhân viên bán hàng": người bán chưa có mã MISA → bảng nhập mã (lưu Danh mục trên máy chủ) trước khi xuất
-    if (typeof document !== "undefined" && dsNhanVienBanHangMisa(dsDong).ds.some(x => !x.ma)) {
+    // Cột X "Mã nhân viên bán hàng": người bán chưa có mã MISA, hoặc hoá đơn chưa có tên người bán → bảng Mã NV
+    // (nhập mã / nạp file KiotViet lấy người bán) trước khi xuất
+    for (let lan = 0; lan < 5 && typeof document !== "undefined"; lan++) {
+      const nv = dsNhanVienBanHangMisa(dsDong);
+      if (!nv.soHDKhongTen && !nv.ds.some(x => !x.ma)) break;
       const chon = await moBangMaNhanVienMisa(dsDong, { khiXuat: true });
       if (!chon) return;   // bấm Huỷ → không xuất
+      if (chon !== "napfile") break;
+      // Đã bổ sung người bán → bảng Bước 3 dựng lại, lấy dòng mới
+      if (typeof danhSachDongMisa !== "undefined" && Array.isArray(danhSachDongMisa) && danhSachDongMisa.length) dsDong = danhSachDongMisa;
     }
     const kq = taoWorkbookBanHangMisa(dsDong);
+    const soHDKhongTenNV = dsNhanVienBanHangMisa(dsDong).soHDKhongTen;
     if (!kq.soDong) { alert("⚠️ Không có dòng hàng hoá nào để xuất file MISA (chỉ có dòng ghi chú \"HĐ — Hóa Đơn GTGT\")."); return; }
     if (kq.chuaDinhKhoan.size && !confirm(`⚠️ ${kq.chuaDinhKhoan.size} mã hàng CHƯA có định khoản (TK doanh thu, TK giá vốn, thuế GTGT) trong Danh mục "Định khoản hàng hoá":\n\n` +
       lietKe(kq.chuaDinhKhoan) + `\n\nCác dòng này sẽ để trống TK doanh thu / TK giá vốn và thuế 0% — cần điền tay trên Excel (hoặc bổ sung Danh mục rồi xuất lại).\n\nBấm [OK] để vẫn xuất file, [Hủy] để bổ sung Danh mục trước.`)) return;
@@ -525,7 +590,8 @@ async function xuatFileBanHangTheoMauMisa() {
       `📌 Số xe ghi ở cột BI "Mã thống kê"; cột X "Mã nhân viên bán hàng" theo Danh mục Nhân viên kinh doanh.` +
       (kq.soDongBoHD ? `\n📌 Đã loại ${kq.soDongBoHD} dòng "HĐ — Hóa Đơn GTGT" (không phải hàng hoá) khỏi file.` : "") +
       (kq.chuaThueSuat.size ? `\n\n⚠️ ${kq.chuaThueSuat.size} mã hàng chưa có thuế suất trong Danh mục "Định khoản hàng hoá" (đang để 0%):\n${lietKe(kq.chuaThueSuat)}` : "") +
-      (kq.thieuMaNV.size ? `\n\nℹ️ Cột X "Mã nhân viên bán hàng" để trống với ${kq.thieuMaNV.size} nhân viên chưa có mã MISA (NVKD…) — bấm nút "👤 Mã NV bán hàng (MISA)" để nhập.` : ""));
+      (kq.thieuMaNV.size ? `\n\nℹ️ Cột X "Mã nhân viên bán hàng" để trống với ${kq.thieuMaNV.size} nhân viên chưa có mã MISA (NVKD…) — bấm nút "👤 Mã NV bán hàng (MISA)" để nhập.` : "") +
+      (soHDKhongTenNV ? `\n\n⚠️ Cột X để trống ở ${soHDKhongTenNV} hoá đơn CHƯA có tên người bán — bấm "👤 Mã NV bán hàng (MISA)" ➡ "📂 Nạp file KiotViet" để lấy người bán rồi xuất lại.` : ""));
   } catch (err) {
     alert("Lỗi xuất file Excel: " + ((err && err.message) || err));
   }
