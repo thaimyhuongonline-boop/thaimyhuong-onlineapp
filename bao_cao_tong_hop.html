@@ -345,6 +345,8 @@
                 <th class="num">Chuyển khoản (đ)</th>
                 <th class="num">Trả về (đ)</th>
                 <th class="num">Nợ (đ)</th>
+                <th class="num bc-cot-chi-thoi" style="display:none;" title="Chi phí xe ở phiếu nộp tiền Bước 2 (theo chuyến)">Tiền chi (đ)</th>
+                <th class="num bc-cot-chi-thoi" style="display:none;" title="Tiền thối (tài xế nộp lại) ở phiếu nộp tiền Bước 2 (theo chuyến)">Tiền thối (đ)</th>
                 <th>Trạng thái</th>
                 <th style="text-align:center; white-space:nowrap;" title="Kế toán tích khi đã kiểm tra từng khoản">Kiểm tra<br><input type="checkbox" id="bcKTTatCa" onchange="tickTatCaKiemTraBC(this)" title="Tích / bỏ tích tất cả khoản đang hiện" style="width:16px; height:16px; cursor:pointer;"></th>
               </tr>
@@ -1568,6 +1570,48 @@
 
     function dongChiTiet() { document.getElementById('bcModal').classList.remove('show'); }
 
+    // ---------------- TIỀN CHI · TIỀN THỐI TRONG BẢNG CHI TIẾT (phiếu nộp tiền Bước 2) ----------------
+    // Bước 2 nhập chi phí xe, thu nợ cũ qua xe, tiền thối cho CẢ CHUYẾN (không chia theo hoá đơn) → bảng chi tiết
+    // chuyến xe / tất cả đơn xuất kho có thêm 2 cột Tiền chi, Tiền thối: dòng hoá đơn "–", số tiền nằm ở dòng
+    // "📋 Phiếu nộp tiền" của từng chuyến (kèm nội dung chi, thu nợ cũ) — cộng vào dòng TỔNG CỘNG.
+    function laBangCoChiThoiBC(key) { return key === 'dot' || key === 'xuat'; }
+
+    function phieuChuyenTrongChiTietBC(rows, key) {
+      return khoanTinhTienTheoChuyen(rows.filter(d => !d.laThuNgoai))
+        .filter(p => key === 'dot' || p.tienChi > 0 || p.thuNoCu > 0 || p.tienThoi > 0)
+        .sort((a, b) => vnSangKhoa(a.ngay).localeCompare(vnSangKhoa(b.ngay)) || String(a.xe).localeCompare(String(b.xe), 'vi'));
+    }
+
+    // Diễn giải dòng phiếu nộp tiền: chi phí xe (từng khoản), thu nợ cũ qua xe, tiền thối
+    function dienGiaiPhieuChuyenBC(p) {
+      const dong = [];
+      const chi = noiDungChiCuaKhoan(p), thuNo = ghiChuThuNoCuaKhoan(p);
+      if (p.tienChi > 0) dong.push(`Chi phí xe: ${fmt(p.tienChi)} đ${chi ? ' (' + chi + ')' : ''}`);
+      if (p.thuNoCu > 0) dong.push(`Thu nợ cũ qua xe: ${fmt(p.thuNoCu)} đ${thuNo ? ' (' + thuNo + ')' : ''}`);
+      if (p.tienThoi > 0) dong.push(`Tiền thối (tài xế nộp lại): ${fmt(p.tienThoi)} đ`);
+      if (!dong.length) dong.push(p.coPhieu ? 'Không có chi phí xe, thu nợ cũ hay tiền thối' : 'Chưa có phiếu nộp tiền (chưa lưu quyết toán ở Bước 2)');
+      return dong;
+    }
+
+    function dongPhieuChuyenBC(p) {
+      return `
+          <tr style="background:#f0f9ff;">
+            <td></td>
+            <td><b>📋 Phiếu nộp tiền</b><div style="font-size:11px; color:var(--text-muted);">Bước 2 · cả chuyến</div></td>
+            <td style="font-size:12px;">${dienGiaiPhieuChuyenBC(p).map(H).join('<br>')}</td>
+            <td>${H(p.ngay)}<div style="font-size:11px; color:var(--text-muted);">${H(p.xe)}${p.nguoiNop ? ' · ' + H(p.nguoiNop) : ''}</div></td>
+            <td class="num">–</td>
+            <td class="num">–</td>
+            <td class="num">–</td>
+            <td class="num">–</td>
+            <td class="num">–</td>
+            <td class="num" style="color:#b91c1c; font-weight:700;">${p.tienChi ? fmt(p.tienChi) : '–'}</td>
+            <td class="num" style="color:#047857; font-weight:700;">${p.tienThoi ? fmt(p.tienThoi) : '–'}</td>
+            <td><span class="bc-tag" style="color:#0369a1; background:#e0f2fe; border:1px solid #0369a133;">Theo chuyến xe</span></td>
+            <td></td>
+          </tr>`;
+    }
+
     function dsChiTietSauTim() {
       const q = (document.getElementById('bcModalTim').value || '').trim().toLowerCase();
       if (!q) return chiTietHienTai.rows;
@@ -1579,11 +1623,21 @@
       const t = tongHop(rows);
       const chips = [`<div class="bc-chip">Số đơn: <b>${rows.length}</b></div>`];
       const k = chiTietHienTai.key;
+      // Tiền chi / tiền thối (phiếu nộp tiền Bước 2 — theo chuyến): 2 cột + dòng "Phiếu nộp tiền" ở bảng chuyến xe & tất cả đơn
+      const coCotChiThoi = laBangCoChiThoiBC(k);
+      document.querySelectorAll('#bcModal .bc-cot-chi-thoi').forEach(th => { th.style.display = coCotChiThoi ? '' : 'none'; });
+      const dsPhieuChuyen = coCotChiThoi ? phieuChuyenTrongChiTietBC(rows, k) : [];
+      const tongPhieu = f => dsPhieuChuyen.reduce((s, p) => s + (p[f] || 0), 0);
       if (k === 'xuat' || k === 'dot' || k === 'cho') chips.push(`<div class="bc-chip">Xuất kho: <b>${fmt(t.xuat)} đ</b></div>`);
       if (k === 'xuat' || k === 'dot' || k === 'tienmat') chips.push(`<div class="bc-chip">Tiền mặt: <b>${fmt(t.tm)} đ</b></div>`);
       if (k === 'xuat' || k === 'dot' || k === 'ck') chips.push(`<div class="bc-chip">Chuyển khoản: <b>${fmt(t.ck)} đ</b></div>`);
       if (k === 'xuat' || k === 'dot' || k === 'travee') chips.push(`<div class="bc-chip">Trả về: <b>${fmt(t.tra)} đ</b></div>`);
       if (k === 'xuat' || k === 'dot' || k === 'no') chips.push(`<div class="bc-chip">Nợ: <b>${fmt(t.no)} đ</b></div>`);
+      if (coCotChiThoi && dsPhieuChuyen.some(p => p.coPhieu || p.tienChi || p.tienThoi || p.thuNoCu)) {
+        chips.push(`<div class="bc-chip" style="color:#b91c1c;">💸 Tiền chi: <b>${fmt(tongPhieu('tienChi'))} đ</b></div>`);
+        if (tongPhieu('thuNoCu') > 0) chips.push(`<div class="bc-chip" style="color:#1d4ed8;">🧾 Thu nợ cũ qua xe: <b>${fmt(tongPhieu('thuNoCu'))} đ</b></div>`);
+        chips.push(`<div class="bc-chip" style="color:#047857;">🔄 Tiền thối: <b>${fmt(tongPhieu('tienThoi'))} đ</b></div>`);
+      }
       const tongHoanChiTiet = rows.reduce((s, d) => s + hoanCuaDon(d), 0);
       if (tongHoanChiTiet > 0 && ['hoan', 'dot', 'xuat', 'ck', 'tienmat'].includes(k)) {
         chips.push(`<div class="bc-chip" style="color:#b45309;">↩ Hoàn TM cho khách (CK dư): <b>${fmt(tongHoanChiTiet)} đ</b></div>`);
@@ -1624,12 +1678,13 @@
 
       const body = document.getElementById('bcModalBody');
       if (!rows.length) {
-        body.innerHTML = '<tr><td colspan="11" class="bc-empty">Không có đơn hàng nào.</td></tr>';
+        body.innerHTML = `<tr><td colspan="${coCotChiThoi ? 13 : 11}" class="bc-empty">Không có đơn hàng nào.</td></tr>`;
         document.getElementById('bcModalFoot').innerHTML = '';
         return;
       }
+      const oChiThoiTrong = coCotChiThoi ? '<td class="num">–</td><td class="num">–</td>' : '';
       body.innerHTML = rows.map((d, i) => {
-        if (d.laThuNgoai) return dongChiTietThuNgoai(d, i);
+        if (d.laThuNgoai) return dongChiTietThuNgoai(d, i, oChiThoiTrong);
         const lech = lechCuaDon(d);
         let tt;
         if (!d.daQT) tt = '<span class="bc-tag wait">⏳ Chờ quyết toán</span>';
@@ -1647,10 +1702,11 @@
             <td class="num">${d.ck ? fmt(d.ck) : '–'}${d.ck && d.nganHang ? `<div style="font-size:10.5px; color:var(--text-muted);">${H(d.nganHang)}</div>` : ''}</td>
             <td class="num">${d.tra ? fmt(d.tra) : '–'}</td>
             <td class="num">${d.no ? fmt(d.no) : '–'}</td>
+            ${oChiThoiTrong}
             <td>${tt}</td>
             ${oKiemTraBC(d, i)}
           </tr>`;
-      }).join('');
+      }).join('') + dsPhieuChuyen.map(dongPhieuChuyenBC).join('');
       document.getElementById('bcModalFoot').innerHTML = `
         <tr>
           <td colspan="4">TỔNG CỘNG (${rows.length} ${t.soNgoai ? 'khoản' : 'đơn'})</td>
@@ -1659,6 +1715,7 @@
           <td class="num">${fmt(t.ck)}</td>
           <td class="num">${fmt(t.tra)}</td>
           <td class="num">${fmt(t.no)}</td>
+          ${coCotChiThoi ? `<td class="num" style="color:#b91c1c;">${fmt(tongPhieu('tienChi'))}</td><td class="num" style="color:#047857;">${fmt(tongPhieu('tienThoi'))}</td>` : ''}
           <td></td>
           <td style="text-align:center;">${soDaKT}/${rows.length}</td>
         </tr>`;
@@ -1674,7 +1731,7 @@
       hoan_tra_truoc: ['↩ Hoàn tiền trả trước', '#b45309', '#fff7ed'],
       chua_ro: ['⚠️ Đã thu — chưa rõ hình thức', '#b91c1c', '#fef2f2']
     };
-    function dongChiTietThuNgoai(d, i) {
+    function dongChiTietThuNgoai(d, i, oChiThoiTrong) {
       const [nhan, mau, nen] = NHAN_THU_NGOAI[d.loaiThu] || ['Khoản khác', '#475569', '#f1f5f9'];
       let tt = `<span class="bc-tag" style="color:${mau}; background:${nen}; border:1px solid ${mau}33;">${nhan}</span>`;
       if (d.loaiThu === 'can_tru') tt += `<div style="font-size:11px; color:var(--text-muted);">${fmt(d.canTru)} đ — không có tiền mới vào quỹ</div>`;
@@ -1693,6 +1750,7 @@
             <td class="num">${oTien(d.ck, d.chiCk)}${(d.ck || d.chiCk) && d.nganHang ? `<div style="font-size:10.5px; color:var(--text-muted);">${H(d.nganHang)}</div>` : ''}</td>
             <td class="num">${d.tra ? fmt(d.tra) : '–'}</td>
             <td class="num">–</td>
+            ${oChiThoiTrong || ''}
             <td>${tt}${d.ghiChu ? `<div style="font-size:10.5px; color:var(--text-muted); max-width:260px;">${H(d.ghiChu)}</div>` : ''}</td>
             ${oKiemTraBC(d, i)}
           </tr>`;
@@ -1875,7 +1933,26 @@
         : [i + 1, d.maHD, d.tenKH, d.ngay, d.xe, d.taiXe, d.thanhTien, d.tm, d.ck, d.nganHang, d.tra, d.no, d.daQT ? 'Đã quyết toán' : 'Chờ quyết toán', oKT(d)]));
       const t = tongHop(rows);
       aoa.push(['', 'TỔNG CỘNG', '', '', '', '', t.xuat, t.tm, t.ck, '', t.tra, t.no, '', `${rows.filter(d => daKiemTraBC(d)).length}/${rows.length} đã kiểm tra`]);
-      taiFileExcel(`BaoCao_ChiTiet_${ymdLocal(new Date())}.xlsx`, aoa, [5, 16, 30, 12, 16, 14, 14, 14, 14, 26, 14, 14, 26, 34]);
+      const cotRong = [5, 16, 30, 12, 16, 14, 14, 14, 14, 26, 14, 14, 26, 34];
+      // Bảng chuyến xe / tất cả đơn: thêm cột Tiền chi, Tiền thối (sau cột Nợ) + dòng phiếu nộp tiền Bước 2 của từng chuyến
+      if (laBangCoChiThoiBC(chiTietHienTai.key)) {
+        const dsPhieu = phieuChuyenTrongChiTietBC(rows, chiTietHienTai.key);
+        const viTri = 12;   // sau cột 'Nợ'
+        aoa.forEach((dong, i) => {
+          if (i === 2) dong.splice(viTri, 0, 'Tiền chi', 'Tiền thối');
+          else if (i > 2) dong.splice(viTri, 0, '', '');
+        });
+        const dongTong = aoa.pop();
+        dsPhieu.forEach(p => {
+          const dong = ['', 'Phiếu nộp tiền (Bước 2, cả chuyến)', dienGiaiPhieuChuyenBC(p).join('; '), p.ngay, p.xe, p.nguoiNop || p.taiXe || '', '', '', '', '', '', '', p.tienChi, p.tienThoi, 'Theo chuyến xe', ''];
+          aoa.push(dong);
+        });
+        dongTong[viTri] = dsPhieu.reduce((s, p) => s + p.tienChi, 0);
+        dongTong[viTri + 1] = dsPhieu.reduce((s, p) => s + p.tienThoi, 0);
+        aoa.push(dongTong);
+        cotRong.splice(viTri, 0, 14, 14);
+      }
+      taiFileExcel(`BaoCao_ChiTiet_${ymdLocal(new Date())}.xlsx`, aoa, cotRong);
     }
 
     function xuatExcelTongHop() {
