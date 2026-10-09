@@ -15,6 +15,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <script src="kho_idb.js"></script>
   <script src="config.js"></script>
   <script src="phan_quyen.js"></script>
   <script src="pwa.js"></script>
@@ -2433,28 +2434,29 @@
     }
 
     // ========================================================
-    // GIÁM SÁT DUNG LƯỢNG BỘ NHỚ TRÌNH DUYỆT (localStorage)
-    // Cảnh báo sớm để tránh mất dữ liệu khi đầy 5MB
+    // GIÁM SÁT DUNG LƯỢNG BỘ NHỚ TRÌNH DUYỆT
+    // Dữ liệu lớn (lịch sử chuyến xe, hoá đơn, sổ công nợ, danh mục) nay nằm trong IndexedDB (kho_idb.js)
+    // → giới hạn là hạn mức của trình duyệt (thường vài GB), không còn 5MB của localStorage.
+    // localStorage chỉ còn khoá nhỏ của phiên đăng nhập → vẫn cảnh báo nếu vì lý do nào đó nó đầy lại.
     // ========================================================
 
     function tinhDungLuongLocalStorageMB() {
       try {
         let tongByte = 0;
-        for (let key in localStorage) {
-          if (Object.prototype.hasOwnProperty.call(localStorage, key)) {
-            tongByte += (key.length + (localStorage[key] || '').length) * 2;
-          }
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i) || '';
+          tongByte += (key.length + (Storage.prototype.getItem.call(localStorage, key) || '').length) * 2;
         }
         return tongByte / (1024 * 1024);
       } catch (e) { return 0; }
     }
 
-    function kiemTraDungLuongLocalStorage() {
-      const MB = tinhDungLuongLocalStorageMB();
-      const GIOI_HAN = 5;
-      const NGUY_HIEM = 4.2; // >84%
-      const CANH_BAO = 3.5;  // >70%
+    function dinhDangDungLuongMB(mb) {
+      if (mb == null || isNaN(mb)) return '?';
+      return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb.toFixed(1)} MB`;
+    }
 
+    function kiemTraDungLuongLocalStorage() {
       let banner = document.getElementById('bannerDungLuongLS');
       if (!banner) {
         banner = document.createElement('div');
@@ -2462,20 +2464,44 @@
         banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999997;padding:8px 16px 8px 20px;font-size:13px;font-weight:600;display:none;align-items:center;justify-content:center;gap:10px;';
         document.body.appendChild(banner);
       }
+      const hien = (mau, chu, noiDung) => {
+        banner.style.background = mau;
+        banner.style.color = chu;
+        banner.innerHTML = noiDung;
+        banner.style.display = 'flex';
+      };
 
-      if (MB >= NGUY_HIEM) {
-        banner.style.background = '#dc2626';
-        banner.style.color = '#fff';
-        banner.innerHTML = `🚨 BỘ NHỚ TRÌNH DUYỆT GẦN ĐẦY: ${MB.toFixed(1)} MB / ${GIOI_HAN} MB — Nguy cơ MẤT DỮ LIỆU khi lưu chuyến! Vào <b>Lịch Sử → Xóa</b> các chuyến xe cũ đã quyết toán để giải phóng chỗ.`;
-        banner.style.display = 'flex';
-      } else if (MB >= CANH_BAO) {
-        banner.style.background = '#f59e0b';
-        banner.style.color = '#1a1a1a';
-        banner.innerHTML = `⚠️ Bộ nhớ trình duyệt đang đầy dần: ${MB.toFixed(1)} MB / ${GIOI_HAN} MB — Nên vào <b>Lịch Sử → Xóa</b> bớt chuyến xe cũ để tránh mất dữ liệu.`;
-        banner.style.display = 'flex';
-      } else {
-        banner.style.display = 'none';
+      // Không có kho_idb.js / trình duyệt chặn IndexedDB → cảnh báo theo localStorage 5MB như cũ
+      const cheDoLS = !window.TMHKho || !window.TMHKho.thongKeDungLuong;
+      if (cheDoLS) {
+        const MB = tinhDungLuongLocalStorageMB();
+        if (MB >= 4.2) hien('#dc2626', '#fff', `🚨 BỘ NHỚ TRÌNH DUYỆT GẦN ĐẦY: ${MB.toFixed(1)} MB / 5 MB — Nguy cơ MẤT DỮ LIỆU khi lưu chuyến! Vào <b>Lịch Sử → Xóa</b> các chuyến xe cũ đã quyết toán để giải phóng chỗ.`);
+        else if (MB >= 3.5) hien('#f59e0b', '#1a1a1a', `⚠️ Bộ nhớ trình duyệt đang đầy dần: ${MB.toFixed(1)} MB / 5 MB — Nên vào <b>Lịch Sử → Xóa</b> bớt chuyến xe cũ để tránh mất dữ liệu.`);
+        else banner.style.display = 'none';
+        return;
       }
+
+      window.TMHKho.thongKeDungLuong().then(tk => {
+        if (tk.cheDo !== 'idb') {
+          // IndexedDB không dùng được trên máy này → dữ liệu vẫn nằm trong localStorage (giới hạn 5MB)
+          const MB = tk.lsMB;
+          if (MB >= 4.2) hien('#dc2626', '#fff', `🚨 BỘ NHỚ TRÌNH DUYỆT GẦN ĐẦY: ${MB.toFixed(1)} MB / 5 MB (trình duyệt đang chặn IndexedDB) — Nguy cơ MẤT DỮ LIỆU khi lưu chuyến! Vào <b>Lịch Sử → Xóa</b> các chuyến xe cũ đã quyết toán.`);
+          else if (MB >= 3.5) hien('#f59e0b', '#1a1a1a', `⚠️ Bộ nhớ trình duyệt đang đầy dần: ${MB.toFixed(1)} MB / 5 MB (trình duyệt đang chặn IndexedDB) — Nên vào <b>Lịch Sử → Xóa</b> bớt chuyến xe cũ.`);
+          else banner.style.display = 'none';
+          return;
+        }
+        const tyLe = (tk.daDungMB != null && tk.hanMucMB) ? tk.daDungMB / tk.hanMucMB : 0;
+        const moTa = `${dinhDangDungLuongMB(tk.daDungMB)} / ${dinhDangDungLuongMB(tk.hanMucMB)} (IndexedDB · dữ liệu app ${dinhDangDungLuongMB(tk.duLieuMB)})`;
+        if (tyLe >= 0.9) {
+          hien('#dc2626', '#fff', `🚨 BỘ NHỚ TRÌNH DUYỆT GẦN ĐẦY: ${moTa} — Ổ đĩa máy sắp hết chỗ, hãy giải phóng ổ đĩa hoặc vào <b>Lịch Sử → Xóa</b> các chuyến xe cũ đã quyết toán.`);
+        } else if (tyLe >= 0.75) {
+          hien('#f59e0b', '#1a1a1a', `⚠️ Bộ nhớ trình duyệt đang đầy dần: ${moTa} — Nên giải phóng ổ đĩa hoặc xoá bớt chuyến xe cũ.`);
+        } else if (tk.lsMB >= 4.2) {
+          hien('#f59e0b', '#1a1a1a', `⚠️ localStorage còn ${tk.lsMB.toFixed(1)} MB / 5 MB dữ liệu phiên — Hãy tải lại trang (F5) để ứng dụng chuyển dữ liệu sang IndexedDB.`);
+        } else {
+          banner.style.display = 'none';
+        }
+      }).catch(() => {});
     }
 
     // ========================================================

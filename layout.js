@@ -25,6 +25,9 @@ const MENU_CHINH = [
  * @param {Object} options - { pageTitle, breadcrumb, activeMenuId, contentElementId }
  */
 async function khoiTaoLayout(options = {}) {
+  // 0. Chờ dữ liệu trên máy (IndexedDB — kho_idb.js) nạp xong rồi mới khởi tạo trang
+  try { if (window.TMHKho && window.TMHKho.sanSang) await window.TMHKho.sanSang; } catch (e) {}
+
   // 1. Hiển thị màn hình chờ tải
   let overlay = document.getElementById("tmhPageLoading");
   if (!overlay) {
