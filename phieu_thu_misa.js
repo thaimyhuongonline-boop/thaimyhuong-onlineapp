@@ -165,6 +165,8 @@ function dungDanhSachPhieuThu(dsDot, dsThuNo, bat, st) {
   // 1. Tiền thu theo hoá đơn ở Bước 2 (chuyến / ngày đang chọn phía trên)
   if (bat.hoaDon) {
     const chuaQT = [];
+    const daXetHD = new Set();
+    let traDu = 0, soHDDu = 0;   // phần khách trả DƯ so với hoá đơn (không vào phiếu thu theo hoá đơn)
     // Chuyến đã quyết toán xét trước (hoá đơn giao lại có ở 2 chuyến → lấy chuyến có số liệu quyết toán)
     dsDot.slice().sort((a, b) => Number(!!b.daQuyetToan) - Number(!!a.daQuyetToan)).forEach(dot => {
       if (!dot.daQuyetToan) { chuaQT.push(dot.xe || dot.maDot); return; }
@@ -172,9 +174,10 @@ function dungDanhSachPhieuThu(dsDot, dsThuNo, bat, st) {
       (dot.danhSachChiTiet || []).forEach(h => {
         const maHD = String(h.maHD || h.ma_hd || "").trim().toUpperCase();
         if (!maHD) return;
-        const tienHD = parseFloat(h.tienHD || h.thanhTien || 0) || 0;
-        const phaiTra = Math.max(0, tienHD - (parseFloat(h.traVe || 0) || 0));
-        const tach = tachTienHoaDonPT(parseFloat(h.tienMat || 0) || 0, parseFloat(h.chuyenKhoan || 0) || 0, phaiTra);
+        const tienHD = soTienAnToan(h.tienHD || h.thanhTien);
+        const phaiTra = Math.max(0, tienHD - soTienAnToan(h.traVe));
+        const tach = tachTienHoaDonPT(soTienAnToan(h.tienMat), soTienAnToan(h.chuyenKhoan), phaiTra);
+        if (!daXetHD.has(maHD)) { daXetHD.add(maHD); const du = Math.round(tach.tmDu + tach.ckDu); if (du > 0) { traDu += du; soHDDu++; } }
         const goc = {
           ngay: ngay, maKH: String(h.maKH || "").trim().toUpperCase(), tenKH: String(h.tenKH || "Khách Lẻ").trim(),
           nguon: "hoa_don", tenNguon: "Thu tiền hoá đơn (Bước 2)", thamChieu: `HĐ ${maHD} — xe ${dot.xe || ""}`,
@@ -185,6 +188,7 @@ function dungDanhSachPhieuThu(dsDot, dsThuNo, bat, st) {
         if (tach.ckNo > 0.5) them(Object.assign({}, goc, { khoa: `HD|${maHD}|CK`, loai: "ck", soTien: Math.round(tach.ckNo), nh: timTKNganHangPT(h.taiKhoanNhan) }));
       });
     });
+    if (traDu > 0) ghiChu.push(`ℹ️ ${soHDDu} hoá đơn khách trả DƯ tổng ${Math.round(traDu).toLocaleString("vi-VN")} đ so với tiền hoá đơn — phần dư không nằm ở nguồn "Tiền thu theo hoá đơn" mà ở nguồn "Khách trả trước / trả dư" (sổ tiền khách trả trước).`);
     if (chuaQT.length) ghiChu.push(`⏳ ${chuaQT.length} chuyến CHƯA quyết toán ở Bước 2 nên chưa lập phiếu thu: ${chuaQT.join(", ")}`);
     if (!dsDot.length) ghiChu.push("ℹ️ Chưa chọn chuyến xe / ngày ở phía trên nên chưa có phiếu thu theo hoá đơn.");
   }
@@ -193,13 +197,13 @@ function dungDanhSachPhieuThu(dsDot, dsThuNo, bat, st) {
   dsThuNo.forEach(r => {
     const laTraTruoc = r.nguon === "tra_truoc";
     if (laTraTruoc ? !bat.traTruoc : !bat.thuNo) return;
-    if (r.chiRa || !(parseFloat(r.soTien) > 0) || (r.tkNo !== "1111" && r.tkNo !== "1121")) return;
+    if (r.chiRa || laKhoanThuNoDaHuy(r) || !(soTienAnToan(r.soTien) > 0) || (r.tkNo !== "1111" && r.tkNo !== "1121")) return;
     them({
       khoa: (laTraTruoc ? "TT|" : "TN|") + r.id,
       loai: r.tkNo === "1121" ? "ck" : "tm",
       ngay: ngayVNPhieuThu(r.ngayThu),
       maKH: String(r.maKH || "").trim().toUpperCase(), tenKH: String(r.tenKH || "Khách Lẻ").trim(),
-      soTien: Math.round(parseFloat(r.soTien) || 0),
+      soTien: Math.round(soTienAnToan(r.soTien)),
       nguon: laTraTruoc ? "tra_truoc" : "thu_no",
       tenNguon: laTraTruoc ? "Khách trả trước / trả dư" : "Thu nợ khách hàng",
       thamChieu: laTraTruoc ? `Trả trước ${r.soCT || ""}` : `HĐ ${r.soCT || ""}`,
@@ -277,7 +281,7 @@ function laKhoanThuNoDaHuy(r) {
   if (!r) return true;
   if (r.da_huy === true || r.daHuy === true || r.huy === true) return true;
   const tt = String(r.trang_thai || r.trangThai || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
-  return /^(huy|da huy|cancel|canceled|cancelled|khong hop le|invalid|void)/.test(tt);
+  return /^(huy|da huy|cancel|canceled|cancelled|khong hop le|invalid|void|nhap|ban nhap|draft)/.test(tt);
 }
 
 /**
@@ -316,8 +320,9 @@ function tinhTongPhieuThu(ds) {
   const kq = { tm: { so: 0, tong: 0 }, ck: { so: 0, tong: 0 }, tong: 0, soPhieu: 0, theoNguon: { hoa_don: 0, thu_no: 0, tra_truoc: 0 } };
   (ds || []).forEach(r => {
     const o = r.loai === "ck" ? kq.ck : kq.tm;
-    o.so++; o.tong += r.soTien; kq.tong += r.soTien; kq.soPhieu++;
-    if (kq.theoNguon[r.nguon] !== undefined) kq.theoNguon[r.nguon] += r.soTien;
+    const st = soTienAnToan(r.soTien);
+    o.so++; o.tong += st; kq.tong += st; kq.soPhieu++;
+    if (kq.theoNguon[r.nguon] !== undefined) kq.theoNguon[r.nguon] += st;
   });
   return kq;
 }
@@ -386,10 +391,11 @@ async function veBangPhieuThuMisa() {
   if (!dsHien.length) {
     tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:26px; color:var(--text-muted);">Không có khoản thu nào để lập phiếu thu (theo chuyến / ngày đang chọn và bộ lọc thu nợ phía trên).</td></tr>`;
     dat("footPTTien", "0");
+    doiChieuTheVoiBangPhieuThu();
     return;
   }
   tbody.innerHTML = dsHien.map((r, i) => `
-    <tr>
+    <tr data-loai="${r.loai}" data-so-tien="${r.soTien}">
       <td style="text-align:center;">${i + 1}</td>
       <td style="text-align:center;">${r.loai === "tm" ? '<span class="badge-status badge-done" style="font-size:10.5px;">💵 Tiền mặt</span>' : '<span class="badge-status" style="font-size:10.5px; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe;">🏦 Tiền gửi</span>'}</td>
       <td>${escapeHtml(r.ngay || "--")}</td>
@@ -404,6 +410,63 @@ async function veBangPhieuThuMisa() {
       <td style="font-size:11px;">${r.canhBao.length ? `<span style="color:#b91c1c; font-weight:700;">⚠️ ${escapeHtml(r.canhBao.join("; "))}</span>` : (r.soCTDaCap ? '<span style="color:#15803d; font-weight:700;">✅ Đã xuất</span>' : '<span style="color:#15803d;">Hợp lệ</span>')}</td>
     </tr>`).join("");
   dat("footPTTien", formatTien(tongHien.tong));
+  doiChieuTheVoiBangPhieuThu();   // thẻ phải = bảng (số phiếu + tổng tiền); lệch thì báo đỏ + in bảng chẩn đoán
+  if (/[?&]debugPhieuThu=1/.test(location.search)) chanDoanPhieuThuMisa();
+}
+
+/**
+ * Đối chiếu NGAY TRÊN GIAO DIỆN: số phiếu + tổng tiền ở 2 thẻ "Phiếu thu tiền mặt / tiền gửi" phải bằng số dòng +
+ * tổng cột "Số tiền" của "Bảng Phiếu Thu Chuẩn AMIS (xem trước)" (đọc lại từ chính các ô đã hiển thị).
+ * Lệch → báo đỏ ở khung ghi chú + console.table để biết dòng nào gây lệch.
+ */
+function doiChieuTheVoiBangPhieuThu() {
+  const tbody = document.getElementById("tbodyPhieuThuMisa");
+  if (!tbody) return null;
+  const soTuChuoi = t => { const m = String(t || "").match(/\d[\d.]*/); return m ? parseInt(m[0].replace(/\./g, ""), 10) || 0 : 0; };
+  const text = id => (document.getElementById(id) || {}).textContent || "";
+  const bang = { tm: { so: 0, tong: 0 }, ck: { so: 0, tong: 0 } };
+  Array.from(tbody.querySelectorAll("tr[data-loai]")).forEach(tr => {
+    const o = bang[tr.dataset.loai === "ck" ? "ck" : "tm"];
+    o.so++; o.tong += soTuChuoi(tr.children[9] && tr.children[9].textContent);   // cột "Số tiền" đang hiện
+  });
+  const the = {
+    tm: { so: soTuChuoi(text("kpiPTTienMatSub")), tong: soTuChuoi(text("kpiPTTienMat")) },
+    ck: { so: soTuChuoi(text("kpiPTTienGuiSub")), tong: soTuChuoi(text("kpiPTTienGui")) }
+  };
+  const khop = ["tm", "ck"].every(k => bang[k].so === the[k].so && bang[k].tong === the[k].tong);
+  if (!khop) {
+    console.error("❌ Phiếu thu: thẻ tổng hợp KHÔNG khớp bảng xem trước", { the: the, bang: bang });
+    chanDoanPhieuThuMisa();
+    const el = document.getElementById("ghiChuPhieuThuMisa");
+    if (el) {
+      el.innerHTML += `<div style="color:#b91c1c; font-weight:700;">❌ Thẻ tổng hợp (TM ${the.tm.so} phiếu / ${formatTien(the.tm.tong)} đ · CK ${the.ck.so} phiếu / ${formatTien(the.ck.tong)} đ) KHÔNG khớp bảng bên dưới (TM ${bang.tm.so} / ${formatTien(bang.tm.tong)} đ · CK ${bang.ck.so} / ${formatTien(bang.ck.tong)} đ). Bấm "Làm mới" và báo kỹ thuật (mở F12 xem bảng chẩn đoán).</div>`;
+      el.style.display = "";
+    }
+  }
+  return { khop: khop, the: the, bang: bang };
+}
+
+/**
+ * In ra console (F12) mảng dữ liệu TRƯỚC khi cộng và kết quả SAU khi cộng để tìm dòng gây lệch.
+ * Gọi tay: chanDoanPhieuThuMisa()  ·  hoặc mở trang với ?debugPhieuThu=1 để tự in mỗi lần vẽ lại.
+ */
+function chanDoanPhieuThuMisa() {
+  const boQua = !!(document.getElementById("ptBoQuaDaXuat") || {}).checked;
+  const hien = new Set(locPhieuThuCanXuat(danhSachPhieuThuMisa, "", boQua));
+  const dsChiTiet = danhSachPhieuThuMisa.map(r => ({
+    khoa: r.khoa, loai: r.loai, tkNo: r.tkNo, nguon: r.nguon, ngay: r.ngay, tenKH: r.tenKH,
+    soTien: r.soTien, kieuSoTien: typeof r.soTien, soCT: r.soCTDaCap || "", hienTrongThe: hien.has(r)
+  }));
+  console.log("📋 Phiếu thu — mảng TRƯỚC khi cộng (" + dsChiTiet.length + " khoản; bỏ qua đã xuất = " + boQua + ")");
+  console.table(dsChiTiet);
+  const tong = tinhTongPhieuThu(Array.from(hien));
+  console.log("📊 Phiếu thu — SAU khi cộng");
+  console.table({
+    "Tiền mặt (1111)": { soPhieu: tong.tm.so, tongTien: tong.tm.tong },
+    "Tiền gửi (1121x)": { soPhieu: tong.ck.so, tongTien: tong.ck.tong },
+    "Tổng": { soPhieu: tong.soPhieu, tongTien: tong.tong }
+  });
+  return dsChiTiet;
 }
 
 function lamMoiPhieuThuMisa() {

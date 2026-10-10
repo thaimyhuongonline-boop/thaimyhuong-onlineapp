@@ -92,6 +92,7 @@
   const tim = k => dsAll.find(r => r.khoa === k) || {};
   kiemTra("Chuyến chưa quyết toán không lập phiếu thu (HD9 không có)", !dsAll.some(r => r.khoa.indexOf("HD9") >= 0));
   kiemTra("Có ghi chú chuyến chưa quyết toán", dung.ghiChu.some(x => x.indexOf("CHƯA quyết toán") >= 0));
+  kiemTra("Có ghi chú khách trả DƯ (HD2 dư 200.000 đ) chỉ rõ phần dư nằm ở nguồn trả trước", dung.ghiChu.some(x => x.indexOf("trả DƯ tổng 200.000") >= 0), JSON.stringify(dung.ghiChu));
   kiemTra("Hoá đơn giao lại (HD1 ở 2 chuyến) chỉ tính 1 lần", dsAll.filter(r => r.khoa === "HD|HD1|TM").length === 1 && dsAll.filter(r => r.khoa === "HD|HD1|CK").length === 1);
   kiemTra("Phần khách trả DƯ của HD2 không vào phiếu thu hoá đơn (500k, không phải 700k)", tim("HD|HD2|TM").soTien === 500000, tim("HD|HD2|TM").soTien);
   kiemTra("HD3 trả hàng 100k → chỉ thu CK 200k, không có dòng TM", tim("HD|HD3|CK").soTien === 200000 && !dsAll.some(r => r.khoa === "HD|HD3|TM"));
@@ -177,6 +178,52 @@
     document.getElementById("ptBoQuaDaXuat").checked = false;
     await veBangPhieuThuMisa();
     kiemTra("Bỏ tích 'bỏ qua đã xuất': thẻ Tiền mặt hiện lại 3.400.000 đ", doc("kpiPTTienMat") === "3.400.000 đ", doc("kpiPTTienMat"));
+
+
+    // ---- 7. Kiểm tra chéo ngay trên giao diện: thẻ (số phiếu + tổng tiền) === bảng xem trước ----
+    document.getElementById("ptBoQuaDaXuat").checked = true;
+    await veBangPhieuThuMisa();
+    const dc = doiChieuTheVoiBangPhieuThu();
+    kiemTra("Integration: thẻ === bảng (TM " + dc.the.tm.so + " phiếu/" + dc.the.tm.tong + " · CK " + dc.the.ck.so + " phiếu/" + dc.the.ck.tong + ")",
+      dc.khop && dc.the.tm.so === dc.bang.tm.so && dc.the.tm.tong === dc.bang.tm.tong && dc.the.ck.so === dc.bang.ck.so && dc.the.ck.tong === dc.bang.ck.tong, JSON.stringify(dc));
+    kiemTra("Integration: số dòng bảng = tổng số phiếu 2 thẻ", document.querySelectorAll("#tbodyPhieuThuMisa tr[data-loai]").length === dc.the.tm.so + dc.the.ck.so);
+    kiemTra("Integration: tổng cột Số tiền của bảng = chân bảng", ["tm", "ck"].reduce((s, k) => s + dc.bang[k].tong, 0) === so(doc("footPTTien")));
+    // Cố tình làm hỏng 1 ô trong bảng → phải bị phát hiện và báo đỏ
+    document.querySelector("#tbodyPhieuThuMisa tr[data-loai] td:nth-child(10)").textContent = "999";
+    const dcLoi = doiChieuTheVoiBangPhieuThu();
+    kiemTra("Integration: nếu bảng bị lệch 1 dòng → phát hiện (khop = false) + báo đỏ", dcLoi.khop === false && document.getElementById("ghiChuPhieuThuMisa").textContent.indexOf("KHÔNG khớp") >= 0);
+    await veBangPhieuThuMisa();
+    kiemTra("Integration: vẽ lại → khớp trở lại", doiChieuTheVoiBangPhieuThu().khop === true);
+    const tmTruoc = doc("kpiPTTienMat"), ckTruoc = doc("kpiPTTienGui");
+    for (let i = 0; i < 5; i++) await veBangPhieuThuMisa();
+    kiemTra("Vẽ lại 5 lần liên tiếp (re-render) → thẻ không cộng dồn", doc("kpiPTTienMat") === tmTruoc && doc("kpiPTTienGui") === ckTruoc, tmTruoc + " → " + doc("kpiPTTienMat"));
+    await Promise.all([veBangPhieuThuMisa(), veBangPhieuThuMisa(), veBangPhieuThuMisa()]);
+    kiemTra("Vẽ lại đồng thời 3 lần (realtime bắn dồn) → vẫn khớp, không nhân đôi", doc("kpiPTTienMat") === tmTruoc && doc("kpiPTTienGui") === ckTruoc && doiChieuTheVoiBangPhieuThu().khop);
+
+    // ---- 8. Ép kiểu an toàn: chuỗi / null / undefined / chữ không được nối chuỗi hay ra NaN ----
+    const chuoi = [
+      { khoa: "S1", loai: "tm", tkNo: "1111", nguon: "thu_no", soTien: "100", canhBao: [] },
+      { khoa: "S2", loai: "tm", tkNo: "1111", nguon: "thu_no", soTien: "200", canhBao: [] },
+      { khoa: "S3", loai: "ck", tkNo: "11211", nguon: "thu_no", soTien: null, canhBao: [] },
+      { khoa: "S4", loai: "ck", tkNo: "11211", nguon: "thu_no", soTien: "abc", canhBao: [] },
+      { khoa: "S5", loai: "ck", tkNo: "11211", nguon: "thu_no", soTien: "1.500.000", canhBao: [] }
+    ];
+    const tc = tinhTongPhieuThu(chuoi);
+    kiemTra('"100" + "200" = 300 (không nối chuỗi thành "100200")', tc.tm.tong === 300 && typeof tc.tm.tong === "number", tc.tm.tong);
+    kiemTra("null / chữ → 0, '1.500.000' → 1500000 (không NaN)", tc.ck.tong === 1500000 && isFinite(tc.tong), tc.ck.tong);
+    const dsChuoi = dungDanhSachPhieuThu([], [
+      { id: 21, nguon: "thu_no", ngayThu: "09/10/2026", soCT: "A", tkNo: "1111", soTien: "100" },
+      { id: 22, nguon: "thu_no", ngayThu: "09/10/2026", soCT: "B", tkNo: "1111", soTien: "200" },
+      { id: 23, nguon: "thu_no", ngayThu: "09/10/2026", soCT: "C", tkNo: "1111", soTien: "xyz" },
+      { id: 24, nguon: "thu_no", ngayThu: "09/10/2026", soCT: "D", tkNo: "1111", soTien: 500, trang_thai: "Đã hủy" },
+      { id: 25, nguon: "thu_no", ngayThu: "09/10/2026", soCT: "E", tkNo: "1111", soTien: 600, trang_thai: "Nháp" },
+      { id: 26, nguon: "thu_no", ngayThu: "09/10/2026", soCT: "F", tkNo: "1111", soTien: 700, da_huy: true }
+    ], BAT_HET, st).ds;
+    kiemTra("Dựng danh sách: soTien luôn là số (chuỗi '100' → 100), 'xyz' / hủy / nháp bị bỏ", dsChuoi.length === 2 && dsChuoi.every(r => typeof r.soTien === "number") && tinhTongPhieuThu(dsChuoi).tong === 300, JSON.stringify(dsChuoi.map(r => r.soTien)));
+    const dsHD = dungDanhSachPhieuThu([{ maDot: "D", xe: "x", daQuyetToan: true, ngayGiao: "2026-10-09", danhSachChiTiet: [
+      { maHD: "S1", maKH: "k", tenKH: "K", tienHD: "1000", tienMat: "600", chuyenKhoan: "400", taiKhoanNhan: "VCB - 0041000266096" },
+      { maHD: "S2", maKH: "k", tenKH: "K", tienHD: null, tienMat: undefined, chuyenKhoan: "" }] }], [], BAT_HET, st).ds;
+    kiemTra("Hoá đơn có tiền dạng chuỗi / null / undefined: TM 600 + CK 400, hoá đơn rỗng không sinh phiếu", dsHD.length === 2 && tinhTongPhieuThu(dsHD).tm.tong === 600 && tinhTongPhieuThu(dsHD).ck.tong === 400);
 
     const tieuDe = document.getElementById("tieuDe");
     tieuDe.textContent = (soDat === soTong ? "PASS " : "FAIL ") + soDat + "/" + soTong;
