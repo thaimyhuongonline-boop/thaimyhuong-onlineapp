@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Test luong du lieu Buoc 3 (Phan 1 -> Phan 3)</title>
+<!--
+  Integration test: nạp TRANG THẬT buoc3_day_misa.html trong 1 iframe với máy chủ giả (không đụng Supabase thật),
+  giả lập đổi ô "Chọn chuyến xe" (Phần 1) → kiểm tra Phiếu thu AMIS (Phần 3) cập nhật đúng; chọn mục trống / Làm mới →
+  Phần 3 về trống an toàn; Phần 2 (Cấn trừ công nợ) không đổi; accordion thu gọn / mở không làm mất dữ liệu.
+  Chạy: mở bằng trình duyệt, hoặc (không cần Node):
+    msedge --headless --disable-gpu --allow-file-access-from-files --virtual-time-budget=120000 --dump-dom "file:///.../tests/buoc3_data_flow.test.html"
+-->
+<style>
+  body { font: 13px/1.5 monospace; padding: 12px; }
+  .ok { color: #15803d; } .loi { color: #b91c1c; font-weight: 700; }
+  iframe { width: 1300px; height: 700px; border: 1px solid #ccc; }
+</style>
+</head>
+<body>
+<h3 id="tieuDe">Đang chạy…</h3>
+<pre id="ketQua"></pre>
+<iframe id="f"></iframe>
+
+<script>
+(async function () {
+  const kq = [];
+  let soDat = 0, soTong = 0;
+  function kiemTra(ten, dieuKien, chiTiet) {
+    soTong++;
+    if (dieuKien) soDat++;
+    kq.push((dieuKien ? "✅ " : "❌ ") + ten + (dieuKien ? "" : "  → " + (chiTiet === undefined ? "" : chiTiet)));
+  }
+  const FIN = "<" + "/script>";
+  const cho = ms => new Promise(r => setTimeout(r, ms));
+
+  // ---------------- Dữ liệu giả ----------------
+  const hd = (maHD, maKH, tenKH, tienHD, tienMat, chuyenKhoan, taiKhoanNhan) => ({
+    maHD: maHD, maKH: maKH, tenKH: tenKH, tienHD: tienHD, thanhTien: tienHD, tienMat: tienMat, chuyenKhoan: chuyenKhoan,
+    traVe: 0, noPhatSinh: Math.max(0, tienHD - tienMat - chuyenKhoan), taiKhoanNhan: taiKhoanNhan || "", nguoiBan: "NV Test"
+  });
+  const dot = (maDot, xe, daQT, ds) => ({
+    maDot: maDot, xe: xe, ngayGiao: "2026-10-09", ngayRaw: "2026-10-09", daQuyetToan: daQT, daDayMisa: false,
+    soLuongHD: ds.length, tongTien: ds.reduce((s, h) => s + h.tienHD, 0), danhSachHD: ds.map(h => h.maHD), danhSachChiTiet: ds
+  });
+  // Xe A: TM 600.000 + CK 400.000 (HD A1) + TM 500.000 (HD A2)  → TM 1.100.000 (2 phiếu) · CK 400.000 (1 phiếu)
+  const xeA = dot("DOT_A", "51A-111", true, [hd("A1", "KH_A", "Khách A", 1000000, 600000, 400000, "VCB - 0041000266096"), hd("A2", "KH_B", "Khách B", 500000, 500000, 0)]);
+  // Xe B: CK 700.000 (TCB) + TM 250.000  → TM 250.000 (1 phiếu) · CK 700.000 (1 phiếu)
+  const xeB = dot("DOT_B", "51B-222", true, [hd("B1", "KH_C", "Khách C", 700000, 0, 700000, "TCB - 20166789"), hd("B2", "KH_D", "Khách D", 250000, 250000, 0)]);
+  // Xe C: chưa quyết toán → chưa lập phiếu thu
+  const xeC = dot("DOT_C", "51C-333", false, [hd("C1", "KH_E", "Khách E", 900000, 0, 0)]);
+  const thuNoGia = [
+    { id: 901, ngay_thu: "2026-10-09", ma_kh: "KH_G", ten_kh: "Khách G", so_tien: 2000000, hinh_thuc: "Tiền mặt", tai_khoan_nhan: "", id_don_no: "NO_X1", ma_hd: "X1", ma_dot: "DOT_OLD", tao_luc: "2026-10-09T03:00:00Z", da_day_misa: false },
+    { id: 902, ngay_thu: "2026-10-09", ma_kh: "KH_H", ten_kh: "Khách H", so_tien: 1500000, hinh_thuc: "Chuyển khoản", tai_khoan_nhan: "SCB - 040089722561", id_don_no: "NO_X2", ma_hd: "X2", ma_dot: "DOT_OLD", tao_luc: "2026-10-09T03:00:00Z", da_day_misa: false }
+  ];
+
+  // Máy chủ giả: mọi lệnh nối tiếp (select/order/range/...) trả về chính nó; await → { data, error }
+  function taoMayChuGia() {
+    const bang = { thu_no: thuNoGia };
+    function chuoi(ten) {
+      const rows = bang[ten] || [];
+      const p = new Proxy(function () {}, {
+        get(_, k) {
+          if (k === "then") return (res) => res({ data: rows, error: null });
+          if (k === "range") return (tu) => ({ then: (res) => res({ data: tu === 0 ? rows : [], error: null }) });
+          return () => p;
+        },
+        apply() { return p; }
+      });
+      return p;
+    }
+    return { from: chuoi, channel: () => chuoi("_"), rpc: () => chuoi("_"), removeChannel: () => {}, auth: { getSession: async () => ({ data: { session: null } }) } };
+  }
+  window.__mayChuGia = taoMayChuGia;
+
+  // ---------------- Nạp trang thật ----------------
+  try { localStorage.setItem("tmh_lich_su_dot", JSON.stringify([xeA, xeB, xeC])); localStorage.setItem("tmh_so_phieu_thu_misa", JSON.stringify({ soTiepTheo: 1, theoKhoa: {} })); } catch (e) {}
+  const xhr = new XMLHttpRequest();
+  xhr.open("GET", "../buoc3_day_misa.html", false); xhr.send();
+  let h = xhr.responseText;
+  h = h.replace(/<script src="https:\/\/cdn\.jsdelivr\.net[^>]*><\/script>/g, "");                 // bỏ thư viện mạng (supabase, xlsx)
+  h = h.replace('<script src="layout.js">' + FIN, "");                                              // bỏ chuyển hướng đăng nhập
+  h = h.replace("<head>", '<head><base href="file:///G:/My Drive/thaimyhuong/"><script>' +
+    "window.__loi=[];window.addEventListener(\"error\",function(e){window.__loi.push(e.message+\" @\"+(e.filename||\"\").split(\"/\").pop()+\":\"+e.lineno)});window.alert=function(){};window.confirm=function(){return true;};" +
+    "window.supabase={createClient:function(){return window.parent.__mayChuGia();}};window.XLSX={};" + FIN);
+  const f = document.getElementById("f");
+  f.srcdoc = h;
+  await new Promise(r => f.onload = r);
+  const w = f.contentWindow, d = f.contentDocument;
+  const g = id => (d.getElementById(id) || {}).textContent || "";
+  const so = t => { const m = String(t).match(/\d[\d.]*/); return m ? parseInt(m[0].replace(/\./g, ""), 10) : 0; };
+  const choDen = async (dieuKien, toiDa) => { for (let i = 0; i < (toiDa || 40); i++) { try { if (dieuKien()) return true; } catch (e) {} await cho(500); } return false; };
+  const doiChuyen = async (gt) => {
+    const sel = d.getElementById("selChuyenXeMisa");
+    sel.value = gt;
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
+    await cho(2500);
+  };
+
+  const san = await choDen(() => w.eval("danhSachTatCaDot") && w.eval("danhSachTatCaDot").length === 3 && d.getElementById("selChuyenXeMisa").options.length > 3 && w.eval("danhSachThuNoMisa").length === 2, 60);
+  kiemTra("Trang thật nạp xong với dữ liệu giả (3 chuyến, 2 khoản thu nợ)", san, "dots=" + (w.eval("danhSachTatCaDot") || []).length + " thuNo=" + (w.eval("danhSachThuNoMisa") || []).length + " loi=" + (w.__loi || []).join(" ; "));
+  if (!san) {
+    document.getElementById("tieuDe").textContent = "FAIL (không nạp được trang)";
+    document.getElementById("ketQua").textContent = kq.join("\n");
+    return;
+  }
+
+  // Phần 3 chỉ xét nguồn "hoá đơn của chuyến" (bỏ tích thu nợ / trả trước) để kiểm tra đúng luồng Phần 1 → Phần 3
+  const chk = (id, v) => { d.getElementById(id).checked = v; };
+  chk("ptNguonThuNo", false); chk("ptNguonTraTruoc", false);
+  const theTM = () => so(g("kpiPTTienMat")), theCK = () => so(g("kpiPTTienGui"));
+  const dongBang = () => d.querySelectorAll("#tbodyPhieuThuMisa tr[data-loai]").length;
+  const thuNoTruoc = { tm: g("kpiThuNo1111"), ck: g("kpiThuNo1121"), tong: g("kpiThuNoTong"), dong: d.querySelectorAll("#tbodyThuNoMisa tr").length, n: w.eval("danhSachThuNoMisa").length };
+  kiemTra("Phần 2 (Cấn trừ công nợ) có số liệu riêng: TM 2.000.000 · CK 1.500.000", so(thuNoTruoc.tm) === 2000000 && so(thuNoTruoc.ck) === 1500000, JSON.stringify(thuNoTruoc));
+
+  // ---------------- Luồng dữ liệu: đổi chuyến ở Phần 1 → Phần 3 ----------------
+  await doiChuyen("DOT_A");
+  kiemTra("Chọn Xe A → Phần 3: TM 1.100.000 (2 phiếu)", theTM() === 1100000 && so(g("kpiPTTienMatSub")) === 2, g("kpiPTTienMat") + " | " + g("kpiPTTienMatSub"));
+  kiemTra("Chọn Xe A → Phần 3: CK 400.000 (1 phiếu)", theCK() === 400000 && so(g("kpiPTTienGuiSub")) === 1, g("kpiPTTienGui") + " | " + g("kpiPTTienGuiSub"));
+  kiemTra("Chọn Xe A → bảng Phần 3 có đúng 3 dòng (không còn 'Không có khoản thu nào')", dongBang() === 3 && g("tbodyPhieuThuMisa").indexOf("Không có khoản thu nào") < 0, dongBang());
+  kiemTra("Chọn Xe A → tag Phần 1 hiện đúng xe", g("tagXeMisa").indexOf("51A-111") >= 0, g("tagXeMisa"));
+  kiemTra("Chọn Xe A → thẻ Phần 3 khớp bảng (tự đối chiếu)", w.doiChieuTheVoiBangPhieuThu().khop === true);
+  const maKHHienTai = Array.from(d.querySelectorAll("#tbodyPhieuThuMisa tr[data-loai]")).map(tr => tr.children[4].textContent.trim()).sort().join(",");
+  kiemTra("Chọn Xe A → mã khách trong bảng là của Xe A (KH_A, KH_A, KH_B)", maKHHienTai === "KH_A,KH_A,KH_B", maKHHienTai);
+
+  await doiChuyen("DOT_B");
+  kiemTra("Đổi sang Xe B → Phần 3 cập nhật ngay: TM 250.000 · CK 700.000", theTM() === 250000 && theCK() === 700000, g("kpiPTTienMat") + " / " + g("kpiPTTienGui"));
+  kiemTra("Đổi sang Xe B → bảng chỉ còn 2 dòng của Xe B", dongBang() === 2 && g("tbodyPhieuThuMisa").indexOf("KH_A") < 0, dongBang());
+  kiemTra("Đổi sang Xe B → TK ngân hàng đúng (TCB 20166789 → 11213)", Array.from(d.querySelectorAll("#tbodyPhieuThuMisa tr[data-loai=ck]")).every(tr => tr.children[7].textContent.trim() === "11213"));
+  kiemTra("Đổi sang Xe B → thẻ khớp bảng", w.doiChieuTheVoiBangPhieuThu().khop === true);
+
+  await doiChuyen("DOT_C");
+  kiemTra("Chọn Xe C (chưa quyết toán) → Phần 3 trống: 0 đ + ghi chú chưa quyết toán, không lỗi", theTM() === 0 && theCK() === 0 && dongBang() === 0 && g("ghiChuPhieuThuMisa").indexOf("CHƯA quyết toán") >= 0, g("kpiPTTienMat"));
+
+  await doiChuyen("NGAY|09/10/2026");
+  kiemTra("Chọn 'Tất cả xe ngày 09/10/2026' → Phần 3 = Xe A + Xe B: TM 1.350.000 · CK 1.100.000", theTM() === 1350000 && theCK() === 1100000 && dongBang() === 5, g("kpiPTTienMat") + " / " + g("kpiPTTienGui") + " / " + dongBang());
+
+  // ---------------- Chưa chọn chuyến / Làm mới ----------------
+  await doiChuyen("DOT_A");
+  const loiTruoc = [];
+  w.addEventListener("error", e => loiTruoc.push(e.message));
+  await doiChuyen("");
+  kiemTra("Chọn mục trống (chưa chọn chuyến) → Phần 3 về trống: 0 đ, 0 phiếu, bảng không có dòng", theTM() === 0 && theCK() === 0 && dongBang() === 0 && so(g("kpiPTTienMatSub")) === 0, g("kpiPTTienMat") + " | " + g("kpiPTTienMatSub"));
+  kiemTra("Chọn mục trống → bảng Phần 3 hiện thông báo trống (không để trắng / không lỗi undefined)", g("tbodyPhieuThuMisa").indexOf("Không có khoản thu nào") >= 0 && g("tbodyPhieuThuMisa").indexOf("undefined") < 0 && g("tbodyPhieuThuMisa").indexOf("NaN") < 0);
+  kiemTra("Chọn mục trống → Phần 1 cũng trống (bảng hạch toán, tag Xe)", g("tbodyMisa").indexOf("Không có dữ liệu") >= 0 && g("tagXeMisa").indexOf("--") >= 0 && g("kpiDoanhThu") === "0 đ", g("tagXeMisa") + " | " + g("kpiDoanhThu"));
+  kiemTra("Chọn mục trống → không có lỗi JavaScript", loiTruoc.length === 0, loiTruoc.join(";"));
+  kiemTra("Chọn mục trống → thẻ vẫn khớp bảng (0 = 0)", w.doiChieuTheVoiBangPhieuThu().khop === true);
+
+  await doiChuyen("DOT_A");
+  kiemTra("Chọn lại Xe A sau khi trống → Phần 3 hiện lại đủ: TM 1.100.000 · CK 400.000", theTM() === 1100000 && theCK() === 400000);
+  w.taiLaiDuLieuMisa();      // nút "Làm mới" của Phần 1
+  await cho(4000);
+  kiemTra("Bấm 'Làm mới' xong → Phần 3 nạp lại không lỗi, thẻ khớp bảng, không NaN", w.doiChieuTheVoiBangPhieuThu().khop === true && g("kpiPTTienMat").indexOf("NaN") < 0, g("kpiPTTienMat"));
+
+  // ---------------- Phần 2 không bị ảnh hưởng ----------------
+  const thuNoSau = { tm: g("kpiThuNo1111"), ck: g("kpiThuNo1121"), tong: g("kpiThuNoTong"), dong: d.querySelectorAll("#tbodyThuNoMisa tr").length, n: w.eval("danhSachThuNoMisa").length };
+  kiemTra("Sau mọi lần đổi chuyến / làm mới: Phần 2 (Cấn trừ công nợ) giữ nguyên số liệu", JSON.stringify(thuNoSau) === JSON.stringify(thuNoTruoc), JSON.stringify(thuNoSau) + " ≠ " + JSON.stringify(thuNoTruoc));
+  chk("ptNguonThuNo", true);
+  await w.veBangPhieuThuMisa();
+  await doiChuyen("");
+  kiemTra("Chưa chọn chuyến nhưng tích 'Thu nợ khách hàng' → Phần 3 vẫn hiện thu nợ theo Phần 2 (TM 2.000.000 · CK 1.500.000)", theTM() === 2000000 && theCK() === 1500000 && dongBang() === 2, g("kpiPTTienMat") + " / " + g("kpiPTTienGui"));
+  kiemTra("Thẻ Phần 3 khớp bảng cả khi có thu nợ", w.doiChieuTheVoiBangPhieuThu().khop === true);
+
+  // ---------------- Accordion trên trang thật ----------------
+  await doiChuyen("DOT_A");
+  const dem = () => ({ tm: g("kpiPTTienMat"), ck: g("kpiPTTienGui"), dong: dongBang() });
+  const truocGap = JSON.stringify(dem());
+  d.getElementById("accPhan3Header").click();
+  const body3 = d.getElementById("accPhan3Body");
+  kiemTra("Thu gọn Phần 3 → thân ẩn thật sự (display none, cao 0) và trang ngắn lại",
+    body3.hidden && w.getComputedStyle(body3).display === "none" && body3.offsetHeight === 0, w.getComputedStyle(body3).display);
+  d.getElementById("accPhan1Header").click();
+  kiemTra("Thu gọn Phần 1 → bảng hạch toán ẩn, ô chọn chuyến ẩn", w.getComputedStyle(d.getElementById("accPhan1Body")).display === "none" && d.getElementById("selChuyenXeMisa").offsetHeight === 0);
+  kiemTra("Phần 2 vẫn hiện khi Phần 1, 3 thu gọn", w.getComputedStyle(d.getElementById("accPhan2Body")).display !== "none");
+  d.getElementById("accPhan3Header").click();
+  d.getElementById("accPhan1Header").click();
+  kiemTra("Mở lại các phần → dữ liệu giữ nguyên, không phải nạp lại", JSON.stringify(dem()) === truocGap && w.getComputedStyle(body3).display !== "none", JSON.stringify(dem()) + " vs " + truocGap);
+
+  document.getElementById("tieuDe").textContent = (soDat === soTong ? "PASS " : "FAIL ") + soDat + "/" + soTong;
+  document.getElementById("tieuDe").className = soDat === soTong ? "ok" : "loi";
+  document.getElementById("ketQua").textContent = kq.join("\n");
+  try { localStorage.removeItem("tmh_lich_su_dot"); localStorage.removeItem("tmh_so_phieu_thu_misa"); } catch (e) {}
+})().catch(e => {
+  document.getElementById("tieuDe").textContent = "FAIL (lỗi chạy test)";
+  document.getElementById("ketQua").textContent = String(e && e.stack || e);
+});
+</script>
+</body>
+</html>

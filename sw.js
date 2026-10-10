@@ -7,7 +7,7 @@
  * - Bá» qua cache hoÃ n toÃ n Ä‘á»‘i vá»›i dá»¯ liá»‡u Ä‘Ã¡m mÃ¢y Supabase
  * ==================================================================== */
 
-const CACHE_VERSION = 'tmh-pwa-v1.0.77';
+const CACHE_VERSION = 'tmh-pwa-v1.0.78';
 const CACHE_NAME = `thaimyhuong-${CACHE_VERSION}`;
 
 // Danh sÃ¡ch tÃ i nguyÃªn cá»‘t lÃµi táº£i trÆ°á»›c khi cÃ i Ä‘áº·t
@@ -31,6 +31,7 @@ const PRECACHE_ASSETS = [
   './khach_tra_truoc.js',
   './han_muc_cong_no.js',
   './phieu_thu_misa.js',
+  './b3_accordion.js',
   './misa_ban_hang.js',
   './danh_muc_dieu_xe.js',
   './kho_idb.js',

@@ -367,6 +367,7 @@ async function veBangPhieuThuMisa() {
   // Thẻ tóm tắt = đúng tổng của danh sách đang hiện = đúng dữ liệu file Excel sẽ xuất (cùng 1 hàm lọc + 1 hàm tính tổng)
   const tongHien = tinhTongPhieuThu(dsHien);
   const setHien = new Set(dsHien);
+  const daAnTatCa = danhSachPhieuThuMisa.length - dsHien.length;
   // Khoản đã xuất phiếu thu đang bị ẩn (thẻ chỉ tính phần CHƯA xuất nên có thể = 0 đ dù vẫn còn khoản đã xuất)
   const tongAn = tinhTongPhieuThu(locPhieuThuCanXuat(danhSachPhieuThuMisa, "", false).filter(r => r.soCTDaCap && !setHien.has(r)));
   const dat = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
@@ -389,7 +390,11 @@ async function veBangPhieuThuMisa() {
   }
 
   if (!dsHien.length) {
-    tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:26px; color:var(--text-muted);">Không có khoản thu nào để lập phiếu thu (theo chuyến / ngày đang chọn và bộ lọc thu nợ phía trên).</td></tr>`;
+    // Giải thích vì sao trống: khoản đã xuất phiếu thu trước đó bị ẩn (mặc định) → có nút hiện lại
+    const nutHienDaXuat = daAnTatCa
+      ? ` <b>${daAnTatCa} khoản đã xuất phiếu thu trước đó đang bị ẩn</b> — <button type="button" class="btn btn-outline" style="height:26px; padding:0 8px; font-size:11.5px;" onclick="hienCaKhoanDaXuatPhieuThu()">Hiện cả khoản đã xuất</button>`
+      : "";
+    tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:26px; color:var(--text-muted);">Không có khoản thu nào để lập phiếu thu (theo chuyến / ngày đang chọn ở Phần 1 và bộ lọc thu nợ ở Phần 2).${nutHienDaXuat}</td></tr>`;
     dat("footPTTien", "0");
     doiChieuTheVoiBangPhieuThu();
     return;
@@ -614,4 +619,11 @@ async function xuatPhieuThuAMIS(loai) {
   } catch (err) {
     alert("❌ Lỗi xuất file phiếu thu: " + ((err && err.message) || err));
   }
+}
+
+/** Bỏ tích "Bỏ qua khoản đã xuất phiếu thu" để hiện lại các khoản đã xuất (dùng cho nút ở bảng trống) */
+function hienCaKhoanDaXuatPhieuThu() {
+  const o = document.getElementById("ptBoQuaDaXuat");
+  if (o) o.checked = false;
+  return veBangPhieuThuMisa();
 }

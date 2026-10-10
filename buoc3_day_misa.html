@@ -20,6 +20,7 @@
   <script src="phan_quyen.js"></script>
   <script src="khach_tra_truoc.js"></script>
   <script src="phieu_thu_misa.js"></script>
+  <script src="b3_accordion.js"></script>
   <script src="misa_ban_hang.js"></script>
   <script src="pwa.js"></script>
   <link rel="stylesheet" href="layout.css">
@@ -29,6 +30,23 @@
       flex-direction: column;
       gap: 18px;
     }
+
+    /* Accordion: thu gọn / mở rộng 3 phần của Bước 3 (b3_accordion.js) */
+    .b3-acc { display: flex; flex-direction: column; gap: 12px; }
+    .b3-acc-header {
+      display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border-color); border-radius: var(--radius-md);
+      background: #f8fafc; cursor: pointer; font: inherit; font-size: 14px; font-weight: 800; color: var(--text-main);
+    }
+    .b3-acc-header:hover { background: #f1f5f9; }
+    .b3-acc-header:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+    .b3-acc-icon { width: 16px; font-size: 12px; color: var(--text-muted); flex: 0 0 auto; }
+    .b3-acc-hint { margin-left: auto; font-size: 11.5px; font-weight: 600; color: var(--text-muted); }
+    .b3-acc-body { display: flex; flex-direction: column; gap: 18px; }
+    .b3-acc-body[hidden] { display: none; }
+    .b3-acc-dong .b3-acc-header { background: #eef2ff; }
+    @media (max-width: 700px) { .b3-acc-hint { display: none; } }
+
 
     /* Thanh lọc chuyến xe & Thông số */
     .hero-meta-bar {
@@ -191,6 +209,13 @@
         </div>
       </div>
 
+      <section class="b3-acc" id="accPhan1">
+        <button type="button" class="b3-acc-header" id="accPhan1Header" aria-expanded="true" aria-controls="accPhan1Body" onclick="TMHAccordion.toggle('accPhan1')" title="Bấm để thu gọn / mở rộng">
+          <span class="b3-acc-icon" aria-hidden="true">▼</span>
+          <span class="b3-acc-title">1️⃣ Phần 1 — Chọn chuyến xe &amp; Bảng hạch toán bán hàng (file MISA)</span>
+          <span class="b3-acc-hint">Chọn chuyến / ngày cần xuất, kiểm tra bảng hạch toán</span>
+        </button>
+        <div class="b3-acc-body" id="accPhan1Body">
       <!-- THANH CHỌN CHUYẾN XE / ĐỢT CẦN ĐẨY MISA -->
       <div class="hero-meta-bar">
         <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
@@ -309,6 +334,15 @@
           </tfoot>
         </table>
       </div>
+        </div>
+      </section>
+      <section class="b3-acc" id="accPhan2">
+        <button type="button" class="b3-acc-header" id="accPhan2Header" aria-expanded="true" aria-controls="accPhan2Body" onclick="TMHAccordion.toggle('accPhan2')" title="Bấm để thu gọn / mở rộng">
+          <span class="b3-acc-icon" aria-hidden="true">▼</span>
+          <span class="b3-acc-title">2️⃣ Phần 2 — Cấn trừ công nợ (Thu nợ khách hàng)</span>
+          <span class="b3-acc-hint">Độc lập với chuyến xe ở Phần 1 — lọc theo ngày thu nợ</span>
+        </button>
+        <div class="b3-acc-body" id="accPhan2Body">
 
       <!-- ================================================================ -->
       <!-- CẤN TRỪ CÔNG NỢ (THU NỢ KHÁCH HÀNG) — độc lập với chuyến xe chọn ở trên -->
@@ -414,6 +448,15 @@
           </tfoot>
         </table>
       </div>
+        </div>
+      </section>
+      <section class="b3-acc" id="accPhan3">
+        <button type="button" class="b3-acc-header" id="accPhan3Header" aria-expanded="true" aria-controls="accPhan3Body" onclick="TMHAccordion.toggle('accPhan3')" title="Bấm để thu gọn / mở rộng">
+          <span class="b3-acc-icon" aria-hidden="true">▼</span>
+          <span class="b3-acc-title">3️⃣ Phần 3 — Phiếu thu AMIS (Tiền mặt &amp; Tiền gửi ngân hàng)</span>
+          <span class="b3-acc-hint">Lập 2 file phiếu thu nhập khẩu AMIS theo chuyến / ngày chọn ở Phần 1</span>
+        </button>
+        <div class="b3-acc-body" id="accPhan3Body">
 
       <!-- ================================================================ -->
       <!-- PHIẾU THU AMIS (TIỀN MẶT & TIỀN GỬI) — phieu_thu_misa.js          -->
@@ -504,6 +547,8 @@
           </tfoot>
         </table>
       </div>
+        </div>
+      </section>
 
     </div>
   </main>
@@ -543,6 +588,7 @@
       }
 
       const maDotDangChonTruoc = sel ? sel.value : (dotHienTai ? dotHienTai.maDot : '');
+      if (!isAutoSync) datLaiPhan1VeTrongMisa();   // "Làm mới": dọn Phần 1 + Phần 3 về trống rồi nạp lại (Phần 2 giữ nguyên)
 
       try {
         danhSachTatCaDot = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
@@ -589,6 +635,7 @@
 
       if (danhSachTatCaDot.length === 0) {
         if (sel) sel.innerHTML = '<option value="">⚠️ Chưa có chuyến xe nào</option>';
+        datLaiPhan1VeTrongMisa();
         return;
       }
 
@@ -623,12 +670,28 @@
       }
     }
 
+    // Chưa chọn chuyến xe / chọn mục trống / không còn chuyến nào / đang "Làm mới": đưa Phần 1 và Phần 3 (Phiếu thu AMIS)
+    // về trạng thái trống an toàn. Phần 2 (Cấn trừ công nợ) độc lập theo ngày thu nợ nên KHÔNG bị đụng tới.
+    function datLaiPhan1VeTrongMisa() {
+      boCheDoNgayMisa();
+      dotHienTai = null;
+      danhSachDongMisa = [];
+      const dat = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      dat('tagXeMisa', '🚚 Xe: --');
+      dat('tagNgayMisa', '📅 Ngày: --');
+      const tagStatus = document.getElementById('tagTrangThaiMisa');
+      if (tagStatus) { tagStatus.className = 'badge-status badge-pending'; tagStatus.innerHTML = '⏳ Chờ xuất MISA'; }
+      veGhiChuHangTraMisa({ nguyenDon: [], motPhan: [], chuaChonHang: [], thieuHang: [] });
+      veBangMisa();
+      tinhToanTongTheMisa();   // → vẽ lại luôn Phiếu thu AMIS (veBangPhieuThuMisa) theo trạng thái trống
+    }
+
     async function chonChuyenXeMisa(maDot) {
       // Lựa chọn "Tất cả xe trong ngày" → xuất gộp
       if (String(maDot || '').indexOf('NGAY|') === 0) return chonNgayMisa(String(maDot).slice(5));
       boCheDoNgayMisa();
       dotHienTai = danhSachTatCaDot.find(d => d.maDot === maDot);
-      if (!dotHienTai) return;
+      if (!dotHienTai) { datLaiPhan1VeTrongMisa(); return; }
 
       document.getElementById('tagXeMisa').textContent = `🚚 Xe: ${dotHienTai.xe || 'Chưa gán'}`;
       document.getElementById('tagNgayMisa').textContent = `📅 Ngày: ${dotHienTai.ngayGiao || 'Hôm nay'}`;

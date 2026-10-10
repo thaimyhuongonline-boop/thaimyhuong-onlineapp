@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Test accordion Buoc 3</title>
+<!--
+  Unit test cho Accordion (b3_accordion.js): class / thuộc tính hidden / aria-expanded / mũi tên khi bấm thu gọn – mở rộng,
+  và kiểm tra cấu trúc 3 phần THẬT trong buoc3_day_misa.html (đúng id, đúng vùng chứa các bảng).
+  Chạy: mở file bằng trình duyệt, hoặc (không cần Node):
+    msedge --headless --disable-gpu --allow-file-access-from-files --virtual-time-budget=5000 --dump-dom "file:///.../tests/b3_accordion.test.html"
+-->
+<style>
+  body { font: 13px/1.5 monospace; padding: 12px; }
+  .ok { color: #15803d; } .loi { color: #b91c1c; font-weight: 700; }
+</style>
+</head>
+<body>
+<h3 id="tieuDe">Đang chạy…</h3>
+<pre id="ketQua"></pre>
+
+<!-- Accordion mẫu nhỏ -->
+<div id="mau">
+  <section class="b3-acc" id="accA">
+    <button type="button" class="b3-acc-header" id="accAHeader" aria-expanded="true" aria-controls="accABody" onclick="TMHAccordion.toggle('accA')">
+      <span class="b3-acc-icon">▼</span><span class="b3-acc-title">A</span>
+    </button>
+    <div class="b3-acc-body" id="accABody"><input id="oNhapA" value="giữ nguyên"><table><tbody><tr><td id="oBangA">dữ liệu A</td></tr></tbody></table></div>
+  </section>
+  <section class="b3-acc" id="accB">
+    <button type="button" class="b3-acc-header" id="accBHeader" aria-expanded="true" aria-controls="accBBody" onclick="TMHAccordion.toggle('accB')">
+      <span class="b3-acc-icon">▼</span><span class="b3-acc-title">B</span>
+    </button>
+    <div class="b3-acc-body" id="accBBody">nội dung B</div>
+  </section>
+</div>
+<div id="trangThat"></div>
+
+<script src="../b3_accordion.js"></script>
+<script>
+  const kq = [];
+  let soDat = 0, soTong = 0;
+  function kiemTra(ten, dieuKien, chiTiet) {
+    soTong++;
+    if (dieuKien) soDat++;
+    kq.push((dieuKien ? "✅ " : "❌ ") + ten + (dieuKien ? "" : "  → " + (chiTiet === undefined ? "" : chiTiet)));
+  }
+  const $ = id => document.getElementById(id);
+  const trangThai = (id) => ({ hidden: $(id + "Body").hidden, dong: $(id).classList.contains("b3-acc-dong"), aria: $(id + "Header").getAttribute("aria-expanded"), icon: $(id + "Header").querySelector(".b3-acc-icon").textContent });
+
+  // ---- 1. Trạng thái ban đầu: mở ----
+  kiemTra("Ban đầu: đang mở (body không hidden, không có class b3-acc-dong, aria=true, ▼)",
+    TMHAccordion.dangMo("accA") && !trangThai("accA").hidden && !trangThai("accA").dong && trangThai("accA").aria === "true" && trangThai("accA").icon === "▼");
+
+  // ---- 2. Click vào tiêu đề (đúng onclick của HTML) ----
+  $("accAHeader").click();
+  let s = trangThai("accA");
+  kiemTra("Click lần 1 → thu gọn: body hidden, class b3-acc-dong, aria=false, ▶", s.hidden === true && s.dong === true && s.aria === "false" && s.icon === "▶", JSON.stringify(s));
+  kiemTra("Thu gọn → body thực sự bị ẩn khỏi giao diện (display none, không chiếm chỗ)", getComputedStyle($("accABody")).display === "none" && $("accABody").offsetHeight === 0);
+  kiemTra("Thu gọn không xoá nội dung / giá trị đang nhập bên trong", $("oNhapA").value === "giữ nguyên" && $("oBangA").textContent === "dữ liệu A");
+  kiemTra("Phần B không bị ảnh hưởng khi thu gọn phần A", TMHAccordion.dangMo("accB") && !trangThai("accB").dong);
+  $("accAHeader").click();
+  s = trangThai("accA");
+  kiemTra("Click lần 2 → mở lại: body hiện, bỏ class b3-acc-dong, aria=true, ▼", s.hidden === false && s.dong === false && s.aria === "true" && s.icon === "▼", JSON.stringify(s));
+  kiemTra("Mở lại → nội dung hiện lại, giữ nguyên dữ liệu", getComputedStyle($("accABody")).display !== "none" && $("oNhapA").value === "giữ nguyên");
+  for (let i = 0; i < 7; i++) $("accAHeader").click();
+  kiemTra("Click 7 lần nữa (lẻ) → đang thu gọn; luôn nhất quán class / hidden / aria", trangThai("accA").hidden === true && trangThai("accA").dong === true && trangThai("accA").aria === "false" && !TMHAccordion.dangMo("accA"));
+
+  // ---- 3. Hàm API ----
+  kiemTra("datTrangThai(id, true) trả về true và mở", TMHAccordion.datTrangThai("accA", true) === true && TMHAccordion.dangMo("accA"));
+  kiemTra("datTrangThai(id, true) lặp lại → vẫn mở (idempotent)", TMHAccordion.datTrangThai("accA", true) === true && !trangThai("accA").dong);
+  kiemTra("datTrangThai(id, false) trả về false và đóng", TMHAccordion.datTrangThai("accA", false) === false && !TMHAccordion.dangMo("accA"));
+  kiemTra("toggle() trả về trạng thái mới", TMHAccordion.toggle("accA") === true && TMHAccordion.toggle("accA") === false);
+  TMHAccordion.datTatCa(false);
+  kiemTra("datTatCa(false) → mọi phần đều thu gọn", !TMHAccordion.dangMo("accA") && !TMHAccordion.dangMo("accB"));
+  TMHAccordion.datTatCa(true);
+  kiemTra("datTatCa(true) → mọi phần đều mở", TMHAccordion.dangMo("accA") && TMHAccordion.dangMo("accB"));
+  kiemTra("Id không tồn tại → không văng lỗi, trả về null / false", TMHAccordion.toggle("khongCo") === null && TMHAccordion.datTrangThai("khongCo", true) === null && TMHAccordion.dangMo("khongCo") === false);
+  kiemTra("Truyền giá trị lạ (undefined / 0 / 1) được ép về boolean", TMHAccordion.datTrangThai("accB", 0) === false && TMHAccordion.datTrangThai("accB", 1) === true && TMHAccordion.datTrangThai("accB", undefined) === false);
+  TMHAccordion.datTatCa(true);
+
+  // ---- 4. Cấu trúc 3 phần THẬT trong buoc3_day_misa.html ----
+  const xhr = new XMLHttpRequest();
+  xhr.open("GET", "../buoc3_day_misa.html", false); xhr.send();
+  const doc = new DOMParser().parseFromString(xhr.responseText, "text/html");
+  const cau = [
+    { id: "accPhan1", chua: ["selChuyenXeMisa", "tbodyMisa", "kpiDoanhThu", "tagXeMisa"] },
+    { id: "accPhan2", chua: ["tbodyThuNoMisa", "kpiThuNo1111", "kpiThuNo1121", "locTuNgayThuNo"] },
+    { id: "accPhan3", chua: ["tbodyPhieuThuMisa", "kpiPTTienMat", "kpiPTTienGui", "ptBoQuaDaXuat", "footPTTien"] }
+  ];
+  kiemTra("Trang Bước 3 có đúng 3 accordion", doc.querySelectorAll("section.b3-acc").length === 3, doc.querySelectorAll("section.b3-acc").length);
+  cau.forEach(c => {
+    const goc = doc.getElementById(c.id), nut = doc.getElementById(c.id + "Header"), than = doc.getElementById(c.id + "Body");
+    kiemTra(c.id + ": có tiêu đề (button) + thân, aria-controls trỏ đúng, mặc định mở",
+      !!goc && !!nut && !!than && nut.tagName === "BUTTON" && nut.getAttribute("aria-controls") === c.id + "Body" && nut.getAttribute("aria-expanded") === "true" && !than.hidden && goc.contains(nut) && goc.contains(than));
+    kiemTra(c.id + ": onclick gọi TMHAccordion.toggle đúng id", (nut.getAttribute("onclick") || "").indexOf("TMHAccordion.toggle('" + c.id + "')") >= 0);
+    kiemTra(c.id + ": các phần tử " + c.chua.join(", ") + " nằm trong thân accordion", c.chua.every(id => !!doc.getElementById(id) && than.contains(doc.getElementById(id))), c.chua.filter(id => !doc.getElementById(id) || !than.contains(doc.getElementById(id))).join(","));
+  });
+  const idTrung = Array.from(doc.querySelectorAll("[id]")).map(e => e.id).filter((id, i, a) => a.indexOf(id) !== i);
+  kiemTra("Không có id bị trùng trong trang (thêm accordion không làm trùng id)", idTrung.length === 0, idTrung.join(","));
+  kiemTra("Hướng dẫn đầu trang nằm NGOÀI accordion (không bị ẩn theo)", !doc.querySelector(".guide-box").closest(".b3-acc"));
+  kiemTra("Thứ tự 3 phần: Phần 1 → Phần 2 → Phần 3", Array.from(doc.querySelectorAll("section.b3-acc")).map(e => e.id).join(",") === "accPhan1,accPhan2,accPhan3");
+
+  // Đưa nguyên khối trang thật vào đây và click thử bằng onclick thật
+  $("trangThat").appendChild(document.importNode(doc.querySelector(".b3-container"), true));
+  ["accPhan1", "accPhan2", "accPhan3"].forEach(id => {
+    $(id + "Header").click();
+    const dong = $(id + "Body").hidden && $(id).classList.contains("b3-acc-dong") && $(id + "Header").getAttribute("aria-expanded") === "false";
+    $(id + "Header").click();
+    const mo = !$(id + "Body").hidden && !$(id).classList.contains("b3-acc-dong") && $(id + "Header").getAttribute("aria-expanded") === "true";
+    kiemTra(id + " (trang thật): click tiêu đề → thu gọn, click lại → mở", dong && mo);
+  });
+  $("accPhan3Header").click();
+  kiemTra("Thu gọn Phần 3 không ảnh hưởng Phần 1, Phần 2", TMHAccordion.dangMo("accPhan1") && TMHAccordion.dangMo("accPhan2") && !TMHAccordion.dangMo("accPhan3"));
+
+  const tieuDe = $("tieuDe");
+  tieuDe.textContent = (soDat === soTong ? "PASS " : "FAIL ") + soDat + "/" + soTong;
+  tieuDe.className = soDat === soTong ? "ok" : "loi";
+  $("ketQua").textContent = kq.join("\n");
+</script>
+</body>
+</html>
