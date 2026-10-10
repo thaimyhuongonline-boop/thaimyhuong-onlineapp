@@ -7,7 +7,7 @@
  * - Bá» qua cache hoÃ n toÃ n Ä‘á»‘i vá»›i dá»¯ liá»‡u Ä‘Ã¡m mÃ¢y Supabase
  * ==================================================================== */
 
-const CACHE_VERSION = 'tmh-pwa-v1.0.75';
+const CACHE_VERSION = 'tmh-pwa-v1.0.76';
 const CACHE_NAME = `thaimyhuong-${CACHE_VERSION}`;
 
 // Danh sÃ¡ch tÃ i nguyÃªn cá»‘t lÃµi táº£i trÆ°á»›c khi cÃ i Ä‘áº·t

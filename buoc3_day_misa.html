@@ -1268,7 +1268,29 @@
       return strDate;
     }
 
+    // Đọc hết 1 bảng theo từng trang 1000 dòng (máy chủ chỉ trả tối đa 1000 dòng / lần — nếu không phân trang, tổng sẽ thiếu)
+    async function docHetBangPhanTrang_B3(taoTruyVan) {
+      const kq = [];
+      for (let tu = 0; ; tu += 1000) {
+        const { data, error } = await taoTruyVan().range(tu, tu + 999);
+        if (error) return { data: null, error };
+        kq.push(...(data || []));
+        if (!data || data.length < 1000) break;
+      }
+      return { data: kq, error: null };
+    }
+
+    // Mỗi lần tải có 1 số thứ tự; lần tải cũ hoàn thành sau lần mới (realtime bắn nhiều sự kiện liên tiếp) bị bỏ,
+    // không ghi đè / cộng chồng vào danh sách → tổng không bị cộng dồn sai
+    let lanTaiThuNoMisa = 0;
+
+    // Số tiền an toàn (null / "" / chữ / NaN → 0) — dùng soTienAnToan của phieu_thu_misa.js
+    function soAnToan_B3(v) {
+      return (typeof soTienAnToan === 'function') ? soTienAnToan(v) : (parseFloat(v) || 0);
+    }
+
     async function taiDuLieuThuNoMisa() {
+      const lanNay = ++lanTaiThuNoMisa;
       const tbody = document.getElementById('tbodyThuNoMisa');
       if (typeof sb === 'undefined') {
         tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:30px; color:#b91c1c;">❌ Chưa kết nối được Supabase.</td></tr>`;
@@ -1281,10 +1303,13 @@
       const chiChuaDay = document.getElementById('chkChiChuaDayThuNo')?.checked;
 
       try {
-        let q = sb.from('thu_no').select('*').not('id_don_no', 'is', null).order('ngay_thu', { ascending: true });
-        if (tuNgay) q = q.gte('ngay_thu', tuNgay);
-        if (denNgay) q = q.lte('ngay_thu', denNgay);
-        const { data, error } = await q;
+        const { data, error } = await docHetBangPhanTrang_B3(() => {
+          let q = sb.from('thu_no').select('*').not('id_don_no', 'is', null).order('ngay_thu', { ascending: true }).order('id', { ascending: true });
+          if (tuNgay) q = q.gte('ngay_thu', tuNgay);
+          if (denNgay) q = q.lte('ngay_thu', denNgay);
+          return q;
+        });
+        if (lanNay !== lanTaiThuNoMisa) return;   // đã có lần tải mới hơn
 
         if (error) {
           if (laLoiThieuBangThuNo_B3(error)) {
@@ -1301,13 +1326,13 @@
         // Bỏ các dòng đã được Bước 2 điều chỉnh về 0 đ (sửa giảm / bỏ khoản thu nợ trước khi đẩy MISA)
         // và các dòng CẤN TRỪ TIỀN TRẢ TRƯỚC (không có tiền mới vào quỹ — MISA tự bù trừ trong TK 131;
         // tiền đã được hạch toán lúc nhận trả trước ở phần "Tiền khách trả trước" bên dưới)
-        let ds = (data || []).filter(r => (parseFloat(r.so_tien) || 0) > 0 && !(typeof laDongCanTruTT === 'function' && laDongCanTruTT(r)));
+        let ds = (data || []).filter(r => soAnToan_B3(r.so_tien) > 0 && !(typeof laKhoanThuNoDaHuy === 'function' && laKhoanThuNoDaHuy(r)) && !(typeof laDongCanTruTT === 'function' && laDongCanTruTT(r)));
         // Bỏ các dòng TRẢ LẠI HÀNG (khách trả hàng thay tiền để trừ nợ) — không có tiền vào quỹ,
         // kế toán lập chứng từ hàng bán bị trả lại trong MISA, không xuất thành phiếu thu 1111/1121
         ds = ds.filter(r => !(typeof laDongTraLaiHang === 'function' && laDongTraLaiHang(r)));
         if (chiChuaDay) ds = ds.filter(r => !r.da_day_misa);
 
-        danhSachThuNoMisa = ds.map(r => {
+        const dsMoi = ds.map(r => {
           const tkNo = (typeof phanLoaiHinhThucTien === 'function' ? phanLoaiHinhThucTien(r.hinh_thuc) === 'ck' : r.hinh_thuc === 'Chuyển khoản') ? '1121' : '1111';
           // Kiểm tra logic trước-sau: chuyến xe phát sinh công nợ gốc đã đẩy MISA chưa
           // (null = không xác định được đợt gốc, ví dụ đơn nợ ghi thủ công ngoài bảng kê)
@@ -1320,7 +1345,7 @@
             maKH: r.ma_kh || (typeof MA_KHACH_LE_MISA !== 'undefined' ? MA_KHACH_LE_MISA : 'KHÁCH LẺ'),
             tenKH: r.ten_kh || 'Khách Lẻ',
             dienGiai: `Thu nợ khách hàng - HĐ ${r.ma_hd || ''}${r.ghi_chu ? ' - ' + r.ghi_chu : ''}`,
-            soTien: parseFloat(r.so_tien || 0),
+            soTien: soAnToan_B3(r.so_tien),
             tkNo: tkNo,
             tkCo: '131',
             tkNganHang: tkNo === '1121' ? (r.tai_khoan_nhan || '') : '',
@@ -1336,19 +1361,22 @@
         // TIỀN KHÁCH TRẢ TRƯỚC / TRẢ DƯ (sql/12): nhận tiền Nợ 1111/1121 – Có 131;
         // hoàn tiền (hoặc điều chỉnh giảm khoản đã nhận) Nợ 131 – Có 1111/1121
         try {
-          let qTT = sb.from(typeof BANG_TRA_TRUOC !== 'undefined' ? BANG_TRA_TRUOC : 'khach_tra_truoc').select('*').order('id', { ascending: true });
-          if (tuNgay) qTT = qTT.gte('ngay', tuNgay);
-          if (denNgay) qTT = qTT.lte('ngay', denNgay);
-          const resTT = await qTT;
+          const resTT = await docHetBangPhanTrang_B3(() => {
+            let qTT = sb.from(typeof BANG_TRA_TRUOC !== 'undefined' ? BANG_TRA_TRUOC : 'khach_tra_truoc').select('*').order('id', { ascending: true });
+            if (tuNgay) qTT = qTT.gte('ngay', tuNgay);
+            if (denNgay) qTT = qTT.lte('ngay', denNgay);
+            return qTT;
+          });
+          if (lanNay !== lanTaiThuNoMisa) return;
           if (!resTT.error) {
             (resTT.data || []).forEach(r => {
-              const st = parseFloat(r.so_tien || 0) || 0;
+              const st = soAnToan_B3(r.so_tien);
               if (!st || (chiChuaDay && r.da_day_misa)) return;
               const tkTien = (typeof phanLoaiHinhThucTien === 'function' ? phanLoaiHinhThucTien(r.hinh_thuc) === 'ck' : r.hinh_thuc === 'Chuyển khoản') ? '1121' : '1111';
               // hoàn tiền / điều chỉnh giảm khoản nhận: tiền đi ra; điều chỉnh giảm khoản hoàn (số âm): tiền vào lại
               const chiRa = (r.loai === 'hoan') !== (st < 0);
               const nhanNguon = (typeof TEN_NGUON_TT !== 'undefined' && TEN_NGUON_TT[r.nguon]) || r.nguon || '';
-              danhSachThuNoMisa.push({
+              dsMoi.push({
                 id: r.id,
                 ngayThu: dinhDangNgayVN_B3(r.ngay),
                 // Số chứng từ riêng (TT = nhận trả trước, HT = hoàn tiền) để MISA không gộp với phiếu thu nợ của cùng HĐ
@@ -1376,6 +1404,9 @@
           console.warn('Không tải được sổ tiền khách trả trước:', e);
         }
 
+        if (lanNay !== lanTaiThuNoMisa) return;   // đã có lần tải mới hơn → bỏ kết quả cũ
+        // 1 lần gán duy nhất: danh sách hợp lệ (bỏ phiếu hủy / số tiền sai / trùng id) — bảng, thẻ và phiếu thu dùng chung
+        danhSachThuNoMisa = (typeof locKhoanThuNoHopLe === 'function') ? locKhoanThuNoHopLe(dsMoi) : dsMoi;
         veBangThuNoMisa();
         tinhToanTongTheThuNoMisa();
       } catch (e) {
@@ -1407,7 +1438,7 @@
             <td><b>${escapeHtml(r.maKH)}</b></td>
             <td>${escapeHtml(r.tenKH)}</td>
             <td style="font-size:11px; color:var(--text-muted); white-space:normal;">${escapeHtml(r.dienGiai)}</td>
-            <td style="text-align:right; font-weight:800; color:var(--text-main);">${formatTien(r.soTien)}</td>
+            <td style="text-align:right; font-weight:800; color:${r.chiRa ? '#b91c1c' : 'var(--text-main)'};" title="${r.chiRa ? 'Hoàn tiền (tiền đi ra) — trừ vào tổng' : ''}">${r.chiRa ? '−' : ''}${formatTien(r.soTien)}</td>
             <td style="text-align:center;"><span class="badge-tk tk-no">${r.tkNo}</span></td>
             <td style="text-align:center;"><span class="badge-tk tk-co">${r.tkCo}</span></td>
             <td style="color:#2563eb; font-weight:700;">${escapeHtml(r.tkNganHang || '')}</td>
@@ -1418,19 +1449,24 @@
     }
 
     function tinhToanTongTheThuNoMisa() {
-      let tong1111 = 0, tong1121 = 0, tong = 0;
-      danhSachThuNoMisa.forEach(r => {
-        // Hoàn tiền trả trước (Nợ 131 – Có 1111/1121) là tiền đi ra → trừ bớt
-        const dau = r.chiRa ? -1 : 1;
-        tong += dau * r.soTien;
-        const tkTien = r.chiRa ? r.tkCo : r.tkNo;
-        if (tkTien === '1111') tong1111 += dau * r.soTien;
-        else if (tkTien === '1121') tong1121 += dau * r.soTien;
-      });
+      // Tính từ đúng danh sách hợp lệ đang hiện ở bảng bên dưới (tinhTongThuNoMisa — phieu_thu_misa.js):
+      // tiền VÀO cộng, hoàn tiền trả trước (Nợ 131 – Có 1111/1121) là tiền đi ra → trừ; bỏ phiếu hủy / số tiền sai / trùng
+      const t = (typeof tinhTongThuNoMisa === 'function') ? tinhTongThuNoMisa(danhSachThuNoMisa) : null;
+      let tong1111 = 0, tong1121 = 0, tong = 0, soDong = danhSachThuNoMisa.length;
+      if (t) { tong1111 = t.tm; tong1121 = t.ck; tong = t.tong; soDong = t.soDong; }
+      else {
+        danhSachThuNoMisa.forEach(r => {
+          const dau = r.chiRa ? -1 : 1;
+          tong += dau * r.soTien;
+          const tkTien = r.chiRa ? r.tkCo : r.tkNo;
+          if (tkTien === '1111') tong1111 += dau * r.soTien;
+          else if (tkTien === '1121') tong1121 += dau * r.soTien;
+        });
+      }
       document.getElementById('kpiThuNo1111').textContent = formatTien(tong1111) + ' đ';
       document.getElementById('kpiThuNo1121').textContent = formatTien(tong1121) + ' đ';
       document.getElementById('kpiThuNoTong').textContent = formatTien(tong) + ' đ';
-      document.getElementById('kpiThuNoSoDong').textContent = `${danhSachThuNoMisa.length} khoản thu nợ`;
+      document.getElementById('kpiThuNoSoDong').textContent = `${soDong} khoản thu nợ`;
       document.getElementById('footThuNoTien').textContent = formatTien(tong);
       // Phiếu thu AMIS (phieu_thu_misa.js) lập lại theo dữ liệu thu nợ mới
       if (typeof veBangPhieuThuMisa === 'function') veBangPhieuThuMisa();

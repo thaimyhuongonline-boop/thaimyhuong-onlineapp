@@ -252,6 +252,65 @@ function locPhieuThuCanXuat(ds, loai, boQuaDaXuat) {
   });
 }
 
+/* ====================================================================
+ * TỔNG HỢP KHU VỰC "CẤN TRỪ CÔNG NỢ" (Thu nợ tiền mặt TK 1111 / chuyển khoản TK 1121) — hàm thuần, không đụng giao diện
+ * Mỗi khoản (danhSachThuNoMisa) có: id, nguon ('thu_no' | 'tra_truoc'), soTien, tkNo, tkCo, chiRa (hoàn tiền = tiền đi ra).
+ * Thẻ "Thu nợ tiền mặt / chuyển khoản / Tổng", chân bảng và các dòng của bảng đều lấy từ cùng 1 danh sách hợp lệ.
+ * ==================================================================== */
+
+/** Số tiền an toàn: null / undefined / "" / chữ / NaN / Infinity → 0; chấp nhận "1.234.567", "1,234,567", "1234.5", "-500" */
+function soTienAnToan(v) {
+  if (typeof v === "number") return isFinite(v) ? v : 0;
+  if (v === null || v === undefined) return 0;
+  let s = String(v).trim().replace(/\s|đ|₫|vnđ|vnd/gi, "");
+  if (!s) return 0;
+  if (/^[-+]?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) s = s.replace(/\./g, "").replace(",", ".");       // 1.234.567,5 (kiểu VN)
+  else if (/^[-+]?\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)) s = s.replace(/,/g, "");                      // 1,234,567.5
+  else if (/^[-+]?\d+,\d+$/.test(s)) s = s.replace(",", ".");                                       // 1234,5
+  if (!/^[-+]?(\d+\.?\d*|\.\d+)$/.test(s)) return 0;                                                 // còn chữ → không phải số
+  const n = parseFloat(s);
+  return isFinite(n) ? n : 0;
+}
+
+/** Phiếu đã hủy / không hợp lệ (các cột trạng thái nếu có) → bỏ qua */
+function laKhoanThuNoDaHuy(r) {
+  if (!r) return true;
+  if (r.da_huy === true || r.daHuy === true || r.huy === true) return true;
+  const tt = String(r.trang_thai || r.trangThai || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
+  return /^(huy|da huy|cancel|canceled|cancelled|khong hop le|invalid|void)/.test(tt);
+}
+
+/**
+ * Lọc các khoản hợp lệ để tính tổng + hiển thị: bỏ phiếu hủy, số tiền ≤ 0 / không phải số, TK tiền không phải 1111 / 1121,
+ * và bỏ khoản TRÙNG (cùng nguon + id) để không cộng 2 lần khi dữ liệu nạp chồng. Trả về bản sao có soTien đã chuẩn hoá.
+ */
+function locKhoanThuNoHopLe(ds) {
+  const daCo = new Set();
+  const kq = [];
+  (Array.isArray(ds) ? ds : []).forEach(r => {
+    if (!r || laKhoanThuNoDaHuy(r)) return;
+    const soTien = soTienAnToan(r.soTien);   // số âm / 0 / không phải số → bỏ (hoàn tiền đã có cờ chiRa, soTien luôn dương)
+    if (!(soTien > 0)) return;
+    const tkTien = r.chiRa ? r.tkCo : r.tkNo;
+    if (tkTien !== TK_TIEN_MAT_PHIEU_THU && tkTien !== TK_TIEN_GUI_CHUNG_PHIEU_THU) return;
+    if (r.id !== undefined && r.id !== null && r.id !== "") {
+      const khoa = (r.nguon || "") + "|" + r.id;
+      if (daCo.has(khoa)) return;
+      daCo.add(khoa);
+    }
+    kq.push(Object.assign({}, r, { soTien: soTien, tkTien: tkTien, soTienCoDau: r.chiRa ? -soTien : soTien }));
+  });
+  return kq;
+}
+
+/** Tổng thu nợ tiền mặt (1111) / chuyển khoản (1121): khoản tiền VÀO cộng, hoàn tiền (chiRa) trừ */
+function tinhTongThuNoMisa(ds) {
+  const hopLe = locKhoanThuNoHopLe(ds);
+  let tm = 0, ck = 0;
+  hopLe.forEach(r => { if (r.tkTien === TK_TIEN_MAT_PHIEU_THU) tm += r.soTienCoDau; else ck += r.soTienCoDau; });
+  return { tm: tm, ck: ck, tong: tm + ck, soDong: hopLe.length, soBoQua: (Array.isArray(ds) ? ds.length : 0) - hopLe.length, dsHopLe: hopLe };
+}
+
 /** Tổng hợp số phiếu / số tiền theo loại (hàm thuần) — nguồn duy nhất cho các thẻ "Phiếu thu tiền mặt / tiền gửi" */
 function tinhTongPhieuThu(ds) {
   const kq = { tm: { so: 0, tong: 0 }, ck: { so: 0, tong: 0 }, tong: 0, soPhieu: 0, theoNguon: { hoa_don: 0, thu_no: 0, tra_truoc: 0 } };

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Test tong thu no MISA (Can tru cong no)</title>
+<!--
+  Unit test cho khu vực "Cấn trừ công nợ" ở Bước 3: thẻ "Thu nợ tiền mặt (TK 1111)" / "Thu nợ chuyển khoản (TK 1121)" / "Tổng".
+  Hàm tính tổng nằm ở phieu_thu_misa.js (soTienAnToan, locKhoanThuNoHopLe, tinhTongThuNoMisa); trang buoc3_day_misa.html
+  chỉ gọi lại. Test này cũng trích 2 hàm vẽ thẻ / bảng và hàm đọc phân trang TỪ CHÍNH buoc3_day_misa.html để chạy thử.
+  Chạy: mở file bằng trình duyệt, hoặc (không cần Node):
+    msedge --headless --disable-gpu --allow-file-access-from-files --virtual-time-budget=5000 --dump-dom "file:///.../tests/thu_no_misa.test.html"
+-->
+<style>
+  body { font: 13px/1.5 monospace; padding: 12px; }
+  .ok { color: #15803d; } .loi { color: #b91c1c; font-weight: 700; }
+</style>
+</head>
+<body>
+<h3 id="tieuDe">Đang chạy…</h3>
+<pre id="ketQua"></pre>
+
+<div id="kpiThuNo1111"></div><div id="kpiThuNo1121"></div><div id="kpiThuNoTong"></div><div id="kpiThuNoSoDong"></div>
+<table><tbody id="tbodyThuNoMisa"></tbody></table><span id="footThuNoTien"></span>
+
+<script>
+  function formatTien(n) { if (isNaN(n) || n === null || n === undefined) return "0"; return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, "."); }
+  function escapeHtml(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+  let danhSachThuNoMisa = [];
+</script>
+<script src="../phieu_thu_misa.js"></script>
+<script>
+  const kq = [];
+  let soDat = 0, soTong = 0;
+  function kiemTra(ten, dieuKien, chiTiet) {
+    soTong++;
+    if (dieuKien) soDat++;
+    kq.push((dieuKien ? "✅ " : "❌ ") + ten + (dieuKien ? "" : "  → " + (chiTiet === undefined ? "" : chiTiet)));
+  }
+  const so = t => parseInt(String(t).replace(/[^\d-]/g, ""), 10) || 0;
+
+  // Trích hàm từ buoc3_day_misa.html để test đúng code đang chạy thật
+  function trichHam(html, ten) {
+    const i = html.indexOf("function " + ten + "(");
+    const batDau = html.lastIndexOf("async function " + ten + "(") === i - 6 ? i - 6 : i;
+    let sau = html.indexOf("\n    }\n", i);
+    return html.slice(batDau, sau + 7);
+  }
+  const xhr = new XMLHttpRequest();
+  xhr.open("GET", "../buoc3_day_misa.html", false); xhr.send();
+  const html = xhr.responseText;
+  const maNguon = ["soAnToan_B3", "docHetBangPhanTrang_B3", "veBangThuNoMisa", "tinhToanTongTheThuNoMisa"].map(t => trichHam(html, t)).join("\n");
+  // veBangPhieuThuMisa thật cần giao diện khác → thay bằng bộ đếm để kiểm tra "vẽ lại nhiều lần không cộng dồn"
+  let soLanVePhieuThu = 0;
+  function veBangPhieuThuMisa() { soLanVePhieuThu++; }
+  (0, eval)(maNguon.replace(/^(\s*)async function docHet/m, "$1async function docHet") + "\nwindow.__b3 = { soAnToan_B3, docHetBangPhanTrang_B3, veBangThuNoMisa, tinhToanTongTheThuNoMisa };");
+  const B3 = window.__b3;
+
+  // ---- 1. soTienAnToan: null / undefined / rỗng / chữ / sai định dạng ----
+  const cac = [[null, 0], [undefined, 0], ["", 0], ["   ", 0], ["abc", 0], ["12abc", 0], [NaN, 0], [Infinity, 0], [-Infinity, 0], [{}, 0], [[], 0],
+    [0, 0], ["0", 0], [1500000, 1500000], ["1500000", 1500000], ["1.500.000", 1500000], ["1,500,000", 1500000], ["1.500.000,50", 1500000.5],
+    ["1500000.5", 1500000.5], ["1500,5", 1500.5], ["2.391.000 đ", 2391000], [" 750000 ", 750000], [-500, -500], ["-500", -500], ["1e3", 0]];
+  cac.forEach(([vao, ra]) => kiemTra("soTienAnToan(" + JSON.stringify(vao === undefined ? "undefined" : (typeof vao === "number" && !isFinite(vao) ? String(vao) : vao)) + ") = " + ra, soTienAnToan(vao) === ra, soTienAnToan(vao)));
+  kiemTra("soTienAnToan_B3 (trang Bước 3) = soTienAnToan", B3.soAnToan_B3("1.200.000") === 1200000 && B3.soAnToan_B3(null) === 0);
+
+  // ---- 2. Mock danh sách thu nợ (đúng dạng danhSachThuNoMisa do taiDuLieuThuNoMisa tạo) ----
+  const kh = (id, nguon, soTien, tkNo, extra) => Object.assign({ id: id, nguon: nguon, soTien: soTien, tkNo: tkNo, tkCo: "131", ngayThu: "09/10/2026", soCT: "HD" + id, maKH: "KH" + id, tenKH: "Khách " + id }, extra || {});
+  const hoan = (id, soTien, tkTien) => ({ id: id, nguon: "tra_truoc", soTien: soTien, chiRa: true, tkNo: "131", tkCo: tkTien, ngayThu: "09/10/2026", soCT: "HT" + id, maKH: "KH" + id, tenKH: "Khách " + id });
+  const mock = [
+    kh(1, "thu_no", 2391000, "1111"),            // TM
+    kh(2, "thu_no", 1000000, "1121"),            // CK
+    kh(3, "thu_no", "500000", "1111"),           // số tiền dạng chuỗi
+    kh(4, "thu_no", "1.250.000", "1121"),        // chuỗi kiểu VN
+    kh(5, "thu_no", 0, "1111"),                  // 0 → bỏ
+    kh(6, "thu_no", null, "1111"),               // null → bỏ
+    kh(7, "thu_no", undefined, "1121"),          // undefined → bỏ
+    kh(8, "thu_no", "", "1111"),                 // rỗng → bỏ
+    kh(9, "thu_no", "abc", "1121"),              // chữ → bỏ
+    kh(10, "thu_no", -300000, "1111"),           // số âm (không phải hoàn tiền) → bỏ, không được cộng thành tiền vào
+    kh(11, "tra_truoc", 300000, "1111"),         // trả trước TM
+    kh(12, "tra_truoc", 250000, "1121"),         // trả trước CK
+    hoan(13, 100000, "1111"),                    // hoàn tiền mặt → trừ
+    hoan(14, 50000, "1121"),                     // hoàn chuyển khoản → trừ
+    kh(15, "thu_no", 777000, "1111", { trang_thai: "Đã hủy" }),   // phiếu hủy → bỏ
+    kh(16, "thu_no", 888000, "1121", { da_huy: true }),           // phiếu hủy → bỏ
+    kh(17, "thu_no", 999000, "131"),             // TK tiền lạ → bỏ (không phải 1111 / 1121)
+    kh(1, "thu_no", 2391000, "1111"),            // TRÙNG id 1 (nạp chồng) → chỉ tính 1 lần
+    kh(1, "tra_truoc", 40000, "1111"),           // cùng id nhưng KHÁC nguồn → vẫn là khoản riêng
+    null                                          // phần tử rỗng → bỏ
+  ];
+  // Tính tay: TM = 2.391.000 + 500.000 + 300.000 − 100.000 + 40.000 = 3.131.000 · CK = 1.000.000 + 1.250.000 + 250.000 − 50.000 = 2.450.000
+  const t = tinhTongThuNoMisa(mock);
+  kiemTra("THU NỢ TIỀN MẶT (1111) = 3.131.000", t.tm === 3131000, t.tm);
+  kiemTra("THU NỢ CHUYỂN KHOẢN (1121) = 2.450.000", t.ck === 2450000, t.ck);
+  kiemTra("Tổng = TM + CK = 5.581.000", t.tong === 5581000 && t.tong === t.tm + t.ck, t.tong);
+  kiemTra("Không có NaN / Infinity trong kết quả", [t.tm, t.ck, t.tong].every(isFinite));
+  kiemTra("Số dòng hợp lệ = 9 (thu nợ 1-4, trả trước 11-12, hoàn tiền 13-14, trả trước id 1)", t.soDong === 9, t.soDong);
+  kiemTra("Bỏ qua đúng: 0 / null / undefined / rỗng / chữ / âm / hủy / TK lạ / trùng / null = " + (mock.length - 9) + " dòng", t.soBoQua === mock.length - 9, t.soBoQua);
+  kiemTra("Phiếu hủy (trang_thai 'Đã hủy', da_huy) không nằm trong danh sách", !t.dsHopLe.some(r => r.id === 15 || r.id === 16));
+  kiemTra("Số âm không bị đổi thành tiền vào", !t.dsHopLe.some(r => r.id === 10));
+  kiemTra("Khoản trùng (cùng nguồn + id) chỉ còn 1 lần", t.dsHopLe.filter(r => r.id === 1 && r.nguon === "thu_no").length === 1);
+  kiemTra("Cùng id nhưng khác nguồn (thu_no vs tra_truoc) là 2 khoản riêng", t.dsHopLe.filter(r => r.id === 1).length === 2);
+
+  // ---- 3. Chạy lại nhiều lần không cộng dồn (re-render) + không sửa dữ liệu đầu vào ----
+  const truoc = JSON.stringify(mock);
+  let on = true;
+  for (let i = 0; i < 5; i++) { const x = tinhTongThuNoMisa(mock); if (x.tm !== 3131000 || x.ck !== 2450000 || x.tong !== 5581000) on = false; }
+  kiemTra("Tính lại 5 lần → kết quả luôn như cũ (không cộng dồn)", on);
+  kiemTra("Hàm tính không làm thay đổi dữ liệu đầu vào", JSON.stringify(mock) === truoc);
+  kiemTra("Đầu vào rỗng / null / không phải mảng → 0, không lỗi", tinhTongThuNoMisa([]).tong === 0 && tinhTongThuNoMisa(null).tong === 0 && tinhTongThuNoMisa(undefined).tm === 0 && tinhTongThuNoMisa("x").ck === 0);
+  kiemTra("Danh sách chỉ toàn hoàn tiền → tổng âm (đúng bản chất tiền ra)", tinhTongThuNoMisa([hoan(1, 100000, "1111"), hoan(2, 30000, "1121")]).tong === -130000);
+
+  // ---- 4. So sánh chéo: tổng thẻ ≡ tổng bảng chi tiết ≡ tổng đầu vào gốc ----
+  danhSachThuNoMisa = locKhoanThuNoHopLe(mock);
+  soLanVePhieuThu = 0;
+  B3.veBangThuNoMisa();
+  B3.tinhToanTongTheThuNoMisa();
+  const doc = id => document.getElementById(id).textContent;
+  const hang = Array.from(document.querySelectorAll("#tbodyThuNoMisa tr"));
+  kiemTra("Thẻ THU NỢ TIỀN MẶT hiện 3.131.000 đ", doc("kpiThuNo1111") === "3.131.000 đ", doc("kpiThuNo1111"));
+  kiemTra("Thẻ THU NỢ CHUYỂN KHOẢN hiện 2.450.000 đ", doc("kpiThuNo1121") === "2.450.000 đ", doc("kpiThuNo1121"));
+  kiemTra("Thẻ Tổng cấn trừ hiện 5.581.000 đ + 9 khoản", doc("kpiThuNoTong") === "5.581.000 đ" && doc("kpiThuNoSoDong") === "9 khoản thu nợ", doc("kpiThuNoTong") + " / " + doc("kpiThuNoSoDong"));
+  kiemTra("Số dòng bảng = 9", hang.length === 9, hang.length);
+  // Cột "Số Tiền" của bảng (cột thứ 7), hoàn tiền hiện số âm (ký tự '−')
+  const tienBang = hang.map(tr => { const s = tr.children[6].textContent.trim(); return (s.charAt(0) === "−" ? -1 : 1) * so(s); });
+  kiemTra("Tổng các dòng trong bảng (có dấu) = thẻ Tổng = chân bảng", tienBang.reduce((a, b) => a + b, 0) === 5581000 && doc("footThuNoTien") === "5.581.000", tienBang.join(",") + " | " + doc("footThuNoTien"));
+  const tmBang = hang.reduce((s, tr, i) => { const tk = tr.children[7].textContent.trim() === "131" ? tr.children[8].textContent.trim() : tr.children[7].textContent.trim(); return tk === "1111" ? s + tienBang[i] : s; }, 0);
+  const ckBang = hang.reduce((s, tr, i) => { const tk = tr.children[7].textContent.trim() === "131" ? tr.children[8].textContent.trim() : tr.children[7].textContent.trim(); return tk === "1121" ? s + tienBang[i] : s; }, 0);
+  kiemTra("Cộng các dòng bảng theo TK tiền: TM = thẻ TM, CK = thẻ CK", tmBang === so(doc("kpiThuNo1111")) && ckBang === so(doc("kpiThuNo1121")), tmBang + " / " + ckBang);
+  // Tổng đầu vào gốc tính độc lập (không qua hàm của app): chỉ khoản hợp lệ, hoàn tiền trừ
+  let goc = 0;
+  [[2391000, 1], [1000000, 1], [500000, 1], [1250000, 1], [300000, 1], [250000, 1], [-100000, 1], [-50000, 1], [40000, 1]].forEach(([v]) => { goc += v; });
+  kiemTra("Tổng Bước 3 = tổng đầu vào gốc tính độc lập (5.581.000)", goc === 5581000 && so(doc("kpiThuNoTong")) === goc);
+  kiemTra("Vẽ lại thẻ nhiều lần không cộng dồn", (function () { for (let i = 0; i < 4; i++) B3.tinhToanTongTheThuNoMisa(); return doc("kpiThuNoTong") === "5.581.000 đ" && doc("kpiThuNo1111") === "3.131.000 đ"; })());
+  kiemTra("Mỗi lần tính tổng có gọi vẽ lại bảng phiếu thu (không bị bỏ sót)", soLanVePhieuThu === 5, soLanVePhieuThu);
+  // Danh sách rỗng
+  danhSachThuNoMisa = [];
+  B3.veBangThuNoMisa(); B3.tinhToanTongTheThuNoMisa();
+  kiemTra("Danh sách rỗng: các thẻ về 0 đ, không NaN", doc("kpiThuNo1111") === "0 đ" && doc("kpiThuNo1121") === "0 đ" && doc("kpiThuNoTong") === "0 đ" && doc("footThuNoTien") === "0");
+
+  // ---- 5. Đọc phân trang (máy chủ chỉ trả tối đa 1000 dòng / lần) ----
+  function giaLapBang(n) {
+    const tatCa = Array.from({ length: n }, (_, i) => ({ id: i + 1 }));
+    return () => ({ range: (tu, den) => Promise.resolve({ data: tatCa.slice(tu, Math.min(den, tu + 999) + 1), error: null }) });
+  }
+  (async function () {
+    for (const n of [0, 74, 999, 1000, 1001, 2500]) {
+      const r = await B3.docHetBangPhanTrang_B3(giaLapBang(n));
+      kiemTra("Phân trang: bảng " + n + " dòng → đọc đủ " + n + " (không thiếu, không trùng)", r.data.length === n && new Set(r.data.map(x => x.id)).size === n, r.data.length);
+    }
+    const loi = await B3.docHetBangPhanTrang_B3(() => ({ range: () => Promise.resolve({ data: null, error: { message: "boom" } }) }));
+    kiemTra("Phân trang: lỗi máy chủ được trả lên (error), không nuốt lỗi", !!loi.error && loi.data === null);
+
+    const tieuDe = document.getElementById("tieuDe");
+    tieuDe.textContent = (soDat === soTong ? "PASS " : "FAIL ") + soDat + "/" + soTong;
+    tieuDe.className = soDat === soTong ? "ok" : "loi";
+    document.getElementById("ketQua").textContent = kq.join("\n");
+  })().catch(e => {
+    document.getElementById("tieuDe").textContent = "FAIL (lỗi chạy test)";
+    document.getElementById("ketQua").textContent = kq.join("\n") + "\n💥 " + (e && e.stack || e);
+  });
+</script>
+</body>
+</html>
