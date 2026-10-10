@@ -188,12 +188,35 @@ function tinhTienThuHoaDonCacChuyen(dsDot) {
   return kq;
 }
 
+/** Khoá nhận diện khách hàng: mã khách (nếu có) → "MA|…"; không có mã → tên đã chuẩn hoá "TEN|…"; khách lẻ chung chung → "" (không so khớp) */
+function khoaKhachPhieuThu(maKH, tenKH) {
+  const ma = String(maKH || "").trim().toUpperCase();
+  if (ma && ma !== "KH_LE" && ma !== String(MA_KHACH_LE_MISA).toUpperCase()) return "MA|" + ma;
+  const ten = String(tenKH || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/\s+/g, " ");
+  if (!ten || ten === "khach le" || ten === "khach hang le") return "";
+  return "TEN|" + ten;
+}
+
+/** Tập khách hàng có hoá đơn trong các chuyến đang chọn (mọi chuyến, kể cả chưa quyết toán) */
+function tapKhachCacChuyen(dsDot) {
+  const tap = new Set();
+  (Array.isArray(dsDot) ? dsDot : []).filter(Boolean).forEach(dot => {
+    (Array.isArray(dot.danhSachChiTiet) ? dot.danhSachChiTiet : []).forEach(h => {
+      if (!h) return;
+      const k = khoaKhachPhieuThu(h.maKH || h.ma_kh, h.tenKH || h.ten_kh);
+      if (k) tap.add(k);
+    });
+  });
+  return tap;
+}
+
 /**
  * Dựng danh sách các khoản phiếu thu từ dữ liệu thô (hàm thuần — không đọc giao diện, dùng chung cho thẻ tóm tắt,
  * bảng xem trước và file Excel nên 3 nơi luôn cùng một nguồn):
  *   dsDot   — các chuyến đang chọn (đã quyết toán mới lập phiếu thu theo hoá đơn)
  *   dsThuNo — danhSachThuNoMisa (thu nợ + khách trả trước / trả dư)
- *   bat     — { hoaDon, thuNo, traTruoc }: nguồn nào đang được tích chọn
+ *   bat     — { hoaDon, thuNo, traTruoc, chiKhachCuaChuyen }: nguồn nào đang được tích chọn; chiKhachCuaChuyen = thu nợ / trả trước
+ *             CHỈ lấy của khách có hoá đơn trong các chuyến đang chọn (không lấy của khách chuyến khác / toàn hệ thống)
  *   st      — { theoKhoa } số chứng từ đã cấp trước đó
  */
 function dungDanhSachPhieuThu(dsDot, dsThuNo, bat, st) {
@@ -204,7 +227,7 @@ function dungDanhSachPhieuThu(dsDot, dsThuNo, bat, st) {
   dsDot = (Array.isArray(dsDot) ? dsDot : []).filter(Boolean);   // chuyến null / undefined → bỏ, không văng lỗi
   dsThuNo = (Array.isArray(dsThuNo) ? dsThuNo : []).filter(Boolean);
   // Vết lọc (in ra console khi danh sách rỗng / bật ?debugPhieuThu=1) để biết khoản bị loại ở bước nào
-  const vet = { nguonBat: { hoaDon: !!bat.hoaDon, thuNo: !!bat.thuNo, traTruoc: !!bat.traTruoc }, soChuyen: dsDot.length, chuyenChuaQT: [], soHD: 0, hdKhongCoTien: [], hdCoTien: 0, hdTrung: 0, thuNoDauVao: dsThuNo.length, thuNoBoNguonTat: 0, thuNoBoChiRa: 0, thuNoBoHuy: 0, thuNoBoSoTien: 0, thuNoBoTK: 0 };
+  const vet = { nguonBat: { hoaDon: !!bat.hoaDon, thuNo: !!bat.thuNo, traTruoc: !!bat.traTruoc }, soChuyen: dsDot.length, chuyenChuaQT: [], soHD: 0, hdKhongCoTien: [], hdCoTien: 0, hdTrung: 0, thuNoDauVao: dsThuNo.length, thuNoBoNguonTat: 0, thuNoBoChiRa: 0, thuNoBoHuy: 0, thuNoBoSoTien: 0, thuNoBoTK: 0, thuNoBoKhachKhac: 0, tienBoKhachKhac: 0, chiKhachCuaChuyen: !!bat.chiKhachCuaChuyen };
 
   // 1. Tiền thu theo hoá đơn ở Bước 2 (chuyến / ngày đang chọn phía trên)
   if (bat.hoaDon) {
@@ -233,6 +256,7 @@ function dungDanhSachPhieuThu(dsDot, dsThuNo, bat, st) {
   }
 
   // 2 & 3. Thu nợ khách hàng + tiền khách trả trước NHẬN vào (khu vực Cấn trừ công nợ) — chỉ khoản tiền VÀO
+  const tapKhach = bat.chiKhachCuaChuyen ? tapKhachCacChuyen(dsDot) : null;
   dsThuNo.forEach(r => {
     const laTraTruoc = r.nguon === "tra_truoc";
     if (laTraTruoc ? !bat.traTruoc : !bat.thuNo) { vet.thuNoBoNguonTat++; return; }
@@ -240,6 +264,10 @@ function dungDanhSachPhieuThu(dsDot, dsThuNo, bat, st) {
     if (laKhoanThuNoDaHuy(r)) { vet.thuNoBoHuy++; return; }
     if (!(soTienAnToan(r.soTien) > 0)) { vet.thuNoBoSoTien++; return; }
     if (r.tkNo !== "1111" && r.tkNo !== "1121") { vet.thuNoBoTK++; return; }
+    if (tapKhach) {   // chỉ khách thuộc chuyến đang chọn
+      const kk = khoaKhachPhieuThu(r.maKH, r.tenKH);
+      if (!kk || !tapKhach.has(kk)) { vet.thuNoBoKhachKhac++; vet.tienBoKhachKhac += soTienAnToan(r.soTien); return; }
+    }
     them({
       khoa: (laTraTruoc ? "TT|" : "TN|") + r.id,
       loai: r.tkNo === "1121" ? "ck" : "tm",
@@ -255,6 +283,7 @@ function dungDanhSachPhieuThu(dsDot, dsThuNo, bat, st) {
     });
   });
 
+  if (tapKhach && vet.thuNoBoKhachKhac) ghiChu.push(`ℹ️ Thu nợ / trả trước chỉ lấy khách CÓ TRONG chuyến đang chọn — đã bỏ ${vet.thuNoBoKhachKhac} khoản (${Math.round(vet.tienBoKhachKhac).toLocaleString("vi-VN")} đ) của khách khác (bỏ tích "Chỉ khách của chuyến đang chọn" nếu muốn lấy cả).`);
   const ds = Array.from(theoKhoa.values()).map(r => {
     // Khách lẻ (không có mã, hoặc mã cũ KH_LE) → mã "KHÁCH LẺ" trong MISA
     const maKH = r.maKH && r.maKH !== "KH_LE" ? r.maKH : MA_KHACH_LE_MISA;
@@ -279,7 +308,7 @@ function taoDanhSachPhieuThuMisa() {
   const dsDot = ((typeof cheDoNgayMisa !== "undefined" && cheDoNgayMisa) ? (cheDoNgayMisa.dsDot || []) : ((typeof dotHienTai !== "undefined" && dotHienTai) ? [dotHienTai] : [])).filter(Boolean);
   const dsThuNo = (typeof danhSachThuNoMisa !== "undefined" && Array.isArray(danhSachThuNoMisa)) ? danhSachThuNoMisa : [];
   const kq = dungDanhSachPhieuThu(dsDot, dsThuNo,
-    { hoaDon: layChk("ptNguonHoaDon"), thuNo: layChk("ptNguonThuNo"), traTruoc: layChk("ptNguonTraTruoc") }, docSoPhieuThuMisa());
+    { hoaDon: layChk("ptNguonHoaDon"), thuNo: layChk("ptNguonThuNo"), traTruoc: layChk("ptNguonTraTruoc"), chiKhachCuaChuyen: !!(document.getElementById("ptChiKhachCuaChuyen") || { checked: false }).checked }, docSoPhieuThuMisa());
   danhSachPhieuThuMisa = kq.ds;
   ghiChuPhieuThuMisa = kq.ghiChu;
   vetLocPhieuThuMisa = kq.vet;
@@ -545,12 +574,13 @@ function ghiVetLocPhieuThu(batBuoc) {
     if (v.soHD && !v.hdCoTien) ly.push("Các " + v.soHD + " hoá đơn của chuyến đều 100% khách ghi nợ / chưa thu tiền → không có dòng tiền để lập phiếu thu");
   } else if (v.nguonBat) ly.push('Đã BỎ tích "Tiền thu theo hoá đơn (chuyến đang chọn)"');
   if (v.nguonBat && !v.nguonBat.thuNo && !v.nguonBat.traTruoc) ly.push("Đã bỏ tích cả thu nợ và trả trước");
+  if (v.thuNoBoKhachKhac) ly.push(v.thuNoBoKhachKhac + " khoản thu nợ / trả trước bị bỏ vì khách không thuộc chuyến đang chọn (ô 'Chỉ khách của chuyến đang chọn')");
   if (danhSachPhieuThuMisa.length && !dsHien.length && boQua) ly.push(danhSachPhieuThuMisa.length + " khoản đều đã xuất phiếu thu trước đó và đang bị ẩn (tích 'Bỏ qua khoản đã xuất')");
   console.log("🔎 [Phiếu thu · Phần 3] " + (dsHien.length ? dsHien.length + " khoản đang hiện" : "DANH SÁCH RỖNG") + (ly.length ? " — lý do: " + ly.join(" | ") : ""));
   console.table({
     "Nguồn tích chọn": v.nguonBat || {},
     "Hoá đơn của chuyến": { chuyen: v.soChuyen, chuyenChuaQT: (v.chuyenChuaQT || []).length, soHD: v.soHD, coTien: v.hdCoTien, ghiNo100: (v.hdKhongCoTien || []).length, trungChuyenKhac: v.hdTrung },
-    "Thu nợ / trả trước (Phần 2)": { dauVao: v.thuNoDauVao, boNguonTat: v.thuNoBoNguonTat, boHoanTien: v.thuNoBoChiRa, boHuy: v.thuNoBoHuy, boSoTienKhongHopLe: v.thuNoBoSoTien, boTKLa: v.thuNoBoTK },
+    "Thu nợ / trả trước (Phần 2)": { dauVao: v.thuNoDauVao, boNguonTat: v.thuNoBoNguonTat, boKhachChuyenKhac: v.thuNoBoKhachKhac, boHoanTien: v.thuNoBoChiRa, boHuy: v.thuNoBoHuy, boSoTienKhongHopLe: v.thuNoBoSoTien, boTKLa: v.thuNoBoTK },
     "Sau lọc": { tatCaKhoan: danhSachPhieuThuMisa.length, dangHien: dsHien.length, boQuaDaXuat: boQua }
   });
 }

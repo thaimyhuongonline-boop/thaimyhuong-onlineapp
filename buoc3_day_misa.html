@@ -482,6 +482,7 @@
           <label style="display:flex; align-items:center; gap:5px; cursor:pointer;"><input type="checkbox" id="ptNguonHoaDon" checked onchange="veBangPhieuThuMisa()"> Tiền thu theo hoá đơn (chuyến đang chọn)</label>
           <label style="display:flex; align-items:center; gap:5px; cursor:pointer;"><input type="checkbox" id="ptNguonThuNo" checked onchange="veBangPhieuThuMisa()"> Thu nợ khách hàng</label>
           <label style="display:flex; align-items:center; gap:5px; cursor:pointer;"><input type="checkbox" id="ptNguonTraTruoc" checked onchange="veBangPhieuThuMisa()"> Khách trả trước / trả dư</label>
+          <label style="display:flex; align-items:center; gap:5px; cursor:pointer;" title="Thu nợ / trả trước chỉ lấy của các khách hàng có hoá đơn trong chuyến (hoặc ngày) đang chọn ở Phần 1 — không lấy của khách chuyến khác. Bỏ tích để lấy theo bộ lọc ngày ở Phần 2."><input type="checkbox" id="ptChiKhachCuaChuyen" checked onchange="veBangPhieuThuMisa()"> Chỉ khách của chuyến đang chọn</label>
           <label style="display:flex; align-items:center; gap:5px; cursor:pointer;" title="Khoản đã xuất phiếu thu trước đó (đã có số PT) sẽ không xuất lại — bỏ tích để xuất lại đúng số cũ"><input type="checkbox" id="ptBoQuaDaXuat" checked onchange="veBangPhieuThuMisa()"> Bỏ qua khoản đã xuất phiếu thu</label>
           <span style="display:flex; align-items:center; gap:5px;">Số tiếp theo: PT
             <input type="number" id="ptSoTiepTheo" min="1" step="1" class="form-control" style="width:95px; height:30px;" onchange="suaSoPhieuThuTiepTheo(this)">

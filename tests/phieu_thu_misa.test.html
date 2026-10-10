@@ -332,6 +332,44 @@
     kiemTra("Thẻ Phần 3 tách theo nguồn: TM = hoá đơn 1.100.000 + thu nợ 2.000.000 + trả trước 300.000", tn.theoLoaiNguon.tm.hoa_don === 1100000 && tn.theoLoaiNguon.tm.thu_no === 2000000 && tn.theoLoaiNguon.tm.tra_truoc === 300000 && tn.tm.tong === 3400000, JSON.stringify(tn.theoLoaiNguon));
     kiemTra("Thẻ Phần 3 tách theo nguồn: CK = hoá đơn 600.000 + thu nợ 1.500.000 + trả trước 250.000", tn.theoLoaiNguon.ck.hoa_don === 600000 && tn.theoLoaiNguon.ck.thu_no === 1500000 && tn.theoLoaiNguon.ck.tra_truoc === 250000 && tn.ck.tong === 2350000);
 
+
+    // ---- 14. Thu nợ / trả trước CHỈ của khách có trong chuyến đang chọn ----
+    kiemTra("khoaKhachPhieuThu: mã khách → MA|…, không phân biệt hoa thường", khoaKhachPhieuThu("kh01", "x") === "MA|KH01" && khoaKhachPhieuThu(" KH01 ", "y") === "MA|KH01");
+    kiemTra("khoaKhachPhieuThu: không mã → theo tên chuẩn hoá (bỏ dấu, hoa thường, khoảng trắng)", khoaKhachPhieuThu("", "  Nguyễn   Văn A ") === "TEN|nguyen van a" && khoaKhachPhieuThu(null, "NGUYEN VAN A") === "TEN|nguyen van a");
+    kiemTra("khoaKhachPhieuThu: khách lẻ chung chung (KH_LE / KHÁCH LẺ / 'Khách Lẻ') → không so khớp", khoaKhachPhieuThu("KH_LE", "") === "" && khoaKhachPhieuThu("KHÁCH LẺ", "Khách Lẻ") === "" && khoaKhachPhieuThu("", "") === "");
+    const batLoc = { hoaDon: true, thuNo: true, traTruoc: true, chiKhachCuaChuyen: true };
+    const loc = dungDanhSachPhieuThu([chuyenDaQT], thuNoMock, batLoc, st);
+    const khoaLoc = loc.ds.map(r => r.khoa);
+    kiemTra("Chỉ khách của chuyến: giữ trả trước KH01 (TT|3) — khách có hoá đơn HD1 trong chuyến", khoaLoc.indexOf("TT|3") >= 0);
+    kiemTra("Chỉ khách của chuyến: bỏ thu nợ của kh07, kh08 và trả trước kh06 (khách ngoài chuyến)", ["TN|1", "TN|2", "TT|6"].every(k => khoaLoc.indexOf(k) < 0), khoaLoc.join(","));
+    kiemTra("Chỉ khách của chuyến: vết ghi 3 khoản bị bỏ (2.000.000 + 1.500.000 + 250.000) và ghi chú giải thích", loc.vet.thuNoBoKhachKhac === 3 && loc.vet.tienBoKhachKhac === 3750000 && loc.ghiChu.some(x => x.indexOf("khách CÓ TRONG chuyến") >= 0), JSON.stringify([loc.vet.thuNoBoKhachKhac, loc.vet.tienBoKhachKhac]));
+    const khongLoc = dungDanhSachPhieuThu([chuyenDaQT], thuNoMock, Object.assign({}, batLoc, { chiKhachCuaChuyen: false }), st);
+    kiemTra("Bỏ tích 'Chỉ khách của chuyến' → lấy lại thu nợ của mọi khách (TN|1, TN|2, TT|6)", ["TN|1", "TN|2", "TT|6", "TT|3"].every(k => khongLoc.ds.some(r => r.khoa === k)));
+    const tongLoc = tinhTongPhieuThu(locPhieuThuCanXuat(loc.ds, "", false));
+    kiemTra("Chuyến A + chỉ khách của chuyến: TM = 1.100.000 (HĐ) + 300.000 (trả trước kh01) = 1.400.000; CK = 600.000", tongLoc.tm.tong === 1400000 && tongLoc.ck.tong === 600000, JSON.stringify([tongLoc.tm.tong, tongLoc.ck.tong]));
+    kiemTra("Không chuyến nào được chọn + chỉ khách của chuyến → không lấy bất kỳ thu nợ / trả trước nào", dungDanhSachPhieuThu([], thuNoMock, batLoc, st).ds.length === 0);
+    // So khớp theo tên khi thu nợ không có mã; khách lẻ chung không lọt vào
+    const chuyenTen = { maDot: "DTN", xe: "t", daQuyetToan: true, ngayGiao: "2026-10-09", danhSachChiTiet: [{ maHD: "TN1", maKH: "", tenKH: "Nguyễn Văn A", tienHD: 100000, tienMat: 100000, chuyenKhoan: 0 }, { maHD: "TN2", maKH: "", tenKH: "Khách Lẻ", tienHD: 50000, tienMat: 50000, chuyenKhoan: 0 }] };
+    const thuNoTen = [
+      { id: 71, nguon: "thu_no", ngayThu: "09/10/2026", soCT: "A", maKH: "KHÁCH LẺ", tenKH: "nguyen van a", soTien: 10000, tkNo: "1111" },
+      { id: 72, nguon: "thu_no", ngayThu: "09/10/2026", soCT: "B", maKH: "KHÁCH LẺ", tenKH: "Khách Lẻ", soTien: 20000, tkNo: "1111" },
+      { id: 73, nguon: "thu_no", ngayThu: "09/10/2026", soCT: "C", maKH: "KH_XYZ", tenKH: "Người khác", soTien: 30000, tkNo: "1111" }
+    ];
+    const dsTen = dungDanhSachPhieuThu([chuyenTen], thuNoTen, batLoc, st).ds.filter(r => r.nguon === "thu_no").map(r => r.khoa);
+    kiemTra("Khớp theo tên khi không có mã (TN|71 giữ); khách lẻ chung (TN|72) và khách ngoài (TN|73) bị bỏ", dsTen.join() === "TN|71", dsTen.join());
+    // Hai chuyến khác nhau: thu nợ của khách xe B không lọt vào khi chỉ chọn xe A
+    const xeBTest = { maDot: "XB", xe: "B", daQuyetToan: true, ngayGiao: "2026-10-09", danhSachChiTiet: [{ maHD: "B1", maKH: "KHB", tenKH: "Khách B", tienHD: 100000, tienMat: 100000, chuyenKhoan: 0 }] };
+    const xeATest = { maDot: "XA", xe: "A", daQuyetToan: true, ngayGiao: "2026-10-09", danhSachChiTiet: [{ maHD: "A1", maKH: "KHA", tenKH: "Khách A", tienHD: 100000, tienMat: 100000, chuyenKhoan: 0 }] };
+    const thuNoAB = [
+      { id: 81, nguon: "thu_no", ngayThu: "09/10/2026", soCT: "A", maKH: "KHA", tenKH: "Khách A", soTien: 1000, tkNo: "1111" },
+      { id: 82, nguon: "thu_no", ngayThu: "09/10/2026", soCT: "B", maKH: "KHB", tenKH: "Khách B", soTien: 2000, tkNo: "1111" },
+      { id: 83, nguon: "tra_truoc", ngayThu: "09/10/2026", soCT: "TTB", maKH: "KHB", tenKH: "Khách B", soTien: 4000, tkNo: "1121", tkNganHang: "TCB - 20166789" }
+    ];
+    const chiA = dungDanhSachPhieuThu([xeATest], thuNoAB, batLoc, st).ds;
+    kiemTra("Chọn xe A (bật cả 3 nguồn): không có phiếu nào của khách xe B (KHB)", chiA.every(r => r.maKH !== "KHB") && tinhTongPhieuThu(chiA).tong === 100000 + 1000, chiA.map(r => r.khoa).join());
+    const chiB = dungDanhSachPhieuThu([xeBTest], thuNoAB, batLoc, st).ds;
+    kiemTra("Chọn xe B (bật cả 3 nguồn): không có phiếu nào của khách xe A (KHA)", chiB.every(r => r.maKH !== "KHA") && tinhTongPhieuThu(chiB).tong === 100000 + 2000 + 4000, chiB.map(r => r.khoa).join());
+
     const tieuDe = document.getElementById("tieuDe");
     tieuDe.textContent = (soDat === soTong ? "PASS " : "FAIL ") + soDat + "/" + soTong;
     tieuDe.className = soDat === soTong ? "ok" : "loi";

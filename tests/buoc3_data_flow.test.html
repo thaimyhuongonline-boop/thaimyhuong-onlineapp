@@ -54,14 +54,26 @@
   const xeD = dot("DOT_D", "51D-444", true, [hd("D1", "KH_F", "Khách F", 800000, 800000, 0), hd("D2", "KH_G2", "Khách G2", 600000, 0, 0)]);
   xeD.ngayGiao = "2026-10-08"; xeD.ngayRaw = "2026-10-08";
   xeD.cacDongChiTietKiotViet = [dong("D1", "KH_F", "Khách F", 800000), dong("D2", "KH_G2", "Khách G2", 600000), dong("X9", "KH_LA", "Khách lạ", 5000000)];
+  // Xe E (ngày khác, giống xe HD1 SÁNG): chỉ 1 hoá đơn GHI NỢ 900.000, không thu tiền mặt / chuyển khoản
+  const xeE = dot("DOT_E", "51E-555", true, [hd("E1", "KH_N", "Khách N", 900000, 0, 0)]);
+  xeE.ngayGiao = "2026-10-07"; xeE.ngayRaw = "2026-10-07";
   const thuNoGia = [
     { id: 901, ngay_thu: "2026-10-09", ma_kh: "KH_G", ten_kh: "Khách G", so_tien: 2000000, hinh_thuc: "Tiền mặt", tai_khoan_nhan: "", id_don_no: "NO_X1", ma_hd: "X1", ma_dot: "DOT_OLD", tao_luc: "2026-10-09T03:00:00Z", da_day_misa: false },
-    { id: 902, ngay_thu: "2026-10-09", ma_kh: "KH_H", ten_kh: "Khách H", so_tien: 1500000, hinh_thuc: "Chuyển khoản", tai_khoan_nhan: "SCB - 040089722561", id_don_no: "NO_X2", ma_hd: "X2", ma_dot: "DOT_OLD", tao_luc: "2026-10-09T03:00:00Z", da_day_misa: false }
+    { id: 902, ngay_thu: "2026-10-09", ma_kh: "KH_H", ten_kh: "Khách H", so_tien: 1500000, hinh_thuc: "Chuyển khoản", tai_khoan_nhan: "SCB - 040089722561", id_don_no: "NO_X2", ma_hd: "X2", ma_dot: "DOT_OLD", tao_luc: "2026-10-09T03:00:00Z", da_day_misa: false },
+    // thu nợ của khách CÓ trong Xe A (KH_A) và Xe B (KH_C)
+    { id: 903, ngay_thu: "2026-10-09", ma_kh: "KH_A", ten_kh: "Khách A", so_tien: 700000, hinh_thuc: "Tiền mặt", tai_khoan_nhan: "", id_don_no: "NO_X3", ma_hd: "X3", ma_dot: "DOT_OLD", tao_luc: "2026-10-09T03:00:00Z", da_day_misa: false },
+    { id: 904, ngay_thu: "2026-10-09", ma_kh: "KH_C", ten_kh: "Khách C", so_tien: 450000, hinh_thuc: "Chuyển khoản", tai_khoan_nhan: "TCB - 20166789", id_don_no: "NO_X4", ma_hd: "X4", ma_dot: "DOT_OLD", tao_luc: "2026-10-09T03:00:00Z", da_day_misa: false }
+  ];
+  // Sổ tiền khách trả trước / trả dư: KH_A (Xe A), KH_C (Xe B) và 1 khách ngoài mọi chuyến (KH_Z)
+  const traTruocGia = [
+    { id: 1001, ngay: "2026-10-09", ma_kh: "KH_A", ten_kh: "Khách A", loai: "nhan", so_tien: 300000, hinh_thuc: "Tiền mặt", tai_khoan_nhan: "", nguon: "tra_truoc", luc: "2026-10-09T03:00:00Z", da_day_misa: false },
+    { id: 1002, ngay: "2026-10-09", ma_kh: "KH_C", ten_kh: "Khách C", loai: "nhan", so_tien: 250000, hinh_thuc: "Chuyển khoản", tai_khoan_nhan: "TCB - 20166789", nguon: "tra_truoc", luc: "2026-10-09T03:00:00Z", da_day_misa: false },
+    { id: 1003, ngay: "2026-10-09", ma_kh: "KH_Z", ten_kh: "Khách Z", loai: "nhan", so_tien: 111000, hinh_thuc: "Tiền mặt", tai_khoan_nhan: "", nguon: "tra_truoc", luc: "2026-10-09T03:00:00Z", da_day_misa: false }
   ];
 
   // Máy chủ giả: mọi lệnh nối tiếp (select/order/range/...) trả về chính nó; await → { data, error }
   function taoMayChuGia() {
-    const bang = { thu_no: thuNoGia };
+    const bang = { thu_no: thuNoGia, khach_tra_truoc: traTruocGia };
     function chuoi(ten) {
       const rows = bang[ten] || [];
       const p = new Proxy(function () {}, {
@@ -79,7 +91,7 @@
   window.__mayChuGia = taoMayChuGia;
 
   // ---------------- Nạp trang thật ----------------
-  try { localStorage.setItem("tmh_lich_su_dot", JSON.stringify([xeA, xeB, xeC, xeD])); localStorage.setItem("tmh_so_phieu_thu_misa", JSON.stringify({ soTiepTheo: 1, theoKhoa: {} })); } catch (e) {}
+  try { localStorage.setItem("tmh_lich_su_dot", JSON.stringify([xeA, xeB, xeC, xeD, xeE])); localStorage.setItem("tmh_so_phieu_thu_misa", JSON.stringify({ soTiepTheo: 1, theoKhoa: {} })); } catch (e) {}
   const xhr = new XMLHttpRequest();
   xhr.open("GET", "../buoc3_day_misa.html", false); xhr.send();
   let h = xhr.responseText;
@@ -102,8 +114,8 @@
     await cho(2500);
   };
 
-  const san = await choDen(() => w.eval("danhSachTatCaDot") && w.eval("danhSachTatCaDot").length === 4 && d.getElementById("selChuyenXeMisa").options.length > 3 && w.eval("danhSachThuNoMisa").length === 2, 60);
-  kiemTra("Trang thật nạp xong với dữ liệu giả (4 chuyến, 2 khoản thu nợ)", san, "dots=" + (w.eval("danhSachTatCaDot") || []).length + " thuNo=" + (w.eval("danhSachThuNoMisa") || []).length + " loi=" + (w.__loi || []).join(" ; "));
+  const san = await choDen(() => w.eval("danhSachTatCaDot") && w.eval("danhSachTatCaDot").length === 5 && d.getElementById("selChuyenXeMisa").options.length > 3 && w.eval("danhSachThuNoMisa").length === 7, 60);
+  kiemTra("Trang thật nạp xong với dữ liệu giả (5 chuyến, 7 khoản thu nợ + trả trước)", san, "dots=" + (w.eval("danhSachTatCaDot") || []).length + " thuNo=" + (w.eval("danhSachThuNoMisa") || []).length + " loi=" + (w.__loi || []).join(" ; "));
   if (!san) {
     document.getElementById("tieuDe").textContent = "FAIL (không nạp được trang)";
     document.getElementById("ketQua").textContent = kq.join("\n");
@@ -116,7 +128,7 @@
   const theTM = () => so(g("kpiPTTienMat")), theCK = () => so(g("kpiPTTienGui"));
   const dongBang = () => d.querySelectorAll("#tbodyPhieuThuMisa tr[data-loai]").length;
   const thuNoTruoc = { tm: g("kpiThuNo1111"), ck: g("kpiThuNo1121"), tong: g("kpiThuNoTong"), dong: d.querySelectorAll("#tbodyThuNoMisa tr").length, n: w.eval("danhSachThuNoMisa").length };
-  kiemTra("Phần 2 (Cấn trừ công nợ) có số liệu riêng: TM 2.000.000 · CK 1.500.000", so(thuNoTruoc.tm) === 2000000 && so(thuNoTruoc.ck) === 1500000, JSON.stringify(thuNoTruoc));
+  kiemTra("Phần 2 (Cấn trừ công nợ) có số liệu riêng của TOÀN hệ thống: TM 3.111.000 · CK 2.200.000 (thu nợ + trả trước, cả khách ngoài chuyến)", so(thuNoTruoc.tm) === 3111000 && so(thuNoTruoc.ck) === 2200000, JSON.stringify(thuNoTruoc));
 
   // ---------------- Luồng dữ liệu: đổi chuyến ở Phần 1 → Phần 3 ----------------
   await doiChuyen("DOT_A");
@@ -177,15 +189,30 @@
   await soSanhP1P3("NGAY|09/10/2026", "Cả ngày 09/10 (Xe A + Xe B)", 1350000, 1100000);
   await soSanhP1P3("", "Chưa chọn chuyến", 0, 0);
 
-  // Có tích Thu nợ / Trả trước: Phần 3 = tiền hoá đơn (= Phần 1) + thu nợ (Phần 2); phần cơ cấu hiển thị đúng và báo khớp Phần 1
+  // ---------------- Bật CẢ 3 checkbox: Phần 3 chỉ lấy thu nợ / trả trước của KHÁCH TRONG CHUYẾN đang chọn ----------------
+  chk("ptNguonHoaDon", true); chk("ptNguonThuNo", true); chk("ptNguonTraTruoc", true); chk("ptChiKhachCuaChuyen", true); chk("ptBoQuaDaXuat", false);
+  const maKHBang = () => Array.from(d.querySelectorAll("#tbodyPhieuThuMisa tr[data-loai]")).map(tr => tr.children[4].textContent.trim());
+  const khongCoKhach = (ds) => ds.every(k => maKHBang().indexOf(k) < 0);
   await doiChuyen("DOT_A");
-  chk("ptNguonThuNo", true); chk("ptNguonTraTruoc", true);
   await w.veBangPhieuThuMisa();
-  kiemTra("Xe A + tích Thu nợ: Phiếu thu tiền mặt = Phần 1 (1.100.000) + thu nợ tiền mặt Phần 2 (2.000.000) = 3.100.000", theTM() === so(g("kpiTK1111")) + so(g("kpiThuNo1111")) && theTM() === 3100000, g("kpiPTTienMat"));
-  kiemTra("Xe A + tích Thu nợ: Phiếu thu tiền gửi = Phần 1 (400.000) + thu nợ chuyển khoản Phần 2 (1.500.000) = 1.900.000", theCK() === so(g("kpiTK1121")) + so(g("kpiThuNo1121")) && theCK() === 1900000, g("kpiPTTienGui"));
-  kiemTra("Thẻ Phần 3 ghi rõ cơ cấu nguồn: 'Hoá đơn 1.100.000 · Thu nợ 2.000.000'", g("kpiPTTienMatNguon").indexOf("Hoá đơn 1.100.000") >= 0 && g("kpiPTTienMatNguon").indexOf("Thu nợ 2.000.000") >= 0, g("kpiPTTienMatNguon"));
-  kiemTra("Dòng đối chiếu báo ✅ Khớp Phần 1 dù đang tích thu nợ", g("ghiChuPhieuThuMisa").indexOf("✅ Khớp Phần 1") >= 0 && g("ghiChuPhieuThuMisa").indexOf("KHÔNG khớp Phần 1") < 0, g("ghiChuPhieuThuMisa"));
-  kiemTra("doiChieuPhan1VoiPhan3().khop = true", w.doiChieuPhan1VoiPhan3().khop === true);
+  kiemTra("Chọn Xe A + bật cả 3 checkbox: tiền mặt = hoá đơn 1.100.000 + thu nợ KH_A 700.000 + trả trước KH_A 300.000 = 2.100.000", theTM() === 2100000, g("kpiPTTienMat"));
+  kiemTra("Chọn Xe A + bật cả 3 checkbox: tiền gửi = hoá đơn 400.000 (không có thu nợ CK của khách Xe A)", theCK() === 400000, g("kpiPTTienGui"));
+  kiemTra("Xe A: tổng Phần 3 KHÔNG chứa phiếu nào của khách Xe B (KH_C, KH_D)", khongCoKhach(["KH_C", "KH_D"]) && theTM() + theCK() === 2500000, maKHBang().join(","));
+  kiemTra("Xe A: không lấy thu nợ / trả trước của khách ngoài chuyến (KH_G, KH_H, KH_Z)", khongCoKhach(["KH_G", "KH_H", "KH_Z"]));
+  kiemTra("Xe A: cơ cấu thẻ = Hoá đơn 1.100.000 · Thu nợ 700.000 · Trả trước 300.000", g("kpiPTTienMatNguon").indexOf("Hoá đơn 1.100.000") >= 0 && g("kpiPTTienMatNguon").indexOf("Thu nợ 700.000") >= 0 && g("kpiPTTienMatNguon").indexOf("Trả trước 300.000") >= 0, g("kpiPTTienMatNguon"));
+  kiemTra("Xe A: ghi chú nêu đã bỏ thu nợ của khách khác; thẻ Phần 3 khớp bảng và khớp Phần 1", g("ghiChuPhieuThuMisa").indexOf("khách CÓ TRONG chuyến đang chọn") >= 0 && w.doiChieuTheVoiBangPhieuThu().khop && w.doiChieuPhan1VoiPhan3().khop);
+  await doiChuyen("DOT_B");
+  await w.veBangPhieuThuMisa();
+  kiemTra("Chọn Xe B + bật cả 3 checkbox: tiền mặt 250.000 · tiền gửi = 700.000 + thu nợ KH_C 450.000 + trả trước KH_C 250.000 = 1.400.000", theTM() === 250000 && theCK() === 1400000, g("kpiPTTienMat") + " / " + g("kpiPTTienGui"));
+  kiemTra("Xe B: tổng Phần 3 KHÔNG chứa phiếu nào của khách Xe A (KH_A, KH_B) và khách ngoài chuyến", khongCoKhach(["KH_A", "KH_B", "KH_G", "KH_H", "KH_Z"]), maKHBang().join(","));
+  await doiChuyen("DOT_E");
+  await w.veBangPhieuThuMisa();
+  kiemTra("Chọn Xe E (1 HĐ ghi nợ 900.000, không thu tiền) + bật cả 3 checkbox: Phần 3 = 0 đ, KHÔNG tràn thu nợ toàn hệ thống", theTM() === 0 && theCK() === 0 && dongBang() === 0 && g("kpiPTTienMat") === "0 đ", g("kpiPTTienMat") + " / " + g("kpiPTTienGui") + " / " + dongBang());
+  kiemTra("Xe E: dòng đối chiếu không còn (không phiếu) và console nêu lý do khách khác", g("tbodyPhieuThuMisa").indexOf("Không có khoản thu nào") >= 0 && g("ghiChuPhieuThuMisa").indexOf("khách CÓ TRONG chuyến đang chọn") >= 0, g("ghiChuPhieuThuMisa"));
+  kiemTra("Xe E: Phần 1 cũng 0 đ tiền thu, ghi nợ 900.000 (= Phần 3)", so(g("kpiTK1111")) === 0 && so(g("kpiTK1121")) === 0 && so(g("kpiTK131")) === 900000);
+  await doiChuyen("NGAY|09/10/2026");
+  await w.veBangPhieuThuMisa();
+  kiemTra("Cả ngày 09/10 (Xe A + Xe B) + bật cả 3: chỉ khách của 2 xe — TM 1.350.000 + 1.000.000 = 2.350.000 · CK 1.100.000 + 700.000 = 1.800.000", theTM() === 2350000 && theCK() === 1800000 && khongCoKhach(["KH_G", "KH_H", "KH_Z"]), g("kpiPTTienMat") + " / " + g("kpiPTTienGui"));
   chk("ptNguonThuNo", false); chk("ptNguonTraTruoc", false); chk("ptBoQuaDaXuat", true);
   await w.veBangPhieuThuMisa();
 
@@ -213,7 +240,10 @@
   chk("ptNguonThuNo", true);
   await w.veBangPhieuThuMisa();
   await doiChuyen("");
-  kiemTra("Chưa chọn chuyến nhưng tích 'Thu nợ khách hàng' → Phần 3 vẫn hiện thu nợ theo Phần 2 (TM 2.000.000 · CK 1.500.000)", theTM() === 2000000 && theCK() === 1500000 && dongBang() === 2, g("kpiPTTienMat") + " / " + g("kpiPTTienGui"));
+  kiemTra("Chưa chọn chuyến + tích 'Thu nợ' (mặc định 'Chỉ khách của chuyến') → Phần 3 KHÔNG tràn thu nợ của toàn hệ thống: 0 đ / 0 phiếu", theTM() === 0 && theCK() === 0 && dongBang() === 0, g("kpiPTTienMat") + " / " + g("kpiPTTienGui"));
+  chk("ptChiKhachCuaChuyen", false); await w.veBangPhieuThuMisa();
+  kiemTra("Bỏ tích 'Chỉ khách của chuyến đang chọn' → lấy cả thu nợ của mọi khách theo bộ lọc Phần 2 (4 phiếu thu nợ: TM 2.700.000 · CK 1.950.000)", theTM() === 2700000 && theCK() === 1950000 && dongBang() === 4, g("kpiPTTienMat") + " / " + g("kpiPTTienGui") + " / " + dongBang());
+  chk("ptChiKhachCuaChuyen", true); await w.veBangPhieuThuMisa();
   kiemTra("Thẻ Phần 3 khớp bảng cả khi có thu nợ", w.doiChieuTheVoiBangPhieuThu().khop === true);
 
   // ---------------- Accordion trên trang thật ----------------
