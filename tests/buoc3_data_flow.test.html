@@ -48,6 +48,12 @@
   const xeB = dot("DOT_B", "51B-222", true, [hd("B1", "KH_C", "Khách C", 700000, 0, 700000, "TCB - 20166789"), hd("B2", "KH_D", "Khách D", 250000, 250000, 0)]);
   // Xe C: chưa quyết toán → chưa lập phiếu thu
   const xeC = dot("DOT_C", "51C-333", false, [hd("C1", "KH_E", "Khách E", 900000, 0, 0)]);
+  // Xe D (ngày khác): 1 hoá đơn TIỀN MẶT (D1 800.000) + 1 hoá đơn GHI NỢ 100% (D2 600.000). Dòng hàng đã lưu theo mã chuyến còn SÓT
+  // dòng của hoá đơn lạ X9 (5.000.000 — đã chuyển sang chuyến khác) → không được tính vào chuyến này.
+  const dong = (maHD, maKH, tenKH, tien) => ({ "Mã hóa đơn": maHD, "Mã khách hàng": maKH, "Tên khách hàng": tenKH, "Mã hàng": "SP" + maHD, "Tên hàng": "Hàng " + maHD, "ĐVT": "Thùng", "Số lượng": 1, "Đơn giá": tien, "Thành tiền": tien, "Người bán": "NV Test" });
+  const xeD = dot("DOT_D", "51D-444", true, [hd("D1", "KH_F", "Khách F", 800000, 800000, 0), hd("D2", "KH_G2", "Khách G2", 600000, 0, 0)]);
+  xeD.ngayGiao = "2026-10-08"; xeD.ngayRaw = "2026-10-08";
+  xeD.cacDongChiTietKiotViet = [dong("D1", "KH_F", "Khách F", 800000), dong("D2", "KH_G2", "Khách G2", 600000), dong("X9", "KH_LA", "Khách lạ", 5000000)];
   const thuNoGia = [
     { id: 901, ngay_thu: "2026-10-09", ma_kh: "KH_G", ten_kh: "Khách G", so_tien: 2000000, hinh_thuc: "Tiền mặt", tai_khoan_nhan: "", id_don_no: "NO_X1", ma_hd: "X1", ma_dot: "DOT_OLD", tao_luc: "2026-10-09T03:00:00Z", da_day_misa: false },
     { id: 902, ngay_thu: "2026-10-09", ma_kh: "KH_H", ten_kh: "Khách H", so_tien: 1500000, hinh_thuc: "Chuyển khoản", tai_khoan_nhan: "SCB - 040089722561", id_don_no: "NO_X2", ma_hd: "X2", ma_dot: "DOT_OLD", tao_luc: "2026-10-09T03:00:00Z", da_day_misa: false }
@@ -73,7 +79,7 @@
   window.__mayChuGia = taoMayChuGia;
 
   // ---------------- Nạp trang thật ----------------
-  try { localStorage.setItem("tmh_lich_su_dot", JSON.stringify([xeA, xeB, xeC])); localStorage.setItem("tmh_so_phieu_thu_misa", JSON.stringify({ soTiepTheo: 1, theoKhoa: {} })); } catch (e) {}
+  try { localStorage.setItem("tmh_lich_su_dot", JSON.stringify([xeA, xeB, xeC, xeD])); localStorage.setItem("tmh_so_phieu_thu_misa", JSON.stringify({ soTiepTheo: 1, theoKhoa: {} })); } catch (e) {}
   const xhr = new XMLHttpRequest();
   xhr.open("GET", "../buoc3_day_misa.html", false); xhr.send();
   let h = xhr.responseText;
@@ -96,8 +102,8 @@
     await cho(2500);
   };
 
-  const san = await choDen(() => w.eval("danhSachTatCaDot") && w.eval("danhSachTatCaDot").length === 3 && d.getElementById("selChuyenXeMisa").options.length > 3 && w.eval("danhSachThuNoMisa").length === 2, 60);
-  kiemTra("Trang thật nạp xong với dữ liệu giả (3 chuyến, 2 khoản thu nợ)", san, "dots=" + (w.eval("danhSachTatCaDot") || []).length + " thuNo=" + (w.eval("danhSachThuNoMisa") || []).length + " loi=" + (w.__loi || []).join(" ; "));
+  const san = await choDen(() => w.eval("danhSachTatCaDot") && w.eval("danhSachTatCaDot").length === 4 && d.getElementById("selChuyenXeMisa").options.length > 3 && w.eval("danhSachThuNoMisa").length === 2, 60);
+  kiemTra("Trang thật nạp xong với dữ liệu giả (4 chuyến, 2 khoản thu nợ)", san, "dots=" + (w.eval("danhSachTatCaDot") || []).length + " thuNo=" + (w.eval("danhSachThuNoMisa") || []).length + " loi=" + (w.__loi || []).join(" ; "));
   if (!san) {
     document.getElementById("tieuDe").textContent = "FAIL (không nạp được trang)";
     document.getElementById("ketQua").textContent = kq.join("\n");
@@ -134,6 +140,24 @@
   await doiChuyen("NGAY|09/10/2026");
   kiemTra("Chọn 'Tất cả xe ngày 09/10/2026' → Phần 3 = Xe A + Xe B: TM 1.350.000 · CK 1.100.000", theTM() === 1350000 && theCK() === 1100000 && dongBang() === 5, g("kpiPTTienMat") + " / " + g("kpiPTTienGui") + " / " + dongBang());
 
+
+  // ---------------- Hoá đơn tiền mặt + hoá đơn ghi nợ: Phần 3 chỉ nhận hoá đơn có tiền ----------------
+  await doiChuyen("DOT_D");
+  const soCTPhan1 = Array.from(new Set(w.eval("danhSachDongMisa").map(r => r.soCT))).sort().join(",");
+  kiemTra("Phần 1 chỉ có dòng của đúng các hoá đơn thuộc chuyến (D1, D2) — dòng hoá đơn lạ X9 bị loại", soCTPhan1 === "D1,D2" && w.eval("danhSachDongMisa").length === 2, soCTPhan1 + " / " + w.eval("danhSachDongMisa").length);
+  kiemTra("Phần 1: doanh thu 1.400.000 · Khách trả tiền mặt 800.000 · Khách ghi nợ 600.000 (không dính 5.000.000 của HĐ lạ)",
+    so(g("kpiDoanhThu")) === 1400000 && so(g("kpiTK1111")) === 800000 && so(g("kpiTK131")) === 600000, g("kpiDoanhThu") + " | " + g("kpiTK1111") + " | " + g("kpiTK131"));
+  kiemTra("Phần 3: chỉ đúng 1 phiếu thu tiền mặt của hoá đơn D1 (hoá đơn ghi nợ D2 không có dòng)",
+    dongBang() === 1 && theTM() === 800000 && theCK() === 0 && g("tbodyPhieuThuMisa").indexOf("D1") >= 0 && g("tbodyPhieuThuMisa").indexOf("D2") < 0, dongBang() + " | " + g("kpiPTTienMat"));
+  kiemTra("Tổng thẻ Phần 3 = số 'Khách trả tiền mặt' ở Phần 1 (800.000)", theTM() === so(g("kpiTK1111")));
+  const traceTruoc = [];
+  const logGoc = w.console.log; w.console.log = function () { traceTruoc.push(Array.prototype.slice.call(arguments).join(" ")); };
+  chk("ptNguonHoaDon", false); await w.veBangPhieuThuMisa();
+  kiemTra("Bỏ tích 'Tiền thu theo hoá đơn' → Phần 3 trống (nguồn thu nợ / trả trước đang tắt) + console.log nêu lý do", dongBang() === 0 && traceTruoc.some(t => t.indexOf("DANH SÁCH RỖNG") >= 0 && t.indexOf("BỎ tích") >= 0), traceTruoc.join(" || "));
+  chk("ptNguonHoaDon", true); await w.veBangPhieuThuMisa();
+  kiemTra("Tích lại 'Tiền thu theo hoá đơn' → phiếu hiện lại (800.000)", dongBang() === 1 && theTM() === 800000);
+  w.console.log = logGoc;
+
   // ---------------- Chưa chọn chuyến / Làm mới ----------------
   await doiChuyen("DOT_A");
   const loiTruoc = [];
@@ -148,7 +172,8 @@
   await doiChuyen("DOT_A");
   kiemTra("Chọn lại Xe A sau khi trống → Phần 3 hiện lại đủ: TM 1.100.000 · CK 400.000", theTM() === 1100000 && theCK() === 400000);
   w.taiLaiDuLieuMisa();      // nút "Làm mới" của Phần 1
-  await cho(4000);
+  await choDen(() => { const dh = w.eval("dotHienTai"); return dh && dh.maDot && theTM() > 0; }, 30);
+  await cho(1500);
   kiemTra("Bấm 'Làm mới' xong → Phần 3 nạp lại không lỗi, thẻ khớp bảng, không NaN", w.doiChieuTheVoiBangPhieuThu().khop === true && g("kpiPTTienMat").indexOf("NaN") < 0, g("kpiPTTienMat"));
 
   // ---------------- Phần 2 không bị ảnh hưởng ----------------

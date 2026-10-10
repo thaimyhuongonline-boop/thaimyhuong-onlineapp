@@ -55,6 +55,7 @@ const TIEU_DE_PT_TIEN_GUI = ["Ngày hạch toán (*)", "Ngày chứng từ (*)",
 let danhSachPhieuThuMisa = [];   // các khoản phiếu thu đang hiện (xem trước)
 let danhMucNHPhieuThu = [];      // danh mục tài khoản ngân hàng (tai_khoan_ngan_hang)
 let ghiChuPhieuThuMisa = [];     // ghi chú (chuyến chưa quyết toán…)
+let vetLocPhieuThuMisa = null;    // vết lọc lần dựng gần nhất (xem ghiVetLocPhieuThu)
 
 function chuSoPT(s) { return String(s || "").replace(/\D/g, ""); }
 
@@ -159,8 +160,10 @@ function dungDanhSachPhieuThu(dsDot, dsThuNo, bat, st) {
   const ghiChu = [];
   const them = r => { if (!theoKhoa.has(r.khoa) && r.soTien > 0.5) theoKhoa.set(r.khoa, r); };
   bat = bat || {};
-  dsDot = Array.isArray(dsDot) ? dsDot : [];
-  dsThuNo = Array.isArray(dsThuNo) ? dsThuNo : [];
+  dsDot = (Array.isArray(dsDot) ? dsDot : []).filter(Boolean);   // chuyến null / undefined → bỏ, không văng lỗi
+  dsThuNo = (Array.isArray(dsThuNo) ? dsThuNo : []).filter(Boolean);
+  // Vết lọc (in ra console khi danh sách rỗng / bật ?debugPhieuThu=1) để biết khoản bị loại ở bước nào
+  const vet = { nguonBat: { hoaDon: !!bat.hoaDon, thuNo: !!bat.thuNo, traTruoc: !!bat.traTruoc }, soChuyen: dsDot.length, chuyenChuaQT: [], soHD: 0, hdKhongCoTien: [], hdCoTien: 0, hdTrung: 0, thuNoDauVao: dsThuNo.length, thuNoBoNguonTat: 0, thuNoBoChiRa: 0, thuNoBoHuy: 0, thuNoBoSoTien: 0, thuNoBoTK: 0 };
 
   // 1. Tiền thu theo hoá đơn ở Bước 2 (chuyến / ngày đang chọn phía trên)
   if (bat.hoaDon) {
@@ -169,11 +172,13 @@ function dungDanhSachPhieuThu(dsDot, dsThuNo, bat, st) {
     let traDu = 0, soHDDu = 0;   // phần khách trả DƯ so với hoá đơn (không vào phiếu thu theo hoá đơn)
     // Chuyến đã quyết toán xét trước (hoá đơn giao lại có ở 2 chuyến → lấy chuyến có số liệu quyết toán)
     dsDot.slice().sort((a, b) => Number(!!b.daQuyetToan) - Number(!!a.daQuyetToan)).forEach(dot => {
-      if (!dot.daQuyetToan) { chuaQT.push(dot.xe || dot.maDot); return; }
+      if (!dot.daQuyetToan) { chuaQT.push(dot.xe || dot.maDot); vet.chuyenChuaQT.push(dot.xe || dot.maDot); return; }
       const ngay = ngayVNPhieuThu(dot.ngayGiao || dot.ngayRaw);
-      (dot.danhSachChiTiet || []).forEach(h => {
+      (Array.isArray(dot.danhSachChiTiet) ? dot.danhSachChiTiet : []).forEach(h => {
+        if (!h) return;
         const maHD = String(h.maHD || h.ma_hd || "").trim().toUpperCase();
         if (!maHD) return;
+        vet.soHD++;
         const tienHD = soTienAnToan(h.tienHD || h.thanhTien);
         const phaiTra = Math.max(0, tienHD - soTienAnToan(h.traVe));
         const tach = tachTienHoaDonPT(soTienAnToan(h.tienMat), soTienAnToan(h.chuyenKhoan), phaiTra);
@@ -184,6 +189,7 @@ function dungDanhSachPhieuThu(dsDot, dsThuNo, bat, st) {
           // Tiền thu theo hoá đơn khi giao hàng: gạch luôn trong chuyến → ngày gạch nợ = ngày giao
           ngayGachNo: ngay
         };
+        if (tach.tmNo > 0.5 || tach.ckNo > 0.5) { if (theoKhoa.has(`HD|${maHD}|TM`) || theoKhoa.has(`HD|${maHD}|CK`)) vet.hdTrung++; else vet.hdCoTien++; } else vet.hdKhongCoTien.push(maHD);   // 100% ghi nợ / chưa thu → không sinh phiếu thu
         if (tach.tmNo > 0.5) them(Object.assign({}, goc, { khoa: `HD|${maHD}|TM`, loai: "tm", soTien: Math.round(tach.tmNo) }));
         if (tach.ckNo > 0.5) them(Object.assign({}, goc, { khoa: `HD|${maHD}|CK`, loai: "ck", soTien: Math.round(tach.ckNo), nh: timTKNganHangPT(h.taiKhoanNhan) }));
       });
@@ -196,8 +202,11 @@ function dungDanhSachPhieuThu(dsDot, dsThuNo, bat, st) {
   // 2 & 3. Thu nợ khách hàng + tiền khách trả trước NHẬN vào (khu vực Cấn trừ công nợ) — chỉ khoản tiền VÀO
   dsThuNo.forEach(r => {
     const laTraTruoc = r.nguon === "tra_truoc";
-    if (laTraTruoc ? !bat.traTruoc : !bat.thuNo) return;
-    if (r.chiRa || laKhoanThuNoDaHuy(r) || !(soTienAnToan(r.soTien) > 0) || (r.tkNo !== "1111" && r.tkNo !== "1121")) return;
+    if (laTraTruoc ? !bat.traTruoc : !bat.thuNo) { vet.thuNoBoNguonTat++; return; }
+    if (r.chiRa) { vet.thuNoBoChiRa++; return; }
+    if (laKhoanThuNoDaHuy(r)) { vet.thuNoBoHuy++; return; }
+    if (!(soTienAnToan(r.soTien) > 0)) { vet.thuNoBoSoTien++; return; }
+    if (r.tkNo !== "1111" && r.tkNo !== "1121") { vet.thuNoBoTK++; return; }
     them({
       khoa: (laTraTruoc ? "TT|" : "TN|") + r.id,
       loai: r.tkNo === "1121" ? "ck" : "tm",
@@ -228,18 +237,19 @@ function dungDanhSachPhieuThu(dsDot, dsThuNo, bat, st) {
     });
   }).sort((a, b) => khoaNgayPT(a.ngay).localeCompare(khoaNgayPT(b.ngay)) || (a.loai === b.loai ? 0 : (a.loai === "tm" ? -1 : 1)) || a.khoa.localeCompare(b.khoa));
 
-  return { ds: ds, ghiChu: ghiChu };
+  return { ds: ds, ghiChu: ghiChu, vet: vet };
 }
 
 /** Dựng danh sách các khoản phiếu thu từ dữ liệu Bước 3 đang hiện */
 function taoDanhSachPhieuThuMisa() {
   const layChk = id => { const el = document.getElementById(id); return !el || el.checked; };
-  const dsDot = (typeof cheDoNgayMisa !== "undefined" && cheDoNgayMisa) ? cheDoNgayMisa.dsDot : ((typeof dotHienTai !== "undefined" && dotHienTai) ? [dotHienTai] : []);
+  const dsDot = ((typeof cheDoNgayMisa !== "undefined" && cheDoNgayMisa) ? (cheDoNgayMisa.dsDot || []) : ((typeof dotHienTai !== "undefined" && dotHienTai) ? [dotHienTai] : [])).filter(Boolean);
   const dsThuNo = (typeof danhSachThuNoMisa !== "undefined" && Array.isArray(danhSachThuNoMisa)) ? danhSachThuNoMisa : [];
   const kq = dungDanhSachPhieuThu(dsDot, dsThuNo,
     { hoaDon: layChk("ptNguonHoaDon"), thuNo: layChk("ptNguonThuNo"), traTruoc: layChk("ptNguonTraTruoc") }, docSoPhieuThuMisa());
   danhSachPhieuThuMisa = kq.ds;
   ghiChuPhieuThuMisa = kq.ghiChu;
+  vetLocPhieuThuMisa = kq.vet;
   return kq.ds;
 }
 
@@ -397,6 +407,7 @@ async function veBangPhieuThuMisa() {
     tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:26px; color:var(--text-muted);">Không có khoản thu nào để lập phiếu thu (theo chuyến / ngày đang chọn ở Phần 1 và bộ lọc thu nợ ở Phần 2).${nutHienDaXuat}</td></tr>`;
     dat("footPTTien", "0");
     doiChieuTheVoiBangPhieuThu();
+    ghiVetLocPhieuThu();
     return;
   }
   tbody.innerHTML = dsHien.map((r, i) => `
@@ -472,6 +483,33 @@ function chanDoanPhieuThuMisa() {
     "Tổng": { soPhieu: tong.soPhieu, tongTien: tong.tong }
   });
   return dsChiTiet;
+}
+
+/**
+ * Vết lọc Phần 3 → console (F12): vì sao danh sách phiếu thu rỗng / ít hơn mong đợi. Tự in khi danh sách đang hiện RỖNG
+ * hoặc khi mở trang với ?debugPhieuThu=1; gọi tay: ghiVetLocPhieuThu(true).
+ */
+function ghiVetLocPhieuThu(batBuoc) {
+  const dsHien = layPhieuThuCanXuat("");
+  const debug = /[?&]debugPhieuThu=1/.test(location.search);
+  if (!batBuoc && !debug && dsHien.length) return;
+  const v = vetLocPhieuThuMisa || {};
+  const boQua = !!(document.getElementById("ptBoQuaDaXuat") || {}).checked;
+  const ly = [];
+  if (v.nguonBat && v.nguonBat.hoaDon) {
+    if (!v.soChuyen) ly.push("Chưa chọn chuyến xe / ngày ở Phần 1 (0 chuyến đưa xuống Phần 3)");
+    if (v.chuyenChuaQT && v.chuyenChuaQT.length) ly.push(v.chuyenChuaQT.length + " chuyến chưa quyết toán ở Bước 2: " + v.chuyenChuaQT.join(", "));
+    if (v.soHD && !v.hdCoTien) ly.push("Các " + v.soHD + " hoá đơn của chuyến đều 100% khách ghi nợ / chưa thu tiền → không có dòng tiền để lập phiếu thu");
+  } else if (v.nguonBat) ly.push('Đã BỎ tích "Tiền thu theo hoá đơn (chuyến đang chọn)"');
+  if (v.nguonBat && !v.nguonBat.thuNo && !v.nguonBat.traTruoc) ly.push("Đã bỏ tích cả thu nợ và trả trước");
+  if (danhSachPhieuThuMisa.length && !dsHien.length && boQua) ly.push(danhSachPhieuThuMisa.length + " khoản đều đã xuất phiếu thu trước đó và đang bị ẩn (tích 'Bỏ qua khoản đã xuất')");
+  console.log("🔎 [Phiếu thu · Phần 3] " + (dsHien.length ? dsHien.length + " khoản đang hiện" : "DANH SÁCH RỖNG") + (ly.length ? " — lý do: " + ly.join(" | ") : ""));
+  console.table({
+    "Nguồn tích chọn": v.nguonBat || {},
+    "Hoá đơn của chuyến": { chuyen: v.soChuyen, chuyenChuaQT: (v.chuyenChuaQT || []).length, soHD: v.soHD, coTien: v.hdCoTien, ghiNo100: (v.hdKhongCoTien || []).length, trungChuyenKhac: v.hdTrung },
+    "Thu nợ / trả trước (Phần 2)": { dauVao: v.thuNoDauVao, boNguonTat: v.thuNoBoNguonTat, boHoanTien: v.thuNoBoChiRa, boHuy: v.thuNoBoHuy, boSoTienKhongHopLe: v.thuNoBoSoTien, boTKLa: v.thuNoBoTK },
+    "Sau lọc": { tatCaKhoan: danhSachPhieuThuMisa.length, dangHien: dsHien.length, boQuaDaXuat: boQua }
+  });
 }
 
 function lamMoiPhieuThuMisa() {

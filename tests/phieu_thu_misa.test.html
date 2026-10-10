@@ -225,6 +225,66 @@
       { maHD: "S2", maKH: "k", tenKH: "K", tienHD: null, tienMat: undefined, chuyenKhoan: "" }] }], [], BAT_HET, st).ds;
     kiemTra("Hoá đơn có tiền dạng chuỗi / null / undefined: TM 600 + CK 400, hoá đơn rỗng không sinh phiếu", dsHD.length === 2 && tinhTongPhieuThu(dsHD).tm.tong === 600 && tinhTongPhieuThu(dsHD).ck.tong === 400);
 
+
+    // ---- 9. Ma trận checkbox nguồn (hoá đơn / thu nợ / trả trước) × 'bỏ qua khoản đã xuất' ----
+    // Mỗi nguồn (dsAll, st: TN|1 đã xuất): hoá đơn TM 1.100.000 + CK 600.000 · thu nợ TM 2.000.000 (đã xuất) + CK 1.500.000 · trả trước TM 300.000 + CK 250.000
+    const NG = { hd: { tm: 1100000, ck: 600000 }, tn: { tm: 2000000, ck: 1500000, daXuatTM: 2000000 }, tt: { tm: 300000, ck: 250000 } };
+    let soTH = 0, soSai = 0;
+    for (let m = 0; m < 8; m++) {
+      const bat = { hoaDon: !!(m & 1), thuNo: !!(m & 2), traTruoc: !!(m & 4) };
+      [true, false].forEach(boQua => {
+        const dsM = dungDanhSachPhieuThu([chuyenDaQT, chuyenChuaQT, chuyenGiaoLai], thuNoMock, bat, st).ds;
+        const t = tinhTongPhieuThu(locPhieuThuCanXuat(dsM, "", boQua));
+        const tm = (bat.hoaDon ? NG.hd.tm : 0) + (bat.thuNo ? (boQua ? 0 : NG.tn.tm) : 0) + (bat.traTruoc ? NG.tt.tm : 0);
+        const ck = (bat.hoaDon ? NG.hd.ck : 0) + (bat.thuNo ? NG.tn.ck : 0) + (bat.traTruoc ? NG.tt.ck : 0);
+        soTH++;
+        if (t.tm.tong !== tm || t.ck.tong !== ck) { soSai++; kiemTra("Checkbox hoáĐơn=" + bat.hoaDon + " thuNợ=" + bat.thuNo + " trảTrước=" + bat.traTruoc + " bỏQuaĐãXuất=" + boQua + ": TM " + t.tm.tong + "/" + tm + " CK " + t.ck.tong + "/" + ck, false); }
+      });
+    }
+    kiemTra("Ma trận 8 tổ hợp checkbox nguồn × 2 (bỏ qua đã xuất) = " + soTH + " trường hợp đều đúng tổng TM + CK", soSai === 0 && soTH === 16, soSai + " sai");
+    kiemTra("Bỏ tích cả 3 nguồn → danh sách rỗng", dungDanhSachPhieuThu([chuyenDaQT], thuNoMock, { hoaDon: false, thuNo: false, traTruoc: false }, st).ds.length === 0);
+    kiemTra("Không truyền 'bat' (undefined / null) → coi như tắt hết, không văng lỗi", dungDanhSachPhieuThu([chuyenDaQT], thuNoMock, undefined, st).ds.length === 0 && dungDanhSachPhieuThu([chuyenDaQT], thuNoMock, null, null).ds.length === 0);
+
+    // ---- 10. Hoá đơn tiền mặt + hoá đơn ghi nợ 100% + hoá đơn trả 2 hình thức ----
+    const chuyenTron = { maDot: "DT", xe: "T", daQuyetToan: true, ngayGiao: "2026-10-09", danhSachChiTiet: [
+      { maHD: "TM1", maKH: "k1", tenKH: "K1", tienHD: 800000, tienMat: 800000, chuyenKhoan: 0 },
+      { maHD: "NO1", maKH: "k2", tenKH: "K2", tienHD: 600000, tienMat: 0, chuyenKhoan: 0, noPhatSinh: 600000 },
+      { maHD: "HON1", maKH: "k3", tenKH: "K3", tienHD: 1000000, tienMat: 300000, chuyenKhoan: 700000, taiKhoanNhan: "TCB - 20166789" }
+    ] };
+    const dsTron = dungDanhSachPhieuThu([chuyenTron], [], { hoaDon: true }, st);
+    kiemTra("Hoá đơn 100% ghi nợ KHÔNG có dòng phiếu thu", !dsTron.ds.some(r => r.khoa.indexOf("NO1") >= 0));
+    kiemTra("Chuyến có 1 HĐ tiền mặt + 1 HĐ ghi nợ + 1 HĐ 2 hình thức → 3 phiếu (TM1, HON1-TM, HON1-CK)", dsTron.ds.length === 3, dsTron.ds.map(r => r.khoa).join(","));
+    kiemTra("Hoá đơn 2 hình thức tách đúng tỷ trọng: TM 300.000 (1111) + CK 700.000 (11213)",
+      dsTron.ds.find(r => r.khoa === "HD|HON1|TM").soTien === 300000 && dsTron.ds.find(r => r.khoa === "HD|HON1|TM").tkNo === "1111" &&
+      dsTron.ds.find(r => r.khoa === "HD|HON1|CK").soTien === 700000 && dsTron.ds.find(r => r.khoa === "HD|HON1|CK").tkNo === "11213");
+    kiemTra("Vết lọc ghi nhận: 3 HĐ, 2 có tiền, 1 ghi nợ 100%", dsTron.vet.soHD === 3 && dsTron.vet.hdCoTien === 2 && dsTron.vet.hdKhongCoTien.join() === "NO1", JSON.stringify(dsTron.vet));
+    const chiNo = dungDanhSachPhieuThu([{ maDot: "DN", xe: "N", daQuyetToan: true, ngayGiao: "2026-10-09", danhSachChiTiet: [{ maHD: "NO2", tienHD: 500000, tienMat: 0, chuyenKhoan: 0 }] }], [], { hoaDon: true }, st);
+    kiemTra("Chuyến chỉ toàn hoá đơn ghi nợ → rỗng + vết nêu đúng (1 HĐ, 0 có tiền)", chiNo.ds.length === 0 && chiNo.vet.soHD === 1 && chiNo.vet.hdCoTien === 0);
+
+    // ---- 11. An toàn khi dữ liệu Phần 1 null / undefined / sai cấu trúc ----
+    let loiNem = "";
+    try {
+      const x1 = dungDanhSachPhieuThu([null, undefined, { daQuyetToan: true }, { daQuyetToan: true, danhSachChiTiet: null }, { daQuyetToan: true, danhSachChiTiet: [null, undefined, {}, { maHD: "" }, { maHD: "OK1", tienHD: null, tienMat: null }] }],
+        [null, undefined, {}, { nguon: "thu_no" }], BAT_HET, st);
+      kiemTra("Dữ liệu null / undefined / thiếu trường → không văng lỗi, danh sách rỗng", x1.ds.length === 0 && isFinite(tinhTongPhieuThu(x1.ds).tong));
+      kiemTra("dsDot / dsThuNo là null / chuỗi / số → coi như rỗng", dungDanhSachPhieuThu(null, "x", BAT_HET, st).ds.length === 0 && dungDanhSachPhieuThu(5, undefined, BAT_HET, st).ds.length === 0);
+    } catch (e) { loiNem = String(e); kiemTra("Dữ liệu null / undefined → không văng lỗi", false, loiNem); }
+    cheDoNgayMisa = { };      // cheDoNgayMisa có nhưng thiếu dsDot
+    danhSachThuNoMisa = null; // trạng thái Phần 2 chưa nạp
+    try { await veBangPhieuThuMisa(); kiemTra("Giao diện: cheDoNgayMisa thiếu dsDot + danhSachThuNoMisa null → vẽ được bảng trống, không lỗi", doc("kpiPTTienMat") === "0 đ" && document.querySelectorAll("#tbodyPhieuThuMisa tr[data-loai]").length === 0); }
+    catch (e) { kiemTra("Giao diện: state thiếu → không lỗi", false, String(e)); }
+    cheDoNgayMisa = null; dotHienTai = null; danhSachThuNoMisa = [];
+    try { await veBangPhieuThuMisa(); kiemTra("Giao diện: chưa chọn chuyến (null) → bảng trống an toàn", doc("kpiPTTienMat") === "0 đ" && doc("tbodyPhieuThuMisa").indexOf("Không có khoản thu nào") >= 0); }
+    catch (e) { kiemTra("Giao diện: chưa chọn chuyến → không lỗi", false, String(e)); }
+
+    // ---- 12. console.log truy vết lý do rỗng ----
+    const nhatKy = [];
+    const logGoc = console.log, tableGoc = console.table;
+    console.log = (...a) => nhatKy.push(a.join(" ")); console.table = () => {};
+    await veBangPhieuThuMisa();
+    console.log = logGoc; console.table = tableGoc;
+    kiemTra("Danh sách rỗng → console.log nêu lý do ('DANH SÁCH RỖNG' + 'Chưa chọn chuyến')", nhatKy.some(t => t.indexOf("DANH SÁCH RỖNG") >= 0 && t.indexOf("Chưa chọn chuyến") >= 0), nhatKy.join(" || "));
+
     const tieuDe = document.getElementById("tieuDe");
     tieuDe.textContent = (soDat === soTong ? "PASS " : "FAIL ") + soDat + "/" + soTong;
     tieuDe.className = soDat === soTong ? "ok" : "loi";

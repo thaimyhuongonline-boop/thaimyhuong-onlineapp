@@ -1010,8 +1010,14 @@
       }
 
       // Lọc các dòng hàng hóa từ KiotViet thuộc chuyến xe này
+      // Dòng hàng đã lưu theo mã chuyến có thể còn sót dòng của hoá đơn đã chuyển sang chuyến khác (lưu lại / giao lại) —
+      // chỉ giữ dòng của đúng các hoá đơn đang thuộc chuyến này (danh sách HĐ ∪ bảng quyết toán), nếu không các dòng
+      // lạ không có số liệu quyết toán sẽ bị tính mặc định "Khách trả tiền mặt" (TK 1111) làm Phần 1 lệch Phần 3.
+      const setMaHDChuyen = new Set(setMaHD);
+      mapQuyetToan.forEach((_, m) => setMaHDChuyen.add(m));
+      const thuocChuyen = r => setMaHDChuyen.size === 0 || setMaHDChuyen.has(String(r['Mã hóa đơn'] || '').trim().toUpperCase());
       let cacDongHang = (dot.cacDongChiTietKiotViet && dot.cacDongChiTietKiotViet.length > 0)
-        ? dot.cacDongChiTietKiotViet
+        ? dot.cacDongChiTietKiotViet.filter(thuocChuyen)
         : rawKiot.filter(r => setMaHD.has(String(r['Mã hóa đơn'] || '').trim().toUpperCase()));
 
       // Nếu vẫn trống, fallback lấy danh sách hóa đơn làm chứng từ tổng hợp
