@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Test phieu_thu_misa.js</title>
+<!--
+  Unit test: số liệu thẻ "Phiếu thu tiền mặt / tiền gửi" (tinhTongPhieuThu) và dữ liệu file Excel
+  (dungDuLieuExcelPhieuThu) phải ĐỒNG NHẤT trên cùng một input — tiền mặt (1111) và chuyển khoản (1121x).
+  Chạy: mở file này bằng trình duyệt (kết quả hiện trên trang), hoặc dòng lệnh (không cần Node):
+    msedge --headless --disable-gpu --allow-file-access-from-files --dump-dom "file:///.../tests/phieu_thu_misa.test.html"
+  Không đụng Supabase / dữ liệu thật.
+-->
+<style>
+  body { font: 13px/1.5 monospace; padding: 12px; }
+  .ok { color: #15803d; } .loi { color: #b91c1c; font-weight: 700; }
+</style>
+</head>
+<body>
+<h3 id="tieuDe">Đang chạy…</h3>
+<pre id="ketQua"></pre>
+
+<!-- Phần tử giao diện mà veBangPhieuThuMisa() ghi vào (giống buoc3_day_misa.html) -->
+<div id="kpiPTTienMat"></div><div id="kpiPTTienMatSub"></div>
+<div id="kpiPTTienGui"></div><div id="kpiPTTienGuiSub"></div>
+<div id="kpiPTCanhBao"></div><div id="ghiChuPhieuThuMisa"></div>
+<table><tbody id="tbodyPhieuThuMisa"></tbody></table><span id="footPTTien"></span>
+<input type="checkbox" id="ptNguonHoaDon" checked>
+<input type="checkbox" id="ptNguonThuNo" checked>
+<input type="checkbox" id="ptNguonTraTruoc" checked>
+<input type="checkbox" id="ptBoQuaDaXuat" checked>
+<input type="number" id="ptSoTiepTheo">
+
+<script>
+  // ---- Phần phụ thuộc mà trang Bước 3 cung cấp (stub tối thiểu) ----
+  function formatTien(n) { return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, "."); }
+  function escapeHtml(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+  let danhSachThuNoMisa = [];
+  let cheDoNgayMisa = null;
+  let dotHienTai = null;
+  try { localStorage.removeItem("tmh_so_phieu_thu_misa"); } catch (e) {}
+</script>
+<script src="../phieu_thu_misa.js"></script>
+<script>
+  const kq = [];
+  let soDat = 0, soTong = 0;
+  function kiemTra(ten, dieuKien, chiTiet) {
+    soTong++;
+    if (dieuKien) soDat++;
+    kq.push((dieuKien ? "✅ " : "❌ ") + ten + (dieuKien ? "" : "  → " + (chiTiet === undefined ? "" : chiTiet)));
+  }
+
+  // ---- Mock data ----
+  // Chuyến đã quyết toán: HD1 trả đủ (TM 600k + CK 400k), HD2 khách trả DƯ (TM 700k / HĐ 500k → 200k dư KHÔNG tính vào phiếu thu hoá đơn),
+  // HD3 trả về 100k nên chỉ phải trả 200k bằng CK (TCB), HD4 không có tiền thu (khách ghi nợ).
+  const chuyenDaQT = {
+    maDot: "DOT1", xe: "51C-111", daQuyetToan: true, ngayGiao: "2026-10-09",
+    danhSachChiTiet: [
+      { maHD: "HD1", maKH: "kh01", tenKH: "Khách A", tienHD: 1000000, tienMat: 600000, chuyenKhoan: 400000, taiKhoanNhan: "VCB - 0041000266096" },
+      { maHD: "HD2", maKH: "kh02", tenKH: "Khách B", tienHD: 500000, tienMat: 700000, chuyenKhoan: 0 },
+      { maHD: "HD3", maKH: "", tenKH: "Khách Lẻ", tienHD: 300000, traVe: 100000, tienMat: 0, chuyenKhoan: 200000, taiKhoanNhan: "TCB - 20166789" },
+      { maHD: "HD4", maKH: "kh04", tenKH: "Khách D", tienHD: 800000, tienMat: 0, chuyenKhoan: 0 }
+    ]
+  };
+  // Chuyến CHƯA quyết toán: không được lập phiếu thu theo hoá đơn
+  const chuyenChuaQT = { maDot: "DOT2", xe: "51C-222", daQuyetToan: false, ngayGiao: "2026-10-09",
+    danhSachChiTiet: [{ maHD: "HD9", maKH: "kh09", tenKH: "Khách I", tienHD: 900000, tienMat: 900000, chuyenKhoan: 0 }] };
+  // Cùng HD1 xuất hiện ở chuyến khác (giao lại) → không được tính 2 lần
+  const chuyenGiaoLai = { maDot: "DOT3", xe: "51C-333", daQuyetToan: true, ngayGiao: "2026-10-10",
+    danhSachChiTiet: [{ maHD: "HD1", maKH: "kh01", tenKH: "Khách A", tienHD: 1000000, tienMat: 600000, chuyenKhoan: 400000, taiKhoanNhan: "VCB - 0041000266096" }] };
+
+  const thuNoMock = [
+    { id: 1, nguon: "thu_no", ngayThu: "09/10/2026", soCT: "HD7", maKH: "kh07", tenKH: "Khách G", soTien: 2000000, tkNo: "1111", taoLuc: "2026-10-09T03:00:00Z" },
+    { id: 2, nguon: "thu_no", ngayThu: "08/10/2026", soCT: "HD8", maKH: "kh08", tenKH: "Khách H", soTien: 1500000, tkNo: "1121", tkNganHang: "SCB - 040089722561", taoLuc: "2026-10-09T03:00:00Z" },
+    { id: 3, nguon: "tra_truoc", ngayThu: "09/10/2026", soCT: "TT3", maKH: "kh01", tenKH: "Khách A", soTien: 300000, tkNo: "1111", taoLuc: "2026-10-09T03:00:00Z" },
+    { id: 4, nguon: "tra_truoc", ngayThu: "09/10/2026", soCT: "HT4", maKH: "kh01", tenKH: "Khách A", soTien: 100000, tkNo: "131", chiRa: true },   // hoàn tiền — tiền đi ra
+    { id: 5, nguon: "thu_no", ngayThu: "09/10/2026", soCT: "HD5", maKH: "kh05", tenKH: "Khách E", soTien: 0, tkNo: "1111" },           // 0 đ — bỏ
+    { id: 6, nguon: "tra_truoc", ngayThu: "09/10/2026", soCT: "TT6", maKH: "kh06", tenKH: "Khách F", soTien: 250000, tkNo: "1121", tkNganHang: "MB - 2016056789", taoLuc: "2026-10-09T03:00:00Z" }
+  ];
+  const BAT_HET = { hoaDon: true, thuNo: true, traTruoc: true };
+
+  // ---- 1. Phân loại hình thức tiền ----
+  kiemTra("phanLoaiHinhThucTien: 'Chuyển khoản' → ck", phanLoaiHinhThucTien("Chuyển khoản") === "ck");
+  kiemTra("phanLoaiHinhThucTien: 'chuyen khoan' / 'CK' → ck", phanLoaiHinhThucTien(" chuyen khoan ") === "ck" && phanLoaiHinhThucTien("CK") === "ck");
+  kiemTra("phanLoaiHinhThucTien: 'Tiền mặt' / rỗng → tm", phanLoaiHinhThucTien("Tiền mặt") === "tm" && phanLoaiHinhThucTien("") === "tm" && phanLoaiHinhThucTien(null) === "tm");
+
+  // ---- 2. Dựng danh sách + tổng (số liệu kỳ vọng tính tay) ----
+  // Hoá đơn: TM = HD1 600k + HD2 500k = 1.100.000 · CK = HD1 400k + HD3 200k = 600.000
+  // Thu nợ: TM 2.000.000 (id 1, ĐÃ XUẤT PT00001) · CK 1.500.000 · Trả trước: TM 300.000 · CK 250.000 (hoàn tiền 100k + khoản 0 đ bị bỏ)
+  const st = { theoKhoa: { "TN|1": "PT00001" } };
+  const dung = dungDanhSachPhieuThu([chuyenDaQT, chuyenChuaQT, chuyenGiaoLai], thuNoMock, BAT_HET, st);
+  const dsAll = dung.ds;
+  const tim = k => dsAll.find(r => r.khoa === k) || {};
+  kiemTra("Chuyến chưa quyết toán không lập phiếu thu (HD9 không có)", !dsAll.some(r => r.khoa.indexOf("HD9") >= 0));
+  kiemTra("Có ghi chú chuyến chưa quyết toán", dung.ghiChu.some(x => x.indexOf("CHƯA quyết toán") >= 0));
+  kiemTra("Hoá đơn giao lại (HD1 ở 2 chuyến) chỉ tính 1 lần", dsAll.filter(r => r.khoa === "HD|HD1|TM").length === 1 && dsAll.filter(r => r.khoa === "HD|HD1|CK").length === 1);
+  kiemTra("Phần khách trả DƯ của HD2 không vào phiếu thu hoá đơn (500k, không phải 700k)", tim("HD|HD2|TM").soTien === 500000, tim("HD|HD2|TM").soTien);
+  kiemTra("HD3 trả hàng 100k → chỉ thu CK 200k, không có dòng TM", tim("HD|HD3|CK").soTien === 200000 && !dsAll.some(r => r.khoa === "HD|HD3|TM"));
+  kiemTra("HD4 khách ghi nợ (không thu tiền) không có phiếu thu", !dsAll.some(r => r.khoa.indexOf("HD4") >= 0));
+  kiemTra("Hoàn tiền (chiRa) và khoản 0 đ bị loại", !dsAll.some(r => r.khoa === "TT|4" || r.khoa === "TN|5"));
+  kiemTra("Khách lẻ (không mã) dùng mã KHÁCH LẺ", tim("HD|HD3|CK").maKH === MA_KHACH_LE_MISA);
+  kiemTra("TK ngân hàng hoá đơn: VCB 0041000266096 → 11211, TCB 20166789 → 11213", tim("HD|HD1|CK").tkNo === "11211" && tim("HD|HD3|CK").tkNo === "11213");
+  kiemTra("TK ngân hàng thu nợ: SCB 040089722561 → 11214, MB 2016056789 → 11215", tim("TN|2").tkNo === "11214" && tim("TT|6").tkNo === "11215");
+
+  // Bỏ qua khoản đã xuất (mặc định)
+  const dsHien = locPhieuThuCanXuat(dsAll, "", true);
+  const tongHien = tinhTongPhieuThu(dsHien);
+  kiemTra("Thẻ TIỀN MẶT (chưa xuất) = 1.100.000 + 300.000 = 1.400.000", tongHien.tm.tong === 1400000, tongHien.tm.tong);
+  kiemTra("Thẻ TIỀN GỬI (chưa xuất) = 600.000 + 1.500.000 + 250.000 = 2.350.000", tongHien.ck.tong === 2350000, tongHien.ck.tong);
+  kiemTra("Tổng = TM + CK = 3.750.000", tongHien.tong === 3750000 && tongHien.tong === tongHien.tm.tong + tongHien.ck.tong, tongHien.tong);
+  kiemTra("Số phiếu: TM 3 (HD1, HD2, TT3) · CK 4 (HD1, HD3, TN2, TT6)", tongHien.tm.so === 3 && tongHien.ck.so === 4, tongHien.tm.so + "/" + tongHien.ck.so);
+  kiemTra("Cơ cấu theo nguồn: hoá đơn 1.700.000 + thu nợ 1.500.000 + trả trước 550.000",
+    tongHien.theoNguon.hoa_don === 1700000 && tongHien.theoNguon.thu_no === 1500000 && tongHien.theoNguon.tra_truoc === 550000, JSON.stringify(tongHien.theoNguon));
+
+  // Không bỏ qua khoản đã xuất → thêm TN|1 (TM 2.000.000)
+  const dsDayDu = locPhieuThuCanXuat(dsAll, "", false);
+  kiemTra("Bỏ tích 'bỏ qua khoản đã xuất' → TM thêm 2.000.000 = 3.400.000", tinhTongPhieuThu(dsDayDu).tm.tong === 3400000, tinhTongPhieuThu(dsDayDu).tm.tong);
+
+  // ---- 3. Thẻ ≡ dữ liệu Excel (cùng input) cho từng loại ----
+  ["tm", "ck"].forEach(loai => {
+    [true, false].forEach(boQua => {
+      const dsXuat = locPhieuThuCanXuat(dsAll, loai, boQua);                       // hàm "get data trước khi export"
+      const the = tinhTongPhieuThu(locPhieuThuCanXuat(dsAll, "", boQua))[loai];    // hàm tính tổng của thẻ
+      const aoa = dungDuLieuExcelPhieuThu(dsXuat, loai, duKienSoPhieuThu(dsXuat, false));
+      const tongExcel = tongCotSoTienExcelPhieuThu(aoa);
+      const nhan = (loai === "tm" ? "Tiền mặt" : "Tiền gửi") + (boQua ? " (bỏ qua đã xuất)" : " (đủ)");
+      kiemTra(nhan + ": tổng cột Số tiền Excel (" + tongExcel + ") = thẻ (" + the.tong + ")", tongExcel === the.tong, tongExcel + " ≠ " + the.tong);
+      kiemTra(nhan + ": số dòng Excel (" + (aoa.length - 1) + ") = số phiếu thẻ (" + the.so + ")", aoa.length - 1 === the.so);
+    });
+  });
+
+  // ---- 4. Phân loại tài khoản: file nào chỉ chứa đúng loại đó ----
+  const aoaTM = dungDuLieuExcelPhieuThu(locPhieuThuCanXuat(dsAll, "tm", true), "tm", new Map());
+  const aoaCK = dungDuLieuExcelPhieuThu(locPhieuThuCanXuat(dsAll, "ck", true), "ck", new Map());
+  kiemTra("File tiền mặt: mọi dòng TK Nợ = 1111", aoaTM.length > 1 && aoaTM.slice(1).every(d => d[13] === "1111"));
+  kiemTra("File tiền gửi: mọi dòng TK Nợ là 11211…11215", aoaCK.length > 1 && aoaCK.slice(1).every(d => /^1121[1-5]$/.test(d[13])));
+  kiemTra("Số dòng 2 file cộng lại = số phiếu của thẻ (không dư, không thiếu, không trùng)", aoaTM.length - 1 + aoaCK.length - 1 === dsHien.length);
+  kiemTra("Mọi dòng Excel có TK Có 1311", aoaTM.slice(1).concat(aoaCK.slice(1)).every(d => d[14] === "1311"));
+  // Dữ liệu sai loại (tkNo không khớp loại) bị loại khỏi CẢ thẻ lẫn file
+  const sai = [{ khoa: "X1", loai: "tm", tkNo: "11211", soTien: 999000, canhBao: [] }, { khoa: "X2", loai: "ck", tkNo: "1111", soTien: 888000, canhBao: [] }];
+  kiemTra("Khoản có TK Nợ lệch loại (tm ↔ 1121x) bị loại khỏi thẻ và file", locPhieuThuCanXuat(sai, "", false).length === 0 && locPhieuThuCanXuat(sai, "tm", false).length === 0 && locPhieuThuCanXuat(sai, "ck", false).length === 0);
+
+  // ---- 5. Tuỳ chọn nguồn (tích / bỏ tích) ----
+  const chiThuNo = dungDanhSachPhieuThu([chuyenDaQT], thuNoMock, { hoaDon: false, thuNo: true, traTruoc: false }, st).ds;
+  kiemTra("Chỉ tích 'Thu nợ' → chỉ còn TN|1 + TN|2", chiThuNo.length === 2 && chiThuNo.every(r => r.nguon === "thu_no"));
+  const khongDot = dungDanhSachPhieuThu([], [], BAT_HET, st);
+  kiemTra("Không có dữ liệu → danh sách rỗng, tổng 0, không lỗi", khongDot.ds.length === 0 && tinhTongPhieuThu(khongDot.ds).tong === 0);
+
+  // ---- 6. Giao diện thật: veBangPhieuThuMisa() hiện đúng thẻ, Excel khớp thẻ ----
+  (async function () {
+    cheDoNgayMisa = { dsDot: [chuyenDaQT, chuyenChuaQT, chuyenGiaoLai] };
+    danhSachThuNoMisa = thuNoMock;
+    localStorage.setItem(KHOA_LS_SO_PHIEU_THU, JSON.stringify({ soTiepTheo: 2, theoKhoa: { "TN|1": "PT00001" } }));
+    const doc = id => document.getElementById(id).textContent;
+    const so = t => parseInt(String(t).replace(/\D/g, ""), 10) || 0;
+
+    await veBangPhieuThuMisa();
+    kiemTra("UI: thẻ Tiền mặt hiện 1.400.000 đ (không phải 0 đ)", doc("kpiPTTienMat") === "1.400.000 đ", doc("kpiPTTienMat"));
+    kiemTra("UI: thẻ Tiền gửi hiện 2.350.000 đ", doc("kpiPTTienGui") === "2.350.000 đ", doc("kpiPTTienGui"));
+    kiemTra("UI: thẻ báo ẩn 1 phiếu đã xuất (2.000.000 đ) ở Tiền mặt", doc("kpiPTTienMatSub").indexOf("ẩn 1 phiếu đã xuất (2.000.000 đ)") >= 0, doc("kpiPTTienMatSub"));
+    kiemTra("UI: chân bảng = TM + CK = 3.750.000", doc("footPTTien") === "3.750.000", doc("footPTTien"));
+    kiemTra("UI: có dòng đối chiếu theo nguồn", doc("ghiChuPhieuThuMisa").indexOf("Đối chiếu") >= 0);
+    kiemTra("UI: số dòng bảng xem trước = số phiếu (7)", document.querySelectorAll("#tbodyPhieuThuMisa tr").length === 7, document.querySelectorAll("#tbodyPhieuThuMisa tr").length);
+    ["tm", "ck"].forEach(loai => {
+      const dsX = layPhieuThuCanXuat(loai);
+      const aoa = dungDuLieuExcelPhieuThu(dsX, loai, duKienSoPhieuThu(dsX, false));
+      const the = so(doc(loai === "tm" ? "kpiPTTienMat" : "kpiPTTienGui"));
+      kiemTra("UI ≡ Excel (" + loai + "): thẻ " + the + " = tổng cột Số tiền " + tongCotSoTienExcelPhieuThu(aoa), the === tongCotSoTienExcelPhieuThu(aoa));
+    });
+
+    // Sau khi xuất hết tiền mặt (đã cấp số) thẻ hiện 0 đ nhưng PHẢI báo còn bao nhiêu phiếu đã xuất đang ẩn
+    const stDaXuat = docSoPhieuThuMisa();
+    layPhieuThuCanXuat("tm").forEach((r, i) => { stDaXuat.theoKhoa[r.khoa] = "PT9000" + i; });
+    ghiSoPhieuThuMisa(stDaXuat);
+    await veBangPhieuThuMisa();
+    kiemTra("Sau khi xuất hết tiền mặt: thẻ = 0 đ nhưng ghi rõ 4 phiếu / 3.400.000 đ đã xuất đang ẩn",
+      doc("kpiPTTienMat") === "0 đ" && doc("kpiPTTienMatSub").indexOf("ẩn 4 phiếu đã xuất (3.400.000 đ)") >= 0, doc("kpiPTTienMat") + " | " + doc("kpiPTTienMatSub"));
+    document.getElementById("ptBoQuaDaXuat").checked = false;
+    await veBangPhieuThuMisa();
+    kiemTra("Bỏ tích 'bỏ qua đã xuất': thẻ Tiền mặt hiện lại 3.400.000 đ", doc("kpiPTTienMat") === "3.400.000 đ", doc("kpiPTTienMat"));
+
+    const tieuDe = document.getElementById("tieuDe");
+    tieuDe.textContent = (soDat === soTong ? "PASS " : "FAIL ") + soDat + "/" + soTong;
+    tieuDe.className = soDat === soTong ? "ok" : "loi";
+    document.getElementById("ketQua").textContent = kq.join("\n");
+    try { localStorage.removeItem(KHOA_LS_SO_PHIEU_THU); } catch (e) {}
+  })().catch(e => {
+    document.getElementById("tieuDe").textContent = "FAIL (lỗi chạy test)";
+    document.getElementById("ketQua").textContent = kq.join("\n") + "\n💥 " + (e && e.stack || e);
+  });
+</script>
+</body>
+</html>

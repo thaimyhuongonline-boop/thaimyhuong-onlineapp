@@ -137,16 +137,33 @@ function tachTienHoaDonPT(tienMat, chuyenKhoan, phaiTra) {
   return { tmNo, ckNo, tmDu: tienMat - tmNo, ckDu: chuyenKhoan - ckNo };
 }
 
-/** Dựng danh sách các khoản phiếu thu từ dữ liệu Bước 3 đang hiện */
-function taoDanhSachPhieuThuMisa() {
+/**
+ * Hình thức tiền của một khoản thu (thu_no / khach_tra_truoc.hinh_thuc) → 'ck' (chuyển khoản, TK 1121x) hay 'tm' (tiền mặt, TK 1111).
+ * Chấp nhận "Chuyển khoản", "chuyen khoan", "CK"… (không phân biệt hoa thường / dấu); các giá trị khác → tiền mặt như trước đây.
+ */
+function phanLoaiHinhThucTien(hinhThuc) {
+  const s = String(hinhThuc || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
+  return (/chuyen\s*khoan/.test(s) || s === "ck") ? "ck" : "tm";
+}
+
+/**
+ * Dựng danh sách các khoản phiếu thu từ dữ liệu thô (hàm thuần — không đọc giao diện, dùng chung cho thẻ tóm tắt,
+ * bảng xem trước và file Excel nên 3 nơi luôn cùng một nguồn):
+ *   dsDot   — các chuyến đang chọn (đã quyết toán mới lập phiếu thu theo hoá đơn)
+ *   dsThuNo — danhSachThuNoMisa (thu nợ + khách trả trước / trả dư)
+ *   bat     — { hoaDon, thuNo, traTruoc }: nguồn nào đang được tích chọn
+ *   st      — { theoKhoa } số chứng từ đã cấp trước đó
+ */
+function dungDanhSachPhieuThu(dsDot, dsThuNo, bat, st) {
   const theoKhoa = new Map();
   const ghiChu = [];
   const them = r => { if (!theoKhoa.has(r.khoa) && r.soTien > 0.5) theoKhoa.set(r.khoa, r); };
-  const layChk = id => { const el = document.getElementById(id); return !el || el.checked; };
+  bat = bat || {};
+  dsDot = Array.isArray(dsDot) ? dsDot : [];
+  dsThuNo = Array.isArray(dsThuNo) ? dsThuNo : [];
 
   // 1. Tiền thu theo hoá đơn ở Bước 2 (chuyến / ngày đang chọn phía trên)
-  if (layChk("ptNguonHoaDon")) {
-    const dsDot = (typeof cheDoNgayMisa !== "undefined" && cheDoNgayMisa) ? cheDoNgayMisa.dsDot : ((typeof dotHienTai !== "undefined" && dotHienTai) ? [dotHienTai] : []);
+  if (bat.hoaDon) {
     const chuaQT = [];
     // Chuyến đã quyết toán xét trước (hoá đơn giao lại có ở 2 chuyến → lấy chuyến có số liệu quyết toán)
     dsDot.slice().sort((a, b) => Number(!!b.daQuyetToan) - Number(!!a.daQuyetToan)).forEach(dot => {
@@ -173,10 +190,9 @@ function taoDanhSachPhieuThuMisa() {
   }
 
   // 2 & 3. Thu nợ khách hàng + tiền khách trả trước NHẬN vào (khu vực Cấn trừ công nợ) — chỉ khoản tiền VÀO
-  const dsThuNo = (typeof danhSachThuNoMisa !== "undefined" && Array.isArray(danhSachThuNoMisa)) ? danhSachThuNoMisa : [];
   dsThuNo.forEach(r => {
     const laTraTruoc = r.nguon === "tra_truoc";
-    if (laTraTruoc ? !layChk("ptNguonTraTruoc") : !layChk("ptNguonThuNo")) return;
+    if (laTraTruoc ? !bat.traTruoc : !bat.thuNo) return;
     if (r.chiRa || !(parseFloat(r.soTien) > 0) || (r.tkNo !== "1111" && r.tkNo !== "1121")) return;
     them({
       khoa: (laTraTruoc ? "TT|" : "TN|") + r.id,
@@ -193,7 +209,6 @@ function taoDanhSachPhieuThuMisa() {
     });
   });
 
-  const st = docSoPhieuThuMisa();
   const ds = Array.from(theoKhoa.values()).map(r => {
     // Khách lẻ (không có mã, hoặc mã cũ KH_LE) → mã "KHÁCH LẺ" trong MISA
     const maKH = r.maKH && r.maKH !== "KH_LE" ? r.maKH : MA_KHACH_LE_MISA;
@@ -204,19 +219,53 @@ function taoDanhSachPhieuThuMisa() {
       maKH: maKH,
       tkNo: r.loai === "tm" ? TK_TIEN_MAT_PHIEU_THU : (r.nh ? r.nh.tk : TK_TIEN_GUI_CHUNG_PHIEU_THU),
       tkCo: TK_CO_PHIEU_THU,
-      soCTDaCap: st.theoKhoa[r.khoa] || "",
+      soCTDaCap: ((st && st.theoKhoa) || {})[r.khoa] || "",
       canhBao: canhBao
     });
   }).sort((a, b) => khoaNgayPT(a.ngay).localeCompare(khoaNgayPT(b.ngay)) || (a.loai === b.loai ? 0 : (a.loai === "tm" ? -1 : 1)) || a.khoa.localeCompare(b.khoa));
 
-  danhSachPhieuThuMisa = ds;
-  ghiChuPhieuThuMisa = ghiChu;
-  return ds;
+  return { ds: ds, ghiChu: ghiChu };
+}
+
+/** Dựng danh sách các khoản phiếu thu từ dữ liệu Bước 3 đang hiện */
+function taoDanhSachPhieuThuMisa() {
+  const layChk = id => { const el = document.getElementById(id); return !el || el.checked; };
+  const dsDot = (typeof cheDoNgayMisa !== "undefined" && cheDoNgayMisa) ? cheDoNgayMisa.dsDot : ((typeof dotHienTai !== "undefined" && dotHienTai) ? [dotHienTai] : []);
+  const dsThuNo = (typeof danhSachThuNoMisa !== "undefined" && Array.isArray(danhSachThuNoMisa)) ? danhSachThuNoMisa : [];
+  const kq = dungDanhSachPhieuThu(dsDot, dsThuNo,
+    { hoaDon: layChk("ptNguonHoaDon"), thuNo: layChk("ptNguonThuNo"), traTruoc: layChk("ptNguonTraTruoc") }, docSoPhieuThuMisa());
+  danhSachPhieuThuMisa = kq.ds;
+  ghiChuPhieuThuMisa = kq.ghiChu;
+  return kq.ds;
+}
+
+/**
+ * Lọc các khoản cần xuất / cần hiện (hàm thuần): đúng loại tài khoản (tm → chỉ TK 1111; ck → chỉ TK 1121x),
+ * bỏ khoản đã xuất phiếu thu nếu boQuaDaXuat. Thẻ tóm tắt, bảng xem trước và file Excel đều lấy qua hàm này.
+ */
+function locPhieuThuCanXuat(ds, loai, boQuaDaXuat) {
+  return (ds || []).filter(r => {
+    if (!(r.soTien > 0.5)) return false;
+    if (r.loai === "tm" ? r.tkNo !== TK_TIEN_MAT_PHIEU_THU : String(r.tkNo || "").indexOf(TK_TIEN_GUI_CHUNG_PHIEU_THU) !== 0) return false;
+    if (loai && r.loai !== loai) return false;
+    return !(boQuaDaXuat && r.soCTDaCap);
+  });
+}
+
+/** Tổng hợp số phiếu / số tiền theo loại (hàm thuần) — nguồn duy nhất cho các thẻ "Phiếu thu tiền mặt / tiền gửi" */
+function tinhTongPhieuThu(ds) {
+  const kq = { tm: { so: 0, tong: 0 }, ck: { so: 0, tong: 0 }, tong: 0, soPhieu: 0, theoNguon: { hoa_don: 0, thu_no: 0, tra_truoc: 0 } };
+  (ds || []).forEach(r => {
+    const o = r.loai === "ck" ? kq.ck : kq.tm;
+    o.so++; o.tong += r.soTien; kq.tong += r.soTien; kq.soPhieu++;
+    if (kq.theoNguon[r.nguon] !== undefined) kq.theoNguon[r.nguon] += r.soTien;
+  });
+  return kq;
 }
 
 function layPhieuThuCanXuat(loai) {
   const boQuaDaXuat = !!(document.getElementById("ptBoQuaDaXuat") || {}).checked;
-  return danhSachPhieuThuMisa.filter(r => (!loai || r.loai === loai) && !(boQuaDaXuat && r.soCTDaCap));
+  return locPhieuThuCanXuat(danhSachPhieuThuMisa, loai, boQuaDaXuat);
 }
 
 /** Số chứng từ sẽ cấp cho các khoản chưa có số (xem trước — chưa lưu) */
@@ -251,14 +300,17 @@ async function veBangPhieuThuMisa() {
   if (oSo && !oSo.dataset.daSua) oSo.value = st.soTiepTheo;
 
   const dsHien = layPhieuThuCanXuat("");
-  const tm = dsHien.filter(r => r.loai === "tm");
-  const ck = dsHien.filter(r => r.loai === "ck");
-  const cong = a => a.reduce((s, r) => s + r.soTien, 0);
+  // Thẻ tóm tắt = đúng tổng của danh sách đang hiện = đúng dữ liệu file Excel sẽ xuất (cùng 1 hàm lọc + 1 hàm tính tổng)
+  const tongHien = tinhTongPhieuThu(dsHien);
+  const setHien = new Set(dsHien);
+  // Khoản đã xuất phiếu thu đang bị ẩn (thẻ chỉ tính phần CHƯA xuất nên có thể = 0 đ dù vẫn còn khoản đã xuất)
+  const tongAn = tinhTongPhieuThu(locPhieuThuCanXuat(danhSachPhieuThuMisa, "", false).filter(r => r.soCTDaCap && !setHien.has(r)));
   const dat = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  dat("kpiPTTienMat", formatTien(cong(tm)) + " đ");
-  dat("kpiPTTienMatSub", `${tm.length} phiếu thu · Nợ 1111 / Có 1311`);
-  dat("kpiPTTienGui", formatTien(cong(ck)) + " đ");
-  dat("kpiPTTienGuiSub", `${ck.length} phiếu thu · Nợ 1121x / Có 1311`);
+  const phanAn = o => o.so ? ` · ẩn ${o.so} phiếu đã xuất (${formatTien(o.tong)} đ)` : "";
+  dat("kpiPTTienMat", formatTien(tongHien.tm.tong) + " đ");
+  dat("kpiPTTienMatSub", `${tongHien.tm.so} phiếu thu · Nợ 1111 / Có 1311${phanAn(tongAn.tm)}`);
+  dat("kpiPTTienGui", formatTien(tongHien.ck.tong) + " đ");
+  dat("kpiPTTienGuiSub", `${tongHien.ck.so} phiếu thu · Nợ 1121x / Có 1311${phanAn(tongAn.ck)}`);
   const soCanhBao = dsHien.filter(r => r.canhBao.length).length;
   dat("kpiPTCanhBao", soCanhBao ? `${soCanhBao} khoản` : "Không có");
 
@@ -266,6 +318,7 @@ async function veBangPhieuThuMisa() {
   if (elGhiChu) {
     const daAn = danhSachPhieuThuMisa.length - dsHien.length;
     const dong = ghiChuPhieuThuMisa.slice();
+    if (dsHien.length) dong.push(`ℹ️ Đối chiếu: ${formatTien(tongHien.tong)} đ = hoá đơn ${formatTien(tongHien.theoNguon.hoa_don)} + thu nợ ${formatTien(tongHien.theoNguon.thu_no)} + trả trước / trả dư ${formatTien(tongHien.theoNguon.tra_truoc)} (khu vực "Cấn trừ công nợ" phía trên chỉ gồm thu nợ + trả trước và đã trừ các khoản hoàn tiền).`);
     if (daAn) dong.push(`✅ Ẩn ${daAn} khoản đã xuất phiếu thu trước đó (bỏ tích "Bỏ qua khoản đã xuất" để xuất lại đúng số cũ).`);
     elGhiChu.innerHTML = dong.map(x => `<div>${escapeHtml(x)}</div>`).join("");
     elGhiChu.style.display = dong.length ? "" : "none";
@@ -291,7 +344,7 @@ async function veBangPhieuThuMisa() {
       <td style="font-size:11.5px;">${r.loai === "ck" && r.nh ? escapeHtml([r.nh.tenNH, r.nh.soTK].filter(Boolean).join(" – ")) : "--"}</td>
       <td style="font-size:11px;">${r.canhBao.length ? `<span style="color:#b91c1c; font-weight:700;">⚠️ ${escapeHtml(r.canhBao.join("; "))}</span>` : (r.soCTDaCap ? '<span style="color:#15803d; font-weight:700;">✅ Đã xuất</span>' : '<span style="color:#15803d;">Hợp lệ</span>')}</td>
     </tr>`).join("");
-  dat("footPTTien", formatTien(cong(dsHien)));
+  dat("footPTTien", formatTien(tongHien.tong));
 }
 
 function lamMoiPhieuThuMisa() {
@@ -346,31 +399,18 @@ function dinhDangTieuDeExcelMisa(ws, soDong, soCot, cotSo) {
   ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(0, soDong - 1), c: soCot - 1 } }) };
 }
 
-function xuatPhieuThuTienMat() { return xuatPhieuThuAMIS("tm"); }
-function xuatPhieuThuTienGui() { return xuatPhieuThuAMIS("ck"); }
-
-async function xuatPhieuThuAMIS(loai) {
-  await veBangPhieuThuMisa();
-  const ds = layPhieuThuCanXuat(loai);
-  const tenLoai = loai === "tm" ? "TIỀN MẶT" : "TIỀN GỬI";
-  if (!ds.length) { alert(`⚠️ Không có khoản thu ${tenLoai.toLowerCase()} nào để lập phiếu thu.`); return; }
-  const coCanhBao = ds.filter(r => r.canhBao.length);
-  if (coCanhBao.length && !confirm(`⚠️ ${coCanhBao.length} phiếu thu ${tenLoai} cần kiểm tra:\n\n` +
-    coCanhBao.slice(0, 8).map(r => `• ${r.tenKH} (${formatTien(r.soTien)} đ): ${r.canhBao.join("; ")}`).join("\n") +
-    (coCanhBao.length > 8 ? `\n… và ${coCanhBao.length - 8} khoản khác` : "") + `\n\nBấm [OK] để vẫn xuất file, [Hủy] để kiểm tra lại.`)) return;
-
-  const soCT = duKienSoPhieuThu(ds, true);   // cấp & lưu số chứng từ (khoản đã xuất giữ số cũ)
+/**
+ * Dựng mảng dữ liệu của file Excel phiếu thu (hàm thuần): dòng 1 = tiêu đề, từ dòng 2 = mỗi khoản 1 dòng.
+ * ds = danh sách đã lọc bằng locPhieuThuCanXuat (chính danh sách đang hiện trên giao diện); soCT = Map khoa → số chứng từ.
+ */
+function dungDuLieuExcelPhieuThu(ds, loai, soCT) {
   const tieuDe = loai === "tm" ? TIEU_DE_PT_TIEN_MAT : TIEU_DE_PT_TIEN_GUI;
-  // Dòng 1 là tiêu đề cột, dữ liệu từ dòng 2 (bỏ 7 dòng hướng dẫn của file mẫu) — để copy nhanh
-  // các dòng dữ liệu dán vào file mẫu AMIS (cột giữ đúng thứ tự như mẫu, từ cột B).
-  // Cột A "Ngày gạch nợ" chỉ để kế toán ghi chú / đối chiếu (khoản khách chuyển trước, ngày n+x mới phát hiện
-  // và gạch nợ) — không thuộc mẫu AMIS, không dán vào file mẫu.
   const aoa = [[COT_NGAY_GACH_NO_PT].concat(tieuDe)];
-  ds.forEach(r => {
+  (ds || []).forEach(r => {
     const dienGiai = `Thu tiền của ${r.tenKH}`;
     const lyDoChiTiet = `${dienGiai} - ${r.thamChieu || r.tenNguon}`;
     const dong = new Array(tieuDe.length).fill("");
-    dong[0] = r.ngay; dong[1] = r.ngay; dong[2] = soCT.get(r.khoa); dong[3] = r.maKH; dong[4] = r.tenKH;
+    dong[0] = r.ngay; dong[1] = r.ngay; dong[2] = soCT && soCT.get(r.khoa); dong[3] = r.maKH; dong[4] = r.tenKH;
     if (loai === "tm") {
       dong[5] = r.tenKH;                 // Người nộp
       dong[7] = LY_DO_PHIEU_THU;         // Lý do nộp
@@ -387,6 +427,43 @@ async function xuatPhieuThuAMIS(loai) {
     }
     aoa.push([r.ngayGachNo || ""].concat(dong));
   });
+  return aoa;
+}
+
+/** Tổng cột "Số tiền" của mảng dữ liệu Excel (cột P vì có thêm cột A "Ngày gạch nợ") */
+function tongCotSoTienExcelPhieuThu(aoa) {
+  return (aoa || []).slice(1).reduce((s, d) => s + (parseFloat(d[15]) || 0), 0);
+}
+
+function xuatPhieuThuTienMat() { return xuatPhieuThuAMIS("tm"); }
+function xuatPhieuThuTienGui() { return xuatPhieuThuAMIS("ck"); }
+
+async function xuatPhieuThuAMIS(loai) {
+  await veBangPhieuThuMisa();
+  const ds = layPhieuThuCanXuat(loai);
+  const tenLoai = loai === "tm" ? "TIỀN MẶT" : "TIỀN GỬI";
+  if (!ds.length) { alert(`⚠️ Không có khoản thu ${tenLoai.toLowerCase()} nào để lập phiếu thu.`); return; }
+  const coCanhBao = ds.filter(r => r.canhBao.length);
+  if (coCanhBao.length && !confirm(`⚠️ ${coCanhBao.length} phiếu thu ${tenLoai} cần kiểm tra:\n\n` +
+    coCanhBao.slice(0, 8).map(r => `• ${r.tenKH} (${formatTien(r.soTien)} đ): ${r.canhBao.join("; ")}`).join("\n") +
+    (coCanhBao.length > 8 ? `\n… và ${coCanhBao.length - 8} khoản khác` : "") + `\n\nBấm [OK] để vẫn xuất file, [Hủy] để kiểm tra lại.`)) return;
+
+  // Kiểm tra TRƯỚC khi cấp số chứng từ (bản xem trước số, chưa lưu): tổng cột "Số tiền" trong file PHẢI bằng
+  // tổng thẻ tóm tắt — cùng danh sách đang hiện trên màn hình
+  const tongThe = tinhTongPhieuThu(layPhieuThuCanXuat(loai))[loai].tong;
+  const tongFile = tongCotSoTienExcelPhieuThu(dungDuLieuExcelPhieuThu(ds, loai, duKienSoPhieuThu(ds, false)));
+  if (Math.abs(tongThe - tongFile) > 0.5) {
+    alert(`❌ Tổng số tiền trong file (${formatTien(tongFile)} đ) không khớp tổng đang hiện trên màn hình (${formatTien(tongThe)} đ) nên KHÔNG xuất file. Bấm "Làm mới" rồi thử lại.`);
+    return;
+  }
+
+  const soCT = duKienSoPhieuThu(ds, true);   // cấp & lưu số chứng từ (khoản đã xuất giữ số cũ)
+  const tieuDe = loai === "tm" ? TIEU_DE_PT_TIEN_MAT : TIEU_DE_PT_TIEN_GUI;
+  // Dòng 1 là tiêu đề cột, dữ liệu từ dòng 2 (bỏ 7 dòng hướng dẫn của file mẫu) — để copy nhanh
+  // các dòng dữ liệu dán vào file mẫu AMIS (cột giữ đúng thứ tự như mẫu, từ cột B).
+  // Cột A "Ngày gạch nợ" chỉ để kế toán ghi chú / đối chiếu (khoản khách chuyển trước, ngày n+x mới phát hiện
+  // và gạch nợ) — không thuộc mẫu AMIS, không dán vào file mẫu.
+  const aoa = dungDuLieuExcelPhieuThu(ds, loai, soCT);
 
   try {
     const ws = XLSX.utils.aoa_to_sheet(aoa);

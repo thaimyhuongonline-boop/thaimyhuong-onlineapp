@@ -1308,7 +1308,7 @@
         if (chiChuaDay) ds = ds.filter(r => !r.da_day_misa);
 
         danhSachThuNoMisa = ds.map(r => {
-          const tkNo = r.hinh_thuc === 'Chuyển khoản' ? '1121' : '1111';
+          const tkNo = (typeof phanLoaiHinhThucTien === 'function' ? phanLoaiHinhThucTien(r.hinh_thuc) === 'ck' : r.hinh_thuc === 'Chuyển khoản') ? '1121' : '1111';
           // Kiểm tra logic trước-sau: chuyến xe phát sinh công nợ gốc đã đẩy MISA chưa
           // (null = không xác định được đợt gốc, ví dụ đơn nợ ghi thủ công ngoài bảng kê)
           const dotGoc = danhSachTatCaDot.find(d => d.maDot === r.ma_dot);
@@ -1344,7 +1344,7 @@
             (resTT.data || []).forEach(r => {
               const st = parseFloat(r.so_tien || 0) || 0;
               if (!st || (chiChuaDay && r.da_day_misa)) return;
-              const tkTien = r.hinh_thuc === 'Chuyển khoản' ? '1121' : '1111';
+              const tkTien = (typeof phanLoaiHinhThucTien === 'function' ? phanLoaiHinhThucTien(r.hinh_thuc) === 'ck' : r.hinh_thuc === 'Chuyển khoản') ? '1121' : '1111';
               // hoàn tiền / điều chỉnh giảm khoản nhận: tiền đi ra; điều chỉnh giảm khoản hoàn (số âm): tiền vào lại
               const chiRa = (r.loai === 'hoan') !== (st < 0);
               const nhanNguon = (typeof TEN_NGUON_TT !== 'undefined' && TEN_NGUON_TT[r.nguon]) || r.nguon || '';
