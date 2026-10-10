@@ -285,6 +285,53 @@
     console.log = logGoc; console.table = tableGoc;
     kiemTra("Danh sách rỗng → console.log nêu lý do ('DANH SÁCH RỖNG' + 'Chưa chọn chuyến')", nhatKy.some(t => t.indexOf("DANH SÁCH RỖNG") >= 0 && t.indexOf("Chưa chọn chuyến") >= 0), nhatKy.join(" || "));
 
+
+    // ---- 13. Phần 1 = Phần 3: tiền thu theo hoá đơn (tinhTienThuHoaDonCacChuyen) ≡ tổng phiếu thu hoá đơn ----
+    const tongHoaDonPhieu = (dsDot, loai) => dungDanhSachPhieuThu(dsDot, [], { hoaDon: true }, st).ds.filter(r => r.nguon === "hoa_don" && r.loai === loai).reduce((s, r) => s + r.soTien, 0);
+    const demHoaDonPhieu = (dsDot, loai) => dungDanhSachPhieuThu(dsDot, [], { hoaDon: true }, st).ds.filter(r => r.nguon === "hoa_don" && r.loai === loai).length;
+    const casTest = [
+      ["Xe A (HĐ trả 2 hình thức A1 + HĐ tiền mặt A2)", [chuyenDaQT]],
+      ["Xe có HĐ 100% ghi nợ + HĐ tiền mặt + HĐ 2 hình thức", [chuyenTron]],
+      ["Chuyến chưa quyết toán", [chuyenChuaQT]],
+      ["Hoá đơn giao lại ở 2 chuyến (HD1)", [chuyenDaQT, chuyenGiaoLai]],
+      ["Cả 3 chuyến", [chuyenDaQT, chuyenChuaQT, chuyenGiaoLai]],
+      ["Không có chuyến", []],
+      ["null / undefined", [null, undefined]]
+    ];
+    casTest.forEach(([ten, ds]) => {
+      const p1 = tinhTienThuHoaDonCacChuyen(ds);
+      kiemTra("Phần 1 = Phần 3 · " + ten + ": TM " + p1.tm + " · CK " + p1.ck,
+        p1.tm === tongHoaDonPhieu(ds, "tm") && p1.ck === tongHoaDonPhieu(ds, "ck") && p1.soPhieuTM === demHoaDonPhieu(ds, "tm") && p1.soPhieuCK === demHoaDonPhieu(ds, "ck"),
+        JSON.stringify([p1.tm, tongHoaDonPhieu(ds, "tm"), p1.ck, tongHoaDonPhieu(ds, "ck")]));
+    });
+    const pA = tinhTienThuHoaDonCacChuyen([chuyenDaQT]);
+    kiemTra("Số tay Xe A: TM 600.000 + 500.000 = 1.100.000 · CK 400.000 + 200.000 = 600.000 · dư 200.000 (HD1 trả đủ gộp 1 hình thức không bị gộp cả HĐ vào tiền mặt)", pA.tm === 1100000 && pA.ck === 600000 && pA.du === 200000, JSON.stringify(pA));
+    const pTron = tinhTienThuHoaDonCacChuyen([chuyenTron]);
+    kiemTra("HĐ trả 2 hình thức (HON1: 300.000 TM + 700.000 CK) tách đúng; HĐ ghi nợ 100% = 0", pTron.tm === 1100000 && pTron.ck === 700000, JSON.stringify(pTron));
+    kiemTra("Chuyến chưa quyết toán: thu = 0 và ghi nhận trong chuaQT", tinhTienThuHoaDonCacChuyen([chuyenChuaQT]).tm === 0 && tinhTienThuHoaDonCacChuyen([chuyenChuaQT]).chuaQT.length === 1);
+    // Ngẫu nhiên có hạt giống cố định: 300 chuyến × nhiều hoá đơn (đủ kiểu tiền, trả dư, trả về, ghi nợ, trùng mã) → Phần 1 luôn = Phần 3
+    let hat = 12345; const ngauNhien = () => { hat = (hat * 1103515245 + 12345) & 0x7fffffff; return hat / 0x7fffffff; };
+    let soLechNgauNhien = 0;
+    for (let k = 0; k < 300; k++) {
+      const dsCT = [];
+      const n = 1 + Math.floor(ngauNhien() * 6);
+      for (let i = 0; i < n; i++) {
+        const tien = Math.round(ngauNhien() * 2000) * 1000;
+        const kieu = Math.floor(ngauNhien() * 7);
+        const tm = kieu === 0 ? tien : kieu === 2 ? Math.round(tien * 0.4) : kieu === 4 ? tien + 50000 : kieu === 6 ? "abc" : 0;
+        const ck = kieu === 1 ? tien : kieu === 2 ? Math.round(tien * 0.6) : kieu === 5 ? Math.round(tien * 0.5) : kieu === 6 ? null : 0;
+        dsCT.push({ maHD: "R" + Math.floor(ngauNhien() * 40), maKH: "k", tenKH: "K", tienHD: tien, tienMat: tm, chuyenKhoan: ck, traVe: ngauNhien() < 0.2 ? Math.round(tien * 0.3) : 0, taiKhoanNhan: "VCB - 0041000266096" });
+      }
+      const ds = [{ maDot: "R" + k, xe: "r", daQuyetToan: ngauNhien() < 0.85, ngayGiao: "2026-10-09", danhSachChiTiet: dsCT }, { maDot: "S" + k, xe: "s", daQuyetToan: true, ngayGiao: "2026-10-09", danhSachChiTiet: dsCT.slice(0, 2) }];
+      const p1 = tinhTienThuHoaDonCacChuyen(ds);
+      if (p1.tm !== tongHoaDonPhieu(ds, "tm") || p1.ck !== tongHoaDonPhieu(ds, "ck") || !isFinite(p1.tm + p1.ck)) soLechNgauNhien++;
+    }
+    kiemTra("300 bộ dữ liệu ngẫu nhiên (trả dư, trả về, ghi nợ, chuỗi / null, trùng mã HĐ): Phần 1 = Phần 3 cả tiền mặt lẫn chuyển khoản", soLechNgauNhien === 0, soLechNgauNhien + " bộ lệch");
+    // Tách theo nguồn ở thẻ Phần 3
+    const tn = tinhTongPhieuThu(locPhieuThuCanXuat(dungDanhSachPhieuThu([chuyenDaQT], thuNoMock, BAT_HET, st).ds, "", false));
+    kiemTra("Thẻ Phần 3 tách theo nguồn: TM = hoá đơn 1.100.000 + thu nợ 2.000.000 + trả trước 300.000", tn.theoLoaiNguon.tm.hoa_don === 1100000 && tn.theoLoaiNguon.tm.thu_no === 2000000 && tn.theoLoaiNguon.tm.tra_truoc === 300000 && tn.tm.tong === 3400000, JSON.stringify(tn.theoLoaiNguon));
+    kiemTra("Thẻ Phần 3 tách theo nguồn: CK = hoá đơn 600.000 + thu nợ 1.500.000 + trả trước 250.000", tn.theoLoaiNguon.ck.hoa_don === 600000 && tn.theoLoaiNguon.ck.thu_no === 1500000 && tn.theoLoaiNguon.ck.tra_truoc === 250000 && tn.ck.tong === 2350000);
+
     const tieuDe = document.getElementById("tieuDe");
     tieuDe.textContent = (soDat === soTong ? "PASS " : "FAIL ") + soDat + "/" + soTong;
     tieuDe.className = soDat === soTong ? "ok" : "loi";

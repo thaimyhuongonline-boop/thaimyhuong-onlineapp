@@ -158,6 +158,37 @@
   kiemTra("Tích lại 'Tiền thu theo hoá đơn' → phiếu hiện lại (800.000)", dongBang() === 1 && theTM() === 800000);
   w.console.log = logGoc;
 
+
+  // ---------------- Phần 1 ≡ Phần 3: "Khách trả tiền mặt / chuyển khoản" = "Phiếu thu tiền mặt / tiền gửi" (chỉ tiền thu theo hoá đơn) ----------------
+  chk("ptNguonThuNo", false); chk("ptNguonTraTruoc", false); chk("ptBoQuaDaXuat", false); chk("ptNguonHoaDon", true);
+  const soSanhP1P3 = async (gt, ten, tmMong, ckMong) => {
+    await doiChuyen(gt);
+    await w.veBangPhieuThuMisa();
+    const p1tm = so(g("kpiTK1111")), p1ck = so(g("kpiTK1121")), p3tm = theTM(), p3ck = theCK();
+    kiemTra(ten + ": Phần 1 Khách trả tiền mặt (" + p1tm + ") = Phần 3 Phiếu thu tiền mặt (" + p3tm + ")", p1tm === p3tm && p1tm === tmMong, p1tm + " | " + p3tm + " | mong " + tmMong);
+    kiemTra(ten + ": Phần 1 Khách chuyển khoản (" + p1ck + ") = Phần 3 Phiếu thu tiền gửi (" + p3ck + ")", p1ck === p3ck && p1ck === ckMong, p1ck + " | " + p3ck + " | mong " + ckMong);
+  };
+  await soSanhP1P3("DOT_A", "Xe A (có HĐ trả 2 hình thức TM 600.000 + CK 400.000)", 1100000, 400000);
+  kiemTra("Xe A: Phần 1 + ghi nợ = doanh thu (1.100.000 + 400.000 + 0 = 1.500.000)", so(g("kpiTK1111")) + so(g("kpiTK1121")) + so(g("kpiTK131")) === so(g("kpiDoanhThu")), g("kpiTK131") + " / " + g("kpiDoanhThu"));
+  await soSanhP1P3("DOT_B", "Xe B (CK 700.000 + TM 250.000)", 250000, 700000);
+  await soSanhP1P3("DOT_D", "Xe D (1 HĐ tiền mặt + 1 HĐ ghi nợ)", 800000, 0);
+  await soSanhP1P3("DOT_C", "Xe C (chưa quyết toán)", 0, 0);
+  kiemTra("Xe C chưa quyết toán: Phần 1 báo 'chưa tính là đã thu', toàn bộ doanh thu là ghi nợ", g("kpiTK1111Sub").indexOf("chưa quyết toán") >= 0 && so(g("kpiTK131")) === so(g("kpiDoanhThu")), g("kpiTK1111Sub"));
+  await soSanhP1P3("NGAY|09/10/2026", "Cả ngày 09/10 (Xe A + Xe B)", 1350000, 1100000);
+  await soSanhP1P3("", "Chưa chọn chuyến", 0, 0);
+
+  // Có tích Thu nợ / Trả trước: Phần 3 = tiền hoá đơn (= Phần 1) + thu nợ (Phần 2); phần cơ cấu hiển thị đúng và báo khớp Phần 1
+  await doiChuyen("DOT_A");
+  chk("ptNguonThuNo", true); chk("ptNguonTraTruoc", true);
+  await w.veBangPhieuThuMisa();
+  kiemTra("Xe A + tích Thu nợ: Phiếu thu tiền mặt = Phần 1 (1.100.000) + thu nợ tiền mặt Phần 2 (2.000.000) = 3.100.000", theTM() === so(g("kpiTK1111")) + so(g("kpiThuNo1111")) && theTM() === 3100000, g("kpiPTTienMat"));
+  kiemTra("Xe A + tích Thu nợ: Phiếu thu tiền gửi = Phần 1 (400.000) + thu nợ chuyển khoản Phần 2 (1.500.000) = 1.900.000", theCK() === so(g("kpiTK1121")) + so(g("kpiThuNo1121")) && theCK() === 1900000, g("kpiPTTienGui"));
+  kiemTra("Thẻ Phần 3 ghi rõ cơ cấu nguồn: 'Hoá đơn 1.100.000 · Thu nợ 2.000.000'", g("kpiPTTienMatNguon").indexOf("Hoá đơn 1.100.000") >= 0 && g("kpiPTTienMatNguon").indexOf("Thu nợ 2.000.000") >= 0, g("kpiPTTienMatNguon"));
+  kiemTra("Dòng đối chiếu báo ✅ Khớp Phần 1 dù đang tích thu nợ", g("ghiChuPhieuThuMisa").indexOf("✅ Khớp Phần 1") >= 0 && g("ghiChuPhieuThuMisa").indexOf("KHÔNG khớp Phần 1") < 0, g("ghiChuPhieuThuMisa"));
+  kiemTra("doiChieuPhan1VoiPhan3().khop = true", w.doiChieuPhan1VoiPhan3().khop === true);
+  chk("ptNguonThuNo", false); chk("ptNguonTraTruoc", false); chk("ptBoQuaDaXuat", true);
+  await w.veBangPhieuThuMisa();
+
   // ---------------- Chưa chọn chuyến / Làm mới ----------------
   await doiChuyen("DOT_A");
   const loiTruoc = [];

@@ -148,6 +148,47 @@ function phanLoaiHinhThucTien(hinhThuc) {
 }
 
 /**
+ * Duyệt các hoá đơn thu tiền của các chuyến đang chọn (hàm thuần) — NGUỒN DUY NHẤT cho cả Phần 1 (thẻ "Khách trả tiền mặt /
+ * chuyển khoản") và Phần 3 (phiếu thu theo hoá đơn), nên hai bên luôn cùng một con số.
+ * Chuyến đã quyết toán xét trước (hoá đơn giao lại có ở 2 chuyến → lấy chuyến có số liệu quyết toán); chuyến chưa quyết toán
+ * chưa có số liệu thu tiền nên chỉ ghi vào chuaQT.
+ */
+function duyetHoaDonCacChuyen(dsDot) {
+  const chuaQT = [], muc = [];
+  (Array.isArray(dsDot) ? dsDot : []).filter(Boolean).sort((a, b) => Number(!!b.daQuyetToan) - Number(!!a.daQuyetToan)).forEach(dot => {
+    if (!dot.daQuyetToan) { chuaQT.push(dot.xe || dot.maDot); return; }
+    const ngay = ngayVNPhieuThu(dot.ngayGiao || dot.ngayRaw);
+    (Array.isArray(dot.danhSachChiTiet) ? dot.danhSachChiTiet : []).forEach(h => {
+      if (!h) return;
+      const maHD = String(h.maHD || h.ma_hd || "").trim().toUpperCase();
+      if (!maHD) return;
+      const tienHD = soTienAnToan(h.tienHD || h.thanhTien);
+      const phaiTra = Math.max(0, tienHD - soTienAnToan(h.traVe));
+      const tach = tachTienHoaDonPT(soTienAnToan(h.tienMat), soTienAnToan(h.chuyenKhoan), phaiTra);
+      muc.push({ dot: dot, h: h, maHD: maHD, ngay: ngay, tienHD: tienHD, phaiTra: phaiTra, tach: tach });
+    });
+  });
+  return { muc: muc, chuaQT: chuaQT };
+}
+
+/**
+ * Tiền khách trả THEO HOÁ ĐƠN của các chuyến đang chọn: tiền mặt (TK 1111) và chuyển khoản (TK 1121x) thật sự thu được
+ * (đã trừ hàng trả về, phần khách trả dư tách riêng). Phần 1 hiện đúng 2 con số này; Phần 3 lập đúng từng phiếu cộng lại bằng đúng 2 con số này.
+ */
+function tinhTienThuHoaDonCacChuyen(dsDot) {
+  const { muc, chuaQT } = duyetHoaDonCacChuyen(dsDot);
+  const daTM = new Set(), daCK = new Set();
+  const kq = { tm: 0, ck: 0, soPhieuTM: 0, soPhieuCK: 0, du: 0, chuaQT: chuaQT, soHD: 0 };
+  const daXet = new Set();
+  muc.forEach(m => {
+    if (!daXet.has(m.maHD)) { daXet.add(m.maHD); kq.soHD++; kq.du += Math.round(m.tach.tmDu + m.tach.ckDu); }
+    if (m.tach.tmNo > 0.5 && Math.round(m.tach.tmNo) > 0.5 && !daTM.has(m.maHD)) { daTM.add(m.maHD); kq.tm += Math.round(m.tach.tmNo); kq.soPhieuTM++; }
+    if (m.tach.ckNo > 0.5 && Math.round(m.tach.ckNo) > 0.5 && !daCK.has(m.maHD)) { daCK.add(m.maHD); kq.ck += Math.round(m.tach.ckNo); kq.soPhieuCK++; }
+  });
+  return kq;
+}
+
+/**
  * Dựng danh sách các khoản phiếu thu từ dữ liệu thô (hàm thuần — không đọc giao diện, dùng chung cho thẻ tóm tắt,
  * bảng xem trước và file Excel nên 3 nơi luôn cùng một nguồn):
  *   dsDot   — các chuyến đang chọn (đã quyết toán mới lập phiếu thu theo hoá đơn)
@@ -167,21 +208,14 @@ function dungDanhSachPhieuThu(dsDot, dsThuNo, bat, st) {
 
   // 1. Tiền thu theo hoá đơn ở Bước 2 (chuyến / ngày đang chọn phía trên)
   if (bat.hoaDon) {
-    const chuaQT = [];
     const daXetHD = new Set();
     let traDu = 0, soHDDu = 0;   // phần khách trả DƯ so với hoá đơn (không vào phiếu thu theo hoá đơn)
-    // Chuyến đã quyết toán xét trước (hoá đơn giao lại có ở 2 chuyến → lấy chuyến có số liệu quyết toán)
-    dsDot.slice().sort((a, b) => Number(!!b.daQuyetToan) - Number(!!a.daQuyetToan)).forEach(dot => {
-      if (!dot.daQuyetToan) { chuaQT.push(dot.xe || dot.maDot); vet.chuyenChuaQT.push(dot.xe || dot.maDot); return; }
-      const ngay = ngayVNPhieuThu(dot.ngayGiao || dot.ngayRaw);
-      (Array.isArray(dot.danhSachChiTiet) ? dot.danhSachChiTiet : []).forEach(h => {
-        if (!h) return;
-        const maHD = String(h.maHD || h.ma_hd || "").trim().toUpperCase();
-        if (!maHD) return;
+    const duyet = duyetHoaDonCacChuyen(dsDot);
+    const chuaQT = duyet.chuaQT;
+    vet.chuyenChuaQT = chuaQT.slice();
+    duyet.muc.forEach(m => {
+      const { dot, h, maHD, ngay, tach } = m;
         vet.soHD++;
-        const tienHD = soTienAnToan(h.tienHD || h.thanhTien);
-        const phaiTra = Math.max(0, tienHD - soTienAnToan(h.traVe));
-        const tach = tachTienHoaDonPT(soTienAnToan(h.tienMat), soTienAnToan(h.chuyenKhoan), phaiTra);
         if (!daXetHD.has(maHD)) { daXetHD.add(maHD); const du = Math.round(tach.tmDu + tach.ckDu); if (du > 0) { traDu += du; soHDDu++; } }
         const goc = {
           ngay: ngay, maKH: String(h.maKH || "").trim().toUpperCase(), tenKH: String(h.tenKH || "Khách Lẻ").trim(),
@@ -193,7 +227,6 @@ function dungDanhSachPhieuThu(dsDot, dsThuNo, bat, st) {
         if (tach.tmNo > 0.5) them(Object.assign({}, goc, { khoa: `HD|${maHD}|TM`, loai: "tm", soTien: Math.round(tach.tmNo) }));
         if (tach.ckNo > 0.5) them(Object.assign({}, goc, { khoa: `HD|${maHD}|CK`, loai: "ck", soTien: Math.round(tach.ckNo), nh: timTKNganHangPT(h.taiKhoanNhan) }));
       });
-    });
     if (traDu > 0) ghiChu.push(`ℹ️ ${soHDDu} hoá đơn khách trả DƯ tổng ${Math.round(traDu).toLocaleString("vi-VN")} đ so với tiền hoá đơn — phần dư không nằm ở nguồn "Tiền thu theo hoá đơn" mà ở nguồn "Khách trả trước / trả dư" (sổ tiền khách trả trước).`);
     if (chuaQT.length) ghiChu.push(`⏳ ${chuaQT.length} chuyến CHƯA quyết toán ở Bước 2 nên chưa lập phiếu thu: ${chuaQT.join(", ")}`);
     if (!dsDot.length) ghiChu.push("ℹ️ Chưa chọn chuyến xe / ngày ở phía trên nên chưa có phiếu thu theo hoá đơn.");
@@ -327,12 +360,14 @@ function tinhTongThuNoMisa(ds) {
 
 /** Tổng hợp số phiếu / số tiền theo loại (hàm thuần) — nguồn duy nhất cho các thẻ "Phiếu thu tiền mặt / tiền gửi" */
 function tinhTongPhieuThu(ds) {
-  const kq = { tm: { so: 0, tong: 0 }, ck: { so: 0, tong: 0 }, tong: 0, soPhieu: 0, theoNguon: { hoa_don: 0, thu_no: 0, tra_truoc: 0 } };
+  const kq = { tm: { so: 0, tong: 0 }, ck: { so: 0, tong: 0 }, tong: 0, soPhieu: 0, theoNguon: { hoa_don: 0, thu_no: 0, tra_truoc: 0 },
+    theoLoaiNguon: { tm: { hoa_don: 0, thu_no: 0, tra_truoc: 0 }, ck: { hoa_don: 0, thu_no: 0, tra_truoc: 0 } } };
   (ds || []).forEach(r => {
     const o = r.loai === "ck" ? kq.ck : kq.tm;
     const st = soTienAnToan(r.soTien);
     o.so++; o.tong += st; kq.tong += st; kq.soPhieu++;
     if (kq.theoNguon[r.nguon] !== undefined) kq.theoNguon[r.nguon] += st;
+    if (kq.theoLoaiNguon[r.loai === "ck" ? "ck" : "tm"][r.nguon] !== undefined) kq.theoLoaiNguon[r.loai === "ck" ? "ck" : "tm"][r.nguon] += st;
   });
   return kq;
 }
@@ -386,6 +421,10 @@ async function veBangPhieuThuMisa() {
   dat("kpiPTTienMatSub", `${tongHien.tm.so} phiếu thu · Nợ 1111 / Có 1311${phanAn(tongAn.tm)}`);
   dat("kpiPTTienGui", formatTien(tongHien.ck.tong) + " đ");
   dat("kpiPTTienGuiSub", `${tongHien.ck.so} phiếu thu · Nợ 1121x / Có 1311${phanAn(tongAn.ck)}`);
+  // Cơ cấu từng thẻ theo nguồn (hoá đơn của chuyến / thu nợ / trả trước) để đối chiếu với Phần 1 và Phần 2
+  const coCau = o => `Hoá đơn ${formatTien(o.hoa_don)} · Thu nợ ${formatTien(o.thu_no)} · Trả trước ${formatTien(o.tra_truoc)}`;
+  dat("kpiPTTienMatNguon", coCau(tongHien.theoLoaiNguon.tm));
+  dat("kpiPTTienGuiNguon", coCau(tongHien.theoLoaiNguon.ck));
   const soCanhBao = dsHien.filter(r => r.canhBao.length).length;
   dat("kpiPTCanhBao", soCanhBao ? `${soCanhBao} khoản` : "Không có");
 
@@ -394,6 +433,10 @@ async function veBangPhieuThuMisa() {
     const daAn = danhSachPhieuThuMisa.length - dsHien.length;
     const dong = ghiChuPhieuThuMisa.slice();
     if (dsHien.length) dong.push(`ℹ️ Đối chiếu: ${formatTien(tongHien.tong)} đ = hoá đơn ${formatTien(tongHien.theoNguon.hoa_don)} + thu nợ ${formatTien(tongHien.theoNguon.thu_no)} + trả trước / trả dư ${formatTien(tongHien.theoNguon.tra_truoc)} (khu vực "Cấn trừ công nợ" phía trên chỉ gồm thu nợ + trả trước và đã trừ các khoản hoàn tiền).`);
+    const so13 = doiChieuPhan1VoiPhan3();
+    if (so13 && (so13.p1.tm || so13.p1.ck || so13.p3.tm || so13.p3.ck || !so13.khop)) dong.push(so13.khop
+      ? `✅ Khớp Phần 1 (tiền thu theo hoá đơn): Khách trả tiền mặt ${formatTien(so13.p1.tm)} đ = phiếu thu hoá đơn tiền mặt; Khách chuyển khoản ${formatTien(so13.p1.ck)} đ = phiếu thu hoá đơn tiền gửi.`
+      : `❌ KHÔNG khớp Phần 1: Khách trả tiền mặt ${formatTien(so13.p1.tm)} đ ≠ phiếu thu hoá đơn tiền mặt ${formatTien(so13.p3.tm)} đ · Khách chuyển khoản ${formatTien(so13.p1.ck)} đ ≠ phiếu thu hoá đơn tiền gửi ${formatTien(so13.p3.ck)} đ.`);
     if (daAn) dong.push(`✅ Ẩn ${daAn} khoản đã xuất phiếu thu trước đó (bỏ tích "Bỏ qua khoản đã xuất" để xuất lại đúng số cũ).`);
     elGhiChu.innerHTML = dong.map(x => `<div>${escapeHtml(x)}</div>`).join("");
     elGhiChu.style.display = dong.length ? "" : "none";
@@ -510,6 +553,21 @@ function ghiVetLocPhieuThu(batBuoc) {
     "Thu nợ / trả trước (Phần 2)": { dauVao: v.thuNoDauVao, boNguonTat: v.thuNoBoNguonTat, boHoanTien: v.thuNoBoChiRa, boHuy: v.thuNoBoHuy, boSoTienKhongHopLe: v.thuNoBoSoTien, boTKLa: v.thuNoBoTK },
     "Sau lọc": { tatCaKhoan: danhSachPhieuThuMisa.length, dangHien: dsHien.length, boQuaDaXuat: boQua }
   });
+}
+
+/**
+ * So Phần 3 với Phần 1 (chỉ xét tiền thu THEO HOÁ ĐƠN của chuyến / ngày đang chọn): "Khách trả tiền mặt" (Phần 1) phải bằng
+ * tổng phiếu thu hoá đơn tiền mặt, "Khách chuyển khoản" (Phần 1) phải bằng tổng phiếu thu hoá đơn tiền gửi — kể cả các phiếu
+ * đã xuất trước đó và bất kể đang tích / bỏ tích thu nợ, trả trước. Không có thẻ Phần 1 trên trang (trang thử) → trả null.
+ */
+function doiChieuPhan1VoiPhan3() {
+  const e1 = document.getElementById("kpiTK1111"), e2 = document.getElementById("kpiTK1121");
+  const hoaDonBat = (document.getElementById("ptNguonHoaDon") || { checked: true }).checked;
+  if (!e1 || !e2 || !hoaDonBat) return null;
+  const so = t => parseInt(String(t || "").replace(/\D/g, ""), 10) || 0;
+  const t3 = tinhTongPhieuThu(locPhieuThuCanXuat(danhSachPhieuThuMisa, "", false)).theoLoaiNguon;
+  const p1 = { tm: so(e1.textContent), ck: so(e2.textContent) }, p3 = { tm: Math.round(t3.tm.hoa_don), ck: Math.round(t3.ck.hoa_don) };
+  return { khop: p1.tm === p3.tm && p1.ck === p3.ck, p1: p1, p3: p3 };
 }
 
 function lamMoiPhieuThuMisa() {

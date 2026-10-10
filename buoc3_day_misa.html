@@ -252,13 +252,13 @@
         <div class="kpi-card" style="border-left: 4px solid #16a34a;">
           <div class="kpi-title" style="color:#16a34a;"><span>💵</span> Khách Trả Tiền Mặt</div>
           <div class="kpi-value" style="color:#16a34a;" id="kpiTK1111">0 đ</div>
-          <div class="kpi-sub">Bán hàng Nợ 1311 → Phiếu thu Nợ 1111</div>
+          <div class="kpi-sub" id="kpiTK1111Sub">Bán hàng Nợ 1311 → Phiếu thu Nợ 1111</div>
         </div>
 
         <div class="kpi-card" style="border-left: 4px solid #2563eb;">
           <div class="kpi-title" style="color:#2563eb;"><span>💳</span> Khách Chuyển Khoản</div>
           <div class="kpi-value" style="color:#2563eb;" id="kpiTK1121">0 đ</div>
-          <div class="kpi-sub">Bán hàng Nợ 1311 → Phiếu thu Nợ 1121x</div>
+          <div class="kpi-sub" id="kpiTK1121Sub">Bán hàng Nợ 1311 → Phiếu thu Nợ 1121x</div>
         </div>
 
         <div class="kpi-card" style="border-left: 4px solid #dc2626;">
@@ -501,11 +501,13 @@
           <div class="kpi-title" style="color:#16a34a;"><span>💵</span> Phiếu Thu Tiền Mặt</div>
           <div class="kpi-value" style="color:#16a34a;" id="kpiPTTienMat">0 đ</div>
           <div class="kpi-sub" id="kpiPTTienMatSub">0 phiếu thu · Nợ 1111 / Có 1311</div>
+          <div class="kpi-sub" id="kpiPTTienMatNguon" style="margin-top:2px;"></div>
         </div>
         <div class="kpi-card" style="border-left: 4px solid #2563eb;">
           <div class="kpi-title" style="color:#2563eb;"><span>🏦</span> Phiếu Thu Tiền Gửi</div>
           <div class="kpi-value" style="color:#2563eb;" id="kpiPTTienGui">0 đ</div>
           <div class="kpi-sub" id="kpiPTTienGuiSub">0 phiếu thu · Nợ 1121x / Có 1311</div>
+          <div class="kpi-sub" id="kpiPTTienGuiNguon" style="margin-top:2px;"></div>
         </div>
         <div class="kpi-card" style="border-left: 4px solid #dc2626;">
           <div class="kpi-title" style="color:#dc2626;"><span>⚠️</span> Cần Kiểm Tra</div>
@@ -1294,6 +1296,20 @@
         if (!r.hopLe) coLoi = true;
       });
 
+      // Tiền khách trả (tiền mặt / chuyển khoản) = TIỀN THỰC THU theo hoá đơn ở Bước 2 của đúng các chuyến đang xem —
+      // cùng hàm với Phần 3 (tinhTienThuHoaDonCacChuyen, phieu_thu_misa.js) nên "Khách trả tiền mặt" = phiếu thu tiền mặt,
+      // "Khách chuyển khoản" = phiếu thu tiền gửi. Hoá đơn trả 2 hình thức được tách đúng từng phần (không gộp cả hoá đơn vào 1 loại).
+      // Phần còn lại của doanh thu (chưa thu, chuyến chưa quyết toán) là "Khách ghi nợ".
+      let ghiChuThu = 'Bán hàng Nợ 1311 → Phiếu thu Nợ 1111 / 1121x (tiền thực thu theo Bước 2)';
+      if (typeof tinhTienThuHoaDonCacChuyen === 'function') {
+        const dsDotXem = cheDoNgayMisa ? (cheDoNgayMisa.dsDot || []) : (dotHienTai ? [dotHienTai] : []);
+        const thu = tinhTienThuHoaDonCacChuyen(dsDotXem);
+        tien1111 = thu.tm;
+        tien1121 = thu.ck;
+        tien131 = Math.max(0, tongTien - tien1111 - tien1121 - tien5212);
+        if (thu.chuaQT.length) ghiChuThu = `⏳ ${thu.chuaQT.length} xe chưa quyết toán Bước 2 → chưa tính là đã thu`;
+      }
+
       document.getElementById('kpiDoanhThu').textContent = formatTien(tongTien) + ' đ';
       document.getElementById('kpiSoDong').textContent = `${danhSachDongMisa.length} dòng hàng hóa`;
 
@@ -1301,6 +1317,8 @@
       document.getElementById('kpiTK1121').textContent = formatTien(tien1121) + ' đ';
       document.getElementById('kpiTK131').textContent = formatTien(tien131) + ' đ';
       document.getElementById('kpiTK5212').textContent = formatTien(tien5212) + ' đ';
+      const eGhiChuThu = document.getElementById('kpiTK1111Sub'); if (eGhiChuThu) eGhiChuThu.textContent = ghiChuThu;
+      const eGhiChuThu2 = document.getElementById('kpiTK1121Sub'); if (eGhiChuThu2) eGhiChuThu2.textContent = ghiChuThu;
 
       document.getElementById('footMisaSL').textContent = formatSoLuongMisa(tongSL);
       document.getElementById('footMisaTien').textContent = formatTien(tongTien);
