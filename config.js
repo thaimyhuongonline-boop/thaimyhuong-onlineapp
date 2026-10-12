@@ -352,6 +352,73 @@ async function taiKiotTamTuSupabase() {
 }
 
 /**
+ * BỔ SUNG (APPEND + UPSERT) DỮ LIỆU EXCEL KIOTVIET VÀO DANH SÁCH CHỜ CHIA XE — AN TOÀN KHÔNG MẤT ĐƠN
+ *
+ * Khác với dongBoKiotTamLenSupabase (ghi đè nguyên khối JSON), hàm này:
+ *   1. ĐỌC LẠI bản mới nhất trên máy chủ NGAY TRƯỚC KHI GHI (máy khác / lần nạp trước có thể đã có đơn);
+ *   2. HỢP NHẤT theo "Mã hóa đơn": HĐ mới -> THÊM; HĐ đã có trong lần nạp -> CẬP NHẬT (thay bộ dòng của
+ *      HĐ đó bằng dữ liệu mới); HĐ cũ không nằm trong lần nạp -> GIỮ NGUYÊN (không bao giờ xoá);
+ *   3. UPSERT khối đã hợp nhất.
+ * Vì luôn union với bản mới nhất của máy chủ, nếu lần nạp này THIẾU vài HĐ (do rớt mạng lúc đọc sơ bộ,
+ * hay máy khác vừa nạp) thì các HĐ đó vẫn được giữ lại -> không rớt data.
+ * Có RETRY + backoff để kháng rớt mạng giữa chừng. CHỈ dùng cho thao tác NẠP/BỔ SUNG, KHÔNG dùng cho
+ * xoá đơn / chia xe (những luồng đó cần thu nhỏ danh sách nên vẫn dùng dongBoKiotTamLenSupabase / xoá).
+ *
+ * @param {Array}  dongMoi      các dòng hàng hoá vừa nạp (đã chuẩn hoá, có khoá 'Mã hóa đơn')
+ * @param {Array|string} tenFileMoi  tên file vừa nạp (sẽ gộp vào danh sách tên file hiện có, không trùng)
+ * @param {string} nguoiTao
+ * @returns {Promise<{success:boolean, duLieu?:Array, danhSachTenFile?:Array, error?:any}>}
+ */
+async function boSungKiotTamLenSupabase(dongMoi, tenFileMoi = [], nguoiTao = "") {
+  if (typeof sb === 'undefined') return { success: false, error: 'Chưa khởi tạo Supabase' };
+  const dongMoiArr = Array.isArray(dongMoi) ? dongMoi : [];
+  const maCua = r => String((r && (r['Mã hóa đơn'] != null ? r['Mã hóa đơn'] : r.ma_hd)) || '').trim().toUpperCase();
+  const tenFileArr = Array.isArray(tenFileMoi) ? tenFileMoi : (tenFileMoi ? [tenFileMoi] : []);
+  const maTrongLanNap = new Set(dongMoiArr.map(maCua).filter(Boolean));
+
+  // Đọc TRỰC TIẾP file_kiot_tam để PHÂN BIỆT "đọc lỗi (mạng)" với "máy chủ rỗng thật":
+  //   - error            -> lỗi mạng  -> TUYỆT ĐỐI KHÔNG GHI (ghi lúc này sẽ đè mất đơn) -> thử lại
+  //   - không lỗi, rỗng  -> cloud trống thật -> ghi dongMoi làm nền an toàn
+  //   - không lỗi, có dữ -> hợp nhất theo Mã hóa đơn rồi ghi
+  async function docCloudKiotTam() {
+    const { data, error } = await sb.from('file_kiot_tam').select('*').eq('id', 'kiot_chua_chia_xe').maybeSingle();
+    if (error) return { loi: true };
+    const rows = (data && Array.isArray(data.du_lieu)) ? data.du_lieu : [];
+    let files = [];
+    if (data && data.ten_file) files = String(data.ten_file).split(',').map(s => s.trim()).filter(Boolean);
+    return { loi: false, rows, files };
+  }
+
+  let lastErr = null;
+  // Thử tối đa 4 vòng (đọc lại + hợp nhất + ghi). Mỗi vòng đọc LẠI máy chủ để chống đè mất đơn.
+  for (let lan = 0; lan < 4; lan++) {
+    try {
+      const doc = await docCloudKiotTam();
+      if (doc.loi) {
+        // Đọc hỏng (mạng) -> KHÔNG ghi đè, lùi lại thử vòng sau
+        lastErr = 'Không đọc được danh sách chờ hiện có trên máy chủ (mạng?) — đã hoãn ghi để không mất đơn';
+      } else {
+        // Giữ các HĐ cũ KHÔNG nằm trong lần nạp (không đụng chạm) + bộ dòng mới (thêm/cập nhật HĐ trong lần nạp)
+        const giuLaiHDCu = doc.rows.filter(r => !maTrongLanNap.has(maCua(r)));
+        const hopNhat = giuLaiHDCu.concat(dongMoiArr);
+        const tenFiles = Array.from(new Set(doc.files.concat(tenFileArr).filter(Boolean)));
+
+        const res = await dongBoKiotTamLenSupabase(hopNhat, tenFiles, nguoiTao);
+        if (res && res.success) {
+          return { success: true, duLieu: hopNhat, danhSachTenFile: tenFiles };
+        }
+        lastErr = (res && res.error) || 'Ghi file_kiot_tam thất bại';
+      }
+    } catch (e) {
+      lastErr = e;
+    }
+    // backoff tăng dần trước khi thử lại (400ms, 800ms, 1200ms)
+    await new Promise(r => setTimeout(r, 400 * (lan + 1)));
+  }
+  return { success: false, error: lastErr || 'Không ghi được danh sách chờ lên máy chủ' };
+}
+
+/**
  * XÓA DỮ LIỆU KIOT TẠM TRÊN SUPABASE KHI ĐÃ ĐIỀU XE XONG TOÀN BỘ HOẶC XÓA HẾT
  */
 async function xoaKiotTamSupabase() {

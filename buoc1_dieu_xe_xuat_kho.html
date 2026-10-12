@@ -4958,9 +4958,26 @@
         localStorage.setItem("tmh_danh_sach_ten_file", JSON.stringify(danhSachTenFile));
         duLieuKiotViet = duLieuTongHop;
 
-        // Đồng bộ dữ liệu Excel tạm lên Supabase file_kiot_tam để các máy khác cùng thấy ngay lập tức
-        if (typeof dongBoKiotTamLenSupabase === 'function') {
-          await dongBoKiotTamLenSupabase(duLieuTongHop, danhSachTenFile);
+        // Đồng bộ dữ liệu Excel tạm lên Supabase file_kiot_tam để các máy khác cùng thấy ngay lập tức.
+        // • NẠP / BỔ SUNG (cheDoGhep): HỢP NHẤT theo Mã hóa đơn với bản mới nhất của máy chủ (thêm HĐ mới,
+        //   cập nhật HĐ trùng, giữ nguyên HĐ cũ) + retry chống rớt mạng -> KHÔNG đè mất đơn đã nạp trước.
+        // • NẠP MỚI THAY THẾ (cheDoGhep=false, người dùng chủ động xoá cũ): ghi đè như cũ.
+        let loiDongBoCloud = null;
+        if (cheDoGhep && typeof boSungKiotTamLenSupabase === 'function') {
+          const kq = await boSungKiotTamLenSupabase(duLieuTongHop, danhSachTenFile);
+          if (kq && kq.success && Array.isArray(kq.duLieu)) {
+            // Lấy lại khối ĐÃ HỢP NHẤT từ máy chủ (có thể có thêm đơn của máy khác) làm nguồn chuẩn
+            duLieuTongHop = kq.duLieu;
+            duLieuKiotViet = kq.duLieu;
+            if (Array.isArray(kq.danhSachTenFile)) danhSachTenFile = kq.danhSachTenFile;
+            localStorage.setItem("tmh_kiotviet_data", JSON.stringify(duLieuKiotViet));
+            localStorage.setItem("tmh_danh_sach_ten_file", JSON.stringify(danhSachTenFile));
+          } else {
+            loiDongBoCloud = (kq && kq.error) || 'Không rõ lỗi';
+          }
+        } else if (typeof dongBoKiotTamLenSupabase === 'function') {
+          const kq = await dongBoKiotTamLenSupabase(duLieuTongHop, danhSachTenFile);
+          if (!(kq && kq.success)) loiDongBoCloud = (kq && kq.error) || 'Không rõ lỗi';
         }
 
         napDuLieuTuBuoc1();
@@ -4996,8 +5013,19 @@
         if (hangMoiThem.length > 0) thongBao += `• Hàng hóa mới tự cập nhật: +${hangMoiThem.length}\n`;
         if (soDonGiaoLai > 0) thongBao += `• Đơn giao lại phát hiện: ${soDonGiaoLai} đơn (đã gắn cờ 🔄 Giao lại)\n`;
 
-        alert(thongBao + `\n📌 Dữ liệu đã sẵn sàng trong danh sách. Hãy tick chọn đơn và xuất phiếu.`);
-        hienThiToast(`✅ Đã nạp thành công! Hiện có ${danhSachHoaDon.length} HĐ (${duLieuTongHop.length} dòng)`);
+        if (loiDongBoCloud) {
+          // Đã lưu cục bộ nhưng CHƯA đẩy được lên máy chủ (rớt mạng…) → báo rõ, KHÔNG nói "đồng bộ xong"
+          const moTaLoi = (loiDongBoCloud && loiDongBoCloud.message) ? loiDongBoCloud.message : String(loiDongBoCloud);
+          alert(thongBao +
+            `\n⚠️ LƯU Ý: Dữ liệu đã lưu trên MÁY NÀY nhưng CHƯA đẩy được lên máy chủ (có thể do mạng).\n` +
+            `Chi tiết: ${moTaLoi}\n\n` +
+            `👉 Khi có mạng, hãy NẠP LẠI file này (hệ thống sẽ tự HỢP NHẤT, không tạo trùng, không mất đơn) ` +
+            `để đồng bộ lên máy chủ cho các máy khác thấy.`);
+          hienThiToast(`⚠️ Đã nạp trên máy này nhưng chưa đồng bộ máy chủ — nạp lại khi có mạng.`);
+        } else {
+          alert(thongBao + `\n📌 Dữ liệu đã sẵn sàng trong danh sách. Hãy tick chọn đơn và xuất phiếu.`);
+          hienThiToast(`✅ Đã nạp thành công! Hiện có ${danhSachHoaDon.length} HĐ (${duLieuTongHop.length} dòng)`);
+        }
 
       } catch (err) {
         alert("Lỗi đọc file Excel: " + err.message);
