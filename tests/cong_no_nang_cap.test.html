@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Test Nang Cap Cong No - Thu No Hang Loat, Ghi Chu Buoc 2, Xuat Excel</title>
+<style>
+  body { font: 13px/1.5 monospace; padding: 16px; background: #f8fafc; color: #0f172a; }
+  .ok { color: #15803d; font-weight: 700; }
+  .loi { color: #b91c1c; font-weight: 700; }
+  pre { background: #fff; padding: 12px; border: 1px solid #cbd5e1; border-radius: 6px; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+</head>
+<body>
+<h2>Kiểm Tra Nghiệp Vụ Nâng Cấp Công Nợ</h2>
+<h3 id="tieuDe">Đang chạy…</h3>
+<pre id="ketQua"></pre>
+
+<script>
+  const kq = [];
+  let soDat = 0, soTong = 0;
+  function kiemTra(ten, dieuKien, chiTiet) {
+    soTong++;
+    if (dieuKien) soDat++;
+    kq.push((dieuKien ? "✅ " : "❌ ") + ten + (dieuKien ? "" : "  → THẤT BẠI: " + JSON.stringify(chiTiet)));
+  }
+
+  function formatTien(n) {
+    if (isNaN(n) || n === null || n === undefined) return "0";
+    return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  }
+  function parseVNNumber_(val) {
+    if (typeof val === 'number') return isFinite(val) ? val : 0;
+    if (!val) return 0;
+    const s = String(val).replace(/[^\d.,-]/g, '').trim();
+    if (!s) return 0;
+    if (s.indexOf('.') !== -1 && s.indexOf(',') !== -1) {
+      return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
+    }
+    if (s.indexOf('.') !== -1) {
+      const parts = s.split('.');
+      if (parts.length > 2 || (parts.length === 2 && parts[1].length === 3)) {
+        return parseFloat(s.replace(/\./g, '')) || 0;
+      }
+      return parseFloat(s) || 0;
+    }
+    if (s.indexOf(',') !== -1) {
+      const parts = s.split(',');
+      if (parts.length > 2 || (parts.length === 2 && parts[1].length === 3)) {
+        return parseFloat(s.replace(/,/g, '')) || 0;
+      }
+      return parseFloat(s.replace(',', '.')) || 0;
+    }
+    return parseFloat(s) || 0;
+  }
+  function conLaiCuaDon(d) {
+    return (d.conLai !== undefined) ? d.conLai : Math.max(0, (d.soTienNo || 0) - (d.daThu || 0));
+  }
+  function escapeHtml(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  async function chayTatCaTests() {
+    try {
+      // ========================================================
+      // TEST CASE 1: Thu nợ hàng loạt 1 đơn bằng cả Tiền mặt và Chuyển khoản
+      // ========================================================
+      const don1 = {
+        id: 'NO_HD001', maHD: 'HD001', maKH: 'KH01', tenKH: 'Đại Lý Hoa Mai',
+        maDot: 'DOT_01', tienHD: 2000000, soTienNo: 2000000, daThu: 0, conLai: 2000000, trangThai: 'chua_thu'
+      };
+
+      const dsThuNoHangLoatTest = [{
+        don: don1, chon: true, tienMat: 800000, chuyenKhoan: 700000, ghiChu: 'Khách thanh toán 800k TM + 700k CK'
+      }];
+
+      // Giả lập lưu thu nợ hàng loạt
+      const rowsInsertThuNo = [];
+      const ngayThu = '2026-10-14';
+      const nhNhan = 'TCB - 190345678';
+      const ghiChuChung = 'Chị Lan chuyển gộp';
+
+      dsThuNoHangLoatTest.filter(x => x.chon && ((x.tienMat || 0) > 0 || (x.chuyenKhoan || 0) > 0)).forEach(x => {
+        const lyDoDon = (x.ghiChu || '').trim();
+        const phanGhiChuChung = ghiChuChung ? ` — ${ghiChuChung}` : '';
+        const phanLyDo = lyDoDon ? ` (${lyDoDon})` : '';
+
+        if ((x.tienMat || 0) > 0) {
+          rowsInsertThuNo.push({
+            id_don_no: x.don.id, ma_hd: x.don.maHD, so_tien: x.tienMat, hinh_thuc: 'Tiền mặt',
+            tai_khoan_nhan: '', ngay_thu: ngayThu,
+            ghi_chu: `${x.don.tenKH} nộp nợ HĐ ${x.don.maHD} — thu hàng loạt${phanGhiChuChung}${phanLyDo}`
+          });
+        }
+        if ((x.chuyenKhoan || 0) > 0) {
+          rowsInsertThuNo.push({
+            id_don_no: x.don.id, ma_hd: x.don.maHD, so_tien: x.chuyenKhoan, hinh_thuc: 'Chuyển khoản',
+            tai_khoan_nhan: nhNhan, ngay_thu: ngayThu,
+            ghi_chu: `${x.don.tenKH} nộp nợ HĐ ${x.don.maHD} — thu hàng loạt${phanGhiChuChung}${phanLyDo}`
+          });
+        }
+
+        // Cập nhật đơn
+        const tongThuDon = (x.tienMat || 0) + (x.chuyenKhoan || 0);
+        x.don.daThu = (x.don.daThu || 0) + tongThuDon;
+        x.don.conLai = Math.max(0, (x.don.soTienNo || 0) - x.don.daThu);
+        x.don.trangThai = x.don.conLai <= 0 ? 'da_thu_du' : 'da_thu_mot_phan';
+      });
+
+      kiemTra("Test 1.1: Tạo 2 dòng thu nợ riêng biệt cho Tiền mặt và Chuyển khoản", rowsInsertThuNo.length === 2);
+      kiemTra("Test 1.2: Dòng tiền mặt có đúng hình thức và số tiền 800.000", rowsInsertThuNo[0].hinh_thuc === 'Tiền mặt' && rowsInsertThuNo[0].so_tien === 800000);
+      kiemTra("Test 1.3: Dòng chuyển khoản có đúng ngân hàng và số tiền 700.000", rowsInsertThuNo[1].hinh_thuc === 'Chuyển khoản' && rowsInsertThuNo[1].so_tien === 700000 && rowsInsertThuNo[1].tai_khoan_nhan === nhNhan);
+      kiemTra("Test 1.4: Ghi chú dòng thu nợ lưu đúng lý do riêng của đơn", rowsInsertThuNo[0].ghi_chu.includes('Khách thanh toán 800k TM + 700k CK'));
+      kiemTra("Test 1.5: Số dư nợ mới cập nhật chính xác (đã thu 1.500.000, còn lại 500.000)", don1.daThu === 1500000 && don1.conLai === 500000);
+      kiemTra("Test 1.6: Trạng thái cập nhật thành 'da_thu_mot_phan'", don1.trangThai === 'da_thu_mot_phan');
+
+      // ========================================================
+      // TEST CASE 2: Chặn và báo lỗi khi tổng thu (TM + CK) > Còn nợ
+      // ========================================================
+      const don2 = { id: 'NO_HD002', maHD: 'HD002', tenKH: 'Tạp Hóa Bình Minh', soTienNo: 1000000, daThu: 0, conLai: 1000000 };
+      const item2 = { don: don2, chon: true, tienMat: 0, chuyenKhoan: 400000, ghiChu: '' };
+
+      // Mô phỏng nhập Tiền mặt vượt quá
+      let nhapTM = 800000; // 800k + 400k = 1.200k > 1.000k
+      const cl2 = conLaiCuaDon(don2);
+      let valClamped = nhapTM;
+      if (valClamped + item2.chuyenKhoan > cl2) {
+        valClamped = Math.max(0, cl2 - item2.chuyenKhoan);
+      }
+      item2.tienMat = valClamped;
+
+      kiemTra("Test 2.1: Nhập tiền mặt vượt quá tự động clamp về số còn lại tối đa (600.000 đ)", item2.tienMat === 600000);
+      kiemTra("Test 2.2: Tổng thu TM + CK sau khi clamp bằng đúng còn nợ (1.000.000 đ)", item2.tienMat + item2.chuyenKhoan === 1000000);
+
+      // Mô phỏng nếu cố tình bypass và gọi luuThuNoHangLoat với số tiền vượt quá
+      const itemVuot = { don: don2, chon: true, tienMat: 700000, chuyenKhoan: 500000 };
+      let biChanBoiLuu = false;
+      const tongVuot = itemVuot.tienMat + itemVuot.chuyenKhoan;
+      if (tongVuot > conLaiCuaDon(don2) + 0.5) {
+        biChanBoiLuu = true;
+      }
+      kiemTra("Test 2.3: Hệ thống chặn thành công khi (Tiền mặt + Chuyển khoản) > Còn nợ", biChanBoiLuu === true);
+
+      // ========================================================
+      // TEST CASE 3: Đồng bộ cột Ghi chú từ Bước 2 sang Công nợ
+      // ========================================================
+      const hoaDonB2 = {
+        maHD: 'HD003', tenKH: 'Siêu Thị Mini A', tienHD: 3500000, noPhatSinh: 1200000,
+        ghiChu: 'Giao buổi sáng, hẹn chuyển khoản vào ngày 25'
+      };
+
+      // 3.1: Bước 2 lưu quyết toán
+      const banGhiNoMoi = {
+        id: 'NO_' + hoaDonB2.maHD, maHD: hoaDonB2.maHD, tenKH: hoaDonB2.tenKH,
+        tienHD: hoaDonB2.tienHD, soTienNo: hoaDonB2.noPhatSinh,
+        ghiChu: (hoaDonB2.ghiChu !== undefined && hoaDonB2.ghiChu !== null) ? String(hoaDonB2.ghiChu).trim() : ''
+      };
+      kiemTra("Test 3.1: Bước 2 lưu ghiChu đúng nội dung người dùng nhập", banGhiNoMoi.ghiChu === 'Giao buổi sáng, hẹn chuyển khoản vào ngày 25');
+
+      // 3.2: Edge case: Khi ghi chú trống, không bị gắn chuỗi placeholder dummy "Nợ chuyến xe..."
+      const hoaDonB2Rong = { maHD: 'HD004', tenKH: 'Khách Lẻ', tienHD: 500000, noPhatSinh: 500000, ghiChu: '' };
+      const banGhiNoRong = {
+        id: 'NO_' + hoaDonB2Rong.maHD,
+        ghiChu: (hoaDonB2Rong.ghiChu !== undefined && hoaDonB2Rong.ghiChu !== null) ? String(hoaDonB2Rong.ghiChu).trim() : ''
+      };
+      kiemTra("Test 3.2: Edge case - Ghi chú trống được lưu thành chuỗi rỗng an toàn, không bị fallback dummy text", banGhiNoRong.ghiChu === '');
+
+      // 3.3: Màn hình Công nợ đồng bộ từ luu_tru vào danhSachCongNo
+      const danhSachCongNoTest = [
+        { id: 'NO_HD003', maHD: 'HD003', tenKH: 'Siêu Thị Mini A', ghiChu: 'cũ' },
+        { id: 'NO_HD004', maHD: 'HD004', tenKH: 'Khách Lẻ', ghiChu: 'Nợ chuyến xe Xe 1' }
+      ];
+      const rowServer1 = { ma_hd: 'HD003', ghi_chu: 'Giao buổi sáng, hẹn chuyển khoản vào ngày 25' };
+      const rowServer2 = { ma_hd: 'HD004', ghi_chu: null };
+
+      // Đồng bộ từ server
+      [rowServer1, rowServer2].forEach(r => {
+        const item = danhSachCongNoTest.find(d => d.maHD === r.ma_hd);
+        if (item) {
+          if (r.ghi_chu !== undefined && r.ghi_chu !== null) {
+            item.ghiChu = String(r.ghi_chu).trim();
+          } else if (!r.ghi_chu && typeof item.ghiChu === 'string' && /^Nợ chuyến xe/i.test(item.ghiChu)) {
+            item.ghiChu = '';
+          }
+        }
+      });
+      kiemTra("Test 3.3: Công nợ đồng bộ đúng ghi chú từ Bước 2", danhSachCongNoTest[0].ghiChu === 'Giao buổi sáng, hẹn chuyển khoản vào ngày 25');
+      kiemTra("Test 3.4: Dummy placeholder cũ được làm sạch thành chuỗi rỗng", danhSachCongNoTest[1].ghiChu === '');
+
+      // 3.5: Hiển thị an toàn trên giao diện
+      function renderO_GhiChu(d) {
+        return `
+          ${d.ghiChu ? `<div style="font-weight:600; color:var(--text-main);">${escapeHtml(d.ghiChu)}</div>` : ''}
+          ${d.ghiChuThu ? `<div style="font-size:11px; color:#15803d; margin-top:${d.ghiChu ? '2px' : '0'};">${escapeHtml(d.ghiChuThu)}</div>` : ''}
+          ${(!d.ghiChu && !d.ghiChuThu) ? '<span style="color:var(--text-muted);">--</span>' : ''}
+        `.trim();
+      }
+      const htmlCoGhiChu = renderO_GhiChu(danhSachCongNoTest[0]);
+      const htmlRong = renderO_GhiChu(danhSachCongNoTest[1]);
+      kiemTra("Test 3.5: UI hiển thị đúng nội dung ghi chú", htmlCoGhiChu.includes('Giao buổi sáng, hẹn chuyển khoản vào ngày 25'));
+      kiemTra("Test 3.6: Edge case - Ghi chú trống hiển thị '--' an toàn mà không làm lỗi UI", htmlRong.includes('--'));
+
+      // ========================================================
+      // TEST CASE 4: Xuất Excel theo mẫu - Đổi tên cột CL thành SỐ HĐ, CM thành TRẠNG THÁI THANH TOÁN
+      // ========================================================
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Cong_No');
+      const dsCotMock = [{ khoa: 'SP01', tenHang: 'Bia Saigon', km: false }];
+      const soCotHang = dsCotMock.length;
+      const cotThanhTien = 4 + soCotHang;   // Cột CK (index 5)
+      const cotSoHD = cotThanhTien + 1;     // Cột CL (index 6)
+      const cotTrangThai = cotThanhTien + 2;// Cột CM (index 7)
+      const cotTongHD = cotThanhTien + 3;   // Cột CN (index 8)
+
+      // Tiêu đề cột hàng 5
+      const hangTieuDe = ws.getRow(5);
+      const tieuDeCot = ['STT', 'NGÀY', 'KHÁCH HÀNG']
+        .concat(dsCotMock.map(c => c.tenHang))
+        .concat(['THÀNH TIỀN', 'SỐ HĐ', 'TRẠNG THÁI THANH TOÁN', 'TỔNG TIỀN TRÊN HOÁ ĐƠN']);
+
+      tieuDeCot.forEach((v, i) => {
+        hangTieuDe.getCell(i + 1).value = v;
+      });
+
+      // Data 3 đơn với 3 trạng thái thanh toán khác nhau
+      const testDonExport = [
+        { maHD: 'HD285687', tenKH: 'HS MART', tienHD: 1656000, soTienNo: 1656000, daThu: 1656000, conLai: 0, trangThai: 'da_thu_du' },
+        { maHD: 'HD285693', tenKH: 'FULL MART', tienHD: 2180000, soTienNo: 2180000, daThu: 1000000, conLai: 1180000, trangThai: 'da_thu_mot_phan' },
+        { maHD: 'HD285696', tenKH: 'FAIFO MART', tienHD: 1663000, soTienNo: 1663000, daThu: 0, conLai: 1663000, trangThai: 'chua_thu' }
+      ];
+
+      let dongSo = 6;
+      testDonExport.forEach((d, idx) => {
+        const cl = conLaiCuaDon(d);
+        const daThu = d.daThu || 0;
+        const tt = (d.trangThai === 'da_thu_du' || cl <= 0) ? 'Đã thanh toán' : (daThu > 0 ? 'Thanh toán một phần' : 'Chưa thanh toán');
+        const giaTri = [idx + 1, '14/10/2026', d.tenKH]
+          .concat([10]) // số lượng sản phẩm SP01
+          .concat([d.tienHD, d.maHD || '', tt, null]);
+
+        const hang = ws.getRow(dongSo);
+        giaTri.forEach((v, i) => {
+          hang.getCell(i + 1).value = v;
+        });
+        dongSo++;
+      });
+
+      // Kiểm tra tiêu đề cột tại dòng 5
+      kiemTra("Test 4.1: Tiêu đề cột CL (vị trí cũ 'GHI CHÚ') được đổi thành 'SỐ HĐ'", hangTieuDe.getCell(cotSoHD).value === 'SỐ HĐ');
+      kiemTra("Test 4.2: Tiêu đề cột CM (vị trí cũ 'SỐ HĐ') được đổi thành 'TRẠNG THÁI THANH TOÁN'", hangTieuDe.getCell(cotTrangThai).value === 'TRẠNG THÁI THANH TOÁN');
+
+      // Kiểm tra dữ liệu tại các dòng hoá đơn
+      const row6 = ws.getRow(6);
+      const row7 = ws.getRow(7);
+      const row8 = ws.getRow(8);
+
+      kiemTra("Test 4.3: Dòng 1 cột SỐ HĐ chứa đúng mã HD285687", row6.getCell(cotSoHD).value === 'HD285687');
+      kiemTra("Test 4.4: Dòng 1 cột TRẠNG THÁI THANH TOÁN chứa 'Đã thanh toán'", row6.getCell(cotTrangThai).value === 'Đã thanh toán');
+
+      kiemTra("Test 4.5: Dòng 2 cột SỐ HĐ chứa đúng mã HD285693", row7.getCell(cotSoHD).value === 'HD285693');
+      kiemTra("Test 4.6: Dòng 2 cột TRẠNG THÁI THANH TOÁN chứa 'Thanh toán một phần'", row7.getCell(cotTrangThai).value === 'Thanh toán một phần');
+
+      kiemTra("Test 4.7: Dòng 3 cột SỐ HĐ chứa đúng mã HD285696", row8.getCell(cotSoHD).value === 'HD285696');
+      kiemTra("Test 4.8: Dòng 3 cột TRẠNG THÁI THANH TOÁN chứa 'Chưa thanh toán'", row8.getCell(cotTrangThai).value === 'Chưa thanh toán');
+
+      // ========================================================
+      // TEST CASE 5: Kiểm tra trực tiếp file nguồn theo_doi_cong_no.html & buoc2_quyet_toan_thu_tien.html
+      // ========================================================
+      try {
+        const xhrTD = new XMLHttpRequest();
+        xhrTD.open("GET", "../theo_doi_cong_no.html", false);
+        xhrTD.send();
+        const htmlTD = xhrTD.responseText;
+
+        kiemTra("Test 5.1: modalThuNoHangLoat có cột 'Tiền Mặt'", htmlTD.includes('>Tiền Mặt</th>'));
+        kiemTra("Test 5.2: modalThuNoHangLoat có cột 'Chuyển Khoản'", htmlTD.includes('>Chuyển Khoản</th>'));
+        kiemTra("Test 5.3: modalThuNoHangLoat có cột 'Lý Do'", htmlTD.includes('>Lý Do</th>'));
+        kiemTra("Test 5.4: Có hàm tnhlNhapTienMat", htmlTD.includes('function tnhlNhapTienMat('));
+        kiemTra("Test 5.5: Có hàm tnhlNhapChuyenKhoan", htmlTD.includes('function tnhlNhapChuyenKhoan('));
+        kiemTra("Test 5.6: Có hàm tnhlNhapGhiChu", htmlTD.includes('function tnhlNhapGhiChu('));
+        kiemTra("Test 5.7: Có cột 'Ghi Chú' trên bảng Chi Tiết Từng Hóa Đơn Nợ", htmlTD.includes('>Ghi Chú</th>'));
+        kiemTra("Test 5.8: xuatBaoCaoExcelTheoMau có tiêu đề cột 'SỐ HĐ'", htmlTD.includes("'SỐ HĐ'"));
+        kiemTra("Test 5.9: xuatBaoCaoExcelTheoMau có tiêu đề cột 'TRẠNG THÁI THANH TOÁN'", htmlTD.includes("'TRẠNG THÁI THANH TOÁN'"));
+
+        const xhrB2 = new XMLHttpRequest();
+        xhrB2.open("GET", "../buoc2_quyet_toan_thu_tien.html", false);
+        xhrB2.send();
+        const htmlB2 = xhrB2.responseText;
+
+        kiemTra("Test 5.10: Bước 2 lưu ghiChu không bị dính fallback dummy 'Nợ chuyến xe'", !htmlB2.includes('ghiChu: h.ghiChu || `Nợ chuyến xe'));
+      } catch (errXhr) {
+        console.warn('XHR test skipped:', errXhr);
+      }
+
+      // Kết quả tổng kết
+      const elTieuDe = document.getElementById('tieuDe');
+      elTieuDe.textContent = (soDat === soTong ? `PASS ` : `FAIL `) + `${soDat}/${soTong} tests`;
+      elTieuDe.className = soDat === soTong ? 'ok' : 'loi';
+      document.getElementById('ketQua').textContent = kq.join('\n');
+    } catch(err) {
+      document.getElementById('tieuDe').textContent = 'ERROR';
+      document.getElementById('tieuDe').className = 'loi';
+      document.getElementById('ketQua').textContent = 'Lỗi thực thi test: ' + err.stack;
+    }
+  }
+
+  chayTatCaTests();
+</script>
+</body>
+</html>

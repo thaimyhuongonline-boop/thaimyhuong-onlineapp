@@ -5799,7 +5799,7 @@
             conLai: conLaiMoi,
             trangThai: trangThaiMoi,
             ngayGhiNo: (tonTaiIdx >= 0 && dsCongNoHienTai[tonTaiIdx].ngayGhiNo) ? dsCongNoHienTai[tonTaiIdx].ngayGhiNo : new Date().toLocaleDateString('vi-VN'),
-            ghiChu: h.ghiChu || `Nợ chuyến xe ${dotHienTai.xe}`
+            ghiChu: (h.ghiChu !== undefined && h.ghiChu !== null) ? String(h.ghiChu).trim() : ''
           };
           if (tonTaiIdx >= 0) {
             dsCongNoHienTai[tonTaiIdx] = banGhiNo;
@@ -5893,7 +5893,7 @@
             tai_khoan_nhan: h.taiKhoanNhan,
             tra_ve: h.traVe,
             no_phat_sinh: h.noPhatSinh,
-            ghi_chu: h.ghiChu,
+            ghi_chu: (h.ghiChu !== undefined && h.ghiChu !== null) ? String(h.ghiChu).trim() : null,
             da_kiem_don: true,
             da_quyet_toan: true,
             la_giao_lai: (h.loaiTraVe === 'giao_lai' || h.laGiaoLai),

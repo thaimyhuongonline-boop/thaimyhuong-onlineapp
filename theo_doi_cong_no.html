@@ -1039,7 +1039,7 @@
                 <th style="width:100px; text-align:right;">Còn Lại</th>
                 <th style="width:90px; text-align:center;">Trạng Thái</th>
                 <th style="width:95px; text-align:center;">Ngày Thanh Toán</th>
-                <th style="min-width:130px;">Ghi Chú Thu</th>
+                <th style="min-width:130px;">Ghi Chú</th>
                 <th style="width:85px; text-align:center;">Thao Tác</th>
               </tr>
             </thead>
@@ -1186,7 +1186,7 @@
   <!-- THU NỢ HÀNG LOẠT (các đơn nợ đã tích chọn)                -->
   <!-- ======================================================== -->
   <div id="modalThuNoHangLoat" class="modal-overlay no-print" style="display:none;" onclick="if(event.target===this) dongThuNoHangLoat()">
-    <div class="modal-card modal-card-large">
+    <div class="modal-card modal-card-large" style="max-width:1050px; width:95vw;">
       <div class="modal-header">
         <div>
           <div style="font-weight:800; font-size:14px; color:var(--text-main);">💰 Thu Nợ Hàng Loạt</div>
@@ -1217,18 +1217,19 @@
           </div>
         </div>
 
-        <div class="table-container" style="max-height:380px; overflow-y:auto; margin-top:10px;">
-          <table class="table-cong-no">
+        <div class="table-container" style="max-height:380px; overflow-y:auto; overflow-x:auto; margin-top:10px;">
+          <table class="table-cong-no" style="min-width:920px;">
             <thead>
               <tr>
                 <th style="width:34px; text-align:center;"><input type="checkbox" id="tnhlChonTatCa" checked onchange="tnhlChonTatCa(this.checked)"></th>
                 <th style="width:35px; text-align:center;">STT</th>
-                <th style="width:95px;">Ngày Nợ</th>
-                <th style="width:100px; text-align:center;">Mã HĐ</th>
-                <th style="min-width:180px;">Khách Hàng</th>
-                <th style="width:110px; text-align:right;">Còn Nợ</th>
-                <th style="width:125px; text-align:right;">Số Tiền Thu</th>
-                <th style="width:135px; text-align:center;">Hình Thức</th>
+                <th style="width:90px;">Ngày Nợ</th>
+                <th style="width:95px; text-align:center;">Mã HĐ</th>
+                <th style="min-width:160px;">Khách Hàng</th>
+                <th style="width:105px; text-align:right;">Còn Nợ</th>
+                <th style="width:125px; text-align:right;">Tiền Mặt</th>
+                <th style="width:125px; text-align:right;">Chuyển Khoản</th>
+                <th style="min-width:140px;">Lý Do</th>
               </tr>
             </thead>
             <tbody id="tnhlBody">
@@ -1794,7 +1795,7 @@
                   conLai: no,
                   trangThai: 'chua_thu',
                   ngayGhiNo: dot.ngayGiao || dot.ngay_giao || new Date().toLocaleDateString('vi-VN'),
-                  ghiChu: h.ghiChu || `Nợ chuyến xe ${dot.xe || ''}`
+                  ghiChu: (h.ghiChu !== undefined && h.ghiChu !== null) ? String(h.ghiChu).trim() : ''
                 });
                 coThayDoi = true;
               } else {
@@ -1815,6 +1816,14 @@
                 if (!String(item.nguoiBan || '').trim() && String(h.nguoiBan || h.nguoi_ban || '').trim()) {
                   item.nguoiBan = String(h.nguoiBan || h.nguoi_ban).trim();
                   coThayDoi = true;
+                }
+                // Đồng bộ ghi chú từ Bước 2
+                if (h.ghiChu !== undefined && h.ghiChu !== null) {
+                  const gcDot = String(h.ghiChu).trim();
+                  if (gcDot !== (item.ghiChu || '')) {
+                    item.ghiChu = gcDot;
+                    coThayDoi = true;
+                  }
                 }
               }
             }
@@ -1852,7 +1861,7 @@
                   conLai: r.no_phat_sinh || 0,
                   trangThai: 'chua_thu',
                   ngayGhiNo: r.ngay_giao || '',
-                  ghiChu: r.ghi_chu || ''
+                  ghiChu: (r.ghi_chu !== undefined && r.ghi_chu !== null) ? String(r.ghi_chu).trim() : ''
                 });
                 coThayDoi = true;
               } else {
@@ -1869,6 +1878,17 @@
                 const nbMayChu = String(r.nguoi_ban || '').trim();
                 if (nbMayChu && nbMayChu !== String(item.nguoiBan || '').trim()) {
                   item.nguoiBan = nbMayChu;
+                  coThayDoi = true;
+                }
+                // Đồng bộ ghi chú từ luu_tru (Bước 2)
+                if (r.ghi_chu !== undefined && r.ghi_chu !== null) {
+                  const gcMayChu = String(r.ghi_chu).trim();
+                  if (gcMayChu !== (item.ghiChu || '')) {
+                    item.ghiChu = gcMayChu;
+                    coThayDoi = true;
+                  }
+                } else if (!r.ghi_chu && typeof item.ghiChu === 'string' && /^Nợ chuyến xe/i.test(item.ghiChu)) {
+                  item.ghiChu = '';
                   coThayDoi = true;
                 }
               }
@@ -1983,6 +2003,7 @@
           .on('postgres_changes', { event: '*', schema: 'public', table: 'thu_no' }, () => taiLaiDuLieuCongNoDebounce())
           .on('postgres_changes', { event: '*', schema: 'public', table: 'cong_no_da_xoa' }, () => taiLaiDuLieuCongNoDebounce())
           .on('postgres_changes', { event: '*', schema: 'public', table: 'cong_no_ngoai_bang_ke' }, () => taiLaiDuLieuCongNoDebounce())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'luu_tru' }, () => taiLaiDuLieuCongNoDebounce())
           .on('postgres_changes', { event: '*', schema: 'public', table: 'khach_tra_truoc' }, () => napSoDuTraTruoc())
           .on('postgres_changes', { event: '*', schema: 'public', table: 'kiem_tra_bao_cao' }, () => napKiemTraCongNo())
           .subscribe();
@@ -2584,7 +2605,7 @@
             <th style="width:110px; text-align:right;">Còn Lại</th>
             <th style="width:100px; text-align:center;">Trạng Thái</th>
             <th style="width:105px; text-align:center;">Ngày Thanh Toán</th>
-            <th style="min-width:140px;">Ghi Chú Thu</th>
+            <th style="min-width:140px;">Ghi Chú</th>
             <th style="width:100px; text-align:center;">Thao Tác</th>
           </tr>
         `;
@@ -2634,7 +2655,11 @@
                 <td class="num-cell" style="color:#dc2626; font-size:13px; font-weight:800;">${formatTien(conLai)}</td>
                 <td style="text-align:center;">${badge}</td>
                 <td style="text-align:center; white-space:nowrap; font-size:11.5px;">${d.ngayThanhToan ? dinhDangNgayVN(d.ngayThanhToan) : '--'}</td>
-                <td style="font-size:11.5px; color:var(--text-muted);">${escapeHtml(d.ghiChuThu || d.ghiChu || '--')}</td>
+                <td style="font-size:11.5px; color:var(--text-muted);">
+                  ${d.ghiChu ? `<div style="font-weight:600; color:var(--text-main);">${escapeHtml(d.ghiChu)}</div>` : ''}
+                  ${d.ghiChuThu ? `<div style="font-size:11px; color:#15803d; margin-top:${d.ghiChu ? '2px' : '0'};">${escapeHtml(d.ghiChuThu)}</div>` : ''}
+                  ${(!d.ghiChu && !d.ghiChuThu) ? '<span style="color:var(--text-muted);">--</span>' : ''}
+                </td>
                 <td style="text-align:center;">
                   <div style="display:flex; gap:3px; justify-content:center; flex-wrap:wrap;">
                     ${conLai > 0 ? `
@@ -4510,7 +4535,7 @@
     // 1 dòng thu_no riêng để Bước 3 xuất đúng bút toán Nợ 1111 / 1121 – Có 131 như thu từng đơn.
     // Không cho thu vượt số còn nợ (khách trả dư → dùng "Thu nợ" từng đơn để ghi phần dư trả trước).
     // ========================================================
-    let dsThuNoHangLoat = [];   // [{ don, chon, soTien, hinhThuc }]
+    let dsThuNoHangLoat = [];   // [{ don, chon, tienMat, chuyenKhoan, ghiChu }]
 
     async function moThuNoHangLoat() {
       if (chanNeuChiXem()) return;
@@ -4527,10 +4552,19 @@
         alert('ℹ️ Các đơn nợ đã chọn không còn khoản nào phải thu.');
         return;
       }
-      dsThuNoHangLoat = ds.map(d => ({ don: d, chon: true, soTien: conLaiCuaDon(d), hinhThuc: 'Tiền mặt' }));
+      const htMacDinh = document.getElementById('tnhlHinhThucChung')?.value || 'Tiền mặt';
+      dsThuNoHangLoat = ds.map(d => {
+        const cl = conLaiCuaDon(d);
+        return {
+          don: d,
+          chon: true,
+          tienMat: htMacDinh === 'Chuyển khoản' ? 0 : cl,
+          chuyenKhoan: htMacDinh === 'Chuyển khoản' ? cl : 0,
+          ghiChu: ''
+        };
+      });
 
       document.getElementById('tnhlNgayThu').value = new Date().toISOString().slice(0, 10);
-      document.getElementById('tnhlHinhThucChung').value = 'Tiền mặt';
       document.getElementById('tnhlGhiChu').value = '';
       document.getElementById('tnhlChonTatCa').checked = true;
       const selNH = document.getElementById('tnhlNganHang');
@@ -4552,6 +4586,7 @@
       const body = document.getElementById('tnhlBody');
       body.innerHTML = dsThuNoHangLoat.map((x, i) => {
         const d = x.don;
+        const cl = conLaiCuaDon(d);
         return `
           <tr style="${x.chon ? '' : 'opacity:0.5;'}">
             <td style="text-align:center;"><input type="checkbox" ${x.chon ? 'checked' : ''} onchange="tnhlChon(${i}, this.checked)"></td>
@@ -4559,16 +4594,25 @@
             <td style="white-space:nowrap;">${escapeHtml(d.ngayGiao || d.ngayGhiNo || '--')}</td>
             <td style="text-align:center;"><b style="font-family:monospace;">${escapeHtml(d.maHD)}</b></td>
             <td><b>${escapeHtml(d.tenKH)}</b></td>
-            <td class="num-cell" style="color:#dc2626; font-weight:800;">${formatTien(conLaiCuaDon(d))}</td>
+            <td class="num-cell" style="color:#dc2626; font-weight:800;">${formatTien(cl)}</td>
             <td style="text-align:right;">
               <input type="text" class="form-control" style="height:28px; padding:0 6px; text-align:right; font-weight:800; color:#16a34a;"
-                value="${formatTien(x.soTien)}" ${x.chon ? '' : 'disabled'} oninput="tnhlNhapTien(${i}, this)">
+                value="${formatTien(x.tienMat || 0)}" ${x.chon ? '' : 'disabled'}
+                onfocus="if(parseVNNumber_(this.value)===0) this.value='';"
+                onblur="this.value = formatTien(dsThuNoHangLoat[${i}].tienMat || 0);"
+                oninput="tnhlNhapTienMat(${i}, this)">
             </td>
-            <td style="text-align:center;">
-              <select class="form-control" style="height:28px; padding:0 4px; font-size:12px; font-weight:700;" ${x.chon ? '' : 'disabled'} onchange="tnhlDoiHinhThuc(${i}, this.value)">
-                <option value="Tiền mặt" ${x.hinhThuc === 'Tiền mặt' ? 'selected' : ''}>💵 Tiền mặt</option>
-                <option value="Chuyển khoản" ${x.hinhThuc === 'Chuyển khoản' ? 'selected' : ''}>🏦 Chuyển khoản</option>
-              </select>
+            <td style="text-align:right;">
+              <input type="text" class="form-control" style="height:28px; padding:0 6px; text-align:right; font-weight:800; color:#2563eb;"
+                value="${formatTien(x.chuyenKhoan || 0)}" ${x.chon ? '' : 'disabled'}
+                onfocus="if(parseVNNumber_(this.value)===0) this.value='';"
+                onblur="this.value = formatTien(dsThuNoHangLoat[${i}].chuyenKhoan || 0);"
+                oninput="tnhlNhapChuyenKhoan(${i}, this)">
+            </td>
+            <td>
+              <input type="text" class="form-control" style="height:28px; padding:0 6px; font-size:12px;"
+                placeholder="Lý do thu / ghi chú..." value="${escapeHtml(x.ghiChu || '')}" ${x.chon ? '' : 'disabled'}
+                oninput="tnhlNhapGhiChu(${i}, this.value)">
             </td>
           </tr>`;
       }).join('');
@@ -4579,60 +4623,122 @@
       const x = dsThuNoHangLoat[i];
       if (!x) return;
       x.chon = !!chon;
-      if (x.chon && !(x.soTien > 0)) x.soTien = conLaiCuaDon(x.don);
+      const cl = conLaiCuaDon(x.don);
+      if (x.chon && (x.tienMat || 0) === 0 && (x.chuyenKhoan || 0) === 0) {
+        const ht = document.getElementById('tnhlHinhThucChung')?.value || 'Tiền mặt';
+        if (ht === 'Chuyển khoản') {
+          x.chuyenKhoan = cl;
+          x.tienMat = 0;
+        } else {
+          x.tienMat = cl;
+          x.chuyenKhoan = 0;
+        }
+      }
       const chk = document.getElementById('tnhlChonTatCa');
       if (chk) chk.checked = dsThuNoHangLoat.every(z => z.chon);
       veThuNoHangLoat();
     }
 
     function tnhlChonTatCa(chon) {
-      dsThuNoHangLoat.forEach(x => { x.chon = !!chon; if (x.chon && !(x.soTien > 0)) x.soTien = conLaiCuaDon(x.don); });
+      const ht = document.getElementById('tnhlHinhThucChung')?.value || 'Tiền mặt';
+      dsThuNoHangLoat.forEach(x => {
+        x.chon = !!chon;
+        const cl = conLaiCuaDon(x.don);
+        if (x.chon && (x.tienMat || 0) === 0 && (x.chuyenKhoan || 0) === 0) {
+          if (ht === 'Chuyển khoản') {
+            x.chuyenKhoan = cl;
+            x.tienMat = 0;
+          } else {
+            x.tienMat = cl;
+            x.chuyenKhoan = 0;
+          }
+        }
+      });
       veThuNoHangLoat();
     }
 
-    // Số tiền thu từng dòng: không vượt số còn nợ của đơn
-    function tnhlNhapTien(i, el) {
+    // Nhập Tiền mặt từng dòng: (Tiền mặt + Chuyển khoản) không vượt Còn nợ
+    function tnhlNhapTienMat(i, el) {
       const x = dsThuNoHangLoat[i];
       if (!x) return;
       const cl = conLaiCuaDon(x.don);
-      x.soTien = Math.max(0, Math.min(cl, parseVNNumber_(el.value)));
-      el.value = formatTien(x.soTien);
+      let val = parseVNNumber_(el.value);
+      const ckHienTai = x.chuyenKhoan || 0;
+      if (val + ckHienTai > cl) {
+        val = Math.max(0, cl - ckHienTai);
+        el.value = formatTien(val);
+      }
+      x.tienMat = val;
       capNhatTongThuNoHangLoat();
     }
 
-    function tnhlDoiHinhThuc(i, ht) {
+    // Nhập Chuyển khoản từng dòng: (Tiền mặt + Chuyển khoản) không vượt Còn nợ
+    function tnhlNhapChuyenKhoan(i, el) {
       const x = dsThuNoHangLoat[i];
       if (!x) return;
-      x.hinhThuc = ht;
+      const cl = conLaiCuaDon(x.don);
+      let val = parseVNNumber_(el.value);
+      const tmHienTai = x.tienMat || 0;
+      if (val + tmHienTai > cl) {
+        val = Math.max(0, cl - tmHienTai);
+        el.value = formatTien(val);
+      }
+      x.chuyenKhoan = val;
       capNhatTongThuNoHangLoat();
+    }
+
+    function tnhlNhapGhiChu(i, val) {
+      const x = dsThuNoHangLoat[i];
+      if (!x) return;
+      x.ghiChu = val;
     }
 
     function tnhlApDungHinhThucChung(ht) {
-      dsThuNoHangLoat.forEach(x => { x.hinhThuc = ht; });
+      dsThuNoHangLoat.forEach(x => {
+        const cl = conLaiCuaDon(x.don);
+        if (ht === 'Chuyển khoản') {
+          x.chuyenKhoan = cl;
+          x.tienMat = 0;
+        } else {
+          x.tienMat = cl;
+          x.chuyenKhoan = 0;
+        }
+      });
       veThuNoHangLoat();
     }
 
     function capNhatTongThuNoHangLoat() {
-      const chon = dsThuNoHangLoat.filter(x => x.chon && x.soTien > 0);
-      const tm = chon.filter(x => x.hinhThuc !== 'Chuyển khoản').reduce((s, x) => s + x.soTien, 0);
-      const ck = chon.filter(x => x.hinhThuc === 'Chuyển khoản').reduce((s, x) => s + x.soTien, 0);
+      const chon = dsThuNoHangLoat.filter(x => x.chon && ((x.tienMat || 0) > 0 || (x.chuyenKhoan || 0) > 0));
+      const tm = chon.reduce((s, x) => s + (x.tienMat || 0), 0);
+      const ck = chon.reduce((s, x) => s + (x.chuyenKhoan || 0), 0);
       document.getElementById('tnhlTong').innerHTML =
         `Thu <b>${chon.length}</b> đơn · Tổng thu <b style="font-size:15px; color:#15803d;">${formatTien(tm + ck)} đ</b>` +
-        ` (💵 Tiền mặt ${formatTien(tm)} đ · 🏦 Chuyển khoản ${formatTien(ck)} đ)`;
+        ` (💵 Tiền mặt <b>${formatTien(tm)} đ</b> · 🏦 Chuyển khoản <b>${formatTien(ck)} đ</b>)`;
       document.getElementById('tnhlBoxNganHang').style.display = ck > 0 ? '' : 'none';
     }
 
     async function luuThuNoHangLoat() {
       if (chanNeuChiXem()) return;
-      const chon = dsThuNoHangLoat.filter(x => x.chon && x.soTien > 0);
+      const chon = dsThuNoHangLoat.filter(x => x.chon && ((x.tienMat || 0) > 0 || (x.chuyenKhoan || 0) > 0));
       if (!chon.length) { alert('⚠️ Chưa có đơn nào được chọn để thu (hoặc số tiền thu đều bằng 0).'); return; }
+
+      // Chặn nếu bất kỳ đơn nào có (Tiền mặt + Chuyển khoản) > Còn nợ
+      for (const x of chon) {
+        const cl = conLaiCuaDon(x.don);
+        const tongThuDon = (x.tienMat || 0) + (x.chuyenKhoan || 0);
+        if (tongThuDon > cl + 0.5) {
+          alert(`❌ Hóa đơn ${x.don.maHD} (${x.don.tenKH}):\nTổng tiền thu (${formatTien(tongThuDon)} đ) vượt quá số tiền còn nợ (${formatTien(cl)} đ)!`);
+          return;
+        }
+      }
+
       const ngayThu = document.getElementById('tnhlNgayThu').value || new Date().toISOString().slice(0, 10);
       const ghiChuChung = document.getElementById('tnhlGhiChu').value.trim();
-      const coCK = chon.some(x => x.hinhThuc === 'Chuyển khoản');
+      const coCK = chon.some(x => (x.chuyenKhoan || 0) > 0);
       const nhNhan = coCK ? document.getElementById('tnhlNganHang').value : '';
       if (coCK && !nhNhan) { alert('⚠️ Vui lòng chọn Ngân hàng nhận cho các đơn thu bằng Chuyển khoản!'); return; }
-      const tm = chon.filter(x => x.hinhThuc !== 'Chuyển khoản').reduce((s, x) => s + x.soTien, 0);
-      const ck = chon.filter(x => x.hinhThuc === 'Chuyển khoản').reduce((s, x) => s + x.soTien, 0);
+      const tm = chon.reduce((s, x) => s + (x.tienMat || 0), 0);
+      const ck = chon.reduce((s, x) => s + (x.chuyenKhoan || 0), 0);
       const soKH = new Set(chon.map(x => khoaKhachCongNo(x.don))).size;
       if (!confirm(
         `💰 XÁC NHẬN THU NỢ HÀNG LOẠT\n\n` +
@@ -4640,7 +4746,7 @@
         `• Tổng thu: ${formatTien(tm + ck)} đ\n` +
         (tm ? `   – Tiền mặt: ${formatTien(tm)} đ\n` : '') +
         (ck ? `   – Chuyển khoản: ${formatTien(ck)} đ qua ${nhNhan}\n` : '') +
-        (ghiChuChung ? `• Ghi chú: ${ghiChuChung}\n` : '') +
+        (ghiChuChung ? `• Ghi chú chung: ${ghiChuChung}\n` : '') +
         `\nBấm [OK] để ghi nhận.`
       )) return;
 
@@ -4664,11 +4770,23 @@
           x.don = d;
           doiChieuDaThuVoiCloud(d, tongCloud.get(d.id) || 0);
           d.conLai = Math.max(0, (d.soTienNo || 0) - (d.daThu || 0));
-          if (x.soTien > d.conLai + 0.5) vuot.push(x);
+          const tongThuDon = (x.tienMat || 0) + (x.chuyenKhoan || 0);
+          if (tongThuDon > d.conLai + 0.5) vuot.push(x);
         });
         if (vuot.length) {
           ghiSoCongNo(danhSachCongNo);
-          vuot.forEach(x => { x.soTien = conLaiCuaDon(x.don); if (!(x.soTien > 0)) x.chon = false; });
+          vuot.forEach(x => {
+            const cl = conLaiCuaDon(x.don);
+            if ((x.tienMat || 0) + (x.chuyenKhoan || 0) > cl) {
+              if ((x.chuyenKhoan || 0) > cl) {
+                x.chuyenKhoan = cl;
+                x.tienMat = 0;
+              } else {
+                x.tienMat = cl - (x.chuyenKhoan || 0);
+              }
+            }
+            if (!((x.tienMat || 0) + (x.chuyenKhoan || 0) > 0)) x.chon = false;
+          });
           veThuNoHangLoat();
           capNhatKPI();
           veBangCongNo();
@@ -4678,15 +4796,34 @@
           return;
         }
 
-        // 2. Ghi tất cả khoản thu trong 1 lần — mỗi đơn 1 dòng thu_no
+        // 2. Ghi tất cả khoản thu trong 1 lần — tách rõ ràng dòng Tiền mặt và dòng Chuyển khoản
         const nguoiThu = layNguoiThaoTac();
-        const rows = chon.map(x => ({
-          id_don_no: x.don.id, ma_hd: x.don.maHD || '', ma_dot: x.don.maDot || '',
-          ma_kh: x.don.maKH || '', ten_kh: x.don.tenKH || '',
-          so_tien: x.soTien, hinh_thuc: x.hinhThuc, tai_khoan_nhan: x.hinhThuc === 'Chuyển khoản' ? nhNhan : '',
-          nguoi_thu: nguoiThu, ngay_thu: ngayThu,
-          ghi_chu: `${x.don.tenKH || ''} nộp nợ HĐ ${x.don.maHD || ''} — thu hàng loạt${ghiChuChung ? ' — ' + ghiChuChung : ''}`
-        }));
+        const rows = [];
+        chon.forEach(x => {
+          const lyDoDon = (x.ghiChu || '').trim();
+          const phanGhiChuChung = ghiChuChung ? ` — ${ghiChuChung}` : '';
+          const phanLyDo = lyDoDon ? ` (${lyDoDon})` : '';
+
+          if ((x.tienMat || 0) > 0) {
+            rows.push({
+              id_don_no: x.don.id, ma_hd: x.don.maHD || '', ma_dot: x.don.maDot || '',
+              ma_kh: x.don.maKH || '', ten_kh: x.don.tenKH || '',
+              so_tien: x.tienMat, hinh_thuc: 'Tiền mặt', tai_khoan_nhan: '',
+              nguoi_thu: nguoiThu, ngay_thu: ngayThu,
+              ghi_chu: `${x.don.tenKH || ''} nộp nợ HĐ ${x.don.maHD || ''} — thu hàng loạt${phanGhiChuChung}${phanLyDo}`
+            });
+          }
+          if ((x.chuyenKhoan || 0) > 0) {
+            rows.push({
+              id_don_no: x.don.id, ma_hd: x.don.maHD || '', ma_dot: x.don.maDot || '',
+              ma_kh: x.don.maKH || '', ten_kh: x.don.tenKH || '',
+              so_tien: x.chuyenKhoan, hinh_thuc: 'Chuyển khoản', tai_khoan_nhan: nhNhan,
+              nguoi_thu: nguoiThu, ngay_thu: ngayThu,
+              ghi_chu: `${x.don.tenKH || ''} nộp nợ HĐ ${x.don.maHD || ''} — thu hàng loạt${phanGhiChuChung}${phanLyDo}`
+            });
+          }
+        });
+
         const { error } = await sb.from('thu_no').insert(rows);
         if (error) {
           alert('❌ KHÔNG ghi nhận được các khoản thu (chưa lưu lên máy chủ, không có khoản nào được ghi).\n\nChi tiết: ' + (error.message || JSON.stringify(error)));
@@ -4696,14 +4833,20 @@
         // 3. Cập nhật sổ công nợ trên máy này
         chon.forEach(x => {
           const d = x.don;
-          d.daThu = (d.daThu || 0) + x.soTien;
-          if (typeof d.daThuCloudDaDongBo === 'number') d.daThuCloudDaDongBo += x.soTien;
+          const tongThuDon = (x.tienMat || 0) + (x.chuyenKhoan || 0);
+          d.daThu = (d.daThu || 0) + tongThuDon;
+          if (typeof d.daThuCloudDaDongBo === 'number') d.daThuCloudDaDongBo += tongThuDon;
           d.conLai = Math.max(0, (d.soTienNo || 0) - d.daThu);
           d.trangThai = d.conLai <= 0 ? 'da_thu_du' : 'da_thu_mot_phan';
-          if (x.hinhThuc === 'Chuyển khoản') d.taiKhoanNhan = nhNhan;
+          if ((x.chuyenKhoan || 0) > 0) d.taiKhoanNhan = nhNhan;
           d.ngayThanhToan = ngayThu;
-          d.ghiChuThu = `Đã thu ${formatTien(x.soTien)} đ (${x.hinhThuc}${x.hinhThuc === 'Chuyển khoản' ? ' qua ' + nhNhan : ''}) ngày ${ngayThu} — thu hàng loạt.${ghiChuChung ? ' ' + ghiChuChung : ''}`;
-          if (thuNoCloudMap.has(d.id) || thuNoCloudDaTai) thuNoCloudMap.set(d.id, (thuNoCloudMap.get(d.id) || 0) + x.soTien);
+
+          const htMoTa = [];
+          if ((x.tienMat || 0) > 0) htMoTa.push(`TM ${formatTien(x.tienMat)} đ`);
+          if ((x.chuyenKhoan || 0) > 0) htMoTa.push(`CK ${formatTien(x.chuyenKhoan)} đ${nhNhan ? ' qua ' + nhNhan : ''}`);
+          const lyDoDon = (x.ghiChu || '').trim();
+          d.ghiChuThu = `Đã thu ${formatTien(tongThuDon)} đ (${htMoTa.join(' + ')}) ngày ${ngayThu} — thu hàng loạt.${ghiChuChung ? ' ' + ghiChuChung : ''}${lyDoDon ? ' (' + lyDoDon + ')' : ''}`;
+          if (thuNoCloudMap.has(d.id) || thuNoCloudDaTai) thuNoCloudMap.set(d.id, (thuNoCloudMap.get(d.id) || 0) + tongThuDon);
         });
         ghiSoCongNo(danhSachCongNo);
         dongThuNoHangLoat();
@@ -4754,7 +4897,11 @@
             <td class="num-cell" style="color:#dc2626; font-weight:800;">${formatTien(cl)}</td>
             <td style="text-align:center;">${badge}</td>
             <td style="text-align:center; white-space:nowrap; font-size:11px;">${d.ngayThanhToan ? dinhDangNgayVN(d.ngayThanhToan) : '--'}</td>
-            <td style="font-size:11px; color:var(--text-muted);">${escapeHtml(d.ghiChuThu || d.ghiChu || '--')}</td>
+            <td style="font-size:11px; color:var(--text-muted);">
+              ${d.ghiChu ? `<div style="font-weight:600; color:var(--text-main);">${escapeHtml(d.ghiChu)}</div>` : ''}
+              ${d.ghiChuThu ? `<div style="font-size:10.5px; color:#15803d; margin-top:${d.ghiChu ? '2px' : '0'};">${escapeHtml(d.ghiChuThu)}</div>` : ''}
+              ${(!d.ghiChu && !d.ghiChuThu) ? '<span style="color:var(--text-muted);">--</span>' : ''}
+            </td>
             <td style="text-align:center;">
               <div style="display:flex; gap:3px; justify-content:center;">
                 ${cl > 0 ? `
@@ -5710,7 +5857,7 @@
           margins: { left: 0.25, right: 0.25, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 }, printTitlesRow: '5:5' }
       });
       const soCotHang = dsCot.length;
-      const cotThanhTien = 4 + soCotHang, cotGhiChu = cotThanhTien + 1, cotSoHD = cotThanhTien + 2, cotTongHD = cotThanhTien + 3;
+      const cotThanhTien = 4 + soCotHang, cotSoHD = cotThanhTien + 1, cotTrangThai = cotThanhTien + 2, cotTongHD = cotThanhTien + 3;
       const soCot = cotTongHD;
       const FONT = 'Times New Roman';
       const vien = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
@@ -5722,7 +5869,7 @@
       const doRongCotHang = c => Math.min(16, Math.max(9, Math.ceil(tenCotHang(c).length / 3) + 2));
       ws.columns = [{ width: 5 }, { width: 11 }, { width: 34 }]
         .concat(dsCot.map(c => ({ width: doRongCotHang(c) })))
-        .concat([{ width: 13 }, { width: 12 }, { width: 14 }, { width: 15 }]);
+        .concat([{ width: 13 }, { width: 14 }, { width: 22 }, { width: 15 }]);
 
       // Đầu trang: logo + thông tin công ty · hotline · tiêu đề
       if (logo) {
@@ -5755,7 +5902,7 @@
       const hangTieuDe = ws.getRow(5);
       const tieuDeCot = ['STT', 'NGÀY', 'KHÁCH HÀNG']
         .concat(dsCot.map(c => (c.tenHang || c.maHang) + (c.km ? '\n(KM)' : '')))   // tên sản phẩm (không có tên thì dùng mã)
-        .concat(['THÀNH TIỀN', 'GHI CHÚ', 'SỐ HĐ', 'TỔNG TIỀN TRÊN HOÁ ĐƠN']);
+        .concat(['THÀNH TIỀN', 'SỐ HĐ', 'TRẠNG THÁI THANH TOÁN', 'TỔNG TIỀN TRÊN HOÁ ĐƠN']);
       tieuDeCot.forEach((v, i) => {
         const c = hangTieuDe.getCell(i + 1);
         c.value = v;
@@ -5778,9 +5925,12 @@
       let dongSo = 6;
       dsDon.forEach((d, idx) => {
         const m = slTheoDon.get(d.id) || new Map();
+        const cl = conLaiCuaDon(d);
+        const daThu = d.daThu || 0;
+        const tt = (d.trangThai === 'da_thu_du' || cl <= 0) ? 'Đã thanh toán' : (daThu > 0 ? 'Thanh toán một phần' : 'Chưa thanh toán');
         const giaTri = [idx + 1, dinhDangNgayVN(ngayNoCuaDon(d)) || d.ngayGiao || '', tenKhachTrenBaoCao(khoaKhachCongNo(d), chung.soTu)]
           .concat(dsCot.map(c => { const v = Math.round((m.get(c.khoa) || 0) * 1000) / 1000; return v ? v : null; }))
-          .concat([d.tienHD || d.soTienNo || 0, d.maHD || '', null, null]);
+          .concat([d.tienHD || d.soTienNo || 0, d.maHD || '', tt, null]);
         const hang = ws.getRow(dongSo);
         const mauNen = idx % 2 === 0 ? 'E2EFDA' : 'FFF2CC';
         giaTri.forEach((v, i) => {
