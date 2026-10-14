@@ -1692,16 +1692,29 @@
       container.innerHTML = '';
       // Highlight chuyến chứa đơn trùng (được set trước khi gọi hàm này từ luồng upload)
       const _tenTrung = window._trungChuyenHighlight || '';
+      const _maDotTrung = window._trungChuyenMaDot || '';
       window._trungChuyenHighlight = null;
+      window._trungChuyenMaDot = null;
       let _trungEl = null;
 
       lichSu.forEach(dot => {
         const item = document.createElement('div');
         // Kiểm tra xem đây có phải chuyến chứa đơn trùng không
-        // tenChuyenCu = "xe ngay_giao_ISO" (vd "HD2 SÁNG 2026-10-06")
-        // dot.ngayGiao có thể là "06/10/2026" → chuẩn hoá sang ISO để so sánh
-        const dotNgayISO = (dot.ngayGiao || '').replace(/^(\d{2})\/(\d{2})\/(\d{4})$/, '$3-$2-$1');
-        const laTrung = _tenTrung && _tenTrung === ((dot.xe || '') + ' ' + dotNgayISO);
+        const dotNgayISO = (typeof chuanHoaNgayISO_ === 'function' ? chuanHoaNgayISO_(dot.ngayGiao || dot.ngayRaw) : '') || (dot.ngayGiao || '').replace(/^(\d{2})\/(\d{2})\/(\d{4})$/, '$3-$2-$1');
+        let laTrung = false;
+        if (_maDotTrung && dot.maDot === _maDotTrung) {
+          laTrung = true;
+        } else if (_tenTrung) {
+          const tenTrungBoDau = typeof boDauXemLai_ === 'function' ? boDauXemLai_(_tenTrung) : _tenTrung.toLowerCase();
+          const dotXeBoDau = typeof boDauXemLai_ === 'function' ? boDauXemLai_(dot.xe || '') : (dot.xe || '').toLowerCase();
+          const dotNgayNorm = (dot.ngayGiao || '').trim();
+          if (_tenTrung === dot.maDot ||
+              tenTrungBoDau === `${dotXeBoDau} ${dotNgayISO}`.trim() ||
+              tenTrungBoDau === `${dotXeBoDau} ${dotNgayNorm}`.trim() ||
+              (dotXeBoDau && tenTrungBoDau.includes(dotXeBoDau) && (tenTrungBoDau.includes(dotNgayISO) || tenTrungBoDau.includes(dotNgayNorm)))) {
+            laTrung = true;
+          }
+        }
 
         item.style.cssText = laTrung
           ? "background:#fef2f2; border:2px solid #dc2626; border-radius:6px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center; gap:12px; transition:all 0.2s;"
@@ -1729,10 +1742,13 @@
               ${dot.nvGiao ? `<span>Lơ xe: ${escapeHtml(dot.nvGiao)}</span>` : ''}
             </div>
           </div>
-          <div style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
+          <div style="display:flex; gap:6px; align-items:center; flex-shrink:0; flex-wrap:wrap;">
             <button type="button" class="btn btn-primary btn-sm" onclick="xemLaiMotChuyenXe(${escapeHtml(JSON.stringify(dot.maDot))})" title="Mở lại biểu mẫu Phiếu xuất kho và Bảng kê thu tiền của chuyến xe này">
               <span>👁️</span> Xem Biểu Mẫu
             </button>
+            <a href="buoc2_quyet_toan_thu_tien.html?maDot=${encodeURIComponent(dot.maDot)}" class="btn btn-sm" style="background:#16a34a; color:#fff; text-decoration:none; font-weight:700; padding:4px 8px; border-radius:4px; display:inline-flex; align-items:center; gap:4px; font-size:12px;" title="Chuyển sang Bước 2 để xem số liệu quyết toán của chuyến xe này">
+              <span>💰</span> Quyết toán B2
+            </a>
             <button type="button" class="btn btn-outline btn-sm" onclick="xoaMotChuyenXeKhoiLichSu(${escapeHtml(JSON.stringify(dot.maDot))})" style="color:#dc2626; border-color:#fca5a5;" title="Xóa chuyến xe này khỏi lịch sử">
               <span>🗑️</span>
             </button>
@@ -1749,8 +1765,14 @@
       // Chuyến chứa đơn trùng phải luôn thấy được → bỏ bộ lọc đang đặt
       if (_trungEl) xoaLocXemLaiChuyenXe(true);
       locDanhSachChuyenXeDaLam();
-      // Scroll tới chuyến trùng sau khi modal đã render xong
-      if (_trungEl) setTimeout(() => _trungEl.scrollIntoView({ behavior: 'smooth', block: 'center' }), 350);
+      // Scroll tới chuyến trùng sau khi modal đã render xong và hiệu ứng nhấp nháy viền
+      if (_trungEl) {
+        setTimeout(() => {
+          _trungEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          _trungEl.style.boxShadow = "0 0 0 4px rgba(220, 38, 38, 0.4)";
+          setTimeout(() => { if (_trungEl) _trungEl.style.boxShadow = ""; }, 3000);
+        }, 350);
+      }
     }
 
     function dongModalXemLaiChuyenXe() {
@@ -4652,9 +4674,13 @@
       if (typeof sb === 'undefined') return null;
       try {
         for (let i = 0; i < ds.length; i += 150) {
-          const { data, error } = await sb.from('luu_tru').select('ma_hd, xe, ngay_giao').in('ma_hd', ds.slice(i, i + 150));
+          const { data, error } = await sb.from('luu_tru').select('ma_hd, xe, ngay_giao, ma_dot').in('ma_hd', ds.slice(i, i + 150));
           if (error) return null;
-          (data || []).forEach(r => kq.set(String(r.ma_hd || '').trim().toUpperCase(), `${r.xe || '?'} ${r.ngay_giao || ''}`.trim()));
+          (data || []).forEach(r => {
+            const m = String(r.ma_hd || '').trim().toUpperCase();
+            kq.set(m, `${r.xe || '?'} ${r.ngay_giao || ''}`.trim());
+            if (r.ma_dot && !kq.firstMaDot) kq.firstMaDot = r.ma_dot;
+          });
         }
       } catch (e) { return null; }
       return kq;
@@ -4884,10 +4910,11 @@
         if (duLieuTongHop.length === 0) {
           if (daChiaXe && daChiaXe.size) {
             const tenChuyenCu = Array.from(daChiaXe.values())[0] || '';
+            const maDotCu = daChiaXe.firstMaDot || '';
             const msgTrung = `⚠️ Tất cả ${daChiaXe.size} hóa đơn trong file đều ĐÃ ĐƯỢC CHIA XE trước đó (chuyến: ${tenChuyenCu}):\n` +
               Array.from(daChiaXe.keys()).slice(0, 10).join(', ') + (daChiaXe.size > 10 ? ` … và ${daChiaXe.size - 10} HĐ khác` : '') +
               `\n\n• Bấm [OK] = NẠP LẠI chuyến này (ghi đè chuyến cũ "${tenChuyenCu}")` +
-              `\n• Bấm [Hủy] = Mở Lịch sử để xem lại / xóa chuyến cũ` +
+              `\n• Bấm [Hủy] = Mở Lịch sử để xem lại / sang Bước 2 đối soát` +
               `\n\n👉 Nếu đây là đơn GIAO LẠI: Bấm [Hủy] rồi dùng nút "🔄 Đơn hẹn giao lại" màu cam.`;
             const napLai = confirm(msgTrung);
             if (napLai) {
@@ -4895,8 +4922,9 @@
               duLieuTongHop = dongTrung;
               tongDongMoiThem = dongTrung.length;
             } else {
-              // Mở Lịch Sử để xem/xóa chuyến cũ
+              // Mở Lịch Sử để xem/xóa chuyến cũ và focus ngay chuyến này
               window._trungChuyenHighlight = tenChuyenCu;
+              window._trungChuyenMaDot = maDotCu;
               moModalXemLaiChuyenXe();
               return;
             }

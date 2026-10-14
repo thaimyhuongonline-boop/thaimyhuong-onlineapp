@@ -1882,6 +1882,10 @@
                   danhSachTatCaDot[idx].daQuyetToan = dotSB.daQuyetToan;
                   danhSachTatCaDot[idx].soLuongHD = dotSB.soLuongHD;
                   danhSachTatCaDot[idx].tongTien = dotSB.tongTien;
+                  danhSachTatCaDot[idx].xe = dotSB.xe || danhSachTatCaDot[idx].xe;
+                  danhSachTatCaDot[idx].taiXe = dotSB.taiXe || danhSachTatCaDot[idx].taiXe;
+                  danhSachTatCaDot[idx].ngayGiao = dotSB.ngayGiao || danhSachTatCaDot[idx].ngayGiao;
+                  danhSachTatCaDot[idx].ngayRaw = dotSB.ngayRaw || danhSachTatCaDot[idx].ngayRaw;
                   if (!dotHienTai || dotHienTai.maDot !== dotSB.maDot) {
                     danhSachTatCaDot[idx].danhSachChiTiet = dotSB.danhSachChiTiet;
                   }
@@ -1968,10 +1972,16 @@
       try {
         const dmXe = JSON.parse(localStorage.getItem('tmh_danh_muc_xe') || '[]');
         dmXe.forEach(x => {
-          const ten = (x.bien_so || x.ten_xe || x.ten || '').trim();
+          const ten = (x.bien_so || x.ten_xe || x.ten || x.loai_xe || '').trim();
           if (ten) tapHopXe.add(ten);
         });
       } catch (e) {}
+      if (typeof DANH_SACH_XE_MAC_DINH !== 'undefined' && Array.isArray(DANH_SACH_XE_MAC_DINH)) {
+        DANH_SACH_XE_MAC_DINH.forEach(x => {
+          const ten = (x.loai_xe || x.bien_so || '').trim();
+          if (ten) tapHopXe.add(ten);
+        });
+      }
 
       const dsXe = Array.from(tapHopXe).sort((a, b) => a.localeCompare(b, 'vi', { numeric: true }));
       selXe.innerHTML = '<option value="tat_ca">🚚 Tất cả xe</option>';
@@ -1981,8 +1991,9 @@
         opt.textContent = `🚚 ${x}`;
         selXe.appendChild(opt);
       });
-      if (currentVal && Array.from(selXe.options).some(o => o.value === currentVal)) {
-        selXe.value = currentVal;
+      if (currentVal && currentVal !== 'tat_ca') {
+        const optFound = Array.from(selXe.options).find(o => o.value === currentVal || (typeof boDauTV === 'function' && boDauTV(o.value) === boDauTV(currentVal)));
+        if (optFound) selXe.value = optFound.value;
       }
     }
 
@@ -2028,9 +2039,9 @@
 
       // 2. Lọc theo xe
       if (locXe && locXe !== 'tat_ca') {
-        const lx = locXe.trim().toUpperCase();
+        const lx = typeof boDauTV === 'function' ? boDauTV(locXe) : locXe.trim().toUpperCase();
         dsLoc = dsLoc.filter(d => {
-          const x = (d.xe || '').trim().toUpperCase();
+          const x = typeof boDauTV === 'function' ? boDauTV(d.xe || '') : (d.xe || '').trim().toUpperCase();
           return x === lx || x.includes(lx) || lx.includes(x);
         });
       }
@@ -2038,13 +2049,13 @@
       // 3. Lọc theo khoảng ngày (Từ ngày - Đến ngày)
       if (tuNgay) {
         dsLoc = dsLoc.filter(d => {
-          const ng = chuanHoaNgayISO(d.ngayRaw) || chuanHoaNgayISO(d.ngayGiao) || '';
+          const ng = chuanHoaNgayISO(d.ngayGiao) || chuanHoaNgayISO(d.ngayRaw) || '';
           return !ng || ng >= tuNgay;
         });
       }
       if (denNgay) {
         dsLoc = dsLoc.filter(d => {
-          const ng = chuanHoaNgayISO(d.ngayRaw) || chuanHoaNgayISO(d.ngayGiao) || '';
+          const ng = chuanHoaNgayISO(d.ngayGiao) || chuanHoaNgayISO(d.ngayRaw) || '';
           return !ng || ng <= denNgay;
         });
       }
@@ -2138,8 +2149,9 @@
     // từ Supabase khi máy này chưa từng có đủ dữ liệu cục bộ cho đợt này — xảy ra
     // khi 1 máy khác đã quyết toán chuyến xe, còn máy đang mở chỉ dựng lại đợt này
     // từ bảng luu_tru (không có các số liệu quyết toán riêng đó).
-    async function napBoSungPhieuNopTuCloud(dot) {
-      if (!dot || dot.tienChi !== undefined || typeof sb === 'undefined') return;
+    async function napBoSungPhieuNopTuCloud(dot, batBuoc = false) {
+      if (!dot || typeof sb === 'undefined') return;
+      if (!batBuoc && dot._daNapPhieuNopCloud) return;
       try {
         const { data, error } = await sb.from('phieu_nop_tien').select('*').eq('ma_phieu', `PNP_${dot.maDot}`).maybeSingle();
         if (error || !data) return;
@@ -2159,8 +2171,9 @@
         if (Array.isArray(data.danh_sach_don_no_dang_thu)) {
           dot.danhSachDonNoDangThu = data.danh_sach_don_no_dang_thu;
         }
-        if (Array.isArray(data.danh_sach_chi_phi)) dot.danhSachChiPhi = data.danh_sach_chi_phi;
-        if (Array.isArray(data.danh_sach_thu_no)) dot.danhSachThuNo = data.danh_sach_thu_no;
+        if (Array.isArray(data.danh_sach_chi_phi) && data.danh_sach_chi_phi.length) dot.danhSachChiPhi = data.danh_sach_chi_phi;
+        if (Array.isArray(data.danh_sach_thu_no) && data.danh_sach_thu_no.length) dot.danhSachThuNo = data.danh_sach_thu_no;
+        dot._daNapPhieuNopCloud = true;
         // Lưu lại vào localStorage của máy này để những lần mở sau không cần tải lại
         const idx = danhSachTatCaDot.findIndex(d => d.maDot === dot.maDot);
         if (idx >= 0) danhSachTatCaDot[idx] = dot;
@@ -2177,7 +2190,22 @@
       // Nếu đợt đã quyết toán nhưng máy này chưa có đủ số liệu (đợt được dựng lại
       // từ luu_tru trên máy khác) thì bổ sung lại từ phiếu nộp tiền trên Supabase
       if (dotHienTai.daQuyetToan) {
-        await napBoSungPhieuNopTuCloud(dotHienTai);
+        await napBoSungPhieuNopTuCloud(dotHienTai, true);
+      }
+
+      // TỰ ĐỘNG CHỮA LÀNH (Auto-healing): Nếu chuyến bị thiếu chi tiết hoá đơn so với cloud
+      if (typeof sb !== 'undefined' && (!dotHienTai.danhSachChiTiet || dotHienTai.danhSachChiTiet.length === 0 || (dotHienTai.soLuongHD && dotHienTai.danhSachChiTiet.length < dotHienTai.soLuongHD))) {
+        try {
+          const { data: rowsLT, error: errLT } = await sb.from('luu_tru').select('*').eq('ma_dot', maDot);
+          if (!errLT && rowsLT && rowsLT.length > (dotHienTai.danhSachChiTiet ? dotHienTai.danhSachChiTiet.length : 0)) {
+            const dots = chuyenDoiLuuTruThanhDanhSachDot(rowsLT);
+            if (dots && dots[0] && dots[0].danhSachChiTiet && dots[0].danhSachChiTiet.length) {
+              dotHienTai.danhSachChiTiet = dots[0].danhSachChiTiet;
+              dotHienTai.soLuongHD = dots[0].soLuongHD;
+              dotHienTai.tongTien = dots[0].tongTien;
+            }
+          }
+        } catch (e) {}
       }
 
       // Cập nhật thanh thông tin chuyến xe
@@ -4354,7 +4382,7 @@
     function boDauTV(s) {
       return String(s || '')
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/đ/g, 'd').replace(/Đ/g, 'D')
+        .replace(/[đĐ]/g, 'd')
         .toLowerCase().replace(/\s+/g, ' ').trim();
     }
 
@@ -4364,11 +4392,26 @@
     }
 
     function chuanHoaNgayISO(s) {
-      const str = String(s || '').trim();
-      let m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-      if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
-      m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (!s) return '';
+      const str = String(s).trim();
+      // 1. DD/MM/YYYY hoặc DD-MM-YYYY (ưu tiên ngày Việt Nam)
+      let m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
       if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+      // 2. Thuần ngày YYYY-MM-DD
+      m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+      if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+      // 3. ISO Datetime / UTC timestamp -> chuyển sang ngày giờ địa phương VN
+      if (str.includes('T') || str.includes(':')) {
+        const dt = new Date(str);
+        if (!isNaN(dt.getTime())) {
+          const y = dt.getFullYear();
+          const mo = String(dt.getMonth() + 1).padStart(2, '0');
+          const d = String(dt.getDate()).padStart(2, '0');
+          return `${y}-${mo}-${d}`;
+        }
+      }
+      m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
       return '';
     }
 
@@ -5837,6 +5880,14 @@
         try {
           const rowsUpdate = danhSachHoaDonQuyetToan.map(h => ({
             ma_hd: h.maHD,
+            ma_dot: dotHienTai.maDot,
+            xe: dotHienTai.xe,
+            tai_xe: dotHienTai.taiXe || '',
+            ngay_giao: dotHienTai.ngayGiao || '',
+            ma_kh: h.maKH || '',
+            ten_kh: h.tenKH || '',
+            nguoi_ban: h.nguoiBan || '',
+            thanh_tien: h.tienHD || 0,
             tien_mat: h.tienMat,
             chuyen_khoan: h.chuyenKhoan,
             tai_khoan_nhan: h.taiKhoanNhan,
