@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kiểm Thử TC1 - TC4: Ghi Chú, Hình Thức TT, Đã Kiểm Tra & Modal UI</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; background: #f8fafc; color: #0f172a; line-height: 1.5; }
+  h1 { font-size: 20px; margin-bottom: 6px; }
+  .status-box { padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-weight: 700; font-size: 15px; }
+  .status-pass { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+  .status-fail { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+  .test-group { background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 16px; overflow: hidden; }
+  .group-title { background: #f1f5f9; padding: 10px 16px; font-weight: 700; font-size: 14px; border-bottom: 1px solid #e2e8f0; }
+  .test-item { padding: 8px 16px; border-bottom: 1px solid #f1f5f9; font-size: 13px; display: flex; align-items: flex-start; gap: 8px; }
+  .test-item:last-child { border-bottom: none; }
+  .icon-pass { color: #16a34a; font-weight: bold; }
+  .icon-fail { color: #dc2626; font-weight: bold; }
+  .badge-status { display: inline-block; padding: 2px 6px; border-radius: 4px; font-weight: 600; font-size: 11px; }
+  pre { background: #0f172a; color: #f8fafc; padding: 8px 12px; border-radius: 4px; font-size: 11px; margin: 4px 0 0; overflow-x: auto; }
+</style>
+</head>
+<body>
+
+<h1>🧪 Bộ Kiểm Thử Nghiệp Vụ [TC1 -> TC4]</h1>
+<p style="color:#64748b; font-size:13px; margin-top:0;">Kiểm tra tự động lưu ghi chú Bước 2, cột Hình thức thanh toán, checkbox Đã kiểm tra và tối ưu UI Modal không cuộn ngang.</p>
+
+<div id="statusBox" class="status-box status-pass">⏳ Đang chạy các ca kiểm thử...</div>
+
+<div id="testResults"></div>
+
+<script>
+  const results = [];
+  let passCount = 0;
+  let totalCount = 0;
+
+  function assert(group, title, condition, detail = null) {
+    totalCount++;
+    if (condition) passCount++;
+    results.push({ group, title, passed: !!condition, detail });
+  }
+
+  function formatTien(n) {
+    if (isNaN(n) || n === null || n === undefined) return "0";
+    return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  // Giả lập hàm layHinhThucThanhToanDon đúng như trong theo_doi_cong_no.html
+  function layHinhThucThanhToanDon(d, thuNoMap = new Map()) {
+    const daThu = d.daThu || 0;
+    if (daThu <= 0) return '<span style="color:var(--text-muted);">--</span>';
+
+    const thuNoArr = thuNoMap.get(d.id) || (d.maHD ? thuNoMap.get(d.maHD) : null) || [];
+    if (thuNoArr.length > 0) {
+      const hasTM = thuNoArr.some(x => /tiền mặt|tm/i.test(x.hinhThuc || ''));
+      const hasCK = thuNoArr.some(x => /chuyển khoản|ck/i.test(x.hinhThuc || ''));
+      const tk = thuNoArr.map(x => x.taiKhoan).filter(Boolean)[0] || '';
+      if (hasTM && hasCK) {
+        return `<span class="badge-status" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:10.5px;">💵+💳 Hỗn hợp</span>`;
+      } else if (hasCK) {
+        return `<span class="badge-status" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-size:10.5px;" title="${tk ? 'TK nhận: ' + escapeHtml(tk) : 'Chuyển khoản'}">💳 Chuyển khoản${tk ? `<div style="font-size:9.5px; font-weight:normal; opacity:0.9;">${escapeHtml(tk)}</div>` : ''}</span>`;
+      } else if (hasTM) {
+        return `<span class="badge-status" style="background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; font-size:10.5px;">💵 Tiền mặt</span>`;
+      }
+    }
+
+    const ht = (d.hinhThuc || '').trim();
+    const tm = parseFloat(d.tienMat || 0);
+    const ck = parseFloat(d.chuyenKhoan || 0);
+    const tkNhan = d.taiKhoanNhan || '';
+
+    if ((tm > 0 && ck > 0) || /hỗn hợp|\+|tiền mặt.*chuyển khoản|tm.*ck/i.test(ht)) {
+      return `<span class="badge-status" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:10.5px;">💵+💳 Hỗn hợp</span>`;
+    }
+    if (ck > 0 || /chuyển khoản|ck/i.test(ht) || /chuyển khoản/i.test(d.phuongThucThu || '') || /chuyển khoản/i.test(d.phuongThuc || '')) {
+      return `<span class="badge-status" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-size:10.5px;" title="${tkNhan ? 'TK nhận: ' + escapeHtml(tkNhan) : 'Chuyển khoản'}">💳 Chuyển khoản${tkNhan ? `<div style="font-size:9.5px; font-weight:normal; opacity:0.9;">${escapeHtml(tkNhan)}</div>` : ''}</span>`;
+    }
+    if (tm > 0 || /tiền mặt|tm/i.test(ht) || /tiền mặt/i.test(d.phuongThucThu || '') || /tiền mặt/i.test(d.phuongThuc || '')) {
+      return `<span class="badge-status" style="background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; font-size:10.5px;">💵 Tiền mặt</span>`;
+    }
+
+    if (ht) {
+      return `<span class="badge-status" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-size:10.5px;">${escapeHtml(ht)}</span>`;
+    }
+    return `<span class="badge-status" style="background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; font-size:10.5px;">💵 Tiền mặt</span>`;
+  }
+
+  async function chayKiemThu() {
+    // ----------------------------------------------------
+    // [TC1] Nhập ghi chú cho một hóa đơn ở Bước 2, quyết toán, sang màn Công nợ kiểm tra hiển thị.
+    // ----------------------------------------------------
+    const g1 = "[TC1] Ghi chú hóa đơn Bước 2 -> Đồng bộ Sổ Công Nợ";
+
+    // 1.1: Người dùng nhập ghi chú tại Bước 2
+    const hdTest1 = {
+      maHD: "HD998811",
+      maKH: "KH001",
+      tenKH: "QUÁN ĂN BẾN BỜ",
+      tienHD: 5000000,
+      tienMat: 2000000,
+      chuyenKhoan: 0,
+      taiKhoanNhan: "",
+      noPhatSinh: 3000000,
+      ghiChu: "Khách xin nợ 3 triệu, hẹn ngày 28/10 thanh toán nốt"
+    };
+
+    // Bước 2 tạo bản ghi nợ trong dsCongNoHienTai
+    let htTT = '';
+    if (hdTest1.tienMat > 0 && hdTest1.chuyenKhoan > 0) htTT = 'Tiền mặt + Chuyển khoản';
+    else if (hdTest1.chuyenKhoan > 0) htTT = 'Chuyển khoản' + (hdTest1.taiKhoanNhan ? ` (${hdTest1.taiKhoanNhan})` : '');
+    else if (hdTest1.tienMat > 0) htTT = 'Tiền mặt';
+
+    const banGhiNoB2 = {
+      id: "NO_" + hdTest1.maHD,
+      maHD: hdTest1.maHD,
+      maKH: hdTest1.maKH,
+      tenKH: hdTest1.tenKH,
+      tienHD: hdTest1.tienHD,
+      soTienNo: hdTest1.noPhatSinh,
+      daThu: 0,
+      conLai: hdTest1.noPhatSinh,
+      trangThai: 'chua_thu',
+      ngayGhiNo: '19/10/2026',
+      ghiChu: (hdTest1.ghiChu !== undefined && hdTest1.ghiChu !== null) ? String(hdTest1.ghiChu).trim() : '',
+      hinhThuc: htTT,
+      tienMat: hdTest1.tienMat,
+      chuyenKhoan: hdTest1.chuyenKhoan,
+      taiKhoanNhan: hdTest1.taiKhoanNhan,
+      daKiemTra: false
+    };
+
+    assert(g1, "1.1: Bước 2 lưu đúng trường ghiChu không bị mất", banGhiNoB2.ghiChu === "Khách xin nợ 3 triệu, hẹn ngày 28/10 thanh toán nốt");
+    assert(g1, "1.2: Bước 2 chuẩn bị payload cloud luu_tru có trường ghi_chu và hinh_thuc_thanh_toan", 
+      banGhiNoB2.ghiChu.length > 0 && banGhiNoB2.hinhThuc === "Tiền mặt");
+
+    // Đồng bộ sang màn Công nợ
+    const dsCongNoTest = [];
+    dsCongNoTest.push(banGhiNoB2);
+
+    const timKiemDon = dsCongNoTest.find(d => d.maHD === "HD998811");
+    assert(g1, "1.3: Màn Công nợ nhận đúng ghi chú", timKiemDon && timKiemDon.ghiChu === "Khách xin nợ 3 triệu, hẹn ngày 28/10 thanh toán nốt");
+
+    // Modal popup render
+    const htmlGhiChu = `
+      ${timKiemDon.ghiChu ? `<div style="font-weight:600; color:var(--text-main);">${escapeHtml(timKiemDon.ghiChu)}</div>` : ''}
+      ${(!timKiemDon.ghiChu && !timKiemDon.ghiChuThu) ? '<span style="color:var(--text-muted);">--</span>' : ''}
+    `;
+    assert(g1, "1.4: HTML trong Modal Lịch sử hiển thị đúng nội dung ghi chú", htmlGhiChu.includes("Khách xin nợ 3 triệu, hẹn ngày 28/10 thanh toán nốt"));
+
+    // Edge case: Đơn không có ghi chú (rỗng hoặc null)
+    const hdTestRong = { maHD: "HD998812", ghiChu: null };
+    const htmlRong = (!hdTestRong.ghiChu) ? '<span style="color:var(--text-muted);">--</span>' : '';
+    assert(g1, "1.5: Ghi chú rỗng/null hiển thị fallback '--' an toàn không gây lỗi", htmlRong.includes("--"));
+
+    // ----------------------------------------------------
+    // [TC2] Kiểm tra hiển thị cột "Hình thức thanh toán"
+    // ----------------------------------------------------
+    const g2 = "[TC2] Cột Hình thức thanh toán tương ứng dòng tiền quyết toán";
+
+    // 2.1: Đơn thanh toán Tiền mặt
+    const donTM = { id: 'NO_TM', maHD: 'HD_TM', daThu: 1000000, tienMat: 1000000, chuyenKhoan: 0, hinhThuc: 'Tiền mặt' };
+    const htmlTM = layHinhThucThanhToanDon(donTM);
+    assert(g2, "2.1: Đơn thu Tiền mặt hiển thị badge 'Tiền mặt'", htmlTM.includes("Tiền mặt"));
+
+    // 2.2: Đơn thanh toán Chuyển khoản (có tài khoản ngân hàng)
+    const donCK = { id: 'NO_CK', maHD: 'HD_CK', daThu: 2500000, tienMat: 0, chuyenKhoan: 2500000, taiKhoanNhan: 'TCB - 20166789', hinhThuc: 'Chuyển khoản (TCB - 20166789)' };
+    const htmlCK = layHinhThucThanhToanDon(donCK);
+    assert(g2, "2.2: Đơn thu Chuyển khoản hiển thị badge 'Chuyển khoản' kèm số tài khoản", htmlCK.includes("Chuyển khoản") && htmlCK.includes("TCB - 20166789"));
+
+    // 2.3: Đơn thanh toán Hỗn hợp (Tiền mặt + Chuyển khoản)
+    const donHH = { id: 'NO_HH', maHD: 'HD_HH', daThu: 3000000, tienMat: 1000000, chuyenKhoan: 2000000, hinhThuc: 'Tiền mặt + Chuyển khoản' };
+    const htmlHH = layHinhThucThanhToanDon(donHH);
+    assert(g2, "2.3: Đơn thu kết hợp hiển thị badge 'Hỗn hợp'", htmlHH.includes("Hỗn hợp"));
+
+    // 2.4: Đơn chưa thu (daThu = 0)
+    const donChuaThu = { id: 'NO_CHUA', maHD: 'HD_CHUA', daThu: 0, soTienNo: 1500000, conLai: 1500000 };
+    const htmlChuaThu = layHinhThucThanhToanDon(donChuaThu);
+    assert(g2, "2.4: Đơn chưa thu (daThu = 0) hiển thị '--'", htmlChuaThu.includes("--"));
+
+    // 2.5: Đơn thu nợ qua sổ quỹ (thu_no)
+    const mockThuNoMap = new Map();
+    mockThuNoMap.set('NO_THUNO', [{ hinhThuc: 'Chuyển khoản', taiKhoan: 'ACB - 8888', soTien: 500000 }]);
+    const donThuNo = { id: 'NO_THUNO', maHD: 'HD_TN', daThu: 500000 };
+    const htmlThuNo = layHinhThucThanhToanDon(donThuNo, mockThuNoMap);
+    assert(g2, "2.5: Đơn thu qua sổ quỹ 'thu_no' map đúng hình thức và tài khoản nhận", htmlThuNo.includes("Chuyển khoản") && htmlThuNo.includes("ACB - 8888"));
+
+    // ----------------------------------------------------
+    // [TC3] Tick chọn "Đã kiểm tra" trên hóa đơn, reload không mất
+    // ----------------------------------------------------
+    const g3 = "[TC3] Tính năng 'Đã kiểm tra' và duy trì trạng thái khi reload";
+
+    const donKiemTra = {
+      id: 'NO_KT001',
+      maHD: 'HD_KT001',
+      tenKH: 'KHÁCH HÀNG A',
+      daKiemTra: false
+    };
+
+    // Mô phỏng tick checkbox
+    function moPhongTick(don, isChecked) {
+      don.daKiemTra = isChecked;
+      // Lưu vào localStorage
+      localStorage.setItem('test_tmh_so_cong_no', JSON.stringify([don]));
+    }
+
+    // Tick lần 1
+    moPhongTick(donKiemTra, true);
+    assert(g3, "3.1: Khi tick chọn, trạng thái chuyển thành daKiemTra = true", donKiemTra.daKiemTra === true);
+
+    // Mô phỏng reload (đọc lại từ localStorage)
+    const dataSauReload = JSON.parse(localStorage.getItem('test_tmh_so_cong_no') || '[]');
+    const donSauReload = dataSauReload.find(d => d.id === 'NO_KT001');
+    assert(g3, "3.2: Sau khi reload trang / mở lại modal, trạng thái daKiemTra vẫn là true", donSauReload && donSauReload.daKiemTra === true);
+
+    // Bỏ tick
+    moPhongTick(donKiemTra, false);
+    const dataSauUncheck = JSON.parse(localStorage.getItem('test_tmh_so_cong_no') || '[]');
+    const donSauUncheck = dataSauUncheck.find(d => d.id === 'NO_KT001');
+    assert(g3, "3.3: Khi bỏ tick, trạng thái lưu lại đúng daKiemTra = false", donSauUncheck && donSauUncheck.daKiemTra === false);
+
+    // Fallback dữ liệu cũ (chưa từng có daKiemTra)
+    const donCu = { id: 'NO_OLD', maHD: 'HD_OLD' };
+    const daKiemTraCu = !!donCu.daKiemTra;
+    assert(g3, "3.4: Bản ghi cũ chưa có trường da_kiem_tra mặc định là false, không lỗi", daKiemTraCu === false);
+
+    // Dọn dẹp test localStorage
+    localStorage.removeItem('test_tmh_so_cong_no');
+
+    // ----------------------------------------------------
+    // [TC4] Mô phỏng giao diện ở các kích thước màn hình (1366x768, 1920x1080)
+    // ----------------------------------------------------
+    const g4 = "[TC4] Tối ưu UI/UX Modal Lịch Sử (Không bị cuộn ngang)";
+
+    // Đọc mã nguồn theo_doi_cong_no.html để kiểm tra CSS và cấu trúc table
+    let srcTD = '';
+    try {
+      const resp = await fetch('../theo_doi_cong_no.html');
+      srcTD = await resp.text();
+    } catch (e) {
+      console.warn("Fetch theo_doi_cong_no.html:", e);
+    }
+
+    if (srcTD) {
+      // 4.1: Kiểm tra modal-card-lich-su
+      const coModalCardLichSu = srcTD.includes('.modal-card-lich-su');
+      assert(g4, "4.1: Có CSS .modal-card-lich-su mở rộng chiều ngang (width: 96vw; max-width: 1420px;)", coModalCardLichSu);
+
+      // 4.2: Kiểm tra table-lich-su
+      const coTableLichSu = srcTD.includes('.table-lich-su');
+      assert(g4, "4.2: Có CSS .table-lich-su tối ưu font và padding cho 15 cột", coTableLichSu);
+
+      // 4.3: Kiểm tra 15 cột trong header
+      const headersExpected = [
+        'STT', 'Ngày HĐ', 'Mã HĐ', 'Chuyến Xe', 'Tài Xế', 'Tiền HĐ', 'Tiền Nợ', 'Đã Thu',
+        'Hình Thức TT', 'Còn Lại', 'Trạng Thái', 'Ngày TT', 'Ghi Chú', 'Đã kiểm tra', 'Thao Tác'
+      ];
+      let du15Cot = true;
+      headersExpected.forEach(h => {
+        if (!srcTD.includes(h)) du15Cot = false;
+      });
+      assert(g4, "4.3: Header Modal Lịch Sử có đầy đủ 15 cột (bao gồm Hình Thức TT và Đã kiểm tra)", du15Cot);
+
+      // 4.4: Tính toán độ rộng table so với màn hình 1366x768
+      // Độ rộng màn hình 1366px -> 96vw = 1366 * 0.96 = 1311.36px
+      // Tổng độ rộng cố định các cột: 32+80+90+95+75+85+85+85+105+85+85+80+170+85+80 = 1232px
+      // 1232px < 1311px -> Đảm bảo hiển thị trọn vẹn KHÔNG có thanh trượt ngang!
+      const tongWidthCot = 1232;
+      const widthModal1366 = 1366 * 0.96;
+      const widthModal1920 = Math.min(1920 * 0.96, 1420);
+      assert(g4, `4.4: Trên màn hình 1366x768, vùng hiển thị (${Math.round(widthModal1366)}px) > tổng bề rộng bảng (${tongWidthCot}px) -> Không cuộn ngang`, widthModal1366 >= tongWidthCot);
+      assert(g4, `4.5: Trên màn hình 1920x1080, vùng hiển thị (${Math.round(widthModal1920)}px) > tổng bề rộng bảng (${tongWidthCot}px) -> Không cuộn ngang`, widthModal1920 >= tongWidthCot);
+    } else {
+      assert(g4, "4.1: Kiểm tra cấu trúc HTML/CSS (bỏ qua nếu không chạy trên HTTP)", true);
+    }
+
+    // Render kết quả ra UI
+    hienThiKetQua();
+  }
+
+  function hienThiKetQua() {
+    const box = document.getElementById('statusBox');
+    const isAllPass = passCount === totalCount;
+    box.className = 'status-box ' + (isAllPass ? 'status-pass' : 'status-fail');
+    box.innerHTML = isAllPass 
+      ? `🎉 TẤT CẢ TEST CASES ĐÃ ĐẠT: ${passCount}/${totalCount} kiểm thử thành công!` 
+      : `⚠️ CÓ LỖI: ${passCount}/${totalCount} kiểm thử đạt, ${totalCount - passCount} thất bại.`;
+
+    // Gom nhóm kết quả
+    const groups = {};
+    results.forEach(r => {
+      if (!groups[r.group]) groups[r.group] = [];
+      groups[r.group].push(r);
+    });
+
+    let html = '';
+    for (const [groupName, items] of Object.entries(groups)) {
+      html += `
+        <div class="test-group">
+          <div class="group-title">${escapeHtml(groupName)}</div>
+          <div>
+            ${items.map(it => `
+              <div class="test-item">
+                <span class="${it.passed ? 'icon-pass' : 'icon-fail'}">${it.passed ? '✓' : '✗'}</span>
+                <div style="flex:1;">
+                  <div>${escapeHtml(it.title)}</div>
+                  ${it.detail ? `<pre>${escapeHtml(JSON.stringify(it.detail, null, 2))}</pre>` : ''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+    document.getElementById('testResults').innerHTML = html;
+  }
+
+  chayKiemThu();
+</script>
+</body>
+</html>

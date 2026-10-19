@@ -2968,6 +2968,8 @@
           taiKhoanNhan: tkNhan,
           noPhatSinh: noPhatSinh,
           ghiChu: r.ghiChu || r.ghi_chu || '',
+          hinhThuc: r.hinhThuc || r.hinh_thuc_thanh_toan || '',
+          daKiemTra: !!r.daKiemTra || !!r.da_kiem_tra,
           laGiaoLai: !!r.laGiaoLai,
           // Khách chuyển khoản dư, tài xế đã trả lại tiền mặt (phương án A)
           hoanTienMat: parseFloat(r.hoanTienMat || 0) || 0,
@@ -3084,7 +3086,7 @@
             ${hd.noPhatSinh > 0 ? formatTien(hd.noPhatSinh) : '0'}
           </td>
           <td>
-            <input type="text" class="input-table" placeholder="Ghi chú..." value="${escapeHtml(hd.ghiChu || '')}" oninput="nhapGhiChu(${idx}, this.value)">
+            <input type="text" class="input-table" placeholder="Ghi chú..." value="${escapeHtml(hd.ghiChu || '')}" oninput="nhapGhiChu(${idx}, this.value)" onchange="nhapGhiChu(${idx}, this.value)">
           </td>
         `;
         tbody.appendChild(tr);
@@ -5783,6 +5785,12 @@
           const daThuCu = (tonTaiIdx >= 0 && dsCongNoHienTai[tonTaiIdx].daThu) ? dsCongNoHienTai[tonTaiIdx].daThu : 0;
           const conLaiMoi = Math.max(0, h.noPhatSinh - daThuCu);
           const trangThaiMoi = conLaiMoi <= 0 ? 'da_thu_du' : (daThuCu > 0 ? 'da_thu_mot_phan' : 'chua_thu');
+          const daKiemTraCu = (tonTaiIdx >= 0 && dsCongNoHienTai[tonTaiIdx].daKiemTra) ? true : false;
+          let htTT = '';
+          if (h.tienMat > 0 && h.chuyenKhoan > 0) htTT = 'Tiền mặt + Chuyển khoản';
+          else if (h.chuyenKhoan > 0) htTT = 'Chuyển khoản' + (h.taiKhoanNhan ? ` (${h.taiKhoanNhan})` : '');
+          else if (h.tienMat > 0) htTT = 'Tiền mặt';
+
           const banGhiNo = {
             id: idNo,
             maHD: h.maHD,
@@ -5799,7 +5807,12 @@
             conLai: conLaiMoi,
             trangThai: trangThaiMoi,
             ngayGhiNo: (tonTaiIdx >= 0 && dsCongNoHienTai[tonTaiIdx].ngayGhiNo) ? dsCongNoHienTai[tonTaiIdx].ngayGhiNo : new Date().toLocaleDateString('vi-VN'),
-            ghiChu: (h.ghiChu !== undefined && h.ghiChu !== null) ? String(h.ghiChu).trim() : ''
+            ghiChu: (h.ghiChu !== undefined && h.ghiChu !== null) ? String(h.ghiChu).trim() : '',
+            hinhThuc: htTT || (tonTaiIdx >= 0 ? (dsCongNoHienTai[tonTaiIdx].hinhThuc || '') : ''),
+            tienMat: h.tienMat,
+            chuyenKhoan: h.chuyenKhoan,
+            taiKhoanNhan: h.taiKhoanNhan,
+            daKiemTra: daKiemTraCu
           };
           if (tonTaiIdx >= 0) {
             dsCongNoHienTai[tonTaiIdx] = banGhiNo;
@@ -5878,28 +5891,35 @@
       let luuPhieuNopOk = false;
       if (typeof sb !== 'undefined') {
         try {
-          const rowsUpdate = danhSachHoaDonQuyetToan.map(h => ({
-            ma_hd: h.maHD,
-            ma_dot: dotHienTai.maDot,
-            xe: dotHienTai.xe,
-            tai_xe: dotHienTai.taiXe || '',
-            ngay_giao: dotHienTai.ngayGiao || '',
-            ma_kh: h.maKH || '',
-            ten_kh: h.tenKH || '',
-            nguoi_ban: h.nguoiBan || '',
-            thanh_tien: h.tienHD || 0,
-            tien_mat: h.tienMat,
-            chuyen_khoan: h.chuyenKhoan,
-            tai_khoan_nhan: h.taiKhoanNhan,
-            tra_ve: h.traVe,
-            no_phat_sinh: h.noPhatSinh,
-            ghi_chu: (h.ghiChu !== undefined && h.ghiChu !== null) ? String(h.ghiChu).trim() : null,
-            da_kiem_don: true,
-            da_quyet_toan: true,
-            la_giao_lai: (h.loaiTraVe === 'giao_lai' || h.laGiaoLai),
-            // Mặt hàng khách trả (trả 1 phần) — Bước 3 trừ đúng; cần sql/13_hang_tra_ve.sql (thiếu cột thì tự bỏ qua)
-            hang_tra_ve: (h.tinhTrang === 'tra_mot_phan' && Array.isArray(h.hangTraVe) && h.hangTraVe.length) ? h.hangTraVe : null
-          }));
+          const rowsUpdate = danhSachHoaDonQuyetToan.map(h => {
+            let htTT = '';
+            if (h.tienMat > 0 && h.chuyenKhoan > 0) htTT = 'Tiền mặt + Chuyển khoản';
+            else if (h.chuyenKhoan > 0) htTT = 'Chuyển khoản' + (h.taiKhoanNhan ? ` (${h.taiKhoanNhan})` : '');
+            else if (h.tienMat > 0) htTT = 'Tiền mặt';
+            return {
+              ma_hd: h.maHD,
+              ma_dot: dotHienTai.maDot,
+              xe: dotHienTai.xe,
+              tai_xe: dotHienTai.taiXe || '',
+              ngay_giao: dotHienTai.ngayGiao || '',
+              ma_kh: h.maKH || '',
+              ten_kh: h.tenKH || '',
+              nguoi_ban: h.nguoiBan || '',
+              thanh_tien: h.tienHD || 0,
+              tien_mat: h.tienMat,
+              chuyen_khoan: h.chuyenKhoan,
+              tai_khoan_nhan: h.taiKhoanNhan,
+              tra_ve: h.traVe,
+              no_phat_sinh: h.noPhatSinh,
+              ghi_chu: (h.ghiChu !== undefined && h.ghiChu !== null) ? String(h.ghiChu).trim() : null,
+              hinh_thuc_thanh_toan: htTT || null,
+              da_kiem_don: true,
+              da_quyet_toan: true,
+              la_giao_lai: (h.loaiTraVe === 'giao_lai' || h.laGiaoLai),
+              // Mặt hàng khách trả (trả 1 phần) — Bước 3 trừ đúng; cần sql/13_hang_tra_ve.sql (thiếu cột thì tự bỏ qua)
+              hang_tra_ve: (h.tinhTrang === 'tra_mot_phan' && Array.isArray(h.hangTraVe) && h.hangTraVe.length) ? h.hangTraVe : null
+            };
+          });
 
           await upsertSupabaseTuTu('luu_tru', rowsUpdate, { onConflict: 'ma_hd' });
 

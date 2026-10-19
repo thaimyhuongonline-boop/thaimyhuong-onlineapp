@@ -77,10 +77,14 @@ CREATE TABLE IF NOT EXISTS public.luu_tru (
     ghi_chu TEXT,
     la_giao_lai BOOLEAN DEFAULT FALSE,
     da_quyet_toan BOOLEAN DEFAULT FALSE,
+    hinh_thuc_thanh_toan VARCHAR(100),
+    da_kiem_tra BOOLEAN DEFAULT FALSE,
     tao_luc TIMESTAMPTZ DEFAULT NOW(),
     cap_nhat_luc TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE public.luu_tru ADD COLUMN IF NOT EXISTS ghi_chu TEXT;
+ALTER TABLE public.luu_tru ADD COLUMN IF NOT EXISTS hinh_thuc_thanh_toan VARCHAR(100);
+ALTER TABLE public.luu_tru ADD COLUMN IF NOT EXISTS da_kiem_tra BOOLEAN DEFAULT FALSE;
 ALTER TABLE public.luu_tru ADD COLUMN IF NOT EXISTS la_giao_lai BOOLEAN DEFAULT FALSE;
 ALTER TABLE public.luu_tru ADD COLUMN IF NOT EXISTS da_quyet_toan BOOLEAN DEFAULT FALSE;
 

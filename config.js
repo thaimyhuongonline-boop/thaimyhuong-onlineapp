@@ -230,6 +230,8 @@ function chuyenDoiLuuTruThanhDanhSachDot(rowsLuuTru) {
       traVe: parseFloat(r.tra_ve || 0),
       noPhatSinh: parseFloat(r.no_phat_sinh || 0),
       ghiChu: r.ghi_chu || '',
+      hinhThuc: r.hinh_thuc_thanh_toan || '',
+      daKiemTra: !!r.da_kiem_tra,
       laGiaoLai: !!r.la_giao_lai,
       daKiemDon: !!r.da_kiem_don,
       daQuyetToan: !!r.da_quyet_toan,
