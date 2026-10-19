@@ -339,6 +339,81 @@ ON CONFLICT (ma_xe) DO UPDATE
 SET loai_xe = EXCLUDED.loai_xe, tai_xe_mac_dinh = EXCLUDED.tai_xe_mac_dinh, ghi_chu = EXCLUDED.ghi_chu;
 
 -- ----------------------------------------------------------------------------
+-- 8b. CÁC BẢNG QUẢN LÝ THU TIỀN SALE, CHI PHÁT SINH & CHỐT QUỸ TIỀN MẶT
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.thu_tien_sale (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    ma_phieu VARCHAR(100) UNIQUE NOT NULL,
+    ma_nv_sale VARCHAR(50),
+    ten_nv_sale VARCHAR(150) NOT NULL,
+    ngay_phat_sinh VARCHAR(20) NOT NULL,
+    ngay_nop VARCHAR(20) NOT NULL,
+    so_tien_nop NUMERIC(15, 2) NOT NULL DEFAULT 0,
+    nguoi_nhan VARCHAR(100),
+    noi_dung TEXT,
+    sl_500k INT DEFAULT 0,
+    sl_200k INT DEFAULT 0,
+    sl_100k INT DEFAULT 0,
+    sl_50k INT DEFAULT 0,
+    sl_20k INT DEFAULT 0,
+    sl_10k INT DEFAULT 0,
+    sl_5k INT DEFAULT 0,
+    sl_2k INT DEFAULT 0,
+    sl_1k INT DEFAULT 0,
+    tong_tien_dem NUMERIC(15, 2) DEFAULT 0,
+    chenh_lech NUMERIC(15, 2) DEFAULT 0,
+    trang_thai VARCHAR(50) DEFAULT 'da_thu',
+    ghi_chu TEXT,
+    tao_luc TIMESTAMPTZ DEFAULT NOW(),
+    cap_nhat_luc TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.chi_phat_sinh_ngay (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    ma_chi VARCHAR(100) UNIQUE NOT NULL,
+    ngay_chi VARCHAR(20) NOT NULL,
+    hang_muc VARCHAR(150) NOT NULL,
+    noi_dung TEXT NOT NULL,
+    so_tien NUMERIC(15, 2) NOT NULL DEFAULT 0,
+    nguoi_chi VARCHAR(100),
+    nguoi_nhan VARCHAR(100),
+    chung_tu VARCHAR(100),
+    sau_chot_quy BOOLEAN DEFAULT FALSE,
+    ghi_chu TEXT,
+    tao_luc TIMESTAMPTZ DEFAULT NOW(),
+    cap_nhat_luc TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.chot_quy_ngay (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    ma_chot_quy VARCHAR(100) UNIQUE NOT NULL,
+    ngay_kiem_dem VARCHAR(20) NOT NULL,
+    ngay_phat_sinh VARCHAR(20) NOT NULL,
+    nguoi_chot VARCHAR(100) NOT NULL,
+    tong_thu_xe NUMERIC(15, 2) DEFAULT 0,
+    tong_thu_sale NUMERIC(15, 2) DEFAULT 0,
+    tong_thu_tong_hop NUMERIC(15, 2) DEFAULT 0,
+    tong_chi_phat_sinh NUMERIC(15, 2) DEFAULT 0,
+    tien_nop_ngan_hang NUMERIC(15, 2) DEFAULT 0,
+    chi_sau_chot NUMERIC(15, 2) DEFAULT 0,
+    tien_mat_luu_ket NUMERIC(15, 2) DEFAULT 0,
+    sl_500k INT DEFAULT 0,
+    sl_200k INT DEFAULT 0,
+    sl_100k INT DEFAULT 0,
+    sl_50k INT DEFAULT 0,
+    sl_20k INT DEFAULT 0,
+    sl_10k INT DEFAULT 0,
+    sl_5k INT DEFAULT 0,
+    sl_2k INT DEFAULT 0,
+    sl_1k INT DEFAULT 0,
+    trang_thai VARCHAR(50) DEFAULT 'da_chot',
+    chi_tiet_nguon_tien JSONB,
+    ghi_chu TEXT,
+    tao_luc TIMESTAMPTZ DEFAULT NOW(),
+    cap_nhat_luc TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ----------------------------------------------------------------------------
 -- 9. BẬT ROW LEVEL SECURITY (RLS) VÀ CẤP TOÀN QUYỀN ĐỌC/GHI/SỬA/XÓA
 -- ----------------------------------------------------------------------------
 DO $$
@@ -348,7 +423,8 @@ DECLARE
         'file_kiot_tam', 'data_kiot', 'luu_tru', 'chi_tiet_hoa_don',
         'kiem_don', 'don_giao_lai', 'phieu_nop_tien', 'so_nop_tien_xe',
         'khach_hang', 'hang_hoa', 'dinh_khoan_hang_hoa', 'danh_sach_xe',
-        'tai_khoan_ngan_hang', 'doi_ma_km', 'nv_giao_hang_tai_xe', 'nv_kinh_doanh'
+        'tai_khoan_ngan_hang', 'doi_ma_km', 'nv_giao_hang_tai_xe', 'nv_kinh_doanh',
+        'thu_tien_sale', 'chi_phat_sinh_ngay', 'chot_quy_ngay'
     ];
 BEGIN
     FOREACH tbl IN ARRAY tables LOOP
@@ -368,3 +444,4 @@ BEGIN
         EXECUTE format('CREATE POLICY "policy_xoa_%s" ON public.%I FOR DELETE TO anon, authenticated USING (true)', tbl, tbl);
     END LOOP;
 END $$;
+

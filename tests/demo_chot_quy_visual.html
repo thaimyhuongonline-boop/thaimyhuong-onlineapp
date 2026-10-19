@@ -1,0 +1,722 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demo Giao Diện: Thu Tiền Sale & Bảng Chốt Quỹ Theo Ngày</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/base.css">
+<style>
+  :root {
+    --primary: #15803d;
+    --primary-hover: #166534;
+    --primary-light: #f0fdf4;
+    --bg-page: #f8fafc;
+    --bg-card: #ffffff;
+    --border-color: #e2e8f0;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+  body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: #f1f5f9;
+    margin: 0;
+    padding: 24px;
+    color: var(--text-main);
+  }
+  .demo-container {
+    max-width: 1300px;
+    margin: 0 auto;
+  }
+  .header-demo {
+    background: #ffffff;
+    padding: 16px 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+  }
+  .card-box {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    margin-bottom: 16px;
+  }
+  .card-box-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .card-box-title {
+    font-weight: 800;
+    font-size: 14px;
+  }
+  .form-control {
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-family: inherit;
+    box-sizing: border-box;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .btn-primary { background: #15803d; color: #fff; }
+  .btn-outline { background: #fff; border-color: #cbd5e1; color: #334155; }
+  .table-kiem-quy-excel { width: 100%; border-collapse: collapse; }
+  .table-kiem-quy-excel th, .table-kiem-quy-excel td {
+    padding: 7px 10px;
+    font-size: 13px;
+    border: 1px solid #cbd5e1;
+  }
+  .table-kiem-quy-excel thead th {
+    background: #f8fafc;
+    font-weight: 700;
+    color: #1e293b;
+    text-align: center;
+  }
+  .table-kiem-quy-excel tfoot td {
+    background: #dcfce7 !important;
+    font-weight: 800;
+    color: #14532d !important;
+  }
+  .table-dem-tien { width: 100%; border-collapse: collapse; }
+  .table-dem-tien th, .table-dem-tien td { padding: 6px 8px; font-size: 12.5px; border-bottom: 1px solid #e2e8f0; }
+  .table-quyet-toan { width: 100%; border-collapse: collapse; }
+  .table-quyet-toan th, .table-quyet-toan td { padding: 7px 10px; font-size: 12px; border-bottom: 1px solid #e2e8f0; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-bottom: 18px; }
+  .kpi-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; }
+  .kpi-title { font-size: 12px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+  .kpi-value { font-size: 20px; font-weight: 900; }
+  .kpi-sub { font-size: 11px; color: #64748b; margin-top: 4px; }
+  .hero-meta-bar { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+  .modal-card { background: #fff; border-radius: 10px; padding: 20px; width: 100%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+</style>
+<script src="../chot_quy.js"></script>
+<script src="../buoc2_chot_quy_ui.js"></script>
+</head>
+<body>
+
+<div class="demo-container">
+  <div class="header-demo">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <h2 style="margin:0 0 4px 0; font-size:18px; color:#15803d; font-weight:800;">
+          🏢 CÔNG TY TNHH THÁI MỸ HƯƠNG — PHÂN HỆ QUẢN LÝ QUỸ TIỀN MẶT
+        </h2>
+        <p style="margin:0; font-size:12px; color:#64748b;">
+          Visual Verification: Form Thu Tiền Sale (Bước 2) & Bảng Chốt Quỹ / Nộp Ngân Hàng Realtime
+        </p>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button type="button" class="btn btn-primary" onclick="chuyenTabVisual('chot_quy')">🏦 Xem Bảng Chốt Quỹ</button>
+        <button type="button" class="btn btn-outline" onclick="chuyenTabVisual('thu_sale')">💼 Xem Form Thu Tiền Sale</button>
+      </div>
+    </div>
+  </div>
+
+      <div id="vungThuTienSale" class="b2-container" style="display:none;">
+      
+      <!-- Thẻ tiêu đề & Hướng dẫn -->
+      <div class="card-box no-print" style="padding:16px 20px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+          <div>
+            <h2 style="font-size:16px; font-weight:800; color:var(--text-main); margin:0 0 4px 0; display:flex; align-items:center; gap:8px;">
+              <span>💼</span> Thu Tiền Nhân Viên Sale / Kinh Doanh Hằng Ngày
+            </h2>
+            <p style="font-size:12px; color:var(--text-muted); margin:0; line-height:1.4;">
+              Quy định nghiệp vụ: Bắt buộc chọn <b>ĐÚNG NGÀY phát sinh thực tế</b> của tiền hàng và <b>đính kèm Bảng kê đếm tiền nộp</b> theo từng mệnh giá/số tờ để khớp số tiền nộp về quỹ.
+            </p>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn btn-primary" onclick="taiVaVeDanhSachPhieuSale()">
+              <span>🔄</span> Làm Mới Danh Sách
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- FORM NHẬP THU TIỀN SALE + BẢNG KÊ NỘP TIỀN ĐÍNH KÈM -->
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap:18px;" class="no-print">
+        
+        <!-- CỘT TRÁI: THÔNG TIN PHIẾU THU SALE -->
+        <div class="card-box" style="padding:16px 20px;">
+          <div class="card-box-header">
+            <div class="card-box-title" style="color:#0369a1;">
+              <span>📝</span> Thông Tin Phiếu Nộp Tiền Của Sale
+            </div>
+            <span class="badge-status" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;">Chuẩn hóa Bước 2</span>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:12px; margin-top:8px;">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+              <div>
+                <label style="font-size:12px; font-weight:800; color:#b91c1c; display:block; margin-bottom:4px;">
+                  📅 Ngày phát sinh thực tế (*):
+                </label>
+                <input type="date" id="saleNgayPhatSinh" class="form-control" style="font-size:12.5px; height:36px; font-weight:700; width:100%;">
+                <small style="color:var(--text-muted); font-size:10.5px;">Ngày phát sinh tiền hàng/hóa đơn</small>
+              </div>
+              <div>
+                <label style="font-size:12px; font-weight:800; color:var(--text-main); display:block; margin-bottom:4px;">
+                  📅 Ngày kiểm đếm / nộp tiền:
+                </label>
+                <input type="date" id="saleNgayNop" class="form-control" style="font-size:12.5px; height:36px; font-weight:700; width:100%;">
+                <small style="color:var(--text-muted); font-size:10.5px;">Ngày nộp tiền thực tế về quỹ</small>
+              </div>
+            </div>
+
+            <div>
+              <label style="font-size:12px; font-weight:800; color:var(--text-main); display:block; margin-bottom:4px;">
+                👤 Nhân viên Sale nộp tiền (*):
+              </label>
+              <select id="saleNhanVien" class="form-control" style="font-size:12.5px; height:36px; font-weight:700; width:100%;">
+                <option value="">-- Đang nạp danh sách Sale... --</option>
+              </select>
+            </div>
+
+            <div>
+              <label style="font-size:12px; font-weight:800; color:var(--text-main); display:block; margin-bottom:4px;">
+                💰 Số tiền nộp khai báo (đ) (*):
+              </label>
+              <div style="display:flex; gap:6px;">
+                <input type="text" id="saleSoTienNop" class="form-control input-tien" style="font-size:16px; font-weight:900; color:#16a34a; height:38px; flex:1;"
+                  placeholder="0" oninput="capNhatTongBangDemSale()" onfocus="onFocusTienInput(this)" onblur="onBlurTienPhaiThu(this)">
+                <button type="button" class="btn btn-outline" style="font-size:11px; white-space:nowrap; padding:0 8px;"
+                  onclick="dienNhanhTienSaleTuBangDem()" title="Lấy tự động số tiền từ Bảng đếm mệnh giá bên cạnh">
+                  ⚡ Lấy từ bảng đếm
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:4px;">
+                📝 Nội dung / Khách hàng / Đơn nộp tiền:
+              </label>
+              <input type="text" id="saleNoiDung" class="form-control" style="font-size:12px; height:32px; width:100%;"
+                placeholder="VD: Thu tiền đơn lẻ, khách thanh toán tiền mặt...">
+            </div>
+
+            <div style="display:grid; grid-template-columns: 140px 1fr; gap:10px;">
+              <div>
+                <label style="font-size:11.5px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:4px;">
+                  Người nhận tiền:
+                </label>
+                <input type="text" id="saleNguoiNhan" class="form-control" style="font-size:12px; height:32px;" value="Thủ quỹ">
+              </div>
+              <div>
+                <label style="font-size:11.5px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:4px;">
+                  Ghi chú phiếu:
+                </label>
+                <input type="text" id="saleGhiChu" class="form-control" style="font-size:12px; height:32px;" placeholder="Ghi chú thêm nếu có...">
+              </div>
+            </div>
+
+            <div style="margin-top:10px; display:flex; gap:8px;">
+              <button type="button" class="btn btn-primary" style="height:38px; font-size:13px; font-weight:800; flex:1;" onclick="luuFormThuTienSale()">
+                💾 Lưu Phiếu Thu Tiền Sale
+              </button>
+              <button type="button" class="btn btn-outline" style="height:38px; padding:0 12px; font-size:12px;" onclick="xoaBangDemSale()">
+                🧹 Nhập lại
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- CỘT PHẢI: BẢNG KÊ NỘP TIỀN THEO MỆNH GIÁ (BẮT BUỘC ĐÍNH KÈM) -->
+        <div class="card-box" style="padding:16px 20px;">
+          <div class="card-box-header">
+            <div class="card-box-title" style="color:#16a34a;">
+              <span>💵</span> Bảng Kê Mệnh Giá Tiền Nộp (Bắt Buộc)
+            </div>
+            <button type="button" class="btn btn-outline" style="height:26px; padding:0 8px; font-size:11px;" onclick="xoaBangDemSale()">
+              Xóa đếm lại
+            </button>
+          </div>
+          <div style="font-size:11.5px; color:var(--text-muted); margin-bottom:6px;">
+            Nhập số tờ từng mệnh giá để hệ thống đối soát chính xác 100% với số tiền nộp khai báo:
+          </div>
+
+          <table class="table-dem-tien" style="margin-top:4px;">
+            <thead>
+              <tr style="background:#f8fafc; font-weight:700;">
+                <th>Mệnh Giá</th>
+                <th style="width:100px; text-align:center;">Số Tờ</th>
+                <th style="text-align:right; width:130px;">Thành Tiền (đ)</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyDemTienSale">
+              <!-- Render động 9 mệnh giá: 500k -> 1k -->
+            </tbody>
+            <tfoot>
+              <tr style="font-weight:800; background:#f8fafc; border-top:1px solid var(--border-color);">
+                <td>TỔNG TIỀN MẶT ĐÃ ĐẾM:</td>
+                <td style="text-align:center;" id="tongSoToSale">0 tờ</td>
+                <td style="text-align:right; color:#16a34a; font-size:14px;" id="tongTienDemSale">0 đ</td>
+              </tr>
+            </tfoot>
+          </table>
+
+          <div id="boxTrangThaiDemSale" style="padding:10px 14px; border-radius:var(--radius-sm); font-size:12px; font-weight:700; text-align:center; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; margin-top:10px;">
+            ⚠️ Bảng kê nộp tiền đang trống! Vui lòng nhập số tờ theo từng mệnh giá.
+          </div>
+        </div>
+
+      </div>
+
+      <!-- DANH SÁCH CÁC PHIẾU THU SALE ĐÃ LẬP -->
+      <div class="card-box no-print" style="padding:16px 20px;">
+        <div class="card-box-header">
+          <div class="card-box-title">
+            <span>📋</span> Danh Sách Phiếu Thu Tiền Sale Đã Nhập
+          </div>
+          <span style="font-size:12px; color:var(--text-muted);">Tự động liên kết vào Bảng Chốt Quỹ</span>
+        </div>
+
+        <div class="table-container" style="max-height:360px; overflow-y:auto;">
+          <table class="table-quyet-toan">
+            <thead>
+              <tr style="background:#f8fafc;">
+                <th style="width:35px; text-align:center;">STT</th>
+                <th style="width:110px;">Mã Phiếu</th>
+                <th style="width:85px; text-align:center;">Ngày PS</th>
+                <th style="width:85px; text-align:center;">Ngày Nộp</th>
+                <th style="width:140px;">Nhân viên Sale</th>
+                <th>Nội dung thu</th>
+                <th style="width:110px; text-align:right;">Số tiền nộp</th>
+                <th style="min-width:180px;">Bảng kê mệnh giá</th>
+                <th style="width:90px; text-align:center;">Người nhận</th>
+                <th style="width:60px; text-align:center;">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyDanhSachPhieuSale">
+              <tr><td colspan="10" style="text-align:center; padding:24px; color:var(--text-muted);">Chưa có phiếu thu tiền Sale nào.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- VÙNG 4: BẢNG CHỐT QUỸ TIỀN MẶT & NỘP NGÂN HÀNG THEO NGÀY       -->
+    <!-- ============================================================== -->
+    <div id="vungChotQuyNgay" class="b2-container" style="display:none;">
+
+      <!-- Thẻ chọn ngày & Hành động Chốt Quỹ -->
+      <div class="hero-meta-bar no-print" style="flex-wrap:wrap; gap:12px;">
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; flex:1;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label style="font-size:12.5px; font-weight:800; color:var(--text-main); white-space:nowrap;">📅 Ngày kiểm đếm quỹ:</label>
+            <input type="date" id="cqNgayKiemDem" class="form-control" style="font-size:12px; height:32px; width:135px; font-weight:700;" onchange="taiDuLieuChotQuy()">
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label style="font-size:12.5px; font-weight:800; color:var(--text-main); white-space:nowrap;">📅 Ngày phát sinh tiền hàng:</label>
+            <input type="date" id="cqNgayPhatSinh" class="form-control" style="font-size:12px; height:32px; width:135px; font-weight:700;" onchange="taiDuLieuChotQuy()">
+          </div>
+          <button type="button" class="btn btn-outline" style="height:32px; padding:0 10px;" onclick="taiDuLieuChotQuy()">
+            <span>🔄</span> Tải Dữ Liệu
+          </button>
+        </div>
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" class="btn btn-outline" style="height:32px; padding:0 10px;" onclick="inBangKiemQuy()">
+            <span>🖨️</span> In Bảng Kiểm Quỹ
+          </button>
+          <button type="button" class="btn btn-outline" style="height:32px; padding:0 10px;" onclick="xuatExcelKiemQuy()">
+            <span>📥</span> Xuất Excel (Mẫu Chuẩn)
+          </button>
+          <button type="button" class="btn btn-primary" style="height:32px; padding:0 14px; font-weight:800;" onclick="hoanTatChotQuyNgay()">
+            <span>✅</span> Hoàn Tất Chốt Quỹ Hôm Nay
+          </button>
+        </div>
+      </div>
+
+      <!-- 4 THẺ TỔNG QUAN TÀI CHÍNH QUỸ THEO CÔNG THỨC -->
+      <div class="kpi-grid">
+        <div class="kpi-card" style="border-left: 4px solid #0369a1;">
+          <div class="kpi-title" style="color:#0369a1;"><span>🚚</span> Tổng Thu Tiền Xe</div>
+          <div class="kpi-value" style="color:#0369a1;" id="cqKpiThuXe">0 đ</div>
+          <div class="kpi-sub">Từ các chuyến xe đã quyết toán</div>
+        </div>
+
+        <div class="kpi-card" style="border-left: 4px solid #b45309;">
+          <div class="kpi-title" style="color:#b45309;"><span>💼</span> Tổng Thu Tiền Sale</div>
+          <div class="kpi-value" style="color:#b45309;" id="cqKpiThuSale">0 đ</div>
+          <div class="kpi-sub">Từ các nhân viên kinh doanh nộp</div>
+        </div>
+
+        <div class="kpi-card" style="border-left: 4px solid #dc2626;">
+          <div class="kpi-title" style="color:#dc2626;"><span>💸</span> Tổng Chi Phát Sinh</div>
+          <div class="kpi-value" style="color:#dc2626;" id="cqKpiTongChi">0 đ</div>
+          <div class="kpi-sub">Khoản chi phát sinh trong ngày</div>
+        </div>
+
+        <div class="kpi-card" style="border-left: 4px solid #16a34a; background:#f0fdf4;">
+          <div class="kpi-title" style="color:#16a34a;"><span>🏦</span> Tiền Mặt Nộp Ngân Hàng</div>
+          <div class="kpi-value" style="color:#16a34a; font-size:24px;" id="cqKpiNopNH">0 đ</div>
+          <div class="kpi-sub" id="cqKpiSubNopNH" style="font-weight:700; color:#15803d;">= [Tổng thu] - [Các khoản chi]</div>
+        </div>
+      </div>
+
+      <!-- KHU VỰC CHÍNH: BẢNG KIỂM QUỸ TIỀN MẶT CHUẨN MẪU EXCEL -->
+      <div style="display:grid; grid-template-columns: 460px 1fr; gap:18px; align-items:start;">
+        
+        <!-- CỘT TRÁI: FORM KIỂM QUỸ THEO ĐÚNG MẪU EXCEL CỦA NGƯỜI DÙNG -->
+        <div class="card-box" style="padding:16px 20px; background:#ffffff; box-shadow:var(--shadow-md);">
+          <div style="text-align:center; padding-bottom:12px; border-bottom:2px solid #0f172a;">
+            <h3 style="margin:0; font-size:18px; font-weight:900; letter-spacing:0.5px; color:#0f172a;">
+              KIỂM QUỸ TIỀN MẶT
+            </h3>
+          </div>
+
+          <table style="width:100%; border-collapse:collapse; margin-top:10px; font-size:12.5px;">
+            <tr>
+              <td style="padding:4px 0; font-weight:800; width:190px;">NGÀY KIỂM ĐẾM:</td>
+              <td style="padding:4px 0; font-weight:800; font-family:monospace; color:#0369a1;" id="cqHeaderNgayKD">--/--/----</td>
+            </tr>
+            <tr>
+              <td style="padding:4px 0; font-weight:800;">NGÀY PHÁT SINH TIỀN HÀNG:</td>
+              <td style="padding:4px 0; font-weight:800; font-family:monospace; color:#b45309;" id="cqHeaderNgayPS">--/--/----</td>
+            </tr>
+          </table>
+
+          <table class="table-kiem-quy-excel" style="margin-top:10px;">
+            <thead>
+              <tr>
+                <th style="width:35%;">Mệnh giá</th>
+                <th style="width:30%;">Số lượng</th>
+                <th style="width:35%;">Thành tiền (1000 Đ)</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyKiemQuyMenhGia">
+              <!-- Render động 9 mệnh giá 500k -> 1k -->
+            </tbody>
+            <tfoot>
+              <tr class="tong-cong-row">
+                <td style="font-weight:900;">Tổng cộng</td>
+                <td style="text-align:center; font-weight:900;" id="cqFootTongSoTo">0</td>
+                <td style="text-align:right; font-weight:900; color:#166534; font-size:14px;" id="cqFootTongCong1000">0</td>
+              </tr>
+            </tfoot>
+          </table>
+
+          <!-- BẢNG NHỎ PHỤ: TỔNG QUỸ TIỀN MẶT THEO HÌNH CỦA NGƯỜI DÙNG -->
+          <div style="margin-top:18px;">
+            <div style="background:#fef3c7; border:1px solid #d97706; padding:6px 10px; text-align:center; font-weight:900; font-size:13px; color:#92400e;">
+              TỔNG QUỸ TIỀN MẶT
+            </div>
+            <table class="table-kiem-quy-excel" style="margin-top:0; border-top:none;">
+              <thead>
+                <tr style="background:#fffbeb;">
+                  <th style="width:12%;">STT</th>
+                  <th style="width:32%;">NGÀY KIỂM ĐẾM</th>
+                  <th style="width:34%;">NGÀY PHÁT SINH TIỀN HÀNG</th>
+                  <th style="width:22%;">SỐ TIỀN (1000 Đ)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="text-align:center; font-weight:700;">1</td>
+                  <td style="text-align:center; font-family:monospace; font-size:11.5px;" id="cqMiniNgayKD">--/--/----</td>
+                  <td style="text-align:center; font-family:monospace; font-size:11.5px;" id="cqMiniNgayPS">--/--/----</td>
+                  <td style="text-align:right; font-weight:800; color:#16a34a;" id="cqMiniSoTien">0</td>
+                </tr>
+                <tr style="background:#fef08a; font-weight:900;">
+                  <td colspan="3" style="text-align:center;">TỔNG CỘNG</td>
+                  <td style="text-align:right; font-weight:900; color:#854d0e;" id="cqMiniTongCong">0</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- CỘT PHẢI: TRUY XUẤT NGUỒN TIỀN MINH BẠCH & QUẢN LÝ CHI PHÁT SINH -->
+        <div style="display:flex; flex-direction:column; gap:18px;">
+          
+          <!-- BẢNG MINH BẠCH NGUỒN TIỀN -->
+          <div class="card-box" style="padding:16px 20px;">
+            <div class="card-box-header">
+              <div class="card-box-title" style="color:#0369a1;">
+                <span>🔍</span> Minh Bạch Nguồn Tiền (Chi Tiết Xe & Sale Đã Nộp)
+              </div>
+              <span style="font-size:11.5px; color:var(--text-muted);">Tránh nghẽn luồng đối soát</span>
+            </div>
+            <div style="font-size:11.5px; color:var(--text-muted); margin-bottom:8px;">
+              Danh sách từng nguồn tiền cấu thành bảng kiểm đếm quỹ tiền mặt ở bên cạnh:
+            </div>
+
+            <div class="table-container" style="max-height:260px; overflow-y:auto;">
+              <table class="table-quyet-toan" style="font-size:11.5px;">
+                <thead>
+                  <tr style="background:#f8fafc;">
+                    <th style="width:30px; text-align:center;">STT</th>
+                    <th style="width:90px;">Nguồn</th>
+                    <th>Tên Xe / Sale</th>
+                    <th style="width:90px;">Người nộp</th>
+                    <th style="width:80px; text-align:center;">Ngày PS</th>
+                    <th style="width:95px; text-align:right;">Số tiền</th>
+                    <th style="width:38px; text-align:center;">500k</th>
+                    <th style="width:38px; text-align:center;">200k</th>
+                    <th style="width:38px; text-align:center;">100k</th>
+                    <th style="width:35px; text-align:center;">50k</th>
+                    <th style="width:35px; text-align:center;">20k</th>
+                    <th style="width:35px; text-align:center;">10k</th>
+                    <th style="width:30px; text-align:center;">5k</th>
+                    <th style="width:30px; text-align:center;">2k</th>
+                    <th style="width:30px; text-align:center;">1k</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyNguonTienChotQuy">
+                  <tr><td colspan="15" style="text-align:center; padding:18px; color:var(--text-muted);">Chưa có dữ liệu nguồn tiền.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- QUẢN LÝ CHI PHÁT SINH TRONG NGÀY & CHI SAU CHỐT QUỸ -->
+          <div class="card-box" style="padding:16px 20px;">
+            <div class="card-box-header">
+              <div class="card-box-title" style="color:#b91c1c;">
+                <span>💸</span> Quản Lý Chi Phát Sinh & Tiền Mặt Lưu Két
+              </div>
+              <button type="button" class="btn btn-outline" style="height:28px; padding:0 8px; font-size:11.5px; color:#b91c1c; border-color:#fca5a5;"
+                onclick="moModalThemChi(false)">
+                + Thêm Khoản Chi
+              </button>
+            </div>
+            <div style="font-size:11.5px; color:var(--text-muted); margin-bottom:8px;">
+              Hỗ trợ nhập chi phát sinh <b>ngay cả sau khi đã chốt quỹ</b> — tự động cấn trừ để tính <b>Tiền mặt lưu két</b> chính xác.
+            </div>
+
+            <div class="table-container" style="max-height:220px; overflow-y:auto;">
+              <table class="table-quyet-toan" style="font-size:11.5px;">
+                <thead>
+                  <tr style="background:#f8fafc;">
+                    <th style="width:30px; text-align:center;">STT</th>
+                    <th style="width:110px;">Hạng mục</th>
+                    <th>Nội dung chi</th>
+                    <th style="width:100px; text-align:right;">Số tiền</th>
+                    <th style="width:90px;">Người nhận</th>
+                    <th style="width:85px;">Chứng từ</th>
+                    <th style="width:110px; text-align:center;">Thời điểm</th>
+                    <th style="width:40px; text-align:center;">Xoá</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyChiPhatSinhNgay">
+                  <tr><td colspan="8" style="text-align:center; padding:18px; color:var(--text-muted);">Chưa có khoản chi phát sinh nào trong ngày.</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- KHỐI TỔNG KẾT TIỀN MẶT LƯU KÉT & CẢNH BÁO ÂM QUỸ -->
+            <div style="margin-top:12px; padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:var(--radius-sm); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+              <div>
+                <span style="font-size:12px; color:var(--text-muted);">Chi phát sinh sau chốt:</span>
+                <b id="cqTongChiSauChot" style="color:#b91c1c; font-size:13px; margin-left:4px;">0 đ</b>
+              </div>
+              <div>
+                <span style="font-size:13px; font-weight:800; color:var(--text-main);">🔒 TIỀN MẶT LƯU KÉT CUỐI CÙNG:</span>
+                <b id="cqTienMatLuuKet" style="color:#15803d; font-size:16px; font-weight:900; margin-left:6px;">0 đ</b>
+              </div>
+            </div>
+
+            <div id="cqBoxCanhBaoAmQuy" style="display:none; margin-top:8px; padding:8px 12px; background:#fef2f2; border:1px solid #fecaca; border-radius:var(--radius-sm); color:#b91c1c; font-size:12px; font-weight:700;">
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ============================================================== -->
+  <!-- MODAL THÊM KHOẢN CHI PHÁT SINH THEO NGÀY                       -->
+  <!-- ============================================================== -->
+  <div id="modalThemChiPhatSinh" class="modal-overlay no-print" style="display:none;" onclick="if(event.target===this) dongModalThemChi()">
+    <div class="modal-card" style="max-width:520px;">
+      <div class="modal-header">
+        <div style="font-weight:800; font-size:14px; color:#b91c1c;">💸 Thêm Khoản Chi Phát Sinh Theo Ngày</div>
+        <button type="button" class="btn btn-outline" style="height:26px; padding:0 8px; font-weight:800;" onclick="dongModalThemChi()">✕</button>
+      </div>
+      <div class="modal-body" style="gap:12px;">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+          <div>
+            <label style="font-size:12px; font-weight:800; color:var(--text-main); display:block; margin-bottom:4px;">📅 Ngày chi (*):</label>
+            <input type="date" id="chiNgayChi" class="form-control" style="font-size:12px; height:34px; width:100%; font-weight:700;">
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:800; color:var(--text-main); display:block; margin-bottom:4px;">📂 Hạng mục chi (*):</label>
+            <select id="chiHangMuc" class="form-control" style="font-size:12px; height:34px; width:100%;">
+              <option value="Xăng dầu">Xăng dầu</option>
+              <option value="Tiếp khách">Tiếp khách / Bán hàng</option>
+              <option value="Bốc xếp xe">Bốc xếp xe</option>
+              <option value="Văn phòng phẩm">Văn phòng phẩm</option>
+              <option value="Sửa chữa bảo dưỡng">Sửa chữa bảo dưỡng xe</option>
+              <option value="Cầu đường / Bến bãi">Cầu đường / Bến bãi</option>
+              <option value="Ăn uống">Ăn uống giao hàng</option>
+              <option value="Khác">Chi khác</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label style="font-size:12px; font-weight:800; color:var(--text-main); display:block; margin-bottom:4px;">📝 Nội dung chi tiết (*):</label>
+          <input type="text" id="chiNoiDung" class="form-control" style="font-size:12.5px; height:34px; width:100%;" placeholder="VD: Đổ xăng xe HD1, mua văn phòng phẩm...">
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+          <div>
+            <label style="font-size:12px; font-weight:800; color:#dc2626; display:block; margin-bottom:4px;">💰 Số tiền chi (đ) (*):</label>
+            <input type="text" id="chiSoTien" class="form-control input-tien" style="font-size:15px; font-weight:900; color:#dc2626; height:34px; width:100%;" placeholder="0">
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:4px;">Người nhận tiền:</label>
+            <input type="text" id="chiNguoiNhan" class="form-control" style="font-size:12px; height:34px; width:100%;" placeholder="Tên người nhận...">
+          </div>
+        </div>
+
+        <div>
+          <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:4px;">Số chứng từ / Phiếu chi / Hóa đơn:</label>
+          <input type="text" id="chiChungTu" class="form-control" style="font-size:12px; height:34px; width:100%;" placeholder="VD: PC-001, HĐ-1234...">
+        </div>
+
+        <div style="background:#fef2f2; border:1px solid #fecaca; padding:8px 12px; border-radius:var(--radius-sm); margin-top:4px;">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; font-weight:700; color:#b91c1c; margin:0;">
+            <input type="checkbox" id="chiSauChotQuy" style="width:16px; height:16px; accent-color:#dc2626;">
+            <span>⚡ Đây là khoản chi phát sinh SAU KHI ĐÃ CHỐT QUỸ (tự động cấn trừ quỹ két)</span>
+          </label>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+          <button type="button" class="btn btn-outline" style="height:34px; padding:0 14px;" onclick="dongModalThemChi()">Hủy</button>
+          <button type="button" class="btn btn-primary" style="height:34px; padding:0 18px; font-weight:800; background:#dc2626; border-color:#dc2626;" onclick="luuModalChi()">💾 Lưu Khoản Chi</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+</div>
+
+<script>
+  function chuyenTabVisual(tab) {
+    const vSale = document.getElementById('vungThuTienSale');
+    const vChot = document.getElementById('vungChotQuyNgay');
+    if (tab === 'thu_sale') {
+      if (vSale) vSale.style.display = 'block';
+      if (vChot) vChot.style.display = 'none';
+      if (window.khoiTaoTabThuTienSale) window.khoiTaoTabThuTienSale();
+    } else {
+      if (vSale) vSale.style.display = 'none';
+      if (vChot) vChot.style.display = 'block';
+      if (window.khoiTaoTabChotQuy) window.khoiTaoTabChotQuy();
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    const dsDotXe = [
+      {
+        ma_dot: "XE_01",
+        xe: "Xe Tải 51D-12345",
+        tai_xe: "Trần Văn Tài",
+        nguoi_nop: "Trần Văn Tài",
+        ngay_giao: "2026-10-16",
+        ngay_nop: "2026-10-17",
+        tong_tien_dem: 47000000,
+        sl_500k: 50,
+        sl_200k: 100,
+        sl_100k: 20
+      },
+      {
+        ma_dot: "XE_02",
+        xe: "Xe Tải 51D-67890",
+        tai_xe: "Lê Văn Lộc",
+        nguoi_nop: "Lê Văn Lộc",
+        ngay_giao: "2026-10-16",
+        ngay_nop: "2026-10-17",
+        tong_tien_dem: 13000000,
+        sl_500k: 20,
+        sl_100k: 30
+      }
+    ];
+    localStorage.setItem('tmh_dot_giao_hang', JSON.stringify(dsDotXe));
+
+    const dsSale = [
+      {
+        id: "SALE_01",
+        ma_phieu: "PTS-20261017-001",
+        ten_nv_sale: "Nguyễn Văn Sale (Tuyến Hội An)",
+        so_dien_thoai: "0905123456",
+        ngay_phat_sinh: "2026-10-16",
+        ngay_nop: "2026-10-17",
+        so_tien_nop: 119854000,
+        sl_500k: 107,
+        sl_200k: 121,
+        sl_100k: 133,
+        sl_50k: 115,
+        sl_20k: 657,
+        sl_10k: 988,
+        sl_5k: 13,
+        sl_2k: 5,
+        sl_1k: 9,
+        noi_dung_thu: "Thu tiền khách sỉ đợt xuất hàng 16/10",
+        nguoi_nhan: "Thủ quỹ"
+      }
+    ];
+    localStorage.setItem('tmh_thu_tien_sale', JSON.stringify(dsSale));
+
+    const dsChi = [
+      {
+        id: "CHI_01",
+        ma_chi: "CP-20261017-001",
+        ngay_chi: "2026-10-17",
+        hang_muc: "Xăng dầu",
+        noi_dung_chi: "Đổ dầu chuyến xe 01 & 02",
+        so_tien: 5000000,
+        nguoi_nhan_tien: "Tài xế Tài",
+        so_chung_tu: "HD-0129",
+        sau_chot_quy: false
+      },
+      {
+        id: "CHI_02",
+        ma_chi: "CP-20261017-002",
+        ngay_chi: "2026-10-17",
+        hang_muc: "Cầu đường / Bến bãi",
+        noi_dung_chi: "Tiền cơm trưa & bến bãi giao nhận",
+        so_tien: 4854000,
+        nguoi_nhan_tien: "Nhà xe",
+        so_chung_tu: "PC-0082",
+        sau_chot_quy: false
+      }
+    ];
+    localStorage.setItem('tmh_chi_phat_sinh_ngay', JSON.stringify(dsChi));
+
+    // Mặc định chọn ngày kiểm đếm 17/10 và ngày phát sinh 16/10
+    const inpKD = document.getElementById('cqNgayKiemDem');
+    const inpPS = document.getElementById('cqNgayPhatSinh');
+    if (inpKD) inpKD.value = '2026-10-17';
+    if (inpPS) inpPS.value = '2026-10-16';
+
+    chuyenTabVisual('thu_sale');
+  });
+</script>
+
+</body>
+</html>

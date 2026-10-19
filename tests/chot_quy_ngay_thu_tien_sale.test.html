@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧪 Test Suite: Thu Tiền Sale, Bảng Kê Mệnh Giá, Chốt Quỹ & Chi Phát Sinh</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 24px; background: #0f172a; color: #f8fafc; line-height: 1.5; }
+  h1 { font-size: 22px; margin-bottom: 6px; color: #38bdf8; display: flex; align-items: center; gap: 10px; }
+  .status-box { padding: 14px 20px; border-radius: 8px; margin-bottom: 24px; font-weight: 700; font-size: 16px; }
+  .status-pass { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.3); }
+  .status-fail { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.3); }
+  .test-group { background: #1e293b; border-radius: 10px; border: 1px solid #334155; margin-bottom: 20px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+  .group-title { background: #334155; padding: 12px 18px; font-weight: 700; font-size: 14px; color: #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
+  .test-item { padding: 10px 18px; border-bottom: 1px solid #283548; font-size: 13.5px; display: flex; align-items: flex-start; gap: 12px; }
+  .test-item:last-child { border-bottom: none; }
+  .icon-pass { color: #4ade80; font-weight: bold; font-size: 15px; }
+  .icon-fail { color: #f87171; font-weight: bold; font-size: 15px; }
+  pre { background: #0b1120; color: #94a3b8; padding: 10px 14px; border-radius: 6px; font-size: 12px; margin: 6px 0 0; overflow-x: auto; border: 1px solid #1e293b; }
+  .summary-stat { display: inline-flex; gap: 16px; margin-left: auto; font-size: 13px; font-weight: 600; }
+  table.preview-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+  table.preview-table th, table.preview-table td { border: 1px solid #334155; padding: 6px 10px; text-align: right; }
+  table.preview-table th { background: #1e293b; color: #94a3b8; text-align: center; }
+</style>
+<!-- Nhúng logic nghiệp vụ chốt quỹ cốt lõi -->
+<script src="../chot_quy.js"></script>
+</head>
+<body>
+
+<h1>🧪 Test Suite: Thu Tiền Sale - Gom Dữ Liệu Xe + Sale - Chốt Quỹ & Chi Phát Sinh</h1>
+<p style="color:#94a3b8; font-size:13.5px; margin-top:0;">
+  Kiểm thử tự động các nghiệp vụ: Validate ngày phát sinh Bước 2, Hợp nhất bảng kiểm quỹ mệnh giá (khớp mẫu Excel 179.854.000 đ), Tính tiền nộp ngân hàng, Xử lý chi phát sinh sau chốt quỹ & phòng chống âm két.
+</p>
+
+<div id="statusBox" class="status-box status-pass">⏳ Đang tiến hành chạy các kịch bản kiểm thử tự động...</div>
+<div id="testResults"></div>
+
+<script>
+  window.onerror = function (msg, url, lineNo, columnNo, error) {
+    const statusBox = document.getElementById("statusBox");
+    if (statusBox) {
+      statusBox.className = "status-box status-fail";
+      statusBox.innerHTML = `❌ Lỗi thực thi script tại dòng ${lineNo}: ${msg}`;
+    }
+    return false;
+  };
+
+  const results = [];
+  let passCount = 0;
+  let totalCount = 0;
+
+  function assert(group, title, condition, detail = null) {
+    totalCount++;
+    if (condition) passCount++;
+    results.push({ group, title, passed: !!condition, detail });
+  }
+
+  function runAllTests() {
+    if (!window.TMHChotQuy) {
+      document.getElementById("statusBox").innerHTML = "❌ Lỗi: Chưa load được module TMHChotQuy từ chot_quy.js!";
+      document.getElementById("statusBox").className = "status-box status-fail";
+      return;
+    }
+
+    const {
+      validateNgayPhatSinh,
+      validateBangKeNopTien,
+      hopNhatKiemQuyTheoNgay,
+      tinhToanChotQuy
+    } = window.TMHChotQuy;
+
+    // =========================================================================
+    // NHÓM 1: VALIDATE NGÀY THÁNG BƯỚC 2 (THU TIỀN SALE & PHÁT SINH)
+    // =========================================================================
+    const g1 = "1. Validate Ngày Phát Sinh Bước 2 (Khớp Đúng Ngày Thực Tế)";
+
+    // 1.1 Không được để trống
+    const vEmpty = validateNgayPhatSinh("", "2026-10-17");
+    assert(g1, "1.1 Chặn ngày phát sinh để trống", !vEmpty.valid && vEmpty.message.includes("Bắt buộc"));
+
+    // 1.2 Không được là ngày tương lai
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 2);
+    const yyyy = tomorrow.getFullYear();
+    const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
+    const dd = String(tomorrow.getDate()).padStart(2, '0');
+    const vFuture = validateNgayPhatSinh(`${yyyy}-${mm}-${dd}`, `${yyyy}-${mm}-${dd}`);
+    assert(g1, "1.2 Chặn ngày phát sinh trong tương lai", !vFuture.valid && vFuture.message.includes("tương lai"));
+
+    // 1.3 Ngày nộp tiền không được trước ngày phát sinh
+    const vBefore = validateNgayPhatSinh("2026-10-17", "2026-10-16");
+    assert(g1, "1.3 Chặn ngày nộp tiền đứng trước ngày phát sinh hàng", !vBefore.valid && vBefore.message.includes("không thể trước"));
+
+    // 1.4 Hợp lệ khi ngày phát sinh <= ngày nộp và <= hôm nay
+    const vValid = validateNgayPhatSinh("2026-10-16", "2026-10-17");
+    assert(g1, "1.4 Chấp nhận ngày phát sinh hợp lệ (VD: phát sinh 16/10, nộp 17/10)", vValid.valid);
+
+    // =========================================================================
+    // NHÓM 2: VALIDATE BẢNG KÊ NỘP TIỀN (SỐ TỜ THEO MỆNH GIÁ)
+    // =========================================================================
+    const g2 = "2. Validate Bảng Kê Nộp Tiền (Mệnh Giá & Số Tờ)";
+
+    // 2.1 Bảng kê trống không có tờ nào khi số tiền khai báo > 0
+    const vEmptyBangKe = validateBangKeNopTien({}, 50000000);
+    assert(g2, "2.1 Báo lỗi khi bảng kê trống tờ nhưng số tiền > 0", !vEmptyBangKe.valid && vEmptyBangKe.tongSoTo === 0);
+
+    // 2.2 Bảng kê sai lệch số tiền tính từ số tờ so với số tiền khai báo
+    const bangKeLech = { 500000: 10 }; // 5.000.000 đ
+    const vLech = validateBangKeNopTien(bangKeLech, 6000000);
+    assert(g2, "2.2 Báo lỗi khi tổng tiền đếm lệch với tiền khai báo", !vLech.valid && vLech.chenhLech === -1000000);
+
+    // 2.3 Bảng kê khớp 100% chính xác
+    const bangKeKhop = { 500000: 10, 200000: 5 }; // 5tr + 1tr = 6tr
+    const vKhop = validateBangKeNopTien(bangKeKhop, 6000000);
+    assert(g2, "2.3 Chấp nhận khi bảng kê khớp chính xác 100%", vKhop.valid && vKhop.tongTienDem === 6000000 && vKhop.chenhLech === 0);
+
+    // =========================================================================
+    // NHÓM 3: HỢP NHẤT DỮ LIỆU XE + SALE -> BẢNG KIỂM QUỸ (KHỚP MẪU EXCEL 179.854)
+    // =========================================================================
+    const g3 = "3. Hợp Nhất Xe + Sale Thành Bảng Kiểm Quỹ (Data Flow & Traceability)";
+
+    // Kịch bản dữ liệu kiểm thử chuẩn mẫu Excel người dùng (Tổng 179.854.000 đ)
+    // Chuyến xe 01: phát sinh 16/10, nộp 17/10: 50 tờ 500k, 100 tờ 200k, 20 tờ 100k = 47.000.000 đ
+    const dotXe1 = {
+      ma_dot: "XE_01",
+      xe: "Xe Tải 51D-12345",
+      nguoi_nop: "Trần Văn Tài",
+      ngay_phat_sinh: "2026-10-16",
+      ngay_nop: "2026-10-17",
+      tong_tien_dem: 47000000,
+      sl_500k: 50,
+      sl_200k: 100,
+      sl_100k: 20
+    };
+
+    // Chuyến xe 02: phát sinh 16/10, nộp 17/10: 20 tờ 500k, 30 tờ 100k = 13.000.000 đ
+    const dotXe2 = {
+      ma_dot: "XE_02",
+      xe: "Xe Tải 51D-67890",
+      nguoi_nop: "Lê Văn Lộc",
+      ngay_phat_sinh: "2026-10-16",
+      ngay_nop: "2026-10-17",
+      tong_tien_dem: 13000000,
+      sl_500k: 20,
+      sl_100k: 30
+    };
+
+    // Sale nộp: phát sinh 16/10, nộp 17/10: phần còn lại khớp mẫu Excel của user (119.854.000 đ)
+    const saleNop = {
+      id: "SALE_01",
+      ma_phieu: "PTS-20261017-001",
+      ten_nv_sale: "Nguyễn Văn Sale",
+      ngay_phat_sinh: "2026-10-16",
+      ngay_nop: "2026-10-17",
+      so_tien_nop: 119854000,
+      sl_500k: 107,
+      sl_200k: 121,
+      sl_100k: 133,
+      sl_50k: 115,
+      sl_20k: 657,
+      sl_10k: 988,
+      sl_5k: 13,
+      sl_2k: 5,
+      sl_1k: 9
+    };
+
+    const kqHopNhat = hopNhatKiemQuyTheoNgay("2026-10-17", "2026-10-16", [dotXe1, dotXe2], [saleNop]);
+
+    // 3.1 Kiểm tra tổng số tiền hợp nhất = 179.854.000 đ
+    assert(g3, "3.1 Tổng quỹ tiền mặt khớp 179.854.000 đ (179.854 nghìn đồng theo mẫu Excel)",
+      kqHopNhat.tongTienMat === 179854000 && kqHopNhat.tongTien1000 === 179854);
+
+    // 3.2 Kiểm tra từng mệnh giá khớp bảng Excel của user
+    const mapDong = new Map(kqHopNhat.menhGiaChiTiet.map(d => [d.menhGiaK, d]));
+    const khop500 = mapDong.get(500)?.soLuong === 177 && mapDong.get(500)?.thanhTien1000 === 88500;
+    const khop200 = mapDong.get(200)?.soLuong === 221 && mapDong.get(200)?.thanhTien1000 === 44200;
+    const khop100 = mapDong.get(100)?.soLuong === 183 && mapDong.get(100)?.thanhTien1000 === 18300;
+    const khop50  = mapDong.get(50)?.soLuong === 115 && mapDong.get(50)?.thanhTien1000 === 5750;
+    const khop20  = mapDong.get(20)?.soLuong === 657 && mapDong.get(20)?.thanhTien1000 === 13140;
+    const khop10  = mapDong.get(10)?.soLuong === 988 && mapDong.get(10)?.thanhTien1000 === 9880;
+    const khop5   = mapDong.get(5)?.soLuong === 13 && mapDong.get(5)?.thanhTien1000 === 65;
+    const khop2   = mapDong.get(2)?.soLuong === 5 && mapDong.get(2)?.thanhTien1000 === 10;
+    const khop1   = mapDong.get(1)?.soLuong === 9 && mapDong.get(1)?.thanhTien1000 === 9;
+
+    assert(g3, "3.2 Toàn bộ 9 mệnh giá (500, 200, 100, 50, 20, 10, 5, 2, 1) khớp 100% số tờ và thành tiền",
+      khop500 && khop200 && khop100 && khop50 && khop20 && khop10 && khop5 && khop2 && khop1);
+
+    // 3.3 Kiểm tra tính minh bạch nguồn tiền (Data Traceability)
+    assert(g3, "3.3 Danh sách nguồn tiền chứa đầy đủ 3 nguồn (Xe 01, Xe 02, Sale)",
+      kqHopNhat.nguonTienChiTiet.length === 3 &&
+      kqHopNhat.nguonTienChiTiet.some(n => n.loaiNguon === "xe" && n.maGoc === "XE_01" && n.soTien === 47000000) &&
+      kqHopNhat.nguonTienChiTiet.some(n => n.loaiNguon === "sale" && n.maGoc === "PTS-20261017-001" && n.soTien === 119854000)
+    );
+
+    // 3.4 Phân rã số tờ theo nguồn có thể truy vết được ngay
+    const dong500 = mapDong.get(500);
+    assert(g3, "3.4 Truy vết được tờ 500k: 70 tờ từ Xe (50+20) và 107 tờ từ Sale",
+      dong500.soToXe === 70 &&
+      dong500.soToSale === 107 &&
+      dong500.soLuong === 177
+    );
+
+    // =========================================================================
+    // NHÓM 4: LUỒNG TÍNH TOÁN CHỐT QUỸ & NỘP NGÂN HÀNG
+    // =========================================================================
+    const g4 = "4. Tính Toán Chốt Quỹ: [Tổng Thu] - [Các Khoản Chi] = [Tiền Nộp Ngân Hàng]";
+
+    // Kịch bản:
+    // Tổng thu: 179.854.000 đ
+    // Các khoản chi trước chốt (đổ xăng, cơm xe, bến bãi): 9.854.000 đ
+    const dsChiTruocChot = [
+      { id: "CHI_01", noi_dung_chi: "Đổ dầu chuyến xe 01", so_tien: 5000000, sau_chot_quy: false },
+      { id: "CHI_02", noi_dung_chi: "Tiền cơm & bến bãi các xe", so_tien: 4854000, sau_chot_quy: false }
+    ];
+
+    const kqChot = tinhToanChotQuy(kqHopNhat.tongTienXe, kqHopNhat.tongTienSale, dsChiTruocChot, []);
+
+    // 4.1 Tiền nộp ngân hàng = 179.854.000 - 9.854.000 = 170.000.000 đ
+    assert(g4, "4.1 Công thức chuẩn: Tiền nộp ngân hàng = 170.000.000 đ",
+      kqChot.tongThu === 179854000 &&
+      kqChot.tongChiTruocChot === 9854000 &&
+      kqChot.tienNopNganHang === 170000000
+    );
+
+    // 4.2 Trước khi có chi sau chốt, tiền mặt lưu két = 0 đ (khi nộp toàn bộ số còn lại vào NH)
+    assert(g4, "4.2 Tiền mặt lưu két ban đầu = 0 đ khi đã đem toàn bộ tiền nộp ngân hàng",
+      kqChot.tienMatLuuKet === 0 && !kqChot.canhBaoAmQuy
+    );
+
+    // =========================================================================
+    // NHÓM 5: BỔ SUNG CHI PHÁT SINH SAU KHI ĐÃ HOÀN TẤT CHỐT QUỸ & PHÒNG ÂM KÉT
+    // =========================================================================
+    const g5 = "5. Xử Lý Chi Phát Sinh Sau Chốt Quỹ & Phòng Ngừa Âm Két";
+
+    // Kịch bản 5.1: Kế toán đã chốt nộp ngân hàng 170.000.000 đ.
+    // Tổng thu 179.854.000 đ, chi trước chốt 4.854.000 đ -> tiền còn trước chi sau chốt = 5.000.000 đ.
+    // Thêm các khoản chi phát sinh sau chốt: 1.200.000 đ + 300.000 đ = 1.500.000 đ.
+    const dsChiCoSauChot = [
+      { id: "CHI_01", noi_dung_chi: "Cơm trưa ca sáng", so_tien: 4854000, sau_chot_quy: false },
+      { id: "CHI_03", noi_dung_chi: "Chi sau chốt: hỗ trợ sửa lốp xe ban đêm", so_tien: 1200000, sau_chot_quy: true },
+      { id: "CHI_04", noi_dung_chi: "Chi sau chốt: tiền gửi xe qua đêm", so_tien: 300000, sau_chot_quy: true }
+    ];
+
+    const kqSauChot = tinhToanChotQuy(60000000, 119854000, dsChiCoSauChot, [], 170000000);
+
+    // Tiền mặt lưu két = 5.000.000 - 1.500.000 = 3.500.000 đ.
+    assert(g5, "5.1 Chi sau chốt tự động cấn trừ chính xác: Tiền lưu két = 3.500.000 đ",
+      kqSauChot.tongChiSauChot === 1500000 &&
+      kqSauChot.tienMatLuuKet === 3500000 &&
+      !kqSauChot.canhBaoAmQuy
+    );
+
+    // Kịch bản 5.2 (Edge case): Chi phát sinh sau chốt lớn hơn tiền tồn (VD: chi 7.000.000 trong khi chỉ còn 5.000.000)
+    const dsChiVuotTon = [
+      { id: "CHI_01", noi_dung_chi: "Cơm trưa", so_tien: 4854000, sau_chot_quy: false },
+      { id: "CHI_OVER", noi_dung_chi: "Chi đột xuất vượt tồn két", so_tien: 7000000, sau_chot_quy: true }
+    ];
+
+    const kqVuot = tinhToanChotQuy(60000000, 119854000, dsChiVuotTon, [], 170000000);
+
+    // Tiền mặt lưu két không bị số âm (giữ min 0), và cờ cảnh báo canhBaoAmQuy = true
+    assert(g5, "5.2 Phòng chống âm két: Tiền lưu két không bị âm (min 0) và bật cờ cảnh báo âm quỹ",
+      kqVuot.tienMatLuuKet === 0 &&
+      kqVuot.canhBaoAmQuy === true &&
+      kqVuot.soTienThieuKet === 2000000
+    );
+
+    // =========================================================================
+    // RENDER KẾT QUẢ KIỂM THỬ RA GIAO DIỆN
+    // =========================================================================
+    hienThiBaoCaoTest(kqHopNhat);
+  }
+
+  function hienThiBaoCaoTest(kqHopNhat) {
+    const statusBox = document.getElementById("statusBox");
+    const container = document.getElementById("testResults");
+
+    const allPassed = (passCount === totalCount && totalCount > 0);
+    statusBox.className = "status-box " + (allPassed ? "status-pass" : "status-fail");
+    statusBox.innerHTML = allPassed
+      ? `🎉 TẤT CẢ ${totalCount}/${totalCount} TEST CASE ĐÃ VƯỢT QUA XUẤT SẮC 100%! HỆ THỐNG SẴN SÀNG TRIỂN KHAI.`
+      : `⚠️ CÓ ${totalCount - passCount}/${totalCount} TEST CASE THẤT BẠI. XIN VUI LÒNG KIỂM TRA LẠI LOG CHI TIẾT.`;
+
+    // Nhóm theo group
+    const groups = {};
+    results.forEach(r => {
+      if (!groups[r.group]) groups[r.group] = [];
+      groups[r.group].push(r);
+    });
+
+    let html = "";
+    for (const [groupName, items] of Object.entries(groups)) {
+      const gPassed = items.every(i => i.passed);
+      const gPassCnt = items.filter(i => i.passed).length;
+
+      html += `<div class="test-group">
+        <div class="group-title">
+          <span>${groupName}</span>
+          <div class="summary-stat">
+            <span style="color:${gPassed ? '#4ade80' : '#f87171'}">${gPassCnt}/${items.length} Passed</span>
+          </div>
+        </div>`;
+
+      items.forEach(item => {
+        html += `<div class="test-item">
+          <span class="${item.passed ? 'icon-pass' : 'icon-fail'}">${item.passed ? '✔' : '✖'}</span>
+          <div style="flex:1;">
+            <div style="font-weight:600; color:${item.passed ? '#f1f5f9' : '#fca5a5'};">${item.title}</div>
+            ${item.detail ? `<pre>${item.detail}</pre>` : ''}
+          </div>
+        </div>`;
+      });
+
+      // Nếu là nhóm hợp nhất mệnh giá, vẽ bảng preview mẫu Excel người dùng
+      if (groupName.includes("Hợp Nhất Xe + Sale")) {
+        html += `<div style="padding:12px 18px; background:#0b1120; border-top:1px solid #334155;">
+          <div style="font-size:12px; font-weight:700; color:#38bdf8; margin-bottom:6px;">📊 Bảng Kiểm Quỹ Tiền Mặt Kết Quả (Khớp mẫu Excel 179.854.000 đ):</div>
+          <table class="preview-table">
+            <thead>
+              <tr>
+                <th style="width:25%;">Mệnh giá</th>
+                <th style="width:25%;">Số lượng</th>
+                <th style="width:25%;">Thành tiền (1000 Đ)</th>
+                <th style="width:25%;">Thành tiền (VNĐ)</th>
+              </tr>
+            </thead>
+            <tbody>`;
+        kqHopNhat.menhGiaChiTiet.forEach(d => {
+          html += `<tr>
+            <td style="text-align:center; font-weight:700;">${d.menhGiaK}</td>
+            <td style="color:#38bdf8; font-weight:600;">${d.soLuong}</td>
+            <td style="color:#fbbf24; font-weight:700;">${d.thanhTien1000.toLocaleString('vi-VN')}</td>
+            <td>${d.thanhTien.toLocaleString('vi-VN')} đ</td>
+          </tr>`;
+        });
+        html += `<tr style="background:#1e293b; font-weight:bold;">
+            <td colspan="2" style="text-align:center; color:#4ade80;">TỔNG CỘNG</td>
+            <td style="color:#4ade80; font-size:13px;">${kqHopNhat.tongTien1000.toLocaleString('vi-VN')}</td>
+            <td style="color:#4ade80; font-size:13px;">${kqHopNhat.tongTienMat.toLocaleString('vi-VN')} đ</td>
+          </tr>
+          </tbody>
+          </table>
+        </div>`;
+      }
+
+      html += `</div>`;
+    }
+
+    container.innerHTML = html;
+  }
+
+  // Khởi động kiểm thử
+  if (document.readyState === 'loading') {
+    window.addEventListener("DOMContentLoaded", runAllTests);
+  } else {
+    runAllTests();
+  }
+</script>
+
+</body>
+</html>
