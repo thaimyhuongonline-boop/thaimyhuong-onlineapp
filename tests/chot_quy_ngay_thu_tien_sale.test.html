@@ -22,14 +22,45 @@
   table.preview-table th, table.preview-table td { border: 1px solid #334155; padding: 6px 10px; text-align: right; }
   table.preview-table th { background: #1e293b; color: #94a3b8; text-align: center; }
 </style>
-<!-- Nhúng logic nghiệp vụ chốt quỹ cốt lõi -->
+<!-- Nhúng logic nghiệp vụ chốt quỹ cốt lõi & UI Controller -->
 <script src="../chot_quy.js"></script>
+<script src="../buoc2_chot_quy_ui.js"></script>
 </head>
 <body>
 
+<!-- Mock DOM Fixture cho UI render test -->
+<div id="testFixture" style="display:none;">
+  <input type="date" id="cqNgayKiemDem" value="2026-10-19">
+  <input type="date" id="cqNgayPhatSinh" value="2026-10-19">
+  <div id="cqKpiThuXe">0 đ</div>
+  <div id="cqKpiThuSale">0 đ</div>
+  <div id="cqKpiTongChi">0 đ</div>
+  <div id="cqKpiNopNH">0 đ</div>
+  <div id="cqKpiSubNopNH"></div>
+  <div id="cqHeaderNgayKD"></div>
+  <div id="cqHeaderNgayPS"></div>
+  <table>
+    <tbody id="tbodyKiemQuyMenhGia"></tbody>
+    <tfoot>
+      <tr><td id="cqFootTongSoTo"></td><td id="cqFootTongCong1000"></td></tr>
+    </tfoot>
+  </table>
+  <div id="cqMiniNgayKD"></div>
+  <div id="cqMiniNgayPS"></div>
+  <div id="cqMiniSoTien"></div>
+  <div id="cqMiniTongCong"></div>
+  <table>
+    <tbody id="tbodyNguonTienChotQuy"></tbody>
+    <tbody id="tbodyChiPhatSinhNgay"></tbody>
+  </table>
+  <div id="cqTongChiSauChot"></div>
+  <div id="cqTienMatLuuKet"></div>
+  <div id="cqBoxCanhBaoAmQuy"></div>
+</div>
+
 <h1>🧪 Test Suite: Thu Tiền Sale - Gom Dữ Liệu Xe + Sale - Chốt Quỹ & Chi Phát Sinh</h1>
 <p style="color:#94a3b8; font-size:13.5px; margin-top:0;">
-  Kiểm thử tự động các nghiệp vụ: Validate ngày phát sinh Bước 2, Hợp nhất bảng kiểm quỹ mệnh giá (khớp mẫu Excel 179.854.000 đ), Tính tiền nộp ngân hàng, Xử lý chi phát sinh sau chốt quỹ & phòng chống âm két.
+  Kiểm thử tự động: Chuẩn hóa nhãn mệnh giá "500.000đ", Audit toán học không lệch nhân chuỗi, Khắc phục lỗi 0đ Tổng thu tiền xe, Chuẩn hóa ngày tháng đa định dạng (dd/MM/yyyy vs yyyy-MM-dd) & Render component UI.
 </p>
 
 <div id="statusBox" class="status-box status-pass">⏳ Đang tiến hành chạy các kịch bản kiểm thử tự động...</div>
@@ -55,7 +86,7 @@
     results.push({ group, title, passed: !!condition, detail });
   }
 
-  function runAllTests() {
+  async function runAllTests() {
     if (!window.TMHChotQuy) {
       document.getElementById("statusBox").innerHTML = "❌ Lỗi: Chưa load được module TMHChotQuy từ chot_quy.js!";
       document.getElementById("statusBox").className = "status-box status-fail";
@@ -66,7 +97,11 @@
       validateNgayPhatSinh,
       validateBangKeNopTien,
       hopNhatKiemQuyTheoNgay,
-      tinhToanChotQuy
+      tinhToanChotQuy,
+      parseMenhGia,
+      formatMenhGiaLabel,
+      chuanHoaNgayISO,
+      tinhTienMatCuaDot
     } = window.TMHChotQuy;
 
     // =========================================================================
@@ -263,6 +298,154 @@
       kqVuot.tienMatLuuKet === 0 &&
       kqVuot.canhBaoAmQuy === true &&
       kqVuot.soTienThieuKet === 2000000
+    );
+
+    // =========================================================================
+    // NHÓM 6: MỆNH GIÁ "500.000đ" & KIỂM TOÁN CÔNG THỨC TOÁN HỌC: (Số Lượng * Mệnh Giá)
+    // =========================================================================
+    const g6 = "6. Mệnh Giá '500.000đ' & Kiểm Toán Toán Học: Số Lượng * Mệnh Giá";
+
+    // 6.1: parseMenhGia('500.000đ') an toàn, không bị bug parseInt cắt dấu chấm thành 500
+    const mgParsed = parseMenhGia("500.000đ");
+    assert(g6, "6.1 parseMenhGia('500.000đ') an toàn: trả về 500000 (không bị bug parseInt = 500)",
+      mgParsed === 500000
+    );
+
+    // 6.2: Kiểm tra công thức: Nhập 177 tờ mệnh giá "500.000đ" => 88.500.000 đ
+    const sl500k = 177;
+    const tt500k = sl500k * parseMenhGia("500.000đ");
+    assert(g6, "6.2 Toán học chính xác: 177 tờ * 500.000đ = 88.500.000 đ (không sai lệch cấp số nhân)",
+      tt500k === 88500000
+    );
+
+    // 6.3: Định dạng nhãn hiển thị đầy đủ 9 mệnh giá
+    const lbl500 = formatMenhGiaLabel(500000);
+    const lbl200 = formatMenhGiaLabel(200000);
+    const lbl100 = formatMenhGiaLabel(100000);
+    const lbl50  = formatMenhGiaLabel(50000);
+    const lbl20  = formatMenhGiaLabel(20000);
+    const lbl10  = formatMenhGiaLabel(10000);
+    const lbl5   = formatMenhGiaLabel(5000);
+    const lbl2   = formatMenhGiaLabel(2000);
+    const lbl1   = formatMenhGiaLabel(1000);
+    assert(g6, "6.3 Định dạng nhãn hiển thị đầy đủ: 500.000đ -> 1.000đ đồng bộ",
+      lbl500 === "500.000đ" && lbl200 === "200.000đ" && lbl100 === "100.000đ" &&
+      lbl50 === "50.000đ" && lbl20 === "20.000đ" && lbl10 === "10.000đ" &&
+      lbl5 === "5.000đ" && lbl2 === "2.000đ" && lbl1 === "1.000đ"
+    );
+
+    // 6.4: Bảng kiểm quỹ trả về menhGiaLabel định dạng đầy đủ cho toàn bộ dòng
+    const allLabelsFormatted = kqHopNhat.menhGiaChiTiet.every(r => r.menhGiaLabel && r.menhGiaLabel.includes("đ"));
+    assert(g6, "6.4 Toàn bộ 9 dòng trong menhGiaChiTiet đều có trường menhGiaLabel format đầy đủ",
+      allLabelsFormatted && kqHopNhat.menhGiaChiTiet[0].menhGiaLabel === "500.000đ"
+    );
+
+    // =========================================================================
+    // NHÓM 7: LUỒNG DỮ LIỆU XE ĐÃ QUYẾT TOÁN -> BẢNG CHỐT QUỸ (FIX LỖI 0đ)
+    // =========================================================================
+    const g7 = "7. Luồng Dữ Liệu Xe Đã Quyết Toán -> Bảng Chốt Quỹ (Khắc Phục 0đ)";
+
+    // Mock 1 chuyến xe đã quyết toán thực tế (khớp dữ liệu của người dùng ở Hình 1)
+    const mockChuyenXeUser = {
+      maDot: "DOT_XANH_SANG_1910",
+      xe: "XANH SÁNG",
+      taiXe: "PHƯỚC LONG",
+      ngayGiao: "19/10/2026",
+      ngayRaw: "2026-10-19",
+      soLuongHD: 9,
+      tongTien: 9828500,
+      daQuyetToan: true,
+      thoiGianQuyetToan: "2026-10-19T10:30:00.000Z",
+      soTienPhaiThu: 9828500,
+      tong_tien_mat: 9828500,
+      danhSachChiTiet: [
+        { maHD: "HD001", tienMat: 9828500, chuyenKhoan: 0, traVe: 0, noPhatSinh: 0, daQuyetToan: true }
+      ]
+    };
+
+    // 7.1: Khi chuyến xe có ngày giao 19/10/2026, kiểm đếm 2026-10-19:
+    const kqXeUser = hopNhatKiemQuyTheoNgay("2026-10-19", "2026-10-19", [mockChuyenXeUser], []);
+    assert(g7, "7.1 Chuyến xe đã quyết toán (9.828.500 đ) nảy số đúng: tongTienXe > 0 và = 9.828.500 đ",
+      kqXeUser.tongTienXe > 0 && kqXeUser.tongTienXe === 9828500 && kqXeUser.soChuyenXe === 1
+    );
+
+    // 7.2: Chuyến xe đã quyết toán nhưng chưa nhập số tờ kiểm đếm (soToDemTien rỗng):
+    const mockXeKhongDemTo = {
+      maDot: "DOT_XE_THUE_0610",
+      xe: "XE THUÊ 2 SÁNG",
+      taiXe: "LINH",
+      ngayGiao: "06/10/2026",
+      soLuongHD: 4,
+      tongTien: 61690000,
+      daQuyetToan: true,
+      tong_tien_mat: 61690000,
+      soToDemTien: {} // Không có tờ nào
+    };
+    const kqXeKhongTo = hopNhatKiemQuyTheoNgay("2026-10-06", "2026-10-06", [mockXeKhongDemTo], []);
+    assert(g7, "7.2 Tự động trích xuất tiền quyết toán khi chưa nhập bảng đếm tờ: tongTienXe = 61.690.000 đ",
+      kqXeKhongTo.tongTienXe === 61690000 && kqXeKhongTo.nguonTienChiTiet[0].soTien === 61690000
+    );
+
+    // 7.3 & 7.4: Render component UI và assert các trường trên DOM
+    window.danhSachTatCaDot = [mockChuyenXeUser];
+    const inpKDTest = document.getElementById("cqNgayKiemDem");
+    const inpPSTest = document.getElementById("cqNgayPhatSinh");
+    if (inpKDTest) inpKDTest.value = "2026-10-19";
+    if (inpPSTest) inpPSTest.value = "2026-10-19";
+
+    // Kích hoạt nạp và render UI chốt quỹ
+    if (typeof taiDuLieuChotQuy === "function") {
+      await taiDuLieuChotQuy();
+    }
+
+    const kpiThuXeEl = document.getElementById("cqKpiThuXe");
+    const kpiThuXeText = kpiThuXeEl ? kpiThuXeEl.textContent : "";
+    const tbodyMenhGiaEl = document.getElementById("tbodyKiemQuyMenhGia");
+    const tbodyHTML = tbodyMenhGiaEl ? tbodyMenhGiaEl.innerHTML : "";
+
+    assert(g7, "7.3 Render UI: Card 'Tổng thu tiền xe' hiển thị đúng '9.828.500 đ' (không còn 0đ)",
+      kpiThuXeText.includes("9.828.500") && !kpiThuXeText.startsWith("0")
+    );
+    assert(g7, "7.4 Render UI: Cột Mệnh giá trên bảng kiểm quỹ hiển thị nhãn đầy đủ '500.000đ'",
+      tbodyHTML.includes("500.000đ")
+    );
+
+    // =========================================================================
+    // NHÓM 8: XỬ LÝ GÓC BIÊN (EDGE CASES): CHUẨN HÓA NGÀY THÁNG & TIMEZONE
+    // =========================================================================
+    const g8 = "8. Xử Lý Góc Biên (Edge Cases): Chuẩn Hóa Ngày Tháng & Múi Giờ";
+
+    // 8.1 Chuẩn hóa dd/MM/yyyy
+    assert(g8, "8.1 Chuẩn hóa định dạng dd/MM/yyyy (19/10/2026) -> 2026-10-19",
+      chuanHoaNgayISO("19/10/2026") === "2026-10-19"
+    );
+
+    // 8.2 Chuẩn hóa dd-MM-yyyy
+    assert(g8, "8.2 Chuẩn hóa định dạng dd-MM-yyyy (19-10-2026) -> 2026-10-19",
+      chuanHoaNgayISO("19-10-2026") === "2026-10-19"
+    );
+
+    // 8.3 Chuẩn hóa yyyy-MM-dd
+    assert(g8, "8.3 Giữ chuẩn định dạng ISO yyyy-MM-dd (2026-10-19) -> 2026-10-19",
+      chuanHoaNgayISO("2026-10-19") === "2026-10-19"
+    );
+
+    // 8.4 Chuẩn hóa UTC ISO Timestamp (từ Supabase created_at / thoiGianQuyetToan)
+    assert(g8, "8.4 Chuẩn hóa UTC Timestamp ('2026-10-19T03:30:00.000Z') -> 2026-10-19",
+      chuanHoaNgayISO("2026-10-19T03:30:00.000Z") === "2026-10-19"
+    );
+
+    // 8.5 Mismatch format giữa chuyến xe (dd/MM/yyyy) và ô input (yyyy-MM-dd):
+    const dotDateMismatch = {
+      maDot: "DOT_MISMATCH",
+      xe: "XE MÁY XANH",
+      ngayGiao: "19/10/2026", // dd/MM/yyyy
+      tongTien: 5000000,
+      daQuyetToan: true
+    };
+    const kqMismatch = hopNhatKiemQuyTheoNgay("2026-10-19", "", [dotDateMismatch], []);
+    assert(g8, "8.5 Khớp dữ liệu hoàn hảo giữa dd/MM/yyyy và yyyy-MM-dd: không bị miss chuyến do lệch format",
+      kqMismatch.tongTienXe === 5000000 && kqMismatch.soChuyenXe === 1
     );
 
     // =========================================================================

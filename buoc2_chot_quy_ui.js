@@ -107,10 +107,11 @@
   }
 
   function nhapSoToSale(menhGia, val) {
+    const mg = (typeof TMHChotQuy !== 'undefined' && TMHChotQuy.parseMenhGia) ? TMHChotQuy.parseMenhGia(menhGia) : menhGia;
     const sl = Math.max(0, parseInt(val) || 0);
-    SO_TO_SALE[menhGia] = sl;
-    const elTT = document.getElementById(`ttSale_${menhGia}`);
-    if (elTT) elTT.textContent = TMHChotQuy.fmtTien(sl * menhGia) + ' đ';
+    SO_TO_SALE[mg] = sl;
+    const elTT = document.getElementById(`ttSale_${mg}`);
+    if (elTT) elTT.textContent = TMHChotQuy.fmtTien(sl * mg) + ' đ';
     capNhatTongBangDemSale();
   }
 
@@ -357,28 +358,45 @@
     const ngayKD = (inpKD ? inpKD.value : layNgayHomNayISO()).trim();
     const ngayPS = (inpPS ? inpPS.value : '').trim();
 
-    // 1. Tải phiếu xe (từ local lịch sử đợt hoặc Supabase)
-    let dsXe = [];
+    // 1. Tải phiếu xe (từ window.danhSachTatCaDot, local lịch sử đợt hoặc Supabase)
+    const mapXe = new Map();
+
+    // 1a. Từ in-memory window.danhSachTatCaDot
+    if (typeof window !== 'undefined' && Array.isArray(window.danhSachTatCaDot)) {
+      window.danhSachTatCaDot.filter(d => !!d.daQuyetToan).forEach(d => {
+        const ma = d.maDot || d.ma_dot || (d.xe + '_' + (d.ngayGiao || d.ngayRaw));
+        if (ma) mapXe.set(ma, d);
+      });
+    }
+
+    // 1b. Từ LocalStorage
     try {
       const rawDot = localStorage.getItem('tmh_lich_su_dot') || '[]';
       const arr = JSON.parse(rawDot);
-      dsXe = (arr || []).filter(d => !!d.daQuyetToan);
+      (arr || []).filter(d => !!d.daQuyetToan).forEach(d => {
+        const ma = d.maDot || d.ma_dot || (d.xe + '_' + (d.ngayGiao || d.ngayRaw));
+        if (ma && !mapXe.has(ma)) {
+          mapXe.set(ma, d);
+        }
+      });
     } catch (e) {}
 
+    // 1c. Từ Supabase phieu_nop_tien
     if (typeof sb !== 'undefined') {
       try {
         const { data } = await sb.from('phieu_nop_tien').select('*').limit(1000);
         if (data && data.length) {
-          // Gộp thông tin
-          const setMa = new Set(dsXe.map(x => `PNP_${x.maDot}`));
+          const setMa = new Set(Array.from(mapXe.keys()).map(m => `PNP_${m}`));
           data.forEach(p => {
-            if (!setMa.has(p.ma_phieu)) {
-              dsXe.push(p);
+            if (!setMa.has(p.ma_phieu) && !mapXe.has(p.ma_phieu)) {
+              mapXe.set(p.ma_phieu, p);
             }
           });
         }
       } catch (e) {}
     }
+
+    const dsXe = Array.from(mapXe.values());
 
     // 2. Tải phiếu Sale
     const dsSale = await TMHChotQuy.taiDanhSachThuTienSaleCloud();
@@ -440,15 +458,15 @@
     if (tbodyMenhGia) {
       tbodyMenhGia.innerHTML = d.menhGiaChiTiet.map(r => `
         <tr>
-          <td style="text-align:center; font-weight:800; font-size:13px;">${r.menhGiaK}</td>
+          <td style="text-align:center; font-weight:800; font-size:13px;">${r.menhGiaLabel || (TMHChotQuy.formatMenhGiaLabel ? TMHChotQuy.formatMenhGiaLabel(r.menhGia) : (TMHChotQuy.fmtTien(r.menhGia) + 'đ'))}</td>
           <td style="text-align:center; font-weight:800; color:#0369a1; font-size:13px;">${r.soLuong > 0 ? TMHChotQuy.fmtTien(r.soLuong) : '0'}</td>
-          <td style="text-align:right; font-weight:800; color:#16a34a; font-size:13px;">${TMHChotQuy.fmtTien(r.thanhTien1000)}</td>
+          <td style="text-align:right; font-weight:800; color:#16a34a; font-size:13px;">${TMHChotQuy.fmtTien(r.thanhTien)} đ</td>
         </tr>
       `).join('');
     }
 
     const footTongCong = document.getElementById('cqFootTongCong1000');
-    if (footTongCong) footTongCong.textContent = TMHChotQuy.fmtTien(d.tongTien1000);
+    if (footTongCong) footTongCong.textContent = TMHChotQuy.fmtTien(d.tongTienMat) + ' đ';
 
     const footTongSoTo = document.getElementById('cqFootTongSoTo');
     if (footTongSoTo) footTongSoTo.textContent = TMHChotQuy.fmtTien(d.tongSoTo);
@@ -461,8 +479,8 @@
 
     if (elNgayKDMini) elNgayKDMini.textContent = TMHChotQuy.chuyenDinhDangNgayVN(d.ngayKiemDem);
     if (elNgayPSMini) elNgayPSMini.textContent = TMHChotQuy.chuyenDinhDangNgayVN(d.ngayPhatSinh);
-    if (elSoTienMini) elSoTienMini.textContent = TMHChotQuy.fmtTien(d.tongTien1000);
-    if (elTongCongMini) elTongCongMini.textContent = TMHChotQuy.fmtTien(d.tongTien1000);
+    if (elSoTienMini) elSoTienMini.textContent = TMHChotQuy.fmtTien(d.tongTienMat) + ' đ';
+    if (elTongCongMini) elTongCongMini.textContent = TMHChotQuy.fmtTien(d.tongTienMat) + ' đ';
 
     // C. BẢNG MINH BẠCH NGUỒN TIỀN (TRẬT TỰ & CHI TIẾT TỪNG XE, TỪNG SALE)
     const tbodyNguon = document.getElementById('tbodyNguonTienChotQuy');
@@ -683,18 +701,18 @@
       ['KIỂM QUỸ TIỀN MẶT'],
       ['NGÀY KIỂM ĐẾM', TMHChotQuy.chuyenDinhDangNgayVN(d.ngayKiemDem)],
       ['NGÀY PHÁT SINH TIỀN HÀNG', TMHChotQuy.chuyenDinhDangNgayVN(d.ngayPhatSinh)],
-      ['Mệnh giá', 'Số lượng', 'Thành tiền (1000 Đ)']
+      ['Mệnh giá', 'Số lượng', 'Thành tiền']
     ];
 
     d.menhGiaChiTiet.forEach(r => {
-      rows.push([r.menhGiaK, r.soLuong, r.thanhTien1000]);
+      rows.push([r.menhGiaLabel || (TMHChotQuy.formatMenhGiaLabel ? TMHChotQuy.formatMenhGiaLabel(r.menhGia) : r.menhGia), r.soLuong, r.thanhTien]);
     });
-    rows.push(['Tổng cộng', d.tongSoTo, d.tongTien1000]);
+    rows.push(['Tổng cộng', d.tongSoTo, d.tongTienMat]);
     rows.push([]);
     rows.push(['TỔNG QUỸ TIỀN MẶT']);
-    rows.push(['STT', 'NGÀY KIỂM ĐẾM', 'NGÀY PHÁT SINH TIỀN HÀNG', 'SỐ TIỀN (1000 Đ)']);
-    rows.push([1, TMHChotQuy.chuyenDinhDangNgayVN(d.ngayKiemDem), TMHChotQuy.chuyenDinhDangNgayVN(d.ngayPhatSinh), d.tongTien1000]);
-    rows.push(['TỔNG CỘNG', '', '', d.tongTien1000]);
+    rows.push(['STT', 'NGÀY KIỂM ĐẾM', 'NGÀY PHÁT SINH TIỀN HÀNG', 'SỐ TIỀN']);
+    rows.push([1, TMHChotQuy.chuyenDinhDangNgayVN(d.ngayKiemDem), TMHChotQuy.chuyenDinhDangNgayVN(d.ngayPhatSinh), d.tongTienMat]);
+    rows.push(['TỔNG CỘNG', '', '', d.tongTienMat]);
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
     XLSX.utils.book_append_sheet(wb, ws, 'Kiem_Quy_Tien_Mat');

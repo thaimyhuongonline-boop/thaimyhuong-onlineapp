@@ -77,6 +77,91 @@
     }[c]));
   }
 
+  /**
+   * Chuẩn hóa mọi định dạng ngày (dd/MM/yyyy, dd-MM-yyyy, yyyy-MM-dd, ISO UTC) về YYYY-MM-DD
+   */
+  function chuanHoaNgayISO(s) {
+    if (!s) return '';
+    const str = String(s).trim();
+    // 1. DD/MM/YYYY hoặc DD-MM-YYYY
+    let m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+    // 2. YYYY-MM-DD
+    m = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+    if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+    // 3. ISO Datetime / UTC -> chuyển sang giờ địa phương VN (UTC+7)
+    if (str.includes('T') || str.includes(':')) {
+      const dt = new Date(str);
+      if (!isNaN(dt.getTime())) {
+        const dVN = new Date(dt.getTime() + (dt.getTimezoneOffset() === 0 ? 7 * 3600 * 1000 : 0));
+        const y = dVN.getFullYear();
+        const mo = String(dVN.getMonth() + 1).padStart(2, '0');
+        const d = String(dVN.getDate()).padStart(2, '0');
+        return `${y}-${mo}-${d}`;
+      }
+    }
+    return '';
+  }
+
+  /**
+   * Parse giá trị mệnh giá số học an toàn từ chuỗi (vd "500.000đ" -> 500000, 500 -> 500000)
+   */
+  function parseMenhGia(m) {
+    if (typeof m === 'number') {
+      if (m <= 500) return m * 1000;
+      return m;
+    }
+    const str = String(m || '').trim();
+    const digits = str.replace(/[^\d]/g, '');
+    const num = parseInt(digits, 10) || 0;
+    if (num <= 500) return num * 1000;
+    return num;
+  }
+
+  /**
+   * Định dạng nhãn hiển thị đầy đủ của mệnh giá (vd: 500000 -> "500.000đ")
+   */
+  function formatMenhGiaLabel(m) {
+    const num = parseMenhGia(m);
+    return fmtTien(num) + 'đ';
+  }
+
+  /**
+   * Trích xuất tổng tiền mặt thu được từ chuyến xe đã quyết toán
+   */
+  function tinhTienMatCuaDot(dot) {
+    if (!dot) return 0;
+    if (dot.tong_tien_mat !== undefined && dot.tong_tien_mat !== null && parseFloat(dot.tong_tien_mat) > 0) {
+      return parseFloat(dot.tong_tien_mat);
+    }
+    if (dot.tong_tien_dem !== undefined && dot.tong_tien_dem !== null && parseFloat(dot.tong_tien_dem) > 0) {
+      return parseFloat(dot.tong_tien_dem);
+    }
+    if (dot.soTienPhaiThu !== undefined && dot.soTienPhaiThu !== null && parseFloat(dot.soTienPhaiThu) > 0) {
+      return parseFloat(dot.soTienPhaiThu);
+    }
+    if (dot.tongTienDem !== undefined && dot.tongTienDem !== null && parseFloat(dot.tongTienDem) > 0) {
+      return parseFloat(dot.tongTienDem);
+    }
+    if (Array.isArray(dot.danhSachChiTiet) && dot.danhSachChiTiet.length > 0) {
+      let mat = 0;
+      dot.danhSachChiTiet.forEach(h => {
+        mat += parseFloat(h.tienMat || h.tien_mat || 0);
+      });
+      const thuNo = parseFloat(dot.thuNoCu || dot.thu_no_cu || 0);
+      const chi = parseFloat(dot.tienChi || dot.tien_chi || 0);
+      const thoi = parseFloat(dot.tienThoi || dot.tien_thoi || 0);
+      const hoanTM = parseFloat(dot.tongHoanTienMat || 0);
+      const phaiThu = Math.max(0, mat + thuNo - chi + thoi - hoanTM);
+      if (phaiThu > 0) return phaiThu;
+      if (mat > 0) return mat;
+    }
+    if (dot.tongTien && parseFloat(dot.tongTien) > 0) {
+      return parseFloat(dot.tongTien);
+    }
+    return 0;
+  }
+
   // ----------------------------------------------------
   // 1. VALIDATION NGHIỆP VỤ NGÀY THÁNG & BẢNG KÊ NỘP TIỀN
   // ----------------------------------------------------
@@ -370,78 +455,89 @@
       try {
         await sb.from('chi_phat_sinh_ngay').delete().eq('ma_chi', maChi);
       } catch (e) {
-        console.warn('Lỗi xóa chi_phat_sinh_ngay cloud:', e);
+        console.warn('Lỗi xoá chi_phat_sinh_ngay cloud:', e);
       }
     }
     return { ok: true };
   }
 
   // ----------------------------------------------------
-  // 4. HỢP NHẤT DỮ LIỆU TIỀN MẶT XE + SALE THÀNH BẢNG KIỂM QUỸ
+  // 6. HỢP NHẤT DỮ LIỆU ĐẾM TIỀN & CHỐT QUỸ THEO NGÀY
   // ----------------------------------------------------
-  /**
-   * Gom và hợp nhất số tờ từng mệnh giá của tất cả Xe và Sale theo ngày
-   * @param {string} ngayKiemDem - YYYY-MM-DD
-   * @param {string} ngayPhatSinh - YYYY-MM-DD (tuỳ chọn)
-   * @param {Array} dsPhieuXe - Danh sách phiếu nộp tiền xe
-   * @param {Array} dsPhieuSale - Danh sách phiếu nộp tiền sale
-   */
   function hopNhatKiemQuyTheoNgay(ngayKiemDem, ngayPhatSinh, dsPhieuXe = [], dsPhieuSale = []) {
-    const kdISO = (ngayKiemDem || layNgayHomNayISO()).slice(0, 10);
-    const psISO = ngayPhatSinh ? ngayPhatSinh.slice(0, 10) : '';
+    const kdISO = chuanHoaNgayISO(ngayKiemDem) || layNgayHomNayISO();
+    const psISO = chuanHoaNgayISO(ngayPhatSinh) || '';
 
-    // 1. Lọc các phiếu xe nộp vào ngày kiểm đếm (hoặc ngày phát sinh tương ứng)
+    // 1. Lọc các phiếu xe đã quyết toán nộp tiền
     const xeNopTrongNgay = (dsPhieuXe || []).filter(p => {
-      const pNop = (p.ngay_nop || p.ngayGiao || '').slice(0, 10);
-      const pPS = (p.ngay_phat_sinh || p.ngayGiao || '').slice(0, 10);
-      if (psISO) {
-        return (pNop === kdISO || pPS === psISO);
+      // Chỉ tính các chuyến xe đã quyết toán hoặc có phiếu nộp tiền
+      const daQuyetToan = p.daQuyetToan === true || p.da_quyet_toan === true || !!p.thoiGianQuyetToan || !!p.ma_phieu || !!p.ma_dot || (parseFloat(p.tong_tien_mat || 0) > 0) || (parseFloat(p.tong_tien_dem || 0) > 0) || (parseFloat(p.tongTienDem || 0) > 0);
+      if (!daQuyetToan) return false;
+
+      const pNop = chuanHoaNgayISO(p.ngay_nop || p.thoiGianQuyetToan || p.ngayGiao || p.ngayRaw || p.tao_luc || p.taoLuc);
+      const pPS = chuanHoaNgayISO(p.ngay_phat_sinh || p.ngayGiao || p.ngayRaw || p.thoiGianQuyetToan || p.tao_luc || p.taoLuc);
+
+      if (psISO && kdISO) {
+        return (pNop === kdISO || pPS === psISO || pPS === kdISO || pNop === psISO);
       }
-      return pNop === kdISO;
+      if (kdISO) {
+        return (pNop === kdISO || pPS === kdISO);
+      }
+      if (psISO) {
+        return (pPS === psISO || pNop === psISO);
+      }
+      return true;
     });
 
     // 2. Lọc các phiếu sale nộp vào ngày kiểm đếm
     const saleNopTrongNgay = (dsPhieuSale || []).filter(p => {
-      const pNop = (p.ngay_nop || '').slice(0, 10);
-      const pPS = (p.ngay_phat_sinh || '').slice(0, 10);
-      if (psISO) {
-        return (pNop === kdISO || pPS === psISO);
+      const pNop = chuanHoaNgayISO(p.ngay_nop || p.tao_luc || p.ngayPhatSinh);
+      const pPS = chuanHoaNgayISO(p.ngay_phat_sinh || p.ngayPhatSinh || p.ngay_nop);
+      if (psISO && kdISO) {
+        return (pNop === kdISO || pPS === psISO || pPS === kdISO || pNop === psISO);
       }
-      return pNop === kdISO;
+      if (kdISO) {
+        return (pNop === kdISO || pPS === kdISO);
+      }
+      if (psISO) {
+        return (pPS === psISO || pNop === psISO);
+      }
+      return true;
     });
 
-    // 3. Cộng dồn số tờ từng mệnh giá
+    // 3. Cộng dồn số tờ từng mệnh giá (500.000đ -> 1.000đ)
     const menhGiaChiTiet = [];
     let tongSoToToanBo = 0;
-    let tongTienMatToanBo = 0;
-    let tongTienXe = 0;
-    let tongTienSale = 0;
+    let tongTienMatFromBills = 0;
+    let tongTienXeBills = 0;
+    let tongTienSaleBills = 0;
 
     MENH_GIA_QUY.forEach(m => {
       const cot = COT_SL_MENH_GIA[m];
       let soToXe = 0;
       xeNopTrongNgay.forEach(x => {
-        const sl = parseInt(x[cot] || (x.soToDemTien && x.soToDemTien[m]) || 0) || 0;
+        const sl = parseInt(x[cot] || (x.soToDemTien && (x.soToDemTien[m] || x.soToDemTien[String(m)])) || (x.soToMap && (x.soToMap[m] || x.soToMap[String(m)])) || 0) || 0;
         soToXe += sl;
       });
 
       let soToSale = 0;
       saleNopTrongNgay.forEach(s => {
-        const sl = parseInt(s[cot] || 0) || 0;
+        const sl = parseInt(s[cot] || (s.soToDemTien && (s.soToDemTien[m] || s.soToDemTien[String(m)])) || 0) || 0;
         soToSale += sl;
       });
 
       const tongSoTo = soToXe + soToSale;
-      const thanhTien = tongSoTo * m;
+      const thanhTien = tongSoTo * m; // Số lượng * Mệnh giá (VNĐ)
       const thanhTien1000 = Math.round(thanhTien / 1000);
 
       tongSoToToanBo += tongSoTo;
-      tongTienMatToanBo += thanhTien;
-      tongTienXe += soToXe * m;
-      tongTienSale += soToSale * m;
+      tongTienMatFromBills += thanhTien;
+      tongTienXeBills += soToXe * m;
+      tongTienSaleBills += soToSale * m;
 
       menhGiaChiTiet.push({
         menhGia: m,
+        menhGiaLabel: formatMenhGiaLabel(m), // "500.000đ", "200.000đ"...
         menhGiaK: m / 1000,
         soToXe: soToXe,
         soToSale: soToSale,
@@ -451,67 +547,88 @@
       });
     });
 
-    // 4. Lập danh sách nguồn tiền minh bạch (Traceability)
+    // 4. Lập danh sách nguồn tiền minh bạch (Traceability) & tính tổng tiền xe thực tế
+    let tongTienXeThucTe = 0;
     const nguonTienChiTiet = [];
     xeNopTrongNgay.forEach((x, i) => {
-      const st = parseFloat(x.tong_tien_dem || x.tongTienDem || x.tong_tien_mat || 0);
+      // Tiền đếm từ số tờ của xe này
+      let tienDemTungXe = 0;
+      MENH_GIA_QUY.forEach(m => {
+        const cot = COT_SL_MENH_GIA[m];
+        const sl = parseInt(x[cot] || (x.soToDemTien && (x.soToDemTien[m] || x.soToDemTien[String(m)])) || (x.soToMap && (x.soToMap[m] || x.soToMap[String(m)])) || 0) || 0;
+        tienDemTungXe += sl * m;
+      });
+
+      // Tiền quyết toán thực tế của chuyến xe
+      const tienQuyetToan = tinhTienMatCuaDot(x);
+      const st = tienDemTungXe > 0 ? tienDemTungXe : tienQuyetToan;
+      tongTienXeThucTe += st;
+
+      const mapSoTo = {};
+      MENH_GIA_QUY.forEach(m => {
+        const cot = COT_SL_MENH_GIA[m];
+        mapSoTo[m] = parseInt(x[cot] || (x.soToDemTien && (x.soToDemTien[m] || x.soToDemTien[String(m)])) || (x.soToMap && (x.soToMap[m] || x.soToMap[String(m)])) || 0) || 0;
+      });
+
       nguonTienChiTiet.push({
         stt: i + 1,
         loaiNguon: 'xe',
         nhanLoai: '🚚 Chuyến Xe',
-        tenNguon: x.xe || x.ma_dot || 'Chuyến xe',
-        nguoiNop: x.nguoi_nop || x.tai_xe || x.taiXe || '--',
-        ngayPhatSinh: x.ngay_giao || x.ngayGiao || x.ngay_nop || kdISO,
+        tenNguon: x.xe || x.maDot || x.ma_dot || 'Chuyến xe',
+        nguoiNop: x.nguoi_nop || x.taiXe || x.tai_xe || '--',
+        ngayPhatSinh: chuyenDinhDangNgayVN(chuanHoaNgayISO(x.ngay_phat_sinh || x.ngayGiao || x.ngayRaw) || kdISO),
         soTien: st,
-        soToMap: {
-          500000: x.sl_500k || x.soToDemTien?.[500000] || 0,
-          200000: x.sl_200k || x.soToDemTien?.[200000] || 0,
-          100000: x.sl_100k || x.soToDemTien?.[100000] || 0,
-          50000: x.sl_50k || x.soToDemTien?.[50000] || 0,
-          20000: x.sl_20k || x.soToDemTien?.[20000] || 0,
-          10000: x.sl_10k || x.soToDemTien?.[10000] || 0,
-          5000: x.sl_5k || x.soToDemTien?.[5000] || 0,
-          2000: x.sl_2k || x.soToDemTien?.[2000] || 0,
-          1000: x.sl_1k || x.soToDemTien?.[1000] || 0
-        },
-        maGoc: x.ma_phieu || x.ma_dot || ''
+        soToMap: mapSoTo,
+        maGoc: x.ma_phieu || x.maDot || x.ma_dot || ''
       });
     });
 
+    let tongTienSaleThucTe = 0;
     saleNopTrongNgay.forEach((s, i) => {
-      const st = parseFloat(s.tong_tien_dem || s.so_tien_nop || 0);
+      let tienDemSale = 0;
+      MENH_GIA_QUY.forEach(m => {
+        const cot = COT_SL_MENH_GIA[m];
+        const sl = parseInt(s[cot] || 0) || 0;
+        tienDemSale += sl * m;
+      });
+      const st = parseFloat(s.so_tien_nop || s.soTien || s.tong_tien_dem || 0) || tienDemSale;
+      tongTienSaleThucTe += st;
+
+      const mapSoTo = {};
+      MENH_GIA_QUY.forEach(m => {
+        const cot = COT_SL_MENH_GIA[m];
+        mapSoTo[m] = parseInt(s[cot] || 0) || 0;
+      });
+
       nguonTienChiTiet.push({
         stt: nguonTienChiTiet.length + 1,
         loaiNguon: 'sale',
         nhanLoai: '💼 Nhân viên Sale',
-        tenNguon: s.ten_nv_sale || 'Sale',
-        nguoiNop: s.ten_nv_sale || '--',
-        ngayPhatSinh: s.ngay_phat_sinh || kdISO,
+        tenNguon: s.ten_nv_sale || s.nguoiNop || 'Sale',
+        nguoiNop: s.ten_nv_sale || s.nguoiNop || '--',
+        ngayPhatSinh: chuyenDinhDangNgayVN(chuanHoaNgayISO(s.ngay_phat_sinh || s.ngayPhatSinh) || kdISO),
         soTien: st,
-        soToMap: {
-          500000: s.sl_500k || 0,
-          200000: s.sl_200k || 0,
-          100000: s.sl_100k || 0,
-          50000: s.sl_50k || 0,
-          20000: s.sl_20k || 0,
-          10000: s.sl_10k || 0,
-          5000: s.sl_5k || 0,
-          2000: s.sl_2k || 0,
-          1000: s.sl_1k || 0
-        },
-        maGoc: s.ma_phieu || ''
+        soToMap: mapSoTo,
+        maGoc: s.ma_phieu || s.maPhieu || s.id || ''
       });
     });
+
+    // Ưu tiên tổng tiền thực tế nếu tổng tiền từ số tờ = 0 (do xe chưa nhập số tờ hoặc chỉ quyết toán tiền)
+    const finalTongTienXe = (tongTienXeBills > 0 && tongTienXeBills >= tongTienXeThucTe) ? tongTienXeBills : (tongTienXeThucTe > 0 ? tongTienXeThucTe : tongTienXeBills);
+    const finalTongTienSale = (tongTienSaleBills > 0 && tongTienSaleBills >= tongTienSaleThucTe) ? tongTienSaleBills : (tongTienSaleThucTe > 0 ? tongTienSaleThucTe : tongTienSaleBills);
+    const finalTongTienMat = (tongTienMatFromBills > 0 && tongTienMatFromBills >= (finalTongTienXe + finalTongTienSale))
+      ? tongTienMatFromBills
+      : (finalTongTienXe + finalTongTienSale);
 
     return {
       ngayKiemDem: kdISO,
       ngayPhatSinh: psISO || kdISO,
       menhGiaChiTiet: menhGiaChiTiet,
       tongSoTo: tongSoToToanBo,
-      tongTienMat: tongTienMatToanBo,
-      tongTien1000: Math.round(tongTienMatToanBo / 1000),
-      tongTienXe: tongTienXe,
-      tongTienSale: tongTienSale,
+      tongTienMat: finalTongTienMat,
+      tongTien1000: Math.round(finalTongTienMat / 1000),
+      tongTienXe: finalTongTienXe,
+      tongTienSale: finalTongTienSale,
       soChuyenXe: xeNopTrongNgay.length,
       soPhieuSale: saleNopTrongNgay.length,
       nguonTienChiTiet: nguonTienChiTiet
@@ -717,7 +834,11 @@
     docChotQuyLocal,
     ghiChotQuyLocal,
     luuBanChotQuyNgay,
-    docBanChotQuyNgay
+    docBanChotQuyNgay,
+    parseMenhGia,
+    formatMenhGiaLabel,
+    chuanHoaNgayISO,
+    tinhTienMatCuaDot
   };
 
 })(typeof window !== 'undefined' ? window : globalThis);

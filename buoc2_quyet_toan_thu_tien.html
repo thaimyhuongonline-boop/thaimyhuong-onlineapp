@@ -1644,7 +1644,7 @@
               <tr>
                 <th style="width:35%;">Mệnh giá</th>
                 <th style="width:30%;">Số lượng</th>
-                <th style="width:35%;">Thành tiền (1000 Đ)</th>
+                <th style="width:35%;">Thành tiền</th>
               </tr>
             </thead>
             <tbody id="tbodyKiemQuyMenhGia">
@@ -1670,7 +1670,7 @@
                   <th style="width:12%;">STT</th>
                   <th style="width:32%;">NGÀY KIỂM ĐẾM</th>
                   <th style="width:34%;">NGÀY PHÁT SINH TIỀN HÀNG</th>
-                  <th style="width:22%;">SỐ TIỀN (1000 Đ)</th>
+                  <th style="width:22%;">SỐ TIỀN</th>
                 </tr>
               </thead>
               <tbody>
@@ -2247,6 +2247,7 @@
     MENH_GIA_TIEN.forEach(m => { SO_TO_DEM[m] = 0; });
 
     let danhSachTatCaDot = [];
+    window.danhSachTatCaDot = danhSachTatCaDot;
     let dotHienTai = null;
     let danhSachHoaDonQuyetToan = [];
 
@@ -2312,6 +2313,15 @@
 
       // 5. Khởi tạo cơ chế tự động đồng bộ Realtime từ Supabase
       khoiTaoRealtimeDongBoB2();
+
+      // 6. Kiểm tra URL param tab (vd ?tab=chot_quy hoặc ?tab=thu_tien_sale)
+      try {
+        const uParams = new URLSearchParams(window.location.search);
+        const pTab = uParams.get('tab');
+        if (pTab && ['chot_quy', 'thu_tien_sale', 'don_thieu'].includes(pTab)) {
+          chuyenTabB2(pTab);
+        }
+      } catch (e) {}
     }
 
     // Tải danh mục tài khoản ngân hàng từ Danh mục hệ thống
@@ -2378,6 +2388,7 @@
       } catch (e) {
         danhSachTatCaDot = [];
       }
+      window.danhSachTatCaDot = danhSachTatCaDot;
 
       // Đọc và hợp nhất từ Supabase luu_tru
       if (typeof sb !== 'undefined') {
@@ -2426,6 +2437,7 @@
                 } catch (e) {}
               }
               // Lưu localStorage: loại bỏ cacDongChiTietKiotViet (lớn, gây tràn 5MB quota)
+              window.danhSachTatCaDot = danhSachTatCaDot;
               const lsData = danhSachTatCaDot.map(d => d.cacDongChiTietKiotViet ? { ...d, cacDongChiTietKiotViet: [] } : d);
               try {
                 localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lsData));
@@ -2437,6 +2449,7 @@
               }
             } else if (data.length === 0) {
               danhSachTatCaDot = [];
+              window.danhSachTatCaDot = danhSachTatCaDot;
               localStorage.removeItem("tmh_lich_su_dot");
             }
           }
@@ -4808,9 +4821,11 @@
     }
 
     function nhapSoTo(m, val) {
-      SO_TO_DEM[m] = parseInt(val) || 0;
-      const thanhTien = m * SO_TO_DEM[m];
-      const el = document.getElementById(`oTienMenhGia_${m}`);
+      const menhGiaNum = (typeof TMHChotQuy !== 'undefined' && TMHChotQuy.parseMenhGia) ? TMHChotQuy.parseMenhGia(m) : (parseInt(String(m).replace(/[^\d]/g, '')) || m);
+      const sl = Math.max(0, parseInt(val) || 0);
+      SO_TO_DEM[menhGiaNum] = sl;
+      const thanhTien = menhGiaNum * sl;
+      const el = document.getElementById(`oTienMenhGia_${menhGiaNum}`) || document.getElementById(`oTienMenhGia_${m}`);
       if (el) el.textContent = formatTien(thanhTien) + ' đ';
       tinhTongBangDemTien();
     }
@@ -6739,6 +6754,8 @@
 
     // Helper lưu tmh_lich_su_dot: loại bỏ cacDongChiTietKiotViet (tránh tràn quota 5MB)
     function luuLichSuLS(ds) {
+      if (ds) danhSachTatCaDot = ds;
+      window.danhSachTatCaDot = danhSachTatCaDot;
       const lsData = (ds || danhSachTatCaDot).map(d => d.cacDongChiTietKiotViet ? { ...d, cacDongChiTietKiotViet: [] } : d);
       try { localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lsData)); }
       catch (_) { try { localStorage.setItem("tmh_lich_su_dot", JSON.stringify(lsData.slice(0, 60))); } catch (_2) {} }
