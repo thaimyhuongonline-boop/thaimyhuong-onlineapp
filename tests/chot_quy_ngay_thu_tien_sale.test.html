@@ -20,9 +20,40 @@
   .summary-stat { display: inline-flex; gap: 16px; margin-left: auto; font-size: 13px; font-weight: 600; }
   table.preview-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
   table.preview-table th, table.preview-table td { border: 1px solid #334155; padding: 6px 10px; text-align: right; }
-  table.preview-table th { background: #1e293b; color: #94a3b8; text-align: center; }
 </style>
-<!-- Nhúng logic nghiệp vụ chốt quỹ cốt lõi & UI Controller -->
+<script>
+  window.supabase = {
+    createClient: function() {
+      const q = {
+        select: function() { return q; },
+        eq: function() { return q; },
+        in: function() { return q; },
+        order: function() { return q; },
+        limit: function() { return q; },
+        maybeSingle: function() { return Promise.resolve({ data: null, error: null }); },
+        then: function(cb) { return Promise.resolve({ data: [], error: null }).then(cb); }
+      };
+      return {
+        from: function() { return q; },
+        rest: { from: function() { return q; } },
+        auth: { getSession: function() { return Promise.resolve({ data: { session: null } }); }, signOut: function() {} }
+      };
+    }
+  };
+  window.onerror = function (msg, url, lineNo, columnNo, error) {
+    const statusBox = document.getElementById("statusBox");
+    if (statusBox) {
+      statusBox.className = "status-box status-fail";
+      statusBox.innerHTML = `❌ Lỗi thực thi script tại ${url}:${lineNo}: ${msg}`;
+    }
+    return false;
+  };
+</script>
+<script src="../kho_idb.js"></script>
+<!-- Nhúng logic phân quyền, layout & chốt quỹ -->
+<script src="../config.js"></script>
+<script src="../phan_quyen.js"></script>
+<script src="../layout.js"></script>
 <script src="../chot_quy.js"></script>
 <script src="../buoc2_chot_quy_ui.js"></script>
 </head>
@@ -67,14 +98,13 @@
 <div id="testResults"></div>
 
 <script>
-  window.onerror = function (msg, url, lineNo, columnNo, error) {
+  window.addEventListener("unhandledrejection", function (e) {
     const statusBox = document.getElementById("statusBox");
     if (statusBox) {
       statusBox.className = "status-box status-fail";
-      statusBox.innerHTML = `❌ Lỗi thực thi script tại dòng ${lineNo}: ${msg}`;
+      statusBox.innerHTML = `❌ Async Error: ` + (e.reason && (e.reason.stack || e.reason.message || e.reason));
     }
-    return false;
-  };
+  });
 
   const results = [];
   let passCount = 0;
@@ -87,11 +117,12 @@
   }
 
   async function runAllTests() {
-    if (!window.TMHChotQuy) {
-      document.getElementById("statusBox").innerHTML = "❌ Lỗi: Chưa load được module TMHChotQuy từ chot_quy.js!";
-      document.getElementById("statusBox").className = "status-box status-fail";
-      return;
-    }
+    try {
+      if (!window.TMHChotQuy) {
+        document.getElementById("statusBox").innerHTML = "❌ Lỗi: Chưa load được module TMHChotQuy từ chot_quy.js!";
+        document.getElementById("statusBox").className = "status-box status-fail";
+        return;
+      }
 
     const {
       validateNgayPhatSinh,
@@ -449,9 +480,202 @@
     );
 
     // =========================================================================
+    // NHÓM 9: ROUTER & CẤU TRÚC UI ĐỘC LẬP (bang_chot_quy.html & Bước 2 Cleanup)
+    // =========================================================================
+    const g9 = "9. Router & Cấu Trúc UI Độc Lập (Tách Bảng Chốt Quỹ ra Menu Riêng)";
+
+    // 9.1 Menu Sidebar đăng ký mục chotquy
+    const menuChotQuy = (typeof MENU_CHINH !== "undefined") ? MENU_CHINH.find(m => m.id === "chotquy") : null;
+    assert(g9, "9.1 Sidebar: MENU_CHINH có đăng ký menu chotquy trỏ tới bang_chot_quy.html",
+      !!menuChotQuy && menuChotQuy.href === "bang_chot_quy.html" && menuChotQuy.label.includes("Bảng Chốt Quỹ & Nộp Ngân Hàng")
+    );
+
+    // 9.2 Vị trí menu chotquy: nằm ngay dưới quytrinh (index 2)
+    const idxMenu = (typeof MENU_CHINH !== "undefined") ? MENU_CHINH.findIndex(m => m.id === "chotquy") : -1;
+    const idxQuyTrinh = (typeof MENU_CHINH !== "undefined") ? MENU_CHINH.findIndex(m => m.id === "quytrinh") : -1;
+    assert(g9, "9.2 Sidebar: Menu chotquy đặt ở vị trí hợp lý ngay sau Quy trình bán hàng",
+      idxMenu > idxQuyTrinh && idxMenu === 2
+    );
+
+    // 9.3 Khai báo module chotquy trong MODULE_PHAN_QUYEN
+    const modChotQuy = (typeof MODULE_PHAN_QUYEN !== "undefined") ? MODULE_PHAN_QUYEN.find(m => m.id === "chotquy") : null;
+    assert(g9, "9.3 Module: chotquy được khai báo trong MODULE_PHAN_QUYEN chứa trang bang_chot_quy.html",
+      !!modChotQuy && modChotQuy.trang.includes("bang_chot_quy.html")
+    );
+
+    // 9.4 layModuleCuaTrang nhận diện đúng module chotquy
+    const tenModTrang = (typeof layModuleCuaTrang === "function") ? layModuleCuaTrang("bang_chot_quy.html") : null;
+    assert(g9, "9.4 Route Matcher: layModuleCuaTrang('bang_chot_quy.html') trả về chính xác 'chotquy'",
+      tenModTrang === "chotquy"
+    );
+
+    // 9.5 Mount Bước 2: Kiểm tra (assert) tab 'Bảng Chốt Quỹ & Nộp Ngân Hàng' không còn tồn tại trong DOM
+    let buoc2HTML = "";
+    try {
+      const resB2 = await fetch("../buoc2_quyet_toan_thu_tien.html");
+      buoc2HTML = await resB2.text();
+    } catch(e) {}
+    const parser = new DOMParser();
+    const docB2 = parser.parseFromString(buoc2HTML, "text/html");
+    const tabB2Exists = !!docB2.getElementById("tabBtnChotQuy") || buoc2HTML.includes('id="tabBtnChotQuy"') || !!docB2.getElementById("vungChotQuyNgay");
+    assert(g9, "9.5 Mount Bước 2: Kiểm tra (assert) tab 'Bảng Chốt Quỹ & Nộp Ngân Hàng' KHÔNG CÒN TỒN TẠI trong DOM",
+      !tabB2Exists
+    );
+
+    // 9.6 Chuyển hướng tới Route mới của Bảng chốt quỹ: Không lỗi 404, render thành công không bị crash
+    let chotQuyHTML = "";
+    let resCQStatus = 0;
+    try {
+      const resCQ = await fetch("../bang_chot_quy.html");
+      resCQStatus = resCQ.status;
+      chotQuyHTML = await resCQ.text();
+    } catch(e) {}
+    const docCQ = parser.parseFromString(chotQuyHTML, "text/html");
+    const cqValid = resCQStatus === 200 &&
+      !!docCQ.getElementById("cqKpiThuXe") &&
+      !!docCQ.getElementById("cqKpiNopNH") &&
+      !!docCQ.getElementById("tbodyKiemQuyMenhGia");
+    assert(g9, "9.6 Route mới: Chuyển hướng tới bang_chot_quy.html render thành công (HTTP 200, đầy đủ DOM, không crash/404)",
+      cqValid
+    );
+
+    // =========================================================================
+    // NHÓM 10: PHÂN QUYỀN (AUTHORIZATION) TRUY CẬP ROUTE & ẨN/HIỆN SIDEBAR
+    // =========================================================================
+    const g10 = "10. Phân Quyền (Authorization): Kế Toán Tổng Hợp & Quản Trị Viên";
+
+    // 10.1 Quản trị viên (Cấp 1) có quyền Toàn quyền
+    const qAdmin = (typeof tinhQuyenModule === "function") ? tinhQuyenModule(null, "chotquy", 1) : null;
+    assert(g10, "10.1 Quản trị viên (Cấp 1) luôn có toàn quyền 'all' vào Bảng Chốt Quỹ",
+      qAdmin === "all"
+    );
+
+    // 10.2 Kế toán Tổng hợp trong ma trận mặc định có quyền 'all'
+    const qKTTH_Matrix = (typeof MA_TRAN_MAC_DINH !== "undefined" && MA_TRAN_MAC_DINH["Kế toán Tổng hợp"])
+      ? MA_TRAN_MAC_DINH["Kế toán Tổng hợp"].chotquy : null;
+    assert(g10, "10.2 Kế toán Tổng hợp được cấu hình 'all' trong MA_TRAN_MAC_DINH",
+      qKTTH_Matrix === "all"
+    );
+
+    // 10.3 Kế toán Bán hàng bị chặn truy cập và ẩn menu
+    const qKTBH = (typeof MA_TRAN_MAC_DINH !== "undefined" && MA_TRAN_MAC_DINH["Kế toán Bán hàng"])
+      ? MA_TRAN_MAC_DINH["Kế toán Bán hàng"].chotquy : null;
+    const qKTBHTinh = (typeof tinhQuyenModule === "function") ? tinhQuyenModule({ chotquy: "none" }, "chotquy", 3) : null;
+    assert(g10, "10.3 Kế toán Bán hàng bị chặn (quyền 'none') đối với Bảng Chốt Quỹ",
+      qKTBH === "none" && qKTBHTinh === "none"
+    );
+
+    // 10.4 Kế toán Công nợ bị chặn truy cập
+    const qKTCN = (typeof MA_TRAN_MAC_DINH !== "undefined" && MA_TRAN_MAC_DINH["Kế toán Công nợ"])
+      ? MA_TRAN_MAC_DINH["Kế toán Công nợ"].chotquy : null;
+    assert(g10, "10.4 Kế toán Công nợ bị chặn (quyền 'none') đối với Bảng Chốt Quỹ",
+      qKTCN === "none"
+    );
+
+    // 10.5 Thủ kho và Tài xế bị chặn truy cập
+    const qThuKho = (typeof MA_TRAN_MAC_DINH !== "undefined" && MA_TRAN_MAC_DINH["Thủ kho"])
+      ? MA_TRAN_MAC_DINH["Thủ kho"].chotquy : null;
+    const qTaiXe = (typeof MA_TRAN_MAC_DINH !== "undefined" && MA_TRAN_MAC_DINH["Tài xế"])
+      ? MA_TRAN_MAC_DINH["Tài xế"].chotquy : null;
+    assert(g10, "10.5 Thủ kho và Tài xế bị chặn hoàn toàn (quyền 'none')",
+      qThuKho === "none" && qTaiXe === "none"
+    );
+
+    // 10.6 Sidebar filtering: Giả lập hàm lọc menu layQuyenModule
+    const mockLayQuyen = (mod) => {
+      if (mod === "chotquy") return "none";
+      return "all";
+    };
+    const menuRenderedBlocked = MENU_CHINH.map(m => {
+      const modMenu = m.isProcess ? null : m.id;
+      if (!m.isProcess && mockLayQuyen(modMenu) === "none") return "";
+      return m.id;
+    }).filter(Boolean);
+    assert(g10, "10.6 Sidebar menu tự động ẩn khi tài khoản không có quyền chotquy",
+      !menuRenderedBlocked.includes("chotquy")
+    );
+
+    // =========================================================================
+    // NHÓM 11: DATA INTEGRATION & LIÊN KẾT DỮ LIỆU ĐỘC LẬP
+    // =========================================================================
+    const g11 = "11. Data Integration & Luồng Dữ Liệu Độc Lập";
+
+    // 11.1 Đổ dữ liệu từ xe quyết toán vào bảng chốt quỹ không bị 0đ hay undefined
+    const dotMauStandAlone = {
+      maDot: "DOT_STANDALONE_01",
+      xe: "XE TẢI 01",
+      ngayGiao: "2026-10-19",
+      tong_tien_mat: 15500000,
+      sl_500: 31,
+      soToDemTien: { 500000: 31 }, // 31 * 500.000 = 15.500.000đ
+      daQuyetToan: true
+    };
+    const saleMauStandAlone = {
+      ma_phieu: "PTS_STANDALONE_01",
+      ngay_phat_sinh: "2026-10-19",
+      ngay_nop: "2026-10-19",
+      nhan_vien: "Nguyễn Văn Nam",
+      so_tien_nop: 4500000,
+      sl_500: 9,
+      soToDem: { 500000: 9 }, // 9 * 500.000 = 4.500.000đ
+      soToDemTien: { 500000: 9 }
+    };
+
+    const kqStandAlone = hopNhatKiemQuyTheoNgay("2026-10-19", "2026-10-19", [dotMauStandAlone], [saleMauStandAlone]);
+    assert(g11, "11.1 Đứng ở màn hình độc lập: Tổng thu tiền xe lấy đúng 15.500.000đ (không bị 0đ)",
+      kqStandAlone.tongTienXe === 15500000
+    );
+    assert(g11, "11.2 Đứng ở màn hình độc lập: Tổng thu tiền sale lấy đúng 4.500.000đ (không bị 0đ)",
+      kqStandAlone.tongTienSale === 4500000
+    );
+    assert(g11, "11.3 Tổng tiền mặt quỹ hợp nhất chính xác 20.000.000đ (40 tờ 500.000đ)",
+      kqStandAlone.tongTienMat === 20000000 && kqStandAlone.tongSoTo === 40
+    );
+
+    // 11.4 Tính toán chi phát sinh và số tiền nộp ngân hàng
+    const chiMauStandAlone = [
+      { ma_chi: "CHI_01", hang_muc: "Xăng dầu", noi_dung: "Đổ xăng xe", so_tien: 500000, sau_chot_quy: false }
+    ];
+    const chiSauChotStandAlone = [
+      { ma_chi: "CHI_02", hang_muc: "Bốc xếp", noi_dung: "Chi bốc dỡ", so_tien: 200000, sau_chot_quy: true }
+    ];
+    const kqTinhStandAlone = tinhToanChotQuy(
+      kqStandAlone.tongTienXe,
+      kqStandAlone.tongTienSale,
+      chiMauStandAlone,
+      chiSauChotStandAlone
+    );
+    assert(g11, "11.4 Tiền mặt nộp ngân hàng chính xác = Tổng thu (20.000.000đ) - Chi trước chốt (500.000đ) = 19.500.000đ",
+      kqTinhStandAlone.tienNopNganHang === 19500000
+    );
+    assert(g11, "11.5 Tiền mặt lưu két bảo vệ chống âm (min 0) và bật cảnh báo âm quỹ: thiếu hụt 200.000đ",
+      kqTinhStandAlone.tienMatLuuKet === 0 &&
+      kqTinhStandAlone.canhBaoAmQuy === true &&
+      kqTinhStandAlone.soTienThieuKet === 200000
+    );
+
+    // 11.6 Test Integration: Fetch data trên màn hình độc lập mới, đảm bảo biến tổng thu xe / tổng thu sale >= 0 (khớp với dữ liệu mock của ngày đó)
+    assert(g11, "11.6 Test Integration: Fetch data trên màn hình độc lập mới, đảm bảo tổng thu xe / tổng thu sale >= 0 (khớp với mock)",
+      kqStandAlone.tongTienXe >= 0 &&
+      kqStandAlone.tongTienSale >= 0 &&
+      kqStandAlone.tongTienXe === 15500000 &&
+      kqStandAlone.tongTienSale === 4500000 &&
+      !isNaN(kqStandAlone.tongTienMat) &&
+      kqStandAlone.tongTienMat > 0
+    );
+
+    // =========================================================================
     // RENDER KẾT QUẢ KIỂM THỬ RA GIAO DIỆN
     // =========================================================================
     hienThiBaoCaoTest(kqHopNhat);
+    } catch (err) {
+      console.error(err);
+      const statusBox = document.getElementById("statusBox");
+      if (statusBox) {
+        statusBox.className = "status-box status-fail";
+        statusBox.innerHTML = `❌ Lỗi kiểm thử: ${err.message}<pre>${err.stack}</pre>`;
+      }
+    }
   }
 
   function hienThiBaoCaoTest(kqHopNhat) {

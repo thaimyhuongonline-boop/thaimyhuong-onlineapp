@@ -381,7 +381,22 @@
       });
     } catch (e) {}
 
-    // 1c. Từ Supabase phieu_nop_tien
+    // 1c. Bổ sung từ Supabase luu_tru (docLuuTruMoiNhat) khi đứng ở màn hình độc lập
+    if (typeof docLuuTruMoiNhat === 'function') {
+      try {
+        const { data: dataLT } = await docLuuTruMoiNhat(2000);
+        if (dataLT && Array.isArray(dataLT)) {
+          dataLT.filter(d => !!d.daQuyetToan).forEach(d => {
+            const ma = d.maDot || d.ma_dot || (d.xe + '_' + (d.ngayGiao || d.ngayRaw));
+            if (ma && !mapXe.has(ma)) {
+              mapXe.set(ma, d);
+            }
+          });
+        }
+      } catch (e) {}
+    }
+
+    // 1d. Từ Supabase phieu_nop_tien
     if (typeof sb !== 'undefined') {
       try {
         const { data } = await sb.from('phieu_nop_tien').select('*').limit(1000);

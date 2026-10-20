@@ -39,6 +39,10 @@ const DANH_MUC_CHUC_NANG = [
   { id: "quyettoan.thu_no", module: "quyettoan", loai: "ghi", label: "Ghi thu nợ cũ qua xe", ham: ["themDongThuNoKhach", "chonThuNoDonNay", "xacNhanThuCacDonNoDaChon"] },
   { id: "quyettoan.danh_dau_thu_quy", module: "quyettoan", loai: "ghi", label: "Đánh dấu \"Đã thu quỹ\" trong sổ công nợ", ham: ["danhDauDaThuXong"] },
   { id: "quyettoan.in", module: "quyettoan", loai: "doc", label: "In bảng kê quyết toán", ham: ["inBangQuyetToan"] },
+  // Bảng chốt quỹ & Nộp ngân hàng
+  { id: "chotquy.hoan_tat", module: "chotquy", loai: "ghi", label: "Hoàn tất chốt quỹ ngày", ham: ["hoanTatChotQuyNgay"] },
+  { id: "chotquy.chi_phat_sinh", module: "chotquy", loai: "ghi", label: "Thêm / xoá chi phát sinh", ham: ["moModalThemChi", "luuModalChi", "xoaChiUI"] },
+  { id: "chotquy.in_xuat", module: "chotquy", loai: "doc", label: "In bảng kiểm quỹ & xuất Excel", ham: ["inBangKiemQuy", "xuatExcelKiemQuy"] },
   // B3: Đẩy MISA & kho lưu trữ
   { id: "misa.xuat_file", module: "misa", loai: "doc", label: "Xuất file / copy dữ liệu MISA", ham: ["xuatFileExcelMISA", "copyDuLieuBangMISA", "xuatFileExcelThuNoMisa", "xuatPhieuThuTienMat", "xuatPhieuThuTienGui", "luuSoPhieuThuTiepTheo"] },
   { id: "misa.danh_dau_day", module: "misa", loai: "ghi", label: "Đánh dấu đã đẩy MISA", ham: ["danhDauDaDayMISA", "danhDauDaDayMisaThuNo"] },
@@ -194,6 +198,18 @@ function tinhQuyenModule(pq, moduleId, cap) {
   }
   if (cap === 1) return "all";
   if (moduleId === "taikhoan") return "none";
+  if (moduleId === "chotquy") {
+    let chucVu = "";
+    try {
+      chucVu = (localStorage.getItem("userChucVu") || "").toLowerCase();
+      if (!chucVu) {
+        const p = JSON.parse(localStorage.getItem("nhan_su_profile") || "{}");
+        chucVu = (p.chuc_vu || "").toLowerCase();
+      }
+    } catch (e) {}
+    if (cap === 1 || chucVu.includes("kế toán tổng hợp")) return "all";
+    return "none";
+  }
   if (moduleId === "baocao") return cap <= 2 ? "all" : "none";
   const laMucCoDinh = MODULE_PHAN_QUYEN.some(function (m) { return m.id === moduleId; });
   if (!laMucCoDinh) return cap === 2 ? "view" : "none";
