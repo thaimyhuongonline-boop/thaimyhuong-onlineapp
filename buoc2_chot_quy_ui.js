@@ -358,43 +358,59 @@
     const ngayKD = (inpKD ? inpKD.value : layNgayHomNayISO()).trim();
     const ngayPS = (inpPS ? inpPS.value : '').trim();
 
-    // 1. Tải phiếu xe (từ window.danhSachTatCaDot, local lịch sử đợt hoặc Supabase)
+    // 1. Tải phiếu xe (Ưu tiên số 1: Supabase phieu_nop_tien - Phiếu quyết toán chính thức của các xe)
     const mapXe = new Map();
+    const setXeDaCoPhieu = new Set();
 
-    // 1a. Từ in-memory window.danhSachTatCaDot
-    if (typeof window !== 'undefined' && Array.isArray(window.danhSachTatCaDot)) {
-      window.danhSachTatCaDot.filter(d => !!d.daQuyetToan).forEach(d => {
-        const ma = d.maDot || d.ma_dot || (d.xe + '_' + (d.ngayGiao || d.ngayRaw));
-        if (ma) mapXe.set(ma, d);
-      });
-    }
-
-    // 1b. Từ LocalStorage
-    try {
-      const rawDot = localStorage.getItem('tmh_lich_su_dot') || '[]';
-      const arr = JSON.parse(rawDot);
-      (arr || []).filter(d => !!d.daQuyetToan).forEach(d => {
-        const ma = d.maDot || d.ma_dot || (d.xe + '_' + (d.ngayGiao || d.ngayRaw));
-        if (ma && !mapXe.has(ma)) {
-          mapXe.set(ma, d);
-        }
-      });
-    } catch (e) {}
-
-    // 1c. Từ Supabase phieu_nop_tien (Phiếu quyết toán chính thức của các xe)
+    // 1a. Từ Supabase phieu_nop_tien (Nguồn quyết toán tiền mặt & kiểm đếm chính thức)
     if (typeof sb !== 'undefined') {
       try {
-        const { data } = await sb.from('phieu_nop_tien').select('*').limit(1000);
+        const { data } = await sb.from('phieu_nop_tien').select('*').order('tao_luc', { ascending: false }).limit(2000);
         if (data && data.length) {
           data.forEach(p => {
             const ma = p.ma_dot || p.ma_phieu || (p.xe + '_' + (p.ngay_nop || p.ngay_phat_sinh));
-            if (ma && !mapXe.has(ma)) {
+            if (ma) {
               mapXe.set(ma, p);
+              setXeDaCoPhieu.add(ma);
+              if (p.ma_dot) setXeDaCoPhieu.add(p.ma_dot);
+              if (p.ma_phieu) setXeDaCoPhieu.add(p.ma_phieu);
+              if (p.xe) {
+                const ps = TMHChotQuy.chuanHoaNgayISO ? TMHChotQuy.chuanHoaNgayISO(p.ngay_phat_sinh || p.ngay_giao || p.ngay_nop) : '';
+                const nop = TMHChotQuy.chuanHoaNgayISO ? TMHChotQuy.chuanHoaNgayISO(p.ngay_nop || p.ngay_phat_sinh) : '';
+                if (ps) setXeDaCoPhieu.add(p.xe + '_' + ps);
+                if (nop) setXeDaCoPhieu.add(p.xe + '_' + nop);
+              }
             }
           });
         }
       } catch (e) {}
     }
+
+    // 1b. Từ in-memory window.danhSachTatCaDot (bổ sung nếu chưa có trong phieu_nop_tien)
+    if (typeof window !== 'undefined' && Array.isArray(window.danhSachTatCaDot)) {
+      window.danhSachTatCaDot.filter(d => !!d.daQuyetToan).forEach(d => {
+        const ma = d.maDot || d.ma_dot || (d.xe + '_' + (d.ngayGiao || d.ngayRaw));
+        const ps = TMHChotQuy.chuanHoaNgayISO ? TMHChotQuy.chuanHoaNgayISO(d.ngayGiao || d.ngayRaw) : '';
+        const keyXePS = d.xe && ps ? (d.xe + '_' + ps) : '';
+        if (ma && !mapXe.has(ma) && !setXeDaCoPhieu.has(ma) && (!keyXePS || !setXeDaCoPhieu.has(keyXePS))) {
+          mapXe.set(ma, d);
+        }
+      });
+    }
+
+    // 1c. Từ LocalStorage (bổ sung nếu chưa có)
+    try {
+      const rawDot = localStorage.getItem('tmh_lich_su_dot') || '[]';
+      const arr = JSON.parse(rawDot);
+      (arr || []).filter(d => !!d.daQuyetToan).forEach(d => {
+        const ma = d.maDot || d.ma_dot || (d.xe + '_' + (d.ngayGiao || d.ngayRaw));
+        const ps = TMHChotQuy.chuanHoaNgayISO ? TMHChotQuy.chuanHoaNgayISO(d.ngayGiao || d.ngayRaw) : '';
+        const keyXePS = d.xe && ps ? (d.xe + '_' + ps) : '';
+        if (ma && !mapXe.has(ma) && !setXeDaCoPhieu.has(ma) && (!keyXePS || !setXeDaCoPhieu.has(keyXePS))) {
+          mapXe.set(ma, d);
+        }
+      });
+    } catch (e) {}
 
     // 1d. Bổ sung từ Supabase luu_tru (docLuuTruMoiNhat) - Gom nhóm theo chuyến xe & bóc tách từng hoá đơn
     if (typeof docLuuTruMoiNhat === 'function') {
@@ -431,7 +447,9 @@
           });
 
           dotGomNhom.forEach((dot, maDot) => {
-            if (!mapXe.has(maDot)) {
+            const ps = TMHChotQuy.chuanHoaNgayISO ? TMHChotQuy.chuanHoaNgayISO(dot.ngay_phat_sinh) : '';
+            const keyXePS = dot.xe && ps ? (dot.xe + '_' + ps) : '';
+            if (!mapXe.has(maDot) && !setXeDaCoPhieu.has(maDot) && (!keyXePS || !setXeDaCoPhieu.has(keyXePS))) {
               mapXe.set(maDot, dot);
             }
           });
@@ -713,7 +731,7 @@
       sl_2k: d.menhGiaChiTiet.find(r => r.menhGia === 2000)?.soLuong || 0,
       sl_1k: d.menhGiaChiTiet.find(r => r.menhGia === 1000)?.soLuong || 0,
       trang_thai: 'da_chot',
-      chi_tiet_nguon_tien: d.nguonTienChiTiet
+      chi_tiet_nguon_tien: (d.nguonTienChiTiet || []).filter(n => (Number(n.soTien) || 0) > 0)
     };
 
     const res = await TMHChotQuy.luuBanChotQuyNgay(thongTin);
@@ -782,5 +800,8 @@
   window.hoanTatChotQuyNgay = hoanTatChotQuyNgay;
   window.inBangKiemQuy = inBangKiemQuy;
   window.xuatExcelKiemQuy = xuatExcelKiemQuy;
+  window.veGiaoDienChotQuy = veGiaoDienChotQuy;
+  window.setDuLieuChotQuyHienTai = function(d) { duLieuChotQuyHienTai = d; };
+  window.getDuLieuChotQuyHienTai = function() { return duLieuChotQuyHienTai; };
 
 })(typeof window !== 'undefined' ? window : globalThis);

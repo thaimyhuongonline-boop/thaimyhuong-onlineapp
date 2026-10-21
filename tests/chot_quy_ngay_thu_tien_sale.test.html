@@ -942,6 +942,241 @@
     );
 
     // =========================================================================
+    // NHÓM 14: TESTER AGENT: BỘ DỮ LIỆU GIẢ LẬP TOÀN DIỆN & VERIFY DOM RENDERING
+    // (Xe tiền mặt > 0, Xe = 0đ, Xe 100% CK, Xe 100% Nợ, Xe null/undefined/trống,
+    //  Split payment TM > 0 vs TM = 0, Sale tiền mặt vs 0đ/null/CK, Verify DOM thật)
+    // =========================================================================
+    const g14 = "14. Tester Agent: Bộ Dữ Liệu Giả Lập Toàn Diện & Kiểm Tra DOM Render";
+
+    // 1. Khởi tạo bộ dữ liệu giả lập chi tiết
+    const mockXe1_TienMat = {
+      maDot: "MOCK_XE_1",
+      xe: "Xe 01 Có Tiền Mặt",
+      nguoi_nop: "Tài xế 01",
+      ngayGiao: "2026-10-21",
+      tong_tien_mat: 5000000,
+      daQuyetToan: true
+    };
+    const mockXe2_SoToDem = {
+      maDot: "MOCK_XE_2",
+      xe: "Xe 02 Tiền Mặt Bằng Số Tờ",
+      nguoi_nop: "Tài xế 02",
+      ngayGiao: "2026-10-21",
+      sl_500k: 6,  // 3.000.000 đ
+      sl_200k: 5,  // 1.000.000 đ
+      daQuyetToan: true
+    };
+    const mockXe3_KhongTienMat_0d = {
+      maDot: "MOCK_XE_3",
+      xe: "Xe 03 Không Nộp Tiền Mặt (0đ)",
+      nguoi_nop: "Tài xế 03",
+      ngayGiao: "2026-10-21",
+      tong_tien_mat: 0,
+      daQuyetToan: true
+    };
+    const mockXe4_100PhanTramCK = {
+      maDot: "MOCK_XE_4",
+      xe: "Xe 04 Nộp Hoàn Toàn Bằng Chuyển Khoản",
+      nguoi_nop: "Tài xế 04",
+      ngayGiao: "2026-10-21",
+      tongTien: 7500000,
+      tong_chuyen_khoan: 7500000,
+      hinh_thuc_thanh_toan: "chuyển khoản",
+      tong_tien_mat: 0,
+      daQuyetToan: true
+    };
+    const mockXe5_100PhanTramNo = {
+      maDot: "MOCK_XE_5",
+      xe: "Xe 05 Nợ Toàn Bộ (100% Công Nợ)",
+      nguoi_nop: "Tài xế 05",
+      ngayGiao: "2026-10-21",
+      tongTien: 3200000,
+      tong_con_no: 3200000,
+      hinh_thuc_thanh_toan: "công nợ",
+      tong_tien_mat: 0,
+      daQuyetToan: true
+    };
+    const mockXe6_TienMatNull = {
+      maDot: "MOCK_XE_6",
+      xe: "Xe 06 Tiền Mặt Null Trong DB",
+      nguoi_nop: "Tài xế 06",
+      ngayGiao: "2026-10-21",
+      tong_tien_mat: null,
+      tongTien: 6000000,
+      daQuyetToan: true
+    };
+    const mockXe7_TienMatUndefined = {
+      maDot: "MOCK_XE_7",
+      xe: "Xe 07 Tiền Mặt Undefined Trong DB",
+      nguoi_nop: "Tài xế 07",
+      ngayGiao: "2026-10-21",
+      tong_tien_mat: undefined,
+      tongTien: 4500000,
+      daQuyetToan: true
+    };
+    const mockXe8_TienMatTrong = {
+      maDot: "MOCK_XE_8",
+      xe: "Xe 08 Tiền Mặt Chuỗi Trống / 'null'",
+      nguoi_nop: "Tài xế 08",
+      ngayGiao: "2026-10-21",
+      tong_tien_mat: "",
+      tongTien: 2000000,
+      daQuyetToan: true
+    };
+    const mockXe9_SplitCoTM = {
+      maDot: "MOCK_XE_9",
+      xe: "Xe 09 Split Payment (CK 6.5tr + TM 3.5tr)",
+      nguoi_nop: "Tài xế 09",
+      ngayGiao: "2026-10-21",
+      tongTien: 10000000,
+      tong_chuyen_khoan: 6500000,
+      tong_tien_mat: 3500000,
+      daQuyetToan: true
+    };
+    const mockXe10_SplitTM0d = {
+      maDot: "MOCK_XE_10",
+      xe: "Xe 10 Split Payment (CK 5tr + Nợ 3tr, TM = 0)",
+      nguoi_nop: "Tài xế 10",
+      ngayGiao: "2026-10-21",
+      tongTien: 8000000,
+      tong_chuyen_khoan: 5000000,
+      tong_con_no: 3000000,
+      tong_tien_mat: 0,
+      daQuyetToan: true
+    };
+
+    const mockSale1_TienMat = {
+      ma_phieu: "MOCK_SALE_1",
+      ten_nv_sale: "Sale 01 Nộp Tiền Mặt",
+      ngay_phat_sinh: "2026-10-21",
+      ngay_nop: "2026-10-21",
+      so_tien_nop: 3000000,
+      tien_mat: 3000000
+    };
+    const mockSale2_KhongTienMat = {
+      ma_phieu: "MOCK_SALE_2",
+      ten_nv_sale: "Sale 02 Không Nộp Tiền Mặt (0đ)",
+      ngay_phat_sinh: "2026-10-21",
+      ngay_nop: "2026-10-21",
+      so_tien_nop: 0,
+      tien_mat: 0
+    };
+    const mockSale3_100PhanTramCK = {
+      ma_phieu: "MOCK_SALE_3",
+      ten_nv_sale: "Sale 03 100% Chuyển Khoản",
+      ngay_phat_sinh: "2026-10-21",
+      ngay_nop: "2026-10-21",
+      so_tien_nop: 8000000,
+      chuyen_khoan: 8000000,
+      tien_mat: 0,
+      hinh_thuc: "chuyển khoản"
+    };
+    const mockSale4_TienMatNull = {
+      ma_phieu: "MOCK_SALE_4",
+      ten_nv_sale: "Sale 04 Tiền Mặt Null Trong DB",
+      ngay_phat_sinh: "2026-10-21",
+      ngay_nop: "2026-10-21",
+      so_tien_nop: 2500000,
+      tien_mat: null
+    };
+
+    // 2. Assert logic bóc tách từng đối tượng
+    assert(g14, "T14.1 Xe có tiền mặt > 0 được bóc tách chính xác 5.000.000đ", tinhTienMatCuaDot(mockXe1_TienMat) === 5000000);
+    assert(g14, "T14.2 Xe tiền mặt qua bảng đếm tờ được tính chính xác 4.000.000đ", tinhTienMatCuaDot(mockXe2_SoToDem) === 4000000);
+    assert(g14, "T14.3 Xe không nộp tiền mặt (số tiền = 0) trả về chính xác 0đ", tinhTienMatCuaDot(mockXe3_KhongTienMat_0d) === 0);
+    assert(g14, "T14.4 Xe nộp hoàn toàn bằng chuyển khoản (100% CK) trả về chính xác 0đ", tinhTienMatCuaDot(mockXe4_100PhanTramCK) === 0);
+    assert(g14, "T14.5 Xe 100% công nợ trả về chính xác 0đ", tinhTienMatCuaDot(mockXe5_100PhanTramNo) === 0);
+    assert(g14, "T14.6 Xe có tiền mặt = null trong DB mặc định hiểu là 0đ (không lỗi, không lấy tongTien)", tinhTienMatCuaDot(mockXe6_TienMatNull) === 0);
+    assert(g14, "T14.7 Xe có tiền mặt = undefined trong DB mặc định hiểu là 0đ", tinhTienMatCuaDot(mockXe7_TienMatUndefined) === 0);
+    assert(g14, "T14.8 Xe có tiền mặt là chuỗi trống / 'null' mặc định hiểu là 0đ", tinhTienMatCuaDot(mockXe8_TienMatTrong) === 0);
+    assert(g14, "T14.9 Xe Split Payment có TM > 0 chỉ lấy đúng phần tiền mặt 3.500.000đ", tinhTienMatCuaDot(mockXe9_SplitCoTM) === 3500000);
+    assert(g14, "T14.10 Xe Split Payment nhưng phần tiền mặt = 0 trả về chính xác 0đ", tinhTienMatCuaDot(mockXe10_SplitTM0d) === 0);
+    assert(g14, "T14.11 Sale có tiền mặt được bóc tách chính xác 3.000.000đ", tinhTienMatCuaSale(mockSale1_TienMat) === 3000000);
+    assert(g14, "T14.12 Sale 0đ tiền mặt trả về chính xác 0đ", tinhTienMatCuaSale(mockSale2_KhongTienMat) === 0);
+    assert(g14, "T14.13 Sale 100% chuyển khoản trả về chính xác 0đ", tinhTienMatCuaSale(mockSale3_100PhanTramCK) === 0);
+    assert(g14, "T14.14 Sale có tiền mặt = null trả về chính xác 0đ", tinhTienMatCuaSale(mockSale4_TienMatNull) === 0);
+
+    // 3. Hợp nhất dữ liệu kiểm quỹ của ngày
+    const dsXeMock = [
+      mockXe1_TienMat, mockXe2_SoToDem, mockXe3_KhongTienMat_0d, mockXe4_100PhanTramCK,
+      mockXe5_100PhanTramNo, mockXe6_TienMatNull, mockXe7_TienMatUndefined, mockXe8_TienMatTrong,
+      mockXe9_SplitCoTM, mockXe10_SplitTM0d
+    ];
+    const dsSaleMock = [mockSale1_TienMat, mockSale2_KhongTienMat, mockSale3_100PhanTramCK, mockSale4_TienMatNull];
+
+    const kqHopNhatMock = hopNhatKiemQuyTheoNgay("2026-10-21", "2026-10-21", dsXeMock, dsSaleMock);
+    const chiTruocMock = [{ ma_chi: "CHI_MOCK_1", so_tien: 1500000, sau_chot_quy: false }];
+    const kqTinhMock = tinhToanChotQuy(kqHopNhatMock.tongTienXe, kqHopNhatMock.tongTienSale, chiTruocMock, []);
+
+    kqHopNhatMock.kqTinh = kqTinhMock;
+    kqHopNhatMock.dsChiTruocChot = chiTruocMock;
+    kqHopNhatMock.dsChiSauChot = [];
+
+    // Đưa vào UI và thực hiện render
+    if (typeof window.setDuLieuChotQuyHienTai === "function" && typeof window.veGiaoDienChotQuy === "function") {
+      window.setDuLieuChotQuyHienTai(kqHopNhatMock);
+      window.veGiaoDienChotQuy();
+    }
+
+    // 4. Kiểm tra DOM thật tại tbodyNguonTienChotQuy
+    const tbodyDOM = document.getElementById("tbodyNguonTienChotQuy");
+    const cacDongDOM = tbodyDOM ? Array.from(tbodyDOM.querySelectorAll("tr")) : [];
+
+    // Lọc các dòng hiển thị thực tế
+    const dsHienThiThucTe = (kqHopNhatMock.nguonTienChiTiet || []).filter(n => (Number(n.soTien) || 0) > 0);
+
+    assert(g14, "T14.15 Bảng 'Minh Bạch Nguồn Tiền' CHỈ RENDER ĐÚNG 4 DÒNG có tiền mặt > 0 (Xe 01, Xe 02, Xe 09, Sale 01)",
+      cacDongDOM.length === 4 && dsHienThiThucTe.length === 4
+    );
+
+    const textDOMToanBo = tbodyDOM ? tbodyDOM.textContent : "";
+    assert(g14, "T14.16 DOM bảng hiển thị đầy đủ tên của 4 nguồn có tiền mặt > 0",
+      textDOMToanBo.includes("Xe 01 Có Tiền Mặt") &&
+      textDOMToanBo.includes("Xe 02 Tiền Mặt Bằng Số Tờ") &&
+      textDOMToanBo.includes("Xe 09 Split Payment") &&
+      textDOMToanBo.includes("Sale 01 Nộp Tiền Mặt")
+    );
+
+    assert(g14, "T14.17 TUYỆT ĐỐI KHÔNG XUẤT HIỆN trong DOM: Xe 03 (0đ), Xe 04 (100% CK), Xe 05 (100% Nợ)",
+      !textDOMToanBo.includes("Xe 03 Không Nộp Tiền Mặt") &&
+      !textDOMToanBo.includes("Xe 04 Nộp Hoàn Toàn Bằng Chuyển Khoản") &&
+      !textDOMToanBo.includes("Xe 05 Nợ Toàn Bộ")
+    );
+
+    assert(g14, "T14.18 TUYỆT ĐỐI KHÔNG XUẤT HIỆN trong DOM: Xe null, Xe undefined, Xe chuỗi trống, Xe Split TM=0",
+      !textDOMToanBo.includes("Xe 06 Tiền Mặt Null") &&
+      !textDOMToanBo.includes("Xe 07 Tiền Mặt Undefined") &&
+      !textDOMToanBo.includes("Xe 08 Tiền Mặt Chuỗi Trống") &&
+      !textDOMToanBo.includes("Xe 10 Split Payment")
+    );
+
+    assert(g14, "T14.19 TUYỆT ĐỐI KHÔNG XUẤT HIỆN trong DOM: Sale 0đ, Sale 100% CK, Sale Null",
+      !textDOMToanBo.includes("Sale 02 Không Nộp Tiền Mặt") &&
+      !textDOMToanBo.includes("Sale 03 100% Chuyển Khoản") &&
+      !textDOMToanBo.includes("Sale 04 Tiền Mặt Null")
+    );
+
+    // 5. Kiểm tra tính tổng tại các box thống kê bên trên khớp 100% với dữ liệu hiển thị
+    const kpiXeDOM = document.getElementById("cqKpiThuXe");
+    const kpiSaleDOM = document.getElementById("cqKpiThuSale");
+    const kpiNopNHDOM = document.getElementById("cqKpiNopNH");
+
+    // Tổng tiền xe = 5tr (Xe 1) + 4tr (Xe 2) + 3.5tr (Xe 9) = 12.500.000 đ
+    assert(g14, "T14.20 Box 'TỔNG THU TIỀN XE' hiển thị chính xác '12.500.000 đ', khớp 100% tổng các dòng xe hiển thị",
+      kpiXeDOM && kpiXeDOM.textContent.includes("12.500.000") && kqHopNhatMock.tongTienXe === 12500000
+    );
+
+    // Tổng tiền sale = 3.000.000 đ (Sale 1)
+    assert(g14, "T14.21 Box 'TỔNG THU TIỀN SALE' hiển thị chính xác '3.000.000 đ', khớp 100% dòng sale hiển thị",
+      kpiSaleDOM && kpiSaleDOM.textContent.includes("3.000.000") && kqHopNhatMock.tongTienSale === 3000000
+    );
+
+    // Tiền nộp ngân hàng = (12.5tr + 3tr) - 1.5tr chi = 14.000.000 đ
+    assert(g14, "T14.22 Box 'TIỀN MẶT NỘP NGÂN HÀNG' hiển thị chính xác '14.000.000 đ' (15.5tr thu - 1.5tr chi)",
+      kpiNopNHDOM && kpiNopNHDOM.textContent.includes("14.000.000") && kqTinhMock.tienNopNganHang === 14000000
+    );
+
+    // =========================================================================
     // RENDER KẾT QUẢ KIỂM THỬ RA GIAO DIỆN
     // =========================================================================
     hienThiBaoCaoTest(kqHopNhat);
