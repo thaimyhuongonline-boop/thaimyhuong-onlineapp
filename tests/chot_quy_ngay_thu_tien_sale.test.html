@@ -132,7 +132,8 @@
       parseMenhGia,
       formatMenhGiaLabel,
       chuanHoaNgayISO,
-      tinhTienMatCuaDot
+      tinhTienMatCuaDot,
+      tinhTienMatCuaSale
     } = window.TMHChotQuy;
 
     // =========================================================================
@@ -766,6 +767,178 @@
     assert(g12, "T4.1 Khi toàn bộ các xe/sale = 0đ trong ngày, dsFilterUI rỗng", dsFilterNgay0.length === 0);
     assert(g12, "T4.2 Khi danh sách rỗng, giao diện có hiển thị thông báo 'Không có dữ liệu nộp tiền mặt trong ngày'",
       chotQuyHTML.includes("Không có dữ liệu nộp tiền mặt trong ngày")
+    );
+
+    // =========================================================================
+    // NHÓM 13: TEST CASES T1, T2, T3: LỌC TIỀN MẶT, LOẠI BỎ 100% CK/CÔNG NỢ, BÓC TÁCH SPLIT PAYMENT & ĐỒNG BỘ WIDGET
+    // =========================================================================
+    const g13 = "13. Lọc Tiền Mặt Nghiêm Ngặt, Bóc Tách Split Payment & Đồng Bộ Tổng";
+
+    // -------------------------------------------------------------------------
+    // T1: Mock data với Chuyến xe A (100% chuyển khoản) và Chuyến xe B (100% công nợ).
+    // Verify bảng "Minh Bạch Nguồn Tiền" KHÔNG render dòng của Chuyến xe A và B.
+    // Thêm Sale S1 (100% CK) & Sale S2 (100% nợ) cũng KHÔNG được render.
+    // -------------------------------------------------------------------------
+    const dotA_100CK = {
+      maDot: "XE_A_100CK",
+      xe: "Chuyến Xe A (100% CK)",
+      nguoi_nop: "Tài xế A",
+      ngayGiao: "2026-10-21",
+      tongTien: 5000000,
+      tong_chuyen_khoan: 5000000,
+      hinh_thuc_thanh_toan: "chuyển khoản",
+      tong_tien_mat: 0,
+      daQuyetToan: true
+    };
+    const dotB_100No = {
+      maDot: "XE_B_100NO",
+      xe: "Chuyến Xe B (100% NỢ)",
+      nguoi_nop: "Tài xế B",
+      ngayGiao: "2026-10-21",
+      tongTien: 8000000,
+      tong_con_no: 8000000,
+      hinh_thuc_thanh_toan: "công nợ",
+      tong_tien_mat: 0,
+      daQuyetToan: true
+    };
+    const saleS1_100CK = {
+      ma_phieu: "SALE_S1_100CK",
+      ten_nv_sale: "Sale S1 CK",
+      ngay_phat_sinh: "2026-10-21",
+      ngay_nop: "2026-10-21",
+      so_tien_nop: 12000000,
+      chuyen_khoan: 12000000,
+      hinh_thuc: "chuyển khoản"
+    };
+    const saleS2_100No = {
+      ma_phieu: "SALE_S2_100NO",
+      ten_nv_sale: "Sale S2 NỢ",
+      ngay_phat_sinh: "2026-10-21",
+      ngay_nop: "2026-10-21",
+      so_tien_nop: 4000000,
+      cong_no: 4000000,
+      hinh_thuc: "công nợ"
+    };
+
+    // Kiểm tra hàm bóc tách trả về 0đ cho các đối tượng 100% CK / nợ
+    assert(g13, "T1.1 tinhTienMatCuaDot trả về 0đ cho Chuyến xe A (100% chuyển khoản)",
+      tinhTienMatCuaDot(dotA_100CK) === 0
+    );
+    assert(g13, "T1.2 tinhTienMatCuaDot trả về 0đ cho Chuyến xe B (100% công nợ)",
+      tinhTienMatCuaDot(dotB_100No) === 0
+    );
+    assert(g13, "T1.3 tinhTienMatCuaSale trả về 0đ cho Sale S1 (100% CK)",
+      tinhTienMatCuaSale(saleS1_100CK) === 0
+    );
+    assert(g13, "T1.4 tinhTienMatCuaSale trả về 0đ cho Sale S2 (100% công nợ)",
+      tinhTienMatCuaSale(saleS2_100No) === 0
+    );
+
+    // -------------------------------------------------------------------------
+    // T2: Mock data Chuyến xe C có tổng nộp 10.000.000đ (3.000.000đ tiền mặt + 7.000.000đ CK).
+    // Verify bảng CÓ hiển thị Chuyến xe C nhưng cột "Số tiền" chỉ ghi nhận giá trị 3.000.000đ.
+    // Thêm Chuyến xe D (split payment qua danhSachChiTiet) & Sale C (split payment).
+    // -------------------------------------------------------------------------
+    const dotC_Split = {
+      maDot: "XE_C_SPLIT",
+      xe: "Chuyến Xe C (Split Payment)",
+      nguoi_nop: "Tài xế C",
+      ngayGiao: "2026-10-21",
+      tongTien: 10000000,
+      tong_tien_mat: 3000000,
+      tong_chuyen_khoan: 7000000,
+      daQuyetToan: true
+    };
+    const dotD_SplitDetail = {
+      maDot: "XE_D_SPLIT_DETAIL",
+      xe: "Chuyến Xe D (Chi Tiết Đơn Hỗn Hợp)",
+      nguoi_nop: "Tài xế D",
+      ngayGiao: "2026-10-21",
+      tongTien: 10000000,
+      daQuyetToan: true,
+      danhSachChiTiet: [
+        { ma_hd: "HD_TM_01", thanhTien: 4000000, hinh_thuc: "tiền mặt", tienMat: 4000000 },
+        { ma_hd: "HD_CK_02", thanhTien: 6000000, hinh_thuc: "chuyển khoản", chuyenKhoan: 6000000 }
+      ]
+    };
+    const saleC_Split = {
+      ma_phieu: "SALE_C_SPLIT",
+      ten_nv_sale: "Sale C Nộp Hỗn Hợp",
+      ngay_phat_sinh: "2026-10-21",
+      ngay_nop: "2026-10-21",
+      so_tien_nop: 6000000,
+      tien_mat: 2000000,
+      chuyen_khoan: 4000000
+    };
+
+    assert(g13, "T2.1 tinhTienMatCuaDot bóc tách CHỈ LẤY đúng 3.000.000đ tiền mặt của Chuyến xe C (không lấy 10.000.000đ)",
+      tinhTienMatCuaDot(dotC_Split) === 3000000
+    );
+    assert(g13, "T2.2 tinhTienMatCuaDot bóc tách từ danhSachChiTiet lấy đúng 4.000.000đ tiền mặt của Chuyến xe D",
+      tinhTienMatCuaDot(dotD_SplitDetail) === 4000000
+    );
+    assert(g13, "T2.3 tinhTienMatCuaSale bóc tách CHỈ LẤY đúng 2.000.000đ tiền mặt của Sale C (không lấy 6.000.000đ)",
+      tinhTienMatCuaSale(saleC_Split) === 2000000
+    );
+
+    // Hợp nhất dữ liệu tổng kiểm quỹ gồm cả các xe A, B, C, D và Sale S1, S2, C
+    const kqGopT123 = hopNhatKiemQuyTheoNgay(
+      "2026-10-21",
+      "2026-10-21",
+      [dotA_100CK, dotB_100No, dotC_Split, dotD_SplitDetail],
+      [saleS1_100CK, saleS2_100No, saleC_Split]
+    );
+
+    // Bảng render trên UI chỉ lấy các dòng có soTien > 0
+    const dsRenderUI = (kqGopT123.nguonTienChiTiet || []).filter(n => (Number(n.soTien) || 0) > 0);
+
+    // Verify T1 trên bảng render: Chuyến xe A và B KHÔNG render
+    const coXeA = dsRenderUI.some(n => n.tenNguon.includes("Chuyến Xe A"));
+    const coXeB = dsRenderUI.some(n => n.tenNguon.includes("Chuyến Xe B"));
+    const coSaleS1 = dsRenderUI.some(n => n.tenNguon.includes("Sale S1"));
+    const coSaleS2 = dsRenderUI.some(n => n.tenNguon.includes("Sale S2"));
+    assert(g13, "T1.5 Verify bảng 'Minh Bạch Nguồn Tiền' KHÔNG RENDER dòng Chuyến xe A (100% CK)", !coXeA);
+    assert(g13, "T1.6 Verify bảng 'Minh Bạch Nguồn Tiền' KHÔNG RENDER dòng Chuyến xe B (100% công nợ)", !coXeB);
+    assert(g13, "T1.7 Verify bảng 'Minh Bạch Nguồn Tiền' KHÔNG RENDER Sale S1 (100% CK) & Sale S2 (100% Nợ)", !coSaleS1 && !coSaleS2);
+
+    // Verify T2 trên bảng render: Chuyến xe C CÓ hiển thị nhưng cột 'Số tiền' = 3.000.000đ
+    const dongXeC = dsRenderUI.find(n => n.tenNguon.includes("Chuyến Xe C"));
+    const dongXeD = dsRenderUI.find(n => n.tenNguon.includes("Chuyến Xe D"));
+    const dongSaleC = dsRenderUI.find(n => n.tenNguon.includes("Sale C"));
+    assert(g13, "T2.4 Bảng 'Minh Bạch Nguồn Tiền' CÓ HIỂN THỊ Chuyến xe C", !!dongXeC);
+    assert(g13, "T2.5 Cột 'Số tiền' của Chuyến xe C CHỈ ghi nhận 3.000.000đ (không phải 10.000.000đ)",
+      dongXeC && dongXeC.soTien === 3000000
+    );
+    assert(g13, "T2.6 Cột 'Số tiền' của Chuyến xe D CHỈ ghi nhận 4.000.000đ tiền mặt",
+      dongXeD && dongXeD.soTien === 4000000
+    );
+    assert(g13, "T2.7 Cột 'Số tiền' của Sale C CHỈ ghi nhận 2.000.000đ tiền mặt",
+      dongSaleC && dongSaleC.soTien === 2000000
+    );
+
+    // -------------------------------------------------------------------------
+    // T3: Verify tổng số ở ô "TỔNG THU TIỀN XE" bằng CHÍNH XÁC tổng (sum) của cột "Số tiền" đang hiển thị trên bảng.
+    // -------------------------------------------------------------------------
+    const tongCotTienXeHienThi = dsRenderUI.filter(n => n.loaiNguon === "xe").reduce((sum, item) => sum + item.soTien, 0);
+    const tongCotTienSaleHienThi = dsRenderUI.filter(n => n.loaiNguon === "sale").reduce((sum, item) => sum + item.soTien, 0);
+
+    assert(g13, "T3.1 Ô 'TỔNG THU TIỀN XE' (7.000.000đ) bằng CHÍNH XÁC tổng cột 'Số tiền' của các chuyến xe đang hiển thị (3tr Xe C + 4tr Xe D)",
+      kqGopT123.tongTienXe === tongCotTienXeHienThi && tongCotTienXeHienThi === 7000000
+    );
+    assert(g13, "T3.2 Ô 'TỔNG THU TIỀN SALE' (2.000.000đ) bằng CHÍNH XÁC tổng cột 'Số tiền' của sale đang hiển thị (2tr Sale C)",
+      kqGopT123.tongTienSale === tongCotTienSaleHienThi && tongCotTienSaleHienThi === 2000000
+    );
+
+    // Verify đồng bộ thẻ chỉ số "TIỀN MẶT NỘP NGÂN HÀNG" & "TỔNG QUỸ TIỀN MẶT"
+    const dsChiDemo = [{ ma_chi: "C1", so_tien: 1000000, sau_chot_quy: false }];
+    const kqBalDemo = tinhToanChotQuy(kqGopT123.tongTienXe, kqGopT123.tongTienSale, dsChiDemo, []);
+    assert(g13, "T3.3 Thẻ 'TIỀN MẶT NỘP NGÂN HÀNG' (8.000.000đ) đồng bộ: Thu (9tr) - Chi (1tr) = 8.000.000đ",
+      kqBalDemo.tienNopNganHang === 8000000 &&
+      kqBalDemo.tienNopNganHang === (tongCotTienXeHienThi + tongCotTienSaleHienThi - 1000000)
+    );
+    assert(g13, "T3.4 Bảng 'Minh Bạch Nguồn Tiền' hoàn toàn sạch bóng các khoản công nợ hay chuyển khoản 100% (tổng cộng đúng 3 dòng)",
+      dsRenderUI.length === 3 &&
+      dsRenderUI.every(n => n.soTien > 0)
     );
 
     // =========================================================================

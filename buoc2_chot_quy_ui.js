@@ -381,30 +381,58 @@
       });
     } catch (e) {}
 
-    // 1c. Bổ sung từ Supabase luu_tru (docLuuTruMoiNhat) khi đứng ở màn hình độc lập
-    if (typeof docLuuTruMoiNhat === 'function') {
+    // 1c. Từ Supabase phieu_nop_tien (Phiếu quyết toán chính thức của các xe)
+    if (typeof sb !== 'undefined') {
       try {
-        const { data: dataLT } = await docLuuTruMoiNhat(2000);
-        if (dataLT && Array.isArray(dataLT)) {
-          dataLT.filter(d => !!d.daQuyetToan).forEach(d => {
-            const ma = d.maDot || d.ma_dot || (d.xe + '_' + (d.ngayGiao || d.ngayRaw));
+        const { data } = await sb.from('phieu_nop_tien').select('*').limit(1000);
+        if (data && data.length) {
+          data.forEach(p => {
+            const ma = p.ma_dot || p.ma_phieu || (p.xe + '_' + (p.ngay_nop || p.ngay_phat_sinh));
             if (ma && !mapXe.has(ma)) {
-              mapXe.set(ma, d);
+              mapXe.set(ma, p);
             }
           });
         }
       } catch (e) {}
     }
 
-    // 1d. Từ Supabase phieu_nop_tien
-    if (typeof sb !== 'undefined') {
+    // 1d. Bổ sung từ Supabase luu_tru (docLuuTruMoiNhat) - Gom nhóm theo chuyến xe & bóc tách từng hoá đơn
+    if (typeof docLuuTruMoiNhat === 'function') {
       try {
-        const { data } = await sb.from('phieu_nop_tien').select('*').limit(1000);
-        if (data && data.length) {
-          const setMa = new Set(Array.from(mapXe.keys()).map(m => `PNP_${m}`));
-          data.forEach(p => {
-            if (!setMa.has(p.ma_phieu) && !mapXe.has(p.ma_phieu)) {
-              mapXe.set(p.ma_phieu, p);
+        const { data: dataLT } = await docLuuTruMoiNhat(2000);
+        if (dataLT && Array.isArray(dataLT)) {
+          const dotGomNhom = new Map();
+          dataLT.filter(d => !!d.daQuyetToan).forEach(r => {
+            const maDot = r.ma_dot || r.maDot || (r.xe ? (r.xe + '_' + (r.ngay_giao || r.ngayGiao || r.ngayRaw)) : r.ma_hd);
+            if (!maDot) return;
+            if (!dotGomNhom.has(maDot)) {
+              dotGomNhom.set(maDot, {
+                ma_dot: maDot,
+                maDot: maDot,
+                xe: r.xe || r.ten_xe || 'Chuyến xe',
+                nguoi_nop: r.tai_xe || r.taiXe || r.nguoi_giao || r.nguoi_nop || '--',
+                ngay_phat_sinh: r.ngay_giao || r.ngayGiao || r.ngayRaw,
+                ngay_nop: r.thoi_gian_quyet_toan || r.ngay_nop || r.ngay_giao,
+                tong_tien_mat: 0,
+                tong_chuyen_khoan: 0,
+                tong_con_no: 0,
+                daQuyetToan: true,
+                danhSachChiTiet: []
+              });
+            }
+            const dot = dotGomNhom.get(maDot);
+            const tm = parseFloat(r.tien_mat || r.tienMat || 0) || 0;
+            const ck = parseFloat(r.chuyen_khoan || r.chuyenKhoan || 0) || 0;
+            const no = parseFloat(r.no_phat_sinh || r.cong_no || 0) || 0;
+            dot.tong_tien_mat += tm;
+            dot.tong_chuyen_khoan += ck;
+            dot.tong_con_no += no;
+            dot.danhSachChiTiet.push(r);
+          });
+
+          dotGomNhom.forEach((dot, maDot) => {
+            if (!mapXe.has(maDot)) {
+              mapXe.set(maDot, dot);
             }
           });
         }

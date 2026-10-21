@@ -127,37 +127,159 @@
   }
 
   /**
-   * Trích xuất tổng tiền mặt thu được từ chuyến xe đã quyết toán
+   * Trích xuất CHÍNH XÁC tổng tiền mặt thu được từ chuyến xe (loại bỏ hoàn toàn Chuyển khoản và Công nợ)
+   * Xử lý thanh toán hỗn hợp (Split payment): chỉ lấy đúng phần Tiền mặt
    */
   function tinhTienMatCuaDot(dot) {
     if (!dot) return 0;
-    if (dot.tong_tien_mat !== undefined && dot.tong_tien_mat !== null && parseFloat(dot.tong_tien_mat) > 0) {
-      return parseFloat(dot.tong_tien_mat);
+
+    // 1. Nhận diện hình thức thanh toán 100% không phải tiền mặt
+    const ht = String(dot.hinh_thuc_thanh_toan || dot.hinh_thuc || dot.hinhThuc || '').toLowerCase().trim();
+    const is100PhanTramCK = (ht === 'chuyển khoản' || ht === 'chuyen_khoan' || ht === 'ck' || ht === 'ngân hàng') ||
+                            ((ht.includes('chuyển khoản') || ht.includes('ngân hàng')) && !ht.includes('tiền mặt') && !ht.includes('tien_mat'));
+    const is100PhanTramNo = (ht === 'công nợ' || ht === 'cong_no' || ht === 'nợ') ||
+                            (ht.includes('công nợ') && !ht.includes('tiền mặt') && !ht.includes('tien_mat'));
+
+    // 2. Tiền đếm từ số tờ tiền mặt (nếu có bảng kê mệnh giá)
+    let tienDemTungXe = 0;
+    MENH_GIA_QUY.forEach(m => {
+      const cot = COT_SL_MENH_GIA[m];
+      const sl = parseInt(dot[cot] || (dot.soToDemTien && (dot.soToDemTien[m] || dot.soToDemTien[String(m)])) || (dot.soToMap && (dot.soToMap[m] || dot.soToMap[String(m)])) || 0) || 0;
+      tienDemTungXe += sl * m;
+    });
+
+    // 3. Đọc các trường tiền mặt, chuyển khoản, công nợ rõ ràng
+    const tmKhaiBao = [dot.tong_tien_mat, dot.tongTienMat, dot.tien_mat, dot.tienMat].find(v => v !== undefined && v !== null);
+    const ckKhaiBao = parseFloat(dot.tong_chuyen_khoan || dot.tongChuyenKhoan || dot.chuyen_khoan || dot.chuyenKhoan || 0) || 0;
+    const noKhaiBao = parseFloat(dot.tong_con_no || dot.tongNoPhatSinh || dot.no_phat_sinh || dot.tongNo || 0) || 0;
+
+    // Nếu đã khai báo rõ ràng tiền mặt (kể cả = 0)
+    if (tmKhaiBao !== undefined) {
+      const tm = Math.max(0, parseFloat(tmKhaiBao) || 0);
+      if (tm > 0) return tm;
+      // tm === 0 mà có CK hoặc Nợ hoặc hình thức 100% CK/Nợ -> Chắc chắn tiền mặt = 0
+      if (tm === 0 && (ckKhaiBao > 0 || noKhaiBao > 0 || is100PhanTramCK || is100PhanTramNo)) {
+        return 0;
+      }
     }
+
+    // Nếu 100% hình thức là CK hoặc Nợ và không có tiền đếm từ số tờ
+    if ((is100PhanTramCK || is100PhanTramNo) && tienDemTungXe === 0) {
+      return 0;
+    }
+
+    // Nếu có tiền đếm từ số tờ > 0
+    if (tienDemTungXe > 0) return tienDemTungXe;
     if (dot.tong_tien_dem !== undefined && dot.tong_tien_dem !== null && parseFloat(dot.tong_tien_dem) > 0) {
       return parseFloat(dot.tong_tien_dem);
-    }
-    if (dot.soTienPhaiThu !== undefined && dot.soTienPhaiThu !== null && parseFloat(dot.soTienPhaiThu) > 0) {
-      return parseFloat(dot.soTienPhaiThu);
     }
     if (dot.tongTienDem !== undefined && dot.tongTienDem !== null && parseFloat(dot.tongTienDem) > 0) {
       return parseFloat(dot.tongTienDem);
     }
+
+    // 4. Nếu có danh sách chi tiết các hóa đơn (danhSachChiTiet) -> Bóc tách CHỈ LẤY TIỀN MẶT
     if (Array.isArray(dot.danhSachChiTiet) && dot.danhSachChiTiet.length > 0) {
       let mat = 0;
       dot.danhSachChiTiet.forEach(h => {
-        mat += parseFloat(h.tienMat || h.tien_mat || 0);
+        const htH = String(h.hinh_thuc_thanh_toan || h.hinhThuc || h.hinh_thuc || '').toLowerCase().trim();
+        const isHDCK = (htH === 'chuyển khoản' || htH === 'chuyen_khoan' || htH === 'ck' || htH === 'ngân hàng') ||
+                       ((htH.includes('chuyển khoản') || htH.includes('ngân hàng')) && !htH.includes('tiền mặt') && !htH.includes('tien_mat'));
+        const isHDNo = (htH === 'công nợ' || htH === 'cong_no' || htH === 'nợ') ||
+                       (htH.includes('công nợ') && !htH.includes('tiền mặt') && !htH.includes('tien_mat'));
+        if (isHDCK || isHDNo) {
+          return;
+        }
+        const tmH = [h.tienMat, h.tien_mat, h.tien_mat_thu].find(v => v !== undefined && v !== null);
+        if (tmH !== undefined) {
+          mat += Math.max(0, parseFloat(tmH) || 0);
+          return;
+        }
+        const stH = parseFloat(h.thanhTien || h.thanh_tien || h.so_tien || h.tongTien || 0) || 0;
+        const ckH = parseFloat(h.chuyenKhoan || h.chuyen_khoan || 0) || 0;
+        const noH = parseFloat(h.congNo || h.no_phat_sinh || h.no || 0) || 0;
+        if (stH > 0) {
+          if (ckH > 0 || noH > 0) {
+            mat += Math.max(0, stH - ckH - noH);
+          } else {
+            mat += stH;
+          }
+        }
       });
-      const thuNo = parseFloat(dot.thuNoCu || dot.thu_no_cu || 0);
-      const chi = parseFloat(dot.tienChi || dot.tien_chi || 0);
-      const thoi = parseFloat(dot.tienThoi || dot.tien_thoi || 0);
-      const hoanTM = parseFloat(dot.tongHoanTienMat || 0);
+      const thuNo = parseFloat(dot.thuNoCu || dot.thu_no_cu || 0) || 0;
+      const chi = parseFloat(dot.tienChi || dot.tien_chi || 0) || 0;
+      const thoi = parseFloat(dot.tienThoi || dot.tien_thoi || 0) || 0;
+      const hoanTM = parseFloat(dot.tongHoanTienMat || 0) || 0;
       const phaiThu = Math.max(0, mat + thuNo - chi + thoi - hoanTM);
       if (phaiThu > 0) return phaiThu;
       if (mat > 0) return mat;
+      return 0;
     }
-    if (dot.tongTien && parseFloat(dot.tongTien) > 0) {
-      return parseFloat(dot.tongTien);
+
+    // 5. Nếu có số tiền khai báo (soTienPhaiThu, so_tien_nop, tongTien, soTien...):
+    const stKhaiBao = [dot.soTienPhaiThu, dot.so_tien_nop, dot.soTien, dot.tongTien, dot.tong_tien].find(v => v !== undefined && v !== null);
+    if (stKhaiBao !== undefined) {
+      const st = Math.max(0, parseFloat(stKhaiBao) || 0);
+      if (st > 0) {
+        if (ckKhaiBao >= st || noKhaiBao >= st || (ckKhaiBao + noKhaiBao >= st && tmKhaiBao === undefined)) {
+          return 0;
+        }
+        if (is100PhanTramCK || is100PhanTramNo) {
+          return 0;
+        }
+        if (ckKhaiBao > 0 || noKhaiBao > 0) {
+          return Math.max(0, st - ckKhaiBao - noKhaiBao);
+        }
+        return st;
+      }
+    }
+
+    // Tuyệt đối KHÔNG fallback về dot.tongTien hay dot.thanh_tien
+    return 0;
+  }
+
+  /**
+   * Trích xuất CHÍNH XÁC tổng tiền mặt thu được từ nhân viên Sale (loại bỏ hoàn toàn CK và Công nợ)
+   */
+  function tinhTienMatCuaSale(sale) {
+    if (!sale) return 0;
+
+    const ht = String(sale.hinh_thuc || sale.hinh_thuc_thanh_toan || sale.hinhThuc || '').toLowerCase().trim();
+    const is100PhanTramCK = (ht === 'chuyển khoản' || ht === 'chuyen_khoan' || ht === 'ck' || ht === 'ngân hàng') ||
+                            ((ht.includes('chuyển khoản') || ht.includes('ngân hàng')) && !ht.includes('tiền mặt') && !ht.includes('tien_mat'));
+    const is100PhanTramNo = (ht === 'công nợ' || ht === 'cong_no' || ht === 'nợ') ||
+                            (ht.includes('công nợ') && !ht.includes('tiền mặt') && !ht.includes('tien_mat'));
+
+    // 1. Tiền đếm từ số tờ tiền mặt
+    let tienDemSale = 0;
+    MENH_GIA_QUY.forEach(m => {
+      const cot = COT_SL_MENH_GIA[m];
+      const sl = parseInt(sale[cot] || (sale.soToDem && (sale.soToDem[m] || sale.soToDem[String(m)])) || 0) || 0;
+      tienDemSale += sl * m;
+    });
+    if (tienDemSale > 0) return tienDemSale;
+
+    // 2. Khai báo tiền mặt riêng biệt
+    const tmKhaiBao = [sale.tien_mat, sale.tienMat, sale.tong_tien_mat, sale.tongTienMat].find(v => v !== undefined && v !== null);
+    const ckKhaiBao = parseFloat(sale.chuyen_khoan || sale.chuyenKhoan || 0) || 0;
+    const noKhaiBao = parseFloat(sale.cong_no || sale.no_phat_sinh || sale.no || 0) || 0;
+
+    if (tmKhaiBao !== undefined) {
+      const tm = Math.max(0, parseFloat(tmKhaiBao) || 0);
+      if (tm > 0) return tm;
+      if (tm === 0 && (ckKhaiBao > 0 || noKhaiBao > 0 || is100PhanTramCK || is100PhanTramNo)) {
+        return 0;
+      }
+    }
+
+    if (is100PhanTramCK || is100PhanTramNo) return 0;
+
+    const stNop = parseFloat(sale.so_tien_nop || sale.soTien || sale.tong_tien_dem || 0) || 0;
+    if (stNop > 0) {
+      if (ckKhaiBao + noKhaiBao >= stNop && tmKhaiBao === undefined) return 0;
+      if (ckKhaiBao > 0 || noKhaiBao > 0) {
+        return Math.max(0, stNop - ckKhaiBao - noKhaiBao);
+      }
+      return stNop;
     }
     return 0;
   }
@@ -591,7 +713,8 @@
         const sl = parseInt(s[cot] || 0) || 0;
         tienDemSale += sl * m;
       });
-      const st = parseFloat(s.so_tien_nop || s.soTien || s.tong_tien_dem || 0) || tienDemSale;
+      const tienQuyetToanSale = tinhTienMatCuaSale(s);
+      const st = tienDemSale > 0 ? tienDemSale : tienQuyetToanSale;
       tongTienSaleThucTe += st;
 
       const mapSoTo = {};
@@ -613,9 +736,9 @@
       });
     });
 
-    // Ưu tiên tổng tiền thực tế nếu tổng tiền từ số tờ = 0 (do xe chưa nhập số tờ hoặc chỉ quyết toán tiền)
-    const finalTongTienXe = (tongTienXeBills > 0 && tongTienXeBills >= tongTienXeThucTe) ? tongTienXeBills : (tongTienXeThucTe > 0 ? tongTienXeThucTe : tongTienXeBills);
-    const finalTongTienSale = (tongTienSaleBills > 0 && tongTienSaleBills >= tongTienSaleThucTe) ? tongTienSaleBills : (tongTienSaleThucTe > 0 ? tongTienSaleThucTe : tongTienSaleBills);
+    // Đồng bộ chính xác tổng tiền xe & tổng tiền sale bằng tổng cột số tiền thực tế
+    const finalTongTienXe = tongTienXeThucTe;
+    const finalTongTienSale = tongTienSaleThucTe;
     const finalTongTienMat = (tongTienMatFromBills > 0 && tongTienMatFromBills >= (finalTongTienXe + finalTongTienSale))
       ? tongTienMatFromBills
       : (finalTongTienXe + finalTongTienSale);
@@ -838,7 +961,8 @@
     parseMenhGia,
     formatMenhGiaLabel,
     chuanHoaNgayISO,
-    tinhTienMatCuaDot
+    tinhTienMatCuaDot,
+    tinhTienMatCuaSale
   };
 
 })(typeof window !== 'undefined' ? window : globalThis);
