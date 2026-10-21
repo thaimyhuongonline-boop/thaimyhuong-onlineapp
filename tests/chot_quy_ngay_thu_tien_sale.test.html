@@ -487,7 +487,7 @@
     // 9.1 Menu Sidebar đăng ký mục chotquy
     const menuChotQuy = (typeof MENU_CHINH !== "undefined") ? MENU_CHINH.find(m => m.id === "chotquy") : null;
     assert(g9, "9.1 Sidebar: MENU_CHINH có đăng ký menu chotquy trỏ tới bang_chot_quy.html",
-      !!menuChotQuy && menuChotQuy.href === "bang_chot_quy.html" && menuChotQuy.label.includes("Bảng Chốt Quỹ & Nộp Ngân Hàng")
+      !!menuChotQuy && menuChotQuy.href === "bang_chot_quy.html" && (menuChotQuy.label.includes("Sổ quỹ tiền mặt") || menuChotQuy.label.includes("Bảng Chốt Quỹ & Nộp Ngân Hàng"))
     );
 
     // 9.2 Vị trí menu chotquy: nằm ngay dưới quytrinh (index 2)
@@ -662,6 +662,110 @@
       kqStandAlone.tongTienSale === 4500000 &&
       !isNaN(kqStandAlone.tongTienMat) &&
       kqStandAlone.tongTienMat > 0
+    );
+
+    // =========================================================================
+    // NHÓM 12: KIỂM THỬ ĐỔI TÊN 'SỔ QUỸ TIỀN MẶT' & LỌC DÒNG 0Đ BẢNG MINH BẠCH NGUỒN TIỀN
+    // =========================================================================
+    const g12 = "12. Sổ Quỹ Tiền Mặt & Lọc Bảng Minh Bạch Nguồn Tiền";
+
+    // T1: Truy cập trang, verify tiêu đề, menu, breadcrumb hiển thị đúng "Sổ quỹ tiền mặt"
+    const menuCQ = (typeof MENU_CHINH !== "undefined") ? MENU_CHINH.find(m => m.id === "chotquy") : null;
+    const modCQ = (typeof MODULE_PHAN_QUYEN !== "undefined") ? MODULE_PHAN_QUYEN.find(m => m.id === "chotquy") : null;
+    const titleValid = !!chotQuyHTML && chotQuyHTML.includes("<title>Sổ quỹ tiền mặt — CÔNG TY TNHH THÁI MỸ HƯƠNG</title>");
+    const headerValid = !!chotQuyHTML && chotQuyHTML.includes('class="tmh-page-header-title">🏦 Sổ quỹ tiền mặt</h1>');
+    const breadcrumbValid = !!chotQuyHTML && chotQuyHTML.includes('pageTitle: "Sổ quỹ tiền mặt"');
+    const menuValid = !!menuCQ && menuCQ.label === "Sổ quỹ tiền mặt";
+    const modConfigValid = !!modCQ && modCQ.label === "Sổ quỹ tiền mặt";
+
+    assert(g12, "T1.1 Menu bên trái hiển thị chính xác 'Sổ quỹ tiền mặt'", menuValid);
+    assert(g12, "T1.2 Khai báo module config.js hiển thị chính xác 'Sổ quỹ tiền mặt'", modConfigValid);
+    assert(g12, "T1.3 Thẻ <title> trang hiển thị đúng 'Sổ quỹ tiền mặt — CÔNG TY TNHH THÁI MỸ HƯƠNG'", titleValid);
+    assert(g12, "T1.4 Header H1 trang hiển thị đúng '🏦 Sổ quỹ tiền mặt'", headerValid);
+    assert(g12, "T1.5 Breadcrumb trang (pageTitle) cấu hình đúng 'Sổ quỹ tiền mặt'", breadcrumbValid);
+
+    // T2: Load dữ liệu của một ngày có cả xe nộp tiền (>0) và xe không nộp tiền (=0). Verify rằng trên UI bảng "Minh Bạch Nguồn Tiền" chỉ render các dòng >0.
+    const dotCoTien = {
+      maDot: "XE_CO_TIEN_01",
+      xe: "Xe HD1 CHIỀU",
+      nguoi_nop: "Sinh",
+      ngayGiao: "2026-10-21",
+      tong_tien_mat: 42735000,
+      soToDemTien: { 500000: 63, 200000: 11, 100000: 87, 50000: 2, 20000: 8, 10000: 5, 5000: 1, 2000: 10 },
+      daQuyetToan: true
+    };
+    const dotKhongTien1 = {
+      maDot: "XE_0D_01",
+      xe: "Xe HOÀNG BH",
+      nguoi_nop: "--",
+      ngayGiao: "2026-10-21",
+      tong_tien_mat: 0,
+      daQuyetToan: true
+    };
+    const dotKhongTien2 = {
+      maDot: "XE_0D_02",
+      xe: "Xe NAM",
+      nguoi_nop: "--",
+      ngayGiao: "2026-10-21",
+      tong_tien_mat: 0,
+      daQuyetToan: true
+    };
+    const saleCoTien = {
+      ma_phieu: "SALE_CO_TIEN_01",
+      ten_nv_sale: "Lê Thị Lan",
+      ngay_phat_sinh: "2026-10-21",
+      ngay_nop: "2026-10-21",
+      so_tien_nop: 15000000,
+      soToDem: { 500000: 30 }
+    };
+    const saleKhongTien = {
+      ma_phieu: "SALE_0D_01",
+      ten_nv_sale: "Trần Không Nộp",
+      ngay_phat_sinh: "2026-10-21",
+      ngay_nop: "2026-10-21",
+      so_tien_nop: 0
+    };
+
+    const kqTestFilter = hopNhatKiemQuyTheoNgay(
+      "2026-10-21",
+      "2026-10-21",
+      [dotCoTien, dotKhongTien1, dotKhongTien2],
+      [saleCoTien, saleKhongTien]
+    );
+
+    // Lọc theo logic mới
+    const dsFilterUI = (kqTestFilter.nguonTienChiTiet || []).filter(n => (Number(n.soTien) || 0) > 0);
+    assert(g12, "T2.1 Nguồn dữ liệu thô ban đầu có 5 đối tượng (gồm 3 đối tượng 0đ)", kqTestFilter.nguonTienChiTiet.length === 5);
+    assert(g12, "T2.2 Sau khi lọc render UI: Chỉ còn chính xác 2 dòng có số tiền > 0 (Xe HD1 CHIỀU & Sale Lê Thị Lan)",
+      dsFilterUI.length === 2 &&
+      dsFilterUI.every(n => n.soTien > 0) &&
+      !dsFilterUI.some(n => n.soTien === 0)
+    );
+    assert(g12, "T2.3 Các dòng có số tiền = 0đ (HOÀNG BH, NAM, Trần Không Nộp) đã bị loại bỏ hoàn toàn khỏi bảng UI",
+      !dsFilterUI.some(n => n.tenNguon.includes("HOÀNG BH")) &&
+      !dsFilterUI.some(n => n.tenNguon.includes("NAM")) &&
+      !dsFilterUI.some(n => n.tenNguon.includes("Trần Không Nộp"))
+    );
+
+    // T3: Verify tổng số tiền ở "Kiểm quỹ tiền mặt" vẫn khớp 100% với "Tiền mặt nộp ngân hàng" và bằng tổng các dòng đang hiển thị.
+    const tongTienHienThi = dsFilterUI.reduce((acc, cur) => acc + cur.soTien, 0);
+    const kqTinhToan = tinhToanChotQuy(kqTestFilter.tongTienXe, kqTestFilter.tongTienSale, [], []);
+    assert(g12, "T3.1 Logic tính toán 'Tổng thu tiền xe' không bị ảnh hưởng (vẫn đúng 42.735.000đ)", kqTestFilter.tongTienXe === 42735000);
+    assert(g12, "T3.2 Logic tính toán 'Tổng thu tiền sale' không bị ảnh hưởng (vẫn đúng 15.000.000đ)", kqTestFilter.tongTienSale === 15000000);
+    assert(g12, "T3.3 Tổng quỹ tiền mặt (57.735.000đ) khớp 100% với tổng các dòng đang hiển thị trên bảng",
+      kqTestFilter.tongTienMat === tongTienHienThi && tongTienHienThi === 57735000
+    );
+    assert(g12, "T3.4 Tiền mặt nộp ngân hàng khớp 100% với Kiểm quỹ tiền mặt và bằng tổng các dòng hiển thị",
+      kqTinhToan.tienNopNganHang === kqTestFilter.tongTienMat &&
+      kqTinhToan.tienNopNganHang === tongTienHienThi
+    );
+
+    // T4 (Edge Case): Nếu trong ngày tất cả đối tượng đều = 0, UI hiển thị dòng chữ thông báo trống
+    const kqNgayToan0 = hopNhatKiemQuyTheoNgay("2026-10-21", "2026-10-21", [dotKhongTien1, dotKhongTien2], [saleKhongTien]);
+    const dsFilterNgay0 = (kqNgayToan0.nguonTienChiTiet || []).filter(n => (Number(n.soTien) || 0) > 0);
+    assert(g12, "T4.1 Khi toàn bộ các xe/sale = 0đ trong ngày, dsFilterUI rỗng", dsFilterNgay0.length === 0);
+    assert(g12, "T4.2 Khi danh sách rỗng, giao diện có hiển thị thông báo 'Không có dữ liệu nộp tiền mặt trong ngày'",
+      chotQuyHTML.includes("Không có dữ liệu nộp tiền mặt trong ngày")
     );
 
     // =========================================================================

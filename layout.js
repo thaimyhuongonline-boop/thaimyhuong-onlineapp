@@ -14,7 +14,7 @@ const DANH_SACH_7_BUOC = [
 const MENU_CHINH = [
   { id: "tongquan", href: "trang_chu.html", ic: "🧭", label: "Tổng quan Quy trình", desc: "Trung tâm điều phối quy trình 3 bước KiotViet ➡ MISA", roles: ["admin", "quanly", "nhanvien"] },
   { id: "quytrinh", href: "buoc1_dieu_xe_xuat_kho.html", ic: "🔄", label: "Quy trình Bán hàng (3 Bước)", isProcess: true, desc: "Quy trình tinh gọn: Điều xe ➡ Thu tiền ➡ MISA", roles: ["admin", "quanly", "nhanvien"] },
-  { id: "chotquy", href: "bang_chot_quy.html", ic: "🏦", label: "Bảng Chốt Quỹ & Nộp Ngân Hàng", desc: "Kiểm quỹ tiền mặt, nộp ngân hàng & quản lý chi phát sinh", roles: ["admin", "quanly"] },
+  { id: "chotquy", href: "bang_chot_quy.html", ic: "🏦", label: "Sổ quỹ tiền mặt", desc: "Kiểm quỹ tiền mặt, nộp ngân hàng & quản lý chi phát sinh", roles: ["admin", "quanly"] },
   { id: "baocao", href: "bao_cao_tong_hop.html", ic: "📊", label: "Báo Cáo Tổng Hợp", desc: "Tổng kết xuất kho, tiền mặt, chuyển khoản, hàng trả về, công nợ — xem chi tiết để đối soát", roles: ["admin", "quanly"] },
   { id: "congno", href: "theo_doi_cong_no.html", ic: "📒", label: "Theo Dõi Công Nợ", desc: "Sổ theo dõi và quản lý công nợ khách hàng", roles: ["admin", "quanly", "nhanvien"] },
   { id: "danhmuc", href: "danh_muc.html", ic: "📚", label: "Danh Mục", desc: "Hàng hoá, Khách hàng, Xe, Ngân hàng, Nhân sự...", roles: ["admin", "quanly", "nhanvien"] },

@@ -497,15 +497,17 @@
     if (elSoTienMini) elSoTienMini.textContent = TMHChotQuy.fmtTien(d.tongTienMat) + ' đ';
     if (elTongCongMini) elTongCongMini.textContent = TMHChotQuy.fmtTien(d.tongTienMat) + ' đ';
 
-    // C. BẢNG MINH BẠCH NGUỒN TIỀN (TRẬT TỰ & CHI TIẾT TỪNG XE, TỪNG SALE)
+    // C. BẢNG MINH BẠCH NGUỒN TIỀN (TRẬT TỰ & CHI TIẾT TỪNG XE, TỪNG SALE CÓ NỘP TIỀN MẶT > 0)
     const tbodyNguon = document.getElementById('tbodyNguonTienChotQuy');
     if (tbodyNguon) {
-      if (!d.nguonTienChiTiet.length) {
-        tbodyNguon.innerHTML = '<tr><td colspan="15" style="text-align:center; padding:20px; color:var(--text-muted);">Chưa có chuyến xe hoặc nhân viên Sale nào nộp tiền vào ngày kiểm đếm này.</td></tr>';
+      // Chỉ hiển thị những đối tượng (Chuyến xe / Sale) có phát sinh nộp tiền mặt (Số tiền > 0)
+      const dsHienThi = (d.nguonTienChiTiet || []).filter(n => (Number(n.soTien) || 0) > 0);
+      if (!dsHienThi.length) {
+        tbodyNguon.innerHTML = '<tr><td colspan="15" style="text-align:center; padding:20px; color:var(--text-muted);">Không có dữ liệu nộp tiền mặt trong ngày</td></tr>';
       } else {
-        tbodyNguon.innerHTML = d.nguonTienChiTiet.map(n => `
+        tbodyNguon.innerHTML = dsHienThi.map((n, idx) => `
           <tr>
-            <td style="text-align:center; font-weight:700; color:var(--text-muted);">${n.stt}</td>
+            <td style="text-align:center; font-weight:700; color:var(--text-muted);">${idx + 1}</td>
             <td style="white-space:nowrap; font-weight:700;">
               ${n.loaiNguon === 'xe' 
                 ? `<span class="badge-status" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;">${n.nhanLoai}</span>` 

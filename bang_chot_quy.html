@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bảng Chốt Quỹ & Nộp Ngân Hàng — CÔNG TY TNHH THÁI MỸ HƯƠNG</title>
+  <title>Sổ quỹ tiền mặt — CÔNG TY TNHH THÁI MỸ HƯƠNG</title>
   
   <!-- PWA Manifest & Meta Tags -->
   <link rel="manifest" href="manifest.json">
@@ -215,7 +215,7 @@
     <!-- Tiêu đề trang -->
     <div class="tmh-page-header no-print">
       <div class="tmh-page-header-text">
-        <h1 class="tmh-page-header-title">🏦 Bảng Chốt Quỹ & Nộp Ngân Hàng</h1>
+        <h1 class="tmh-page-header-title">🏦 Sổ quỹ tiền mặt</h1>
         <p class="tmh-page-header-sub">Kiểm đếm quỹ tiền mặt thực tế từ chuyến xe & sale nộp, đối soát chi phát sinh và tính số tiền nộp ngân hàng & tiền lưu két.</p>
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -398,7 +398,7 @@
                   </tr>
                 </thead>
                 <tbody id="tbodyNguonTienChotQuy">
-                  <tr><td colspan="15" style="text-align:center; padding:18px; color:var(--text-muted);">Chưa có dữ liệu nguồn tiền.</td></tr>
+                  <tr><td colspan="15" style="text-align:center; padding:18px; color:var(--text-muted);">Không có dữ liệu nộp tiền mặt trong ngày</td></tr>
                 </tbody>
               </table>
             </div>
@@ -533,7 +533,7 @@
       // 1. Khởi tạo layout & phân quyền
       if (typeof khoiTaoLayout === 'function') {
         const res = await khoiTaoLayout({
-          pageTitle: "Bảng Chốt Quỹ & Nộp Ngân Hàng",
+          pageTitle: "Sổ quỹ tiền mặt",
           activeMenuId: "chotquy",
           breadcrumb: "Kế toán Quỹ"
         });

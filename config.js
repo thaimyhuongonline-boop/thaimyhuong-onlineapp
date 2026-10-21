@@ -787,7 +787,7 @@ const MODULE_PHAN_QUYEN = [
   { id: "tongquan",  label: "Tổng quan Quy trình", trang: ["trang_chu.html"] },
   { id: "dieuxe",    label: "B1: Điều Xe & Phiếu Xuất Kho", trang: ["buoc1_dieu_xe_xuat_kho.html", "buoc1_upload.html", "buoc2_phieu_xuat_kho.html"] },
   { id: "quyettoan", label: "B2: Quyết Toán Thu Tiền", trang: ["buoc2_quyet_toan_thu_tien.html"] },
-  { id: "chotquy",   label: "Bảng Chốt Quỹ & Nộp Ngân Hàng", trang: ["bang_chot_quy.html"] },
+  { id: "chotquy",   label: "Sổ quỹ tiền mặt", trang: ["bang_chot_quy.html"] },
   { id: "misa",      label: "B3: Đẩy Dữ Liệu MISA", trang: ["buoc3_day_misa.html", "buoc3_luu_tru.html"] },
   { id: "baocao",    label: "Báo Cáo Tổng Hợp", trang: ["bao_cao_tong_hop.html"] },
   { id: "congno",    label: "Theo Dõi Công Nợ", trang: ["theo_doi_cong_no.html"] },

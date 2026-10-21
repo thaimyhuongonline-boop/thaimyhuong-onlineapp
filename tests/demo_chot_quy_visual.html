@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
@@ -123,7 +123,7 @@
         </p>
       </div>
       <div style="display:flex; gap:10px;">
-        <button type="button" class="btn btn-primary" onclick="chuyenTabVisual('chot_quy')">🏦 Xem Bảng Chốt Quỹ</button>
+        <button type="button" class="btn btn-primary" onclick="chuyenTabVisual('chot_quy')">🏦 Xem Sổ Quỹ Tiền Mặt</button>
         <button type="button" class="btn btn-outline" onclick="chuyenTabVisual('thu_sale')">💼 Xem Form Thu Tiền Sale</button>
       </div>
     </div>
@@ -642,7 +642,8 @@
         tong_tien_dem: 47000000,
         sl_500k: 50,
         sl_200k: 100,
-        sl_100k: 20
+        sl_100k: 20,
+        daQuyetToan: true
       },
       {
         ma_dot: "XE_02",
@@ -653,10 +654,22 @@
         ngay_nop: "2026-10-17",
         tong_tien_dem: 13000000,
         sl_500k: 20,
-        sl_100k: 30
+        sl_100k: 30,
+        daQuyetToan: true
+      },
+      {
+        ma_dot: "XE_03",
+        xe: "Xe Tải HOÀNG BH (0đ)",
+        tai_xe: "Hoàng",
+        nguoi_nop: "--",
+        ngay_giao: "2026-10-16",
+        ngay_nop: "2026-10-17",
+        tong_tien_dem: 0,
+        daQuyetToan: true
       }
     ];
     localStorage.setItem('tmh_dot_giao_hang', JSON.stringify(dsDotXe));
+    localStorage.setItem('tmh_lich_su_dot', JSON.stringify(dsDotXe));
 
     const dsSale = [
       {
@@ -678,6 +691,15 @@
         sl_1k: 9,
         noi_dung_thu: "Thu tiền khách sỉ đợt xuất hàng 16/10",
         nguoi_nhan: "Thủ quỹ"
+      },
+      {
+        id: "SALE_02",
+        ma_phieu: "PTS-20261017-002",
+        ten_nv_sale: "Trần Không Nộp (0đ)",
+        so_dien_thoai: "0905999999",
+        ngay_phat_sinh: "2026-10-16",
+        ngay_nop: "2026-10-17",
+        so_tien_nop: 0
       }
     ];
     localStorage.setItem('tmh_thu_tien_sale', JSON.stringify(dsSale));
@@ -714,7 +736,7 @@
     if (inpKD) inpKD.value = '2026-10-17';
     if (inpPS) inpPS.value = '2026-10-16';
 
-    chuyenTabVisual('thu_sale');
+    chuyenTabVisual('chot_quy');
   });
 </script>
 
