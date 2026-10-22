@@ -970,6 +970,7 @@
     let danhSachHoaDon = [];
     let danhSachTenFile = [];
     window._lichSuDotB1 = [];
+    window._chuyenHienTaiMaDot = null; // Mã chuyến xe hiện tại đang tạo / sửa / bổ sung đơn
     let dangXuLyFile = false; // flag chặn dongBoKiotTamVeTrang wipe data khi đang upload
     let mapQuyCach = new Map();
     let tabHienTai = 'bangke';
@@ -2039,8 +2040,210 @@
     // { maDot, dot, maHDBoSung: Set các HĐ vừa nạp bổ sung, chưa lưu vào chuyến }
     let chuyenDangXemLai = null;
 
+    // ========================================================
+    // TỰ ĐỘNG TẢI & ĐỒNG BỘ CHI TIẾT HÀNG HÓA CHO CÁC HÓA ĐƠN
+    // Tải từ Supabase (chi_tiet_hoa_don, data_kiot, file_kiot_tam), cache hoặc lịch sử
+    // ========================================================
+    async function fetchChiTietHangChoHoaDon(dsMaHD) {
+      if (!Array.isArray(dsMaHD) || dsMaHD.length === 0) return new Map();
+      const dsMa = Array.from(new Set(dsMaHD.map(m => String(m || '').trim().toUpperCase()).filter(Boolean)));
+      if (!dsMa.length) return new Map();
+
+      const kqMap = new Map(); // maHD -> Array of item rows
+
+      // 1. Kiểm tra dòng hàng đã có sẵn trong duLieuKiotViet hiện tại
+      (duLieuKiotViet || []).forEach(r => {
+        const ma = String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase();
+        const mh = String(r['Mã hàng'] || r.ma_hang || '').trim();
+        if (ma && mh && !mh.toLowerCase().includes('tổng')) {
+          if (!kqMap.has(ma)) kqMap.set(ma, []);
+          kqMap.get(ma).push(r);
+        }
+      });
+
+      const maCanTai = dsMa.filter(m => !kqMap.has(m) || kqMap.get(m).length === 0);
+      if (maCanTai.length > 0 && typeof sb !== 'undefined') {
+        // 2. Tìm trong chi_tiet_hoa_don trên Supabase
+        try {
+          const tatCaCTHD = [];
+          for (let i = 0; i < maCanTai.length; i += 150) {
+            const { data, error } = await sb.from('chi_tiet_hoa_don').select('*').in('ma_hd', maCanTai.slice(i, i + 150));
+            if (!error && Array.isArray(data)) tatCaCTHD.push(...data);
+          }
+          if (tatCaCTHD.length > 0) {
+            maCanTai.forEach(ma => {
+              const items = tatCaCTHD.filter(r => String(r.ma_hd || r['Mã hóa đơn'] || '').trim().toUpperCase() === ma);
+              if (items.length > 0) {
+                // Nhóm theo ma_dot để lấy đợt đầy đủ nhất
+                const theoDot = new Map();
+                items.forEach(it => {
+                  const d = it.ma_dot || '_khong_dot';
+                  if (!theoDot.has(d)) theoDot.set(d, []);
+                  theoDot.get(d).push(it);
+                });
+                let bestGroup = items;
+                if (theoDot.size > 1) {
+                  let maxCount = 0;
+                  theoDot.forEach(grp => {
+                    if (grp.length > maxCount) { maxCount = grp.length; bestGroup = grp; }
+                  });
+                }
+                const dongChuan = bestGroup.map(r => ({
+                  'Mã hóa đơn': ma,
+                  'ma_hd': ma,
+                  'Mã hàng': String(r.ma_hang || r['Mã hàng'] || '').trim().toUpperCase(),
+                  'ma_hang': String(r.ma_hang || r['Mã hàng'] || '').trim().toUpperCase(),
+                  'Tên hàng': String(r.ten_hang || r['Tên hàng'] || '').trim(),
+                  'ten_hang': String(r.ten_hang || r['Tên hàng'] || '').trim(),
+                  'ĐVT': String(r.dvt || r['ĐVT'] || 'Thùng').trim(),
+                  'dvt': String(r.dvt || r['ĐVT'] || 'Thùng').trim(),
+                  'Số lượng': parseFloat(r.so_luong !== undefined ? r.so_luong : (r['Số lượng'] || 0)),
+                  'so_luong': parseFloat(r.so_luong !== undefined ? r.so_luong : (r['Số lượng'] || 0)),
+                  'Đơn giá': parseFloat(r.don_gia !== undefined ? r.don_gia : (r['Đơn giá'] || r['Giá bán'] || 0)),
+                  'don_gia': parseFloat(r.don_gia !== undefined ? r.don_gia : (r['Đơn giá'] || r['Giá bán'] || 0)),
+                  'Giá bán': parseFloat(r.don_gia !== undefined ? r.don_gia : (r['Giá bán'] || r['Đơn giá'] || 0)),
+                  'Thành tiền': parseFloat(r.thanh_tien !== undefined ? r.thanh_tien : (r['Thành tiền'] || 0)),
+                  'thanh_tien': parseFloat(r.thanh_tien !== undefined ? r.thanh_tien : (r['Thành tiền'] || 0)),
+                  'Mã khách hàng': String(r.ma_kh || r['Mã khách hàng'] || '').trim().toUpperCase(),
+                  'ma_kh': String(r.ma_kh || r['Mã khách hàng'] || '').trim().toUpperCase(),
+                  'Tên khách hàng': String(r.ten_kh || r['Tên khách hàng'] || 'Khách Lẻ').trim(),
+                  'ten_kh': String(r.ten_kh || r['Tên khách hàng'] || 'Khách Lẻ').trim(),
+                  'Người bán': String(r.nguoi_ban || r['Người bán'] || '').trim(),
+                  'nguoi_ban': String(r.nguoi_ban || r['Người bán'] || '').trim(),
+                  'Quy cách': parseFloat(r.quy_cach || r['Quy cách'] || 1),
+                  'quy_cach': parseFloat(r.quy_cach || r['Quy cách'] || 1),
+                  'KM': !!(r.la_khuyen_mai || r['KM']),
+                  'la_khuyen_mai': !!(r.la_khuyen_mai || r['KM'])
+                }));
+                kqMap.set(ma, dongChuan);
+              }
+            });
+          }
+        } catch (e) {
+          console.warn('Lỗi tải chi_tiet_hoa_don:', e);
+        }
+      }
+
+      // 3. Tìm trong data_kiot trên Supabase
+      const maConThieu1 = dsMa.filter(m => !kqMap.has(m) || kqMap.get(m).length === 0);
+      if (maConThieu1.length > 0 && typeof sb !== 'undefined') {
+        try {
+          const tatCaDK = [];
+          for (let i = 0; i < maConThieu1.length; i += 150) {
+            const { data, error } = await sb.from('data_kiot').select('*').in('ma_hd', maConThieu1.slice(i, i + 150));
+            if (!error && Array.isArray(data)) tatCaDK.push(...data);
+          }
+          if (tatCaDK.length > 0) {
+            maConThieu1.forEach(ma => {
+              const items = tatCaDK.filter(r => String(r.ma_hd || '').trim().toUpperCase() === ma);
+              if (items.length > 0) {
+                const dongChuan = items.map(r => ({
+                  'Mã hóa đơn': ma,
+                  'ma_hd': ma,
+                  'Mã hàng': String(r.ma_hang || '').trim().toUpperCase(),
+                  'ma_hang': String(r.ma_hang || '').trim().toUpperCase(),
+                  'Tên hàng': String(r.ten_hang || '').trim(),
+                  'ten_hang': String(r.ten_hang || '').trim(),
+                  'ĐVT': String(r.dvt || 'Thùng').trim(),
+                  'dvt': String(r.dvt || 'Thùng').trim(),
+                  'Số lượng': parseFloat(r.so_luong || 0),
+                  'so_luong': parseFloat(r.so_luong || 0),
+                  'Đơn giá': parseFloat(r.don_gia || 0),
+                  'don_gia': parseFloat(r.don_gia || 0),
+                  'Giá bán': parseFloat(r.don_gia || 0),
+                  'Thành tiền': parseFloat(r.thanh_tien || 0),
+                  'thanh_tien': parseFloat(r.thanh_tien || 0),
+                  'Mã khách hàng': String(r.ma_kh || '').trim().toUpperCase(),
+                  'ma_kh': String(r.ma_kh || '').trim().toUpperCase(),
+                  'Tên khách hàng': String(r.ten_kh || 'Khách Lẻ').trim(),
+                  'ten_kh': String(r.ten_kh || 'Khách Lẻ').trim(),
+                  'Người bán': String(r.nguoi_ban || '').trim(),
+                  'nguoi_ban': String(r.nguoi_ban || '').trim(),
+                  'Quy cách': parseFloat(r.quy_cach || 1),
+                  'quy_cach': parseFloat(r.quy_cach || 1),
+                  'KM': !!r.la_khuyen_mai,
+                  'la_khuyen_mai': !!r.la_khuyen_mai
+                }));
+                kqMap.set(ma, dongChuan);
+              }
+            });
+          }
+        } catch (e) {
+          console.warn('Lỗi tải data_kiot:', e);
+        }
+      }
+
+      // 4. Tìm trong file_kiot_tam trên Cloud
+      const maConThieu2 = dsMa.filter(m => !kqMap.has(m) || kqMap.get(m).length === 0);
+      if (maConThieu2.length > 0 && typeof taiKiotTamTuSupabase === 'function') {
+        try {
+          const cloud = await taiKiotTamTuSupabase();
+          if (cloud && Array.isArray(cloud.duLieu) && cloud.duLieu.length > 0) {
+            maConThieu2.forEach(ma => {
+              const items = cloud.duLieu.filter(r => String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase() === ma);
+              if (items.length > 0) kqMap.set(ma, items);
+            });
+          }
+        } catch (e) {}
+      }
+
+      // 5. Tìm trong danh sách chờ giao lại hoặc lịch sử đợt cục bộ
+      const maConThieu3 = dsMa.filter(m => !kqMap.has(m) || kqMap.get(m).length === 0);
+      if (maConThieu3.length > 0) {
+        try {
+          const dsGL = JSON.parse(localStorage.getItem('tmh_danh_sach_cho_giao_lai') || '[]');
+          dsGL.forEach(it => {
+            const m = String(it.maHD || '').trim().toUpperCase();
+            if (maConThieu3.includes(m) && Array.isArray(it.chiTietKiotViet) && it.chiTietKiotViet.length > 0) {
+              kqMap.set(m, it.chiTietKiotViet);
+            }
+          });
+        } catch (e) {}
+      }
+      const maConThieu4 = dsMa.filter(m => !kqMap.has(m) || kqMap.get(m).length === 0);
+      if (maConThieu4.length > 0 && Array.isArray(window._lichSuDotB1)) {
+        window._lichSuDotB1.forEach(dot => {
+          if (Array.isArray(dot.cacDongChiTietKiotViet)) {
+            maConThieu4.forEach(m => {
+              if (!kqMap.has(m) || kqMap.get(m).length === 0) {
+                const items = dot.cacDongChiTietKiotViet.filter(r => String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase() === m);
+                if (items.length > 0) kqMap.set(m, items);
+              }
+            });
+          }
+        });
+      }
+
+      // Gộp các dòng tìm thấy vào duLieuKiotViet (chống trùng lặp dòng)
+      if (!Array.isArray(duLieuKiotViet)) duLieuKiotViet = [];
+      const setDongDaCo = new Set(duLieuKiotViet.map(r => {
+        const maHD = String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase();
+        const maH = String(r['Mã hàng'] || r.ma_hang || '').trim().toUpperCase();
+        const sl = r['Số lượng'] !== undefined ? r['Số lượng'] : r.so_luong;
+        const dg = r['Đơn giá'] !== undefined ? r['Đơn giá'] : r.don_gia;
+        return `${maHD}‖${maH}‖${dg}‖${sl}`;
+      }));
+
+      kqMap.forEach((rows, ma) => {
+        rows.forEach(r => {
+          const maHD = String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase();
+          const maH = String(r['Mã hàng'] || r.ma_hang || '').trim().toUpperCase();
+          const sl = r['Số lượng'] !== undefined ? r['Số lượng'] : r.so_luong;
+          const dg = r['Đơn giá'] !== undefined ? r['Đơn giá'] : r.don_gia;
+          const sig = `${maHD}‖${maH}‖${dg}‖${sl}`;
+          if (!setDongDaCo.has(sig)) {
+            setDongDaCo.add(sig);
+            duLieuKiotViet.push(r);
+          }
+        });
+      });
+
+      return kqMap;
+    }
+
     async function xemLaiMotChuyenXe(maDot) {
       dongModalXemLaiChuyenXe();
+      window._chuyenHienTaiMaDot = maDot;
 
       let lichSu = window._lichSuDotB1 || [];
       let dot = lichSu.find(d => d.maDot === maDot);
@@ -2083,17 +2286,28 @@
           if (cthd && cthd.length > 0) {
             duLieuKiotViet = cthd.map(c => ({
               'Mã hóa đơn': c.ma_hd,
+              'ma_hd': c.ma_hd,
               'Mã khách hàng': c.ma_kh,
+              'ma_kh': c.ma_kh,
               'Tên khách hàng': c.ten_kh,
+              'ten_kh': c.ten_kh,
               'Mã hàng': c.ma_hang,
+              'ma_hang': c.ma_hang,
               'Tên hàng': c.ten_hang,
+              'ten_hang': c.ten_hang,
               'ĐVT': c.dvt,
+              'dvt': c.dvt,
               'Số lượng': c.so_luong,
+              'so_luong': c.so_luong,
               'Đơn giá': c.don_gia,
+              'don_gia': c.don_gia,
               'Giá bán': c.don_gia,
               'Thành tiền': c.thanh_tien,
+              'thanh_tien': c.thanh_tien,
               'Quy cách': c.quy_cach,
+              'quy_cach': c.quy_cach,
               'Người bán': c.nguoi_ban || '',
+              'nguoi_ban': c.nguoi_ban || '',
               'Giảm giá hóa đơn': 0
             }));
           }
@@ -2127,6 +2341,11 @@
         }));
       }
 
+      // Tự động tải bù nếu chưa có dòng hàng
+      if (!duLieuKiotViet || duLieuKiotViet.length === 0) {
+        await fetchChiTietHangChoHoaDon(danhSachHoaDon.map(h => h.maHD));
+      }
+
       veDanhSachCheckboxHD();
       chayTaoPhieu();
       chuyenDangXemLai = { maDot: dot.maDot, dot: dot, maHDBoSung: new Set() };
@@ -2146,6 +2365,7 @@
       const banner = document.getElementById('bannerDangXemLai');
       if (banner) banner.style.display = 'none';
       chuyenDangXemLai = null;
+      window._chuyenHienTaiMaDot = null;
 
       if (duLieuTamTruocKhiXemLai) {
         danhSachHoaDon = duLieuTamTruocKhiXemLai.danhSachHoaDon || [];
@@ -2239,117 +2459,8 @@
     }
 
     async function luuBoSungVaoChuyenDaLuu() {
-      khoiPhucDuLieuChuyenDangXemLai();
-      const c = chuyenDangXemLai;
-      const dot = c.dot;
-      const maDot = c.maDot;
-      const hdBoSung = danhSachHoaDon.filter(h => h.chon && c.maHDBoSung.has(h.maHD));
-      if (!hdBoSung.length) {
-        alert('⚠️ Chưa tích hoá đơn bổ sung nào để lưu vào chuyến.');
-        return;
-      }
-      const maCoDongHang = new Set(duLieuKiotViet.map(r => String(r['Mã hóa đơn'] || '').trim().toUpperCase()));
-      const thieuHang = hdBoSung.filter(h => !maCoDongHang.has(h.maHD));
-      if (thieuHang.length) {
-        alert('⚠️ Các hoá đơn bổ sung chưa có chi tiết hàng hoá nên chưa lưu được:\n' + thieuHang.map(h => '• ' + h.maHD).join('\n'));
-        return;
-      }
-      if (!(await kiemTraChuyenBoSungDuoc(maDot))) return;
-
-      chayTaoPhieu();
-      const setBS = new Set(hdBoSung.map(h => h.maHD));
-      const dongBangKe = ((duLieuXuatExcel && duLieuXuatExcel.bangKe) || []).filter(r => setBS.has(r.maHD));
-      const tongBS = dongBangKe.reduce((s, r) => s + (parseFloat(r.thanhTien) || 0), 0);
-      const soHDCu = danhSachHoaDon.filter(h => h.chon && !c.maHDBoSung.has(h.maHD)).length;
-      const xe = dot.xe || document.getElementById('xeVanChuyen').value;
-      const taiXe = dot.taiXe || '';
-      const ngayRaw = dot.ngayRaw || chuanHoaNgayISO_(dot.ngayGiao) || document.getElementById('ngayGiaoHang').value;
-      const ngayGiao = dot.ngayGiao || chuanHoaNgayVN_(ngayRaw);
-      const nvGiao = dot.nvGiao || '';
-      const nvThu = dot.nvThu || '';
-      if (!confirm(`💾 BỔ SUNG ${hdBoSung.length} HÓA ĐƠN VÀO CHUYẾN XE ĐÃ LƯU?\n\n` +
-        `• Chuyến: ${xe} — ngày ${ngayGiao} — tài xế ${taiXe || '--'}\n` +
-        hdBoSung.map(h => `• ${h.maHD} — ${h.tenKH}: ${formatTien(h.tongTien)} đ`).join('\n') +
-        `\n• Tổng tiền bổ sung: ${formatTien(tongBS)} đ\n\n` +
-        `Sau khi lưu chuyến có ${soHDCu + hdBoSung.length} HĐ. ${soHDCu} HĐ cũ của chuyến GIỮ NGUYÊN (không ghi đè).\n\nBấm [OK] để lưu.`)) return;
-
-      const cacDongBS = duLieuKiotViet.filter(r => setBS.has(String(r['Mã hóa đơn'] || '').trim().toUpperCase()));
-      const chiTietBS = dongBangKe.map(r => ({
-        ...r, ngay: ngayGiao, xe: xe, taiXe: taiXe, giaoHang: nvGiao, thuTien: nvThu,
-        tienMat: 0, chuyenKhoan: 0, traVe: 0, noPhatSinh: 0, maDot: maDot, laGiaoLai: false
-      }));
-      // Hoá đơn bổ sung trống "Người bán" → giữ tên đã có trên máy chủ (không ghi đè thành rỗng)
-      await giuNguoiBanKhiLuuChuyen(chiTietBS, null, [cacDongBS, dongBangKe]);
-
-      // 1. Máy chủ: chỉ ghi các HĐ bổ sung (cùng mã chuyến) — không đụng dòng của các HĐ cũ
-      if (typeof sb !== 'undefined') {
-        const rowsLuuTru = chiTietBS.map(r => ({
-          ma_hd: r.maHD, stt: r.stt, ngay_giao: ngayGiao, xe: xe, tai_xe: taiXe, giao_hang: nvGiao, thu_tien: nvThu,
-          ten_kh: r.tenKH, nguoi_ban: r.nguoiBan, ma_kh: r.maKH, doanh_so: r.doanhSo, giam_gia_sp: r.giamSP, giam_gia_hd: r.giamHD,
-          thanh_tien: r.thanhTien, tien_mat: 0, chuyen_khoan: 0, tra_ve: 0, no_phat_sinh: 0, ma_dot: maDot, da_kiem_don: false, la_giao_lai: false
-        }));
-        const resLt = await upsertSupabaseTuTu('luu_tru', rowsLuuTru, { onConflict: 'ma_hd' });
-        if (!resLt || !resLt.success) {
-          alert('❌ Chưa lưu được hoá đơn bổ sung lên máy chủ: ' + (((resLt && resLt.error) && (resLt.error.message || resLt.error)) || 'lỗi') + '\n\nKhông có dữ liệu nào bị thay đổi.');
-          return;
-        }
-        if (cacDongBS.length) {
-          await upsertSupabaseTuTu('chi_tiet_hoa_don', cacDongBS.map(r => ({
-            ma_hd: String(r['Mã hóa đơn'] || '').trim().toUpperCase(), ma_dot: maDot, ngay_ct: ngayGiao, xe: xe,
-            ma_kh: String(r['Mã khách hàng'] || '').trim().toUpperCase(), ten_kh: String(r['Tên khách hàng'] || '').trim(),
-            ma_hang: String(r['Mã hàng'] || '').trim().toUpperCase(), ten_hang: String(r['Tên hàng'] || '').trim(),
-            dvt: String(r['ĐVT'] || 'Thùng').trim(), so_luong: parseFloat(r['Số lượng'] || 0),
-            don_gia: parseFloat(r['Đơn giá'] || r['Giá bán'] || 0), thanh_tien: parseFloat(r['Thành tiền'] || 0),
-            quy_cach: parseFloat(r['Quy cách'] || 1), la_khuyen_mai: !!r['KM']
-          })));
-        }
-      }
-
-      // 2. Lịch sử chuyến trong bộ nhớ: thêm HĐ bổ sung vào đúng chuyến (không tạo chuyến mới)
-      let lichSu = Array.isArray(window._lichSuDotB1) ? window._lichSuDotB1 : [];
-      let dotLS = lichSu.find(d => d.maDot === maDot);
-      if (!dotLS) { dotLS = JSON.parse(JSON.stringify(dot)); lichSu.unshift(dotLS); }
-      dotLS.danhSachHD = Array.from(new Set([...(dotLS.danhSachHD || []), ...hdBoSung.map(h => h.maHD)]));
-      dotLS.danhSachChiTiet = (dotLS.danhSachChiTiet || []).filter(r => !setBS.has(r.maHD)).concat(chiTietBS);
-      dotLS.cacDongChiTietKiotViet = (dotLS.cacDongChiTietKiotViet || []).filter(r => !setBS.has(String(r['Mã hóa đơn'] || '').trim().toUpperCase())).concat(cacDongBS);
-      dotLS.soLuongHD = dotLS.danhSachHD.length;
-      dotLS.tongTien = (dotLS.danhSachChiTiet || []).reduce((s, r) => s + (parseFloat(r.thanhTien) || 0), 0);
-      window._lichSuDotB1 = lichSu;
-      c.dot = dotLS;
-
-      // 3. Gỡ các HĐ bổ sung khỏi danh sách chờ chia xe & hàng đợi hẹn giao lại (nếu trước đó đã nạp vào)
-      const boKhoiDS = ds => (Array.isArray(ds) ? ds : []).filter(r => !setBS.has(String(r['Mã hóa đơn'] || '').trim().toUpperCase()));
-      duLieuKiotViet = boKhoiDS(duLieuKiotViet);
-      if (duLieuTamTruocKhiXemLai) {
-        duLieuTamTruocKhiXemLai.duLieuKiotViet = boKhoiDS(duLieuTamTruocKhiXemLai.duLieuKiotViet);
-        duLieuTamTruocKhiXemLai.danhSachHoaDon = (duLieuTamTruocKhiXemLai.danhSachHoaDon || []).filter(h => !setBS.has(h.maHD));
-      }
-      if (typeof taiKiotTamTuSupabase === 'function') {
-        try {
-          const cloud = await taiKiotTamTuSupabase();
-          if (cloud && Array.isArray(cloud.duLieu) && cloud.duLieu.length) {
-            const conLai = boKhoiDS(cloud.duLieu);
-            if (conLai.length !== cloud.duLieu.length) {
-              if (conLai.length && typeof dongBoKiotTamLenSupabase === 'function') await dongBoKiotTamLenSupabase(conLai, cloud.danhSachTenFile || []);
-              else if (!conLai.length && typeof xoaKiotTamSupabase === 'function') await xoaKiotTamSupabase();
-            }
-          }
-        } catch (e) { console.warn('Không gỡ được đơn bổ sung khỏi danh sách chờ trên máy chủ:', e); }
-      }
-      try {
-        const dsGL = JSON.parse(localStorage.getItem('tmh_danh_sach_cho_giao_lai') || '[]');
-        localStorage.setItem('tmh_danh_sach_cho_giao_lai', JSON.stringify(dsGL.filter(it => !setBS.has(String(it.maHD || '').toUpperCase()))));
-        if (typeof xoaDonGiaoLaiSupabase === 'function') xoaDonGiaoLaiSupabase(hdBoSung.map(h => h.maHD));
-      } catch (e) {}
-
-      // 4. Các HĐ bổ sung giờ đã thuộc chuyến
-      hdBoSung.forEach(h => { h.laBoSung = false; c.maHDBoSung.delete(h.maHD); });
-      veDanhSachCheckboxHD();
-      capNhatBannerBoSungXemLai();
-      chupDuLieuChuyenDangXemLai();
-      alert(`✅ ĐÃ BỔ SUNG ${hdBoSung.length} HÓA ĐƠN (${formatTien(tongBS)} đ) VÀO CHUYẾN "${xe} (${ngayGiao})".\n\n` +
-        `Chuyến hiện có ${dotLS.soLuongHD} HĐ. Bảng kê & Phiếu xuất kho đang hiện là bản đầy đủ — bấm In A4 / Xuất Excel để in lại.\n` +
-        `Bước 2 (quyết toán) sẽ thấy các hoá đơn bổ sung trong chuyến này.`);
+      // Gom chung luồng lưu đợt và bổ sung đơn vào hàm luuSangBuoc3 thống nhất
+      return await luuSangBuoc3();
     }
 
     function xoaMotChuyenXeKhoiLichSu(maDot) {
@@ -2698,6 +2809,15 @@
               }
             }
             if (dot) {
+              window._chuyenHienTaiMaDot = dot.maDot;
+              chuyenDangXemLai = { maDot: dot.maDot, dot: dot, maHDBoSung: new Set() };
+              const banner = document.getElementById('bannerDangXemLai');
+              const lbl = document.getElementById('lblDangXemLaiDot');
+              if (banner && lbl) {
+                lbl.textContent = `${dot.xe || '--'} (${dot.ngayGiao || 'Hôm nay'}) — Tài xế: ${dot.taiXe || '--'} (${(dot.danhSachHD || []).length} HĐ)`;
+                banner.style.display = 'flex';
+              }
+
               if (dot.xe) chonXeVanChuyen(dot.xe);
               if (dot.taiXe) document.getElementById('taiXe').value = dot.taiXe;
               if (dot.nvGiao) document.getElementById('nvGiaoHang').value = dot.nvGiao;
@@ -2708,10 +2828,10 @@
                 duLieuKiotViet = dot.cacDongChiTietKiotViet;
                 const mapHD = new Map();
                 duLieuKiotViet.forEach(r => {
-                  const maHD = String(r['Mã hóa đơn'] || '').trim().toUpperCase();
+                  const maHD = String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase();
                   if (!maHD || maHD.includes('TỔNG')) return;
-                  const tenKH = String(r['Tên khách hàng'] || 'Khách Lẻ').trim();
-                  const thanhTien = parseVNNumber_(r['Thành tiền']);
+                  const tenKH = String(r['Tên khách hàng'] || r.ten_kh || 'Khách Lẻ').trim();
+                  const thanhTien = parseVNNumber_(r['Thành tiền'] !== undefined ? r['Thành tiền'] : r.thanh_tien);
                   if (!mapHD.has(maHD)) {
                     mapHD.set(maHD, { maHD, tenKH, tongTien: 0, chon: true });
                   }
@@ -2726,6 +2846,11 @@
                   h.chon = setHD.has(h.maHD);
                 });
                 veDanhSachCheckboxHD();
+                chayTaoPhieu();
+              }
+
+              if (!duLieuKiotViet || duLieuKiotViet.length === 0) {
+                await fetchChiTietHangChoHoaDon((danhSachHoaDon || []).map(h => h.maHD));
                 chayTaoPhieu();
               }
             }
@@ -3050,11 +3175,11 @@
       const trangThaiCu = new Map((danhSachHoaDon || []).map(h => [h.maHD, h.chon]));
       const mapHD = new Map();
       duLieuKiotViet.forEach(r => {
-        const maHD = String(r['Mã hóa đơn'] || '').trim().toUpperCase();
+        const maHD = String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase();
         if (!maHD || maHD.includes('TỔNG')) return;
 
-        const tenKH = String(r['Tên khách hàng'] || 'Khách Lẻ').trim();
-        const thanhTien = parseVNNumber_(r['Thành tiền']);
+        const tenKH = String(r['Tên khách hàng'] || r.ten_kh || 'Khách Lẻ').trim();
+        const thanhTien = parseVNNumber_(r['Thành tiền'] !== undefined ? r['Thành tiền'] : r.thanh_tien);
 
         if (!mapHD.has(maHD)) {
           mapHD.set(maHD, {
@@ -3065,6 +3190,14 @@
           });
         }
         mapHD.get(maHD).tongTien += thanhTien;
+      });
+
+      // Giữ lại các hoá đơn đã có sẵn trong danhSachHoaDon (vd: đơn hẹn giao lại, đơn 0đ, v.v.)
+      (danhSachHoaDon || []).forEach(h => {
+        const m = String(h.maHD || '').trim().toUpperCase();
+        if (m && !mapHD.has(m)) {
+          mapHD.set(m, { ...h });
+        }
       });
 
       danhSachHoaDon = Array.from(mapHD.values());
@@ -3212,38 +3345,8 @@
         return;
       }
 
-      // Đơn hẹn giao lại lấy từ máy chủ (máy khác quyết toán) chưa kèm dòng hàng → tải từ chi_tiet_hoa_don,
-      // nếu không đơn sẽ không lên Bảng kê (trước đây lưu chuyến là mất đơn)
-      const canTaiHang = dsGL.filter(it => !(Array.isArray(it.chiTietKiotViet) && it.chiTietKiotViet.length));
-      if (canTaiHang.length && typeof sb !== 'undefined') {
-        try {
-          const dsMa = canTaiHang.map(it => String(it.maHD || '').trim().toUpperCase()).filter(Boolean);
-          const tatCa = [];
-          for (let i = 0; i < dsMa.length; i += 150) {
-            const { data, error } = await sb.from('chi_tiet_hoa_don').select('*').in('ma_hd', dsMa.slice(i, i + 150));
-            if (!error && Array.isArray(data)) tatCa.push(...data);
-          }
-          canTaiHang.forEach(it => {
-            const ma = String(it.maHD || '').trim().toUpperCase();
-            let bo = tatCa.filter(r => String(r.ma_hd || '').trim().toUpperCase() === ma);
-            if (!bo.length) return;
-            const dotGoc = it.maDotCu || it.maDotGoc || '';
-            const cuaDotGoc = bo.filter(r => dotGoc && r.ma_dot === dotGoc);
-            if (cuaDotGoc.length) bo = cuaDotGoc;
-            else {
-              const moiNhat = bo.reduce((m, r) => String(r.tao_luc || '') > m ? String(r.tao_luc || '') : m, '');
-              bo = bo.filter(r => String(r.tao_luc || '') === moiNhat);
-            }
-            it.chiTietKiotViet = bo.map(r => ({
-              'Mã hóa đơn': ma, 'Mã hàng': r.ma_hang, 'Tên hàng': r.ten_hang, 'ĐVT': r.dvt || 'Thùng',
-              'Số lượng': parseFloat(r.so_luong || 0), 'Đơn giá': parseFloat(r.don_gia || 0), 'Giá bán': parseFloat(r.don_gia || 0),
-              'Thành tiền': parseFloat(r.thanh_tien || 0), 'Mã khách hàng': r.ma_kh || it.maKH || '', 'Tên khách hàng': r.ten_kh || it.tenKH || '',
-              'Người bán': it.nguoiBan || '', 'Quy cách': r.quy_cach, 'KM': !!r.la_khuyen_mai
-            }));
-          });
-        } catch (e) { console.warn('Không tải được chi tiết hàng của đơn giao lại:', e); }
-      }
-      const vanThieuHang = dsGL.filter(it => !(Array.isArray(it.chiTietKiotViet) && it.chiTietKiotViet.length));
+      // Đơn hẹn giao lại lấy từ máy chủ / local: nạp đầy đủ dòng hàng bằng fetchChiTietHangChoHoaDon
+      await fetchChiTietHangChoHoaDon(dsGL.map(it => it.maHD));
 
       if (!Array.isArray(danhSachHoaDon)) danhSachHoaDon = [];
       if (!Array.isArray(duLieuKiotViet)) duLieuKiotViet = [];
@@ -3251,32 +3354,38 @@
       let demThem = 0;
       dsGL.forEach(item => {
         const maHD = String(item.maHD || '').trim().toUpperCase();
-        const tonTai = danhSachHoaDon.find(h => h.maHD.toUpperCase() === maHD);
+        const tonTai = danhSachHoaDon.find(h => String(h.maHD || '').toUpperCase() === maHD);
+        const tienHD = parseFloat(item.tienHD !== undefined ? item.tienHD : (item.thanhTien || 0));
         if (tonTai) {
           tonTai.chon = true;
           tonTai.laGiaoLai = true;
+          if (tienHD > 0 || tonTai.tongTien === 0) tonTai.tongTien = tienHD;
         } else {
-          danhSachHoaDon.unshift({
+          danhSachHoaDon.push({
             maHD: maHD,
             tenKH: item.tenKH || 'Khách Lẻ',
-            tongTien: item.tienHD || 0,
+            tongTien: tienHD,
             chon: true,
             laGiaoLai: true,
             thongTinCu: {
-              xe: item.xeCu,
-              ngayGiao: item.ngayCu
+              xe: item.xeCu || item.xeGoc || '',
+              ngayGiao: item.ngayCu || item.ngayGiaoGoc || ''
             }
           });
           demThem++;
         }
 
-        // Nạp các dòng chi tiết KiotViet nếu có
+        if (chuyenDangXemLai && chuyenDangXemLai.maHDBoSung) {
+          chuyenDangXemLai.maHDBoSung.add(maHD);
+        }
+
+        // Nạp các dòng chi tiết nếu trong item đã có sẵn
         if (Array.isArray(item.chiTietKiotViet) && item.chiTietKiotViet.length > 0) {
           item.chiTietKiotViet.forEach(dong => {
-            const maHang = String(dong['Mã hàng'] || '').trim().toUpperCase();
+            const maHang = String(dong['Mã hàng'] || dong.ma_hang || '').trim().toUpperCase();
             const daCo = duLieuKiotViet.some(d => 
-              String(d['Mã hóa đơn'] || '').trim().toUpperCase() === maHD && 
-              String(d['Mã hàng'] || '').trim().toUpperCase() === maHang
+              String(d['Mã hóa đơn'] || d.ma_hd || '').trim().toUpperCase() === maHD && 
+              String(d['Mã hàng'] || d.ma_hang || '').trim().toUpperCase() === maHang
             );
             if (!daCo) {
               duLieuKiotViet.push(dong);
@@ -3287,14 +3396,21 @@
 
       veDanhSachCheckboxHD();
       chayTaoPhieu();
+      if (chuyenDangXemLai) capNhatBannerBoSungXemLai();
 
       // Banner chỉ còn đếm các đơn hẹn giao lại chưa đưa vào xe này
       kiemTraBannerDonGiaoLai();
 
+      const maCoDongHang = new Set((duLieuKiotViet || []).filter(r => {
+        const mh = String(r['Mã hàng'] || r.ma_hang || '').trim();
+        return mh && !mh.toLowerCase().includes('tổng');
+      }).map(r => String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase()));
+      const vanThieuHang = dsGL.filter(it => !maCoDongHang.has(String(it.maHD || '').trim().toUpperCase()));
+
       hienThiToast(`🎉 Đã đưa ${dsGL.length} đơn hẹn giao lại vào chuyến xe hiện tại!`);
       if (vanThieuHang.length) {
-        alert(`⚠️ ${vanThieuHang.length} đơn hẹn giao lại CHƯA tìm thấy chi tiết hàng hóa nên sẽ không lên Bảng kê (khi lưu chuyến, đơn vẫn được giữ trong danh sách):\n\n` +
-          vanThieuHang.map(it => `• ${it.maHD} — ${it.tenKH || ''}`).join('\n') + `\n\nHãy nạp lại file Excel KiotViet có các hóa đơn này.`);
+        alert(`⚠️ ${vanThieuHang.length} đơn hẹn giao lại CHƯA tìm thấy chi tiết hàng hóa nên sẽ chỉ lên Bảng kê thu tiền:\n\n` +
+          vanThieuHang.map(it => `• ${it.maHD} — ${it.tenKH || ''}`).join('\n') + `\n\nHãy nạp lại file Excel KiotViet có các hóa đơn này nếu cần in chi tiết xuất kho.`);
       }
     }
 
@@ -3363,9 +3479,13 @@
     // Xóa 1 hóa đơn cụ thể khỏi danh sách tạm
     async function xoaMotHoaDon(maHD) {
       if (!confirm(`Bạn có chắc muốn xóa hóa đơn "${maHD}" khỏi danh sách tạm?`)) return;
-      await dongBoCoSoKiotTuCloud(); // xoá trên bản mới nhất của máy chủ, không làm mất đơn máy khác vừa nạp
+      if (!chuyenDangXemLai && !window._chuyenHienTaiMaDot) await dongBoCoSoKiotTuCloud(); // xoá trên bản mới nhất của máy chủ nếu đang ở danh sách chờ
       danhSachHoaDon = danhSachHoaDon.filter(h => h.maHD !== maHD);
-      duLieuKiotViet = duLieuKiotViet.filter(r => String(r['Mã hóa đơn'] || '').trim().toUpperCase() !== maHD);
+      duLieuKiotViet = duLieuKiotViet.filter(r => String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase() !== maHD);
+      if (chuyenDangXemLai && chuyenDangXemLai.maHDBoSung) {
+        chuyenDangXemLai.maHDBoSung.delete(maHD);
+        capNhatBannerBoSungXemLai();
+      }
       if (duLieuKiotViet.length === 0) {
         danhSachTenFile = [];
         const badgeEl = document.getElementById('fileInfoBadge');
@@ -3374,7 +3494,7 @@
         document.getElementById('viewBangKe').style.display = 'none';
         document.getElementById('viewXuatKho').style.display = 'none';
         document.getElementById('btnLuuBuoc3').style.display = 'none';
-        if (typeof xoaKiotTamSupabase === 'function') await xoaKiotTamSupabase();
+        if (typeof xoaKiotTamSupabase === 'function' && !chuyenDangXemLai && !window._chuyenHienTaiMaDot) await xoaKiotTamSupabase();
       } else {
         const badgeEl = document.getElementById('fileInfoBadge');
         if (badgeEl) {
@@ -3383,7 +3503,7 @@
             : (danhSachTenFile.length > 0 ? danhSachTenFile.join(' + ') : 'Dữ liệu Excel');
           badgeEl.innerHTML = `📄 <b>${fileText}</b> (${danhSachHoaDon.length} HĐ, ${duLieuKiotViet.length} dòng)`;
         }
-        if (typeof dongBoKiotTamLenSupabase === 'function') {
+        if (typeof dongBoKiotTamLenSupabase === 'function' && !chuyenDangXemLai && !window._chuyenHienTaiMaDot) {
           await dongBoKiotTamLenSupabase(duLieuKiotViet, danhSachTenFile);
         }
       }
@@ -3402,13 +3522,17 @@
       if (!confirm(`Bạn có chắc chắn muốn xóa ${cacHDXoa.length} hóa đơn đã chọn khỏi danh sách tạm?`)) {
         return;
       }
-      await dongBoCoSoKiotTuCloud(); // xoá trên bản mới nhất của máy chủ, không làm mất đơn máy khác vừa nạp
+      if (!chuyenDangXemLai && !window._chuyenHienTaiMaDot) await dongBoCoSoKiotTuCloud(); // xoá trên bản mới nhất của máy chủ nếu đang ở danh sách chờ
       const setMaHDXoa = new Set(cacHDXoa.map(h => h.maHD));
       danhSachHoaDon = danhSachHoaDon.filter(h => !setMaHDXoa.has(h.maHD));
       duLieuKiotViet = duLieuKiotViet.filter(r => {
-        const m = String(r['Mã hóa đơn'] || '').trim().toUpperCase();
+        const m = String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase();
         return !setMaHDXoa.has(m);
       });
+      if (chuyenDangXemLai && chuyenDangXemLai.maHDBoSung) {
+        setMaHDXoa.forEach(m => chuyenDangXemLai.maHDBoSung.delete(m));
+        capNhatBannerBoSungXemLai();
+      }
 
       if (duLieuKiotViet.length === 0) {
         danhSachTenFile = [];
@@ -3418,7 +3542,7 @@
         document.getElementById('viewBangKe').style.display = 'none';
         document.getElementById('viewXuatKho').style.display = 'none';
         document.getElementById('btnLuuBuoc3').style.display = 'none';
-        if (typeof xoaKiotTamSupabase === 'function') await xoaKiotTamSupabase();
+        if (typeof xoaKiotTamSupabase === 'function' && !chuyenDangXemLai && !window._chuyenHienTaiMaDot) await xoaKiotTamSupabase();
       } else {
         const badgeEl = document.getElementById('fileInfoBadge');
         if (badgeEl) {
@@ -3427,7 +3551,7 @@
             : (danhSachTenFile.length > 0 ? danhSachTenFile.join(' + ') : 'Dữ liệu Excel');
           badgeEl.innerHTML = `📄 <b>${fileText}</b> (${danhSachHoaDon.length} HĐ, ${duLieuKiotViet.length} dòng)`;
         }
-        if (typeof dongBoKiotTamLenSupabase === 'function') {
+        if (typeof dongBoKiotTamLenSupabase === 'function' && !chuyenDangXemLai && !window._chuyenHienTaiMaDot) {
           await dongBoKiotTamLenSupabase(duLieuKiotViet, danhSachTenFile);
         }
       }
@@ -3449,6 +3573,10 @@
       duLieuKiotViet = [];
       danhSachHoaDon = [];
       danhSachTenFile = [];
+      window._chuyenHienTaiMaDot = null;
+      chuyenDangXemLai = null;
+      const banner = document.getElementById('bannerDangXemLai');
+      if (banner) banner.style.display = 'none';
       const badgeEl = document.getElementById('fileInfoBadge');
       if (badgeEl) {
         badgeEl.style.display = 'none';
@@ -3493,12 +3621,12 @@
       document.getElementById('tieuDeBangKe').textContent = "BẢNG KÊ THU TIỀN HÀNG VÀ GIAO HÀNG" + (layTatCa ? " (TẤT CẢ HÓA ĐƠN)" : "");
       document.getElementById('tieuDeXuatKho').textContent = "PHIẾU XUẤT KHO TỔNG HỢP" + (layTatCa ? " (TẤT CẢ HÓA ĐƠN)" : "");
 
-      const cacDongTheoXe = duLieuKiotViet.filter(r => {
-        const maHD = String(r['Mã hóa đơn'] || '').trim().toUpperCase();
+      const cacDongTheoXe = (duLieuKiotViet || []).filter(r => {
+        const maHD = String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase();
         return layTatCa || setMaHDDuocChon.has(maHD);
       });
 
-      if (cacDongTheoXe.length === 0) {
+      if (cacDongTheoXe.length === 0 && (!danhSachHoaDon || danhSachHoaDon.length === 0)) {
         alert("⚠️ Không có dòng hàng hóa nào phù hợp!");
         return;
       }
@@ -3518,21 +3646,23 @@
     function taoBangKeThuTien(dongKiotViet) {
       const groupedData = {};
       const thuTuHD = [];
+      const setMaHDDuocChon = new Set((danhSachHoaDon || []).filter(h => h.chon).map(h => String(h.maHD || '').trim().toUpperCase()));
+      const layTatCa = (setMaHDDuocChon.size === 0);
 
-      dongKiotViet.forEach(row => {
-        const maHD = String(row['Mã hóa đơn'] || '').trim().toUpperCase();
+      (dongKiotViet || []).forEach(row => {
+        const maHD = String(row['Mã hóa đơn'] || row.ma_hd || '').trim().toUpperCase();
         if (!maHD) return;
 
-        const maHang = String(row['Mã hàng'] || '').trim();
+        const maHang = String(row['Mã hàng'] || row.ma_hang || '').trim();
         if (maHang === "" || maHang.toLowerCase().includes("tổng")) return;
 
-        let sl = parseVNNumber_(row['Số lượng']);
-        const donGia = parseVNNumber_(row['Giá bán'] || row['Đơn giá']);
-        let thanhTien = parseVNNumber_(row['Thành tiền']);
+        let sl = parseVNNumber_(row['Số lượng'] !== undefined ? row['Số lượng'] : row.so_luong);
+        const donGia = parseVNNumber_(row['Giá bán'] || row['Đơn giá'] || row.don_gia);
+        let thanhTien = parseVNNumber_(row['Thành tiền'] !== undefined ? row['Thành tiền'] : row.thanh_tien);
         if (thanhTien === 0 || (donGia > 0 && sl !== 0 && Math.abs(thanhTien - Math.round(sl * donGia)) > 1)) {
           thanhTien = Math.round(sl * donGia);
         }
-        const giamHD = parseVNNumber_(row['Giảm giá hóa đơn']);
+        const giamHD = parseVNNumber_(row['Giảm giá hóa đơn'] || row.giam_hd);
 
         // Tự động phát hiện và khắc phục nếu số lượng bị nhân nhầm 1000 từ lần nạp trước
         if (donGia >= 1000 && sl >= 100 && thanhTien > 0) {
@@ -3543,13 +3673,13 @@
         }
 
         if (!groupedData[maHD]) {
-          const hdInfo = danhSachHoaDon.find(h => h.maHD === maHD);
+          const hdInfo = (danhSachHoaDon || []).find(h => String(h.maHD || '').toUpperCase() === maHD);
           const laGiaoLai = hdInfo ? !!hdInfo.laGiaoLai : false;
           groupedData[maHD] = {
             maHD: maHD,
-            maKH: String(row['Mã khách hàng'] || '').trim(),
-            tenKH: String(row['Tên khách hàng'] || 'Khách Lẻ').trim(),
-            nguoiBan: String(row['Người bán'] || '').trim(),
+            maKH: String(row['Mã khách hàng'] || row.ma_kh || (hdInfo && hdInfo.maKH) || '').trim(),
+            tenKH: String(row['Tên khách hàng'] || row.ten_kh || (hdInfo && hdInfo.tenKH) || 'Khách Lẻ').trim(),
+            nguoiBan: String(row['Người bán'] || row.nguoi_ban || (hdInfo && hdInfo.nguoiBan) || '').trim(),
             doanhSo: 0,
             giamSP: 0,
             giamHD: giamHD,
@@ -3564,6 +3694,29 @@
         groupedData[maHD].giamSP += (sl * donGia) - thanhTien;
         groupedData[maHD].thanhTienDong += thanhTien;
         if (giamHD > 0) groupedData[maHD].giamHD = giamHD;
+      });
+
+      // Bổ sung các hóa đơn đã được chọn trong danhSachHoaDon nhưng chưa có dòng chi tiết mặt hàng
+      // (đảm bảo hiển thị đầy đủ trên Bảng kê thu tiền với đúng tổng tiền)
+      const dsChon = (danhSachHoaDon || []).filter(h => (layTatCa || setMaHDDuocChon.has(String(h.maHD || '').trim().toUpperCase())));
+      dsChon.forEach(h => {
+        const maHD = String(h.maHD || '').trim().toUpperCase();
+        if (!groupedData[maHD]) {
+          const tien = parseFloat(h.tongTien || 0);
+          groupedData[maHD] = {
+            maHD: maHD,
+            maKH: String(h.maKH || '').trim(),
+            tenKH: String(h.tenKH || 'Khách Lẻ').trim(),
+            nguoiBan: String(h.nguoiBan || '').trim(),
+            doanhSo: tien,
+            giamSP: 0,
+            giamHD: 0,
+            thanhTienDong: tien,
+            laGiaoLai: !!h.laGiaoLai,
+            thongTinCu: h.thongTinCu || null
+          };
+          thuTuHD.push(maHD);
+        }
       });
 
       const tbody = document.getElementById('tbodyBangKe');
@@ -3641,25 +3794,25 @@
     function taoPhieuXuatKhoTongHop(dongKiotViet) {
       const nhom = {};
 
-      dongKiotViet.forEach(row => {
-        const maHD = String(row['Mã hóa đơn'] || '').trim().toUpperCase();
+      (dongKiotViet || []).forEach(row => {
+        const maHD = String(row['Mã hóa đơn'] || row.ma_hd || '').trim().toUpperCase();
         if (!maHD) return;
 
-        const maHang = String(row['Mã hàng'] || '').trim();
+        const maHang = String(row['Mã hàng'] || row.ma_hang || '').trim();
         if (maHang === "" || maHang.toLowerCase().includes("tổng")) return;
 
-        const tenHang = String(row['Tên hàng'] || '').trim();
-        const dvt = String(row['ĐVT'] || 'Thùng').trim();
-        let sl = parseVNNumber_(row['Số lượng']);
+        const tenHang = String(row['Tên hàng'] || row.ten_hang || '').trim();
+        const dvt = String(row['ĐVT'] || row.dvt || 'Thùng').trim();
+        let sl = parseVNNumber_(row['Số lượng'] !== undefined ? row['Số lượng'] : row.so_luong);
 
         // Nhận diện đơn giá: Ưu tiên Giá bán thực tế chốt trên đơn KiotViet hoặc Đơn giá
         const giaBanVal = (row['Giá bán'] !== undefined && row['Giá bán'] !== null && String(row['Giá bán']).trim() !== "")
           ? parseVNNumber_(row['Giá bán'])
           : null;
-        const donGiaVal = (row['Đơn giá'] !== undefined && row['Đơn giá'] !== null && String(row['Đơn giá']).trim() !== "")
-          ? parseVNNumber_(row['Đơn giá'])
+        const donGiaVal = ((row['Đơn giá'] !== undefined && row['Đơn giá'] !== null && String(row['Đơn giá']).trim() !== "") || row.don_gia !== undefined)
+          ? parseVNNumber_(row['Đơn giá'] !== undefined ? row['Đơn giá'] : row.don_gia)
           : null;
-        let thanhTien = parseVNNumber_(row['Thành tiền']);
+        let thanhTien = parseVNNumber_(row['Thành tiền'] !== undefined ? row['Thành tiền'] : row.thanh_tien);
 
         let donGia = 0;
         if (giaBanVal !== null) {
@@ -4229,8 +4382,7 @@
     }
 
     async function luuSangBuoc3() {
-      // Đang xem lại chuyến đã lưu và có HĐ vừa nạp bổ sung → ghi bổ sung vào CHÍNH chuyến đó (không tạo chuyến mới)
-      if (chuyenDangXemLai && chuyenDangXemLai.maHDBoSung && chuyenDangXemLai.maHDBoSung.size) return luuBoSungVaoChuyenDaLuu();
+      khoiPhucDuLieuChuyenDangXemLai();
       let hoaDonDuocChon = danhSachHoaDon.filter(h => h.chon);
       if (hoaDonDuocChon.length === 0) {
         alert("⚠️ Vui lòng chọn ít nhất 1 hóa đơn để lưu!");
@@ -4253,44 +4405,74 @@
         return;
       }
 
-      // CHỐNG MẤT ĐƠN: chỉ lưu (và chỉ gỡ khỏi danh sách chờ) những hoá đơn thực sự có trên Bảng kê.
-      // 1. Hoá đơn đang tích nhưng không có dòng hàng hoá (vd. đơn giao lại chưa tải được chi tiết) → không lưu được
-      const maCoDongHang = new Set(duLieuKiotViet.filter(r => {
-        const mh = String(r['Mã hàng'] || '').trim();
+      // Xác định mã chuyến xe hiện tại:
+      // Ưu tiên dùng chuyến xe đang xem lại hoặc mã chuyến trong phiên làm việc hiện tại
+      // để đảm bảo gom toàn bộ các đơn (cũ + mới nạp) vào CÙNG 1 chuyến duy nhất.
+      let maDot = (chuyenDangXemLai && chuyenDangXemLai.maDot) || window._chuyenHienTaiMaDot || null;
+      const laCapNhatChuyenCu = !!maDot;
+      if (!maDot) {
+        maDot = `DOT_${xe.replace(/[^a-zA-Z0-9]/g, '')}_${ngayRaw.replace(/-/g, '')}_${Date.now().toString().slice(-4)}`;
+      }
+      window._chuyenHienTaiMaDot = maDot;
+
+      // Kiểm tra xem chuyến xe này đã quyết toán ở Bước 2 chưa
+      if (!(await kiemTraChuyenBoSungDuoc(maDot))) return;
+
+      // TỰ ĐỘNG TẢI BÙ CHI TIẾT HÀNG HÓA CHO CÁC HÓA ĐƠN ĐANG THIẾU DÒNG HÀNG
+      // (tìm trong chi_tiet_hoa_don, data_kiot, file_kiot_tam, v.v.)
+      const dsMaChon = hoaDonDuocChon.map(h => String(h.maHD || '').trim().toUpperCase());
+      const maDaCoHang = new Set((duLieuKiotViet || []).filter(r => {
+        const mh = String(r['Mã hàng'] || r.ma_hang || '').trim();
         return mh && !mh.toLowerCase().includes('tổng');
-      }).map(r => String(r['Mã hóa đơn'] || '').trim().toUpperCase()));
-      const hdKhongCoHang = hoaDonDuocChon.filter(h => !maCoDongHang.has(String(h.maHD).toUpperCase()));
-      if (hdKhongCoHang.length) {
-        if (hdKhongCoHang.length === hoaDonDuocChon.length) {
-          alert(`⚠️ Các hóa đơn đang tích chưa có chi tiết hàng hóa nên chưa lưu được:\n\n${hdKhongCoHang.map(h => '• ' + h.maHD + ' — ' + h.tenKH).join('\n')}\n\nHãy nạp lại file Excel KiotViet có các hóa đơn này.`);
-          return;
-        }
-        if (!confirm(`⚠️ ${hdKhongCoHang.length} hóa đơn đang tích CHƯA CÓ CHI TIẾT HÀNG HÓA nên không lên Bảng kê:\n\n` +
+      }).map(r => String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase()));
+
+      const maChuaCoHang = dsMaChon.filter(m => !maDaCoHang.has(m));
+      if (maChuaCoHang.length > 0) {
+        await fetchChiTietHangChoHoaDon(maChuaCoHang);
+      }
+
+      // Kiểm tra lại sau khi đã tự động nạp bù chi tiết hàng
+      const maCoDongHangSauFetch = new Set((duLieuKiotViet || []).filter(r => {
+        const mh = String(r['Mã hàng'] || r.ma_hang || '').trim();
+        return mh && !mh.toLowerCase().includes('tổng');
+      }).map(r => String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase()));
+
+      const hdKhongCoHang = hoaDonDuocChon.filter(h => !maCoDongHangSauFetch.has(String(h.maHD).toUpperCase()));
+      if (hdKhongCoHang.length > 0) {
+        // Chỉ cảnh báo nếu thực sự sau khi tra cứu trên mọi nguồn mà vẫn không có chi tiết hàng
+        const tiepTuc = confirm(`⚠️ ${hdKhongCoHang.length} hóa đơn đang tích CHƯA CÓ CHI TIẾT HÀNG HÓA nên không lên Bảng kê:\n\n` +
           hdKhongCoHang.map(h => '• ' + h.maHD + ' — ' + h.tenKH).join('\n') +
-          `\n\nBấm [OK] để lưu chuyến với các hóa đơn còn lại (các hóa đơn trên VẪN GIỮ trong danh sách chờ).\nBấm [Hủy] để quay lại.`)) return;
-        hdKhongCoHang.forEach(h => { h.chon = false; });
-        hoaDonDuocChon = hoaDonDuocChon.filter(h => maCoDongHang.has(String(h.maHD).toUpperCase()));
+          `\n\nBấm [OK] để tiếp tục lưu CÙNG CHUYẾN XE này (Bảng kê xuất kho sẽ chỉ bỏ qua phần in chi tiết hàng của các đơn này, toàn bộ đơn vẫn lưu chung 1 chuyến).\n` +
+          `Bấm [Hủy] để quay lại.`);
+        if (!tiepTuc) return;
+        // TUYỆT ĐỐI KHÔNG bỏ chọn hoặc tách các đơn này ra khỏi chuyến xe!
+        // Tất cả hoaDonDuocChon vẫn được giữ nguyên để lưu vào CÙNG 1 chuyến duy nhất.
       }
-      // 2. Đã tick / bỏ tick hoá đơn sau khi tạo biểu mẫu → Bảng kê cũ không khớp: tạo lại theo đúng các hoá đơn đang tích
-      const maTrenBangKe = new Set(((duLieuXuatExcel && duLieuXuatExcel.bangKe) || []).map(r => r.maHD));
-      const themSauKhiTao = hoaDonDuocChon.filter(h => !maTrenBangKe.has(h.maHD));
-      const boSauKhiTao = Array.from(maTrenBangKe).filter(m => !hoaDonDuocChon.some(h => h.maHD === m));
-      if (themSauKhiTao.length || boSauKhiTao.length) {
-        if (!confirm(`📋 Danh sách hóa đơn đang tích KHÁC với Bảng kê đã tạo` +
-          (themSauKhiTao.length ? `\n• Thêm ${themSauKhiTao.length} HĐ: ${themSauKhiTao.slice(0, 6).map(h => h.maHD).join(', ')}${themSauKhiTao.length > 6 ? '…' : ''}` : '') +
-          (boSauKhiTao.length ? `\n• Bớt ${boSauKhiTao.length} HĐ: ${boSauKhiTao.slice(0, 6).join(', ')}${boSauKhiTao.length > 6 ? '…' : ''}` : '') +
-          `\n\nBảng kê & Phiếu xuất kho sẽ được TẠO LẠI theo đúng ${hoaDonDuocChon.length} hóa đơn đang tích rồi mới lưu (nếu đã in thì in lại bản mới).\n\nBấm [OK] để tiếp tục lưu, [Hủy] để xem lại.`)) {
-          chayTaoPhieu();
-          return;
-        }
-      }
+
+      // Tạo lại biểu mẫu chuẩn khớp với toàn bộ các đơn đang tích
       chayTaoPhieu();
 
-      const maDot = `DOT_${xe.replace(/[^a-zA-Z0-9]/g, '')}_${ngayRaw.replace(/-/g, '')}_${Date.now().toString().slice(-4)}`;
+      const cacDongChiTiet = (duLieuKiotViet || []).filter(r => {
+        const m = String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase();
+        return hoaDonDuocChon.some(h => String(h.maHD).toUpperCase() === m);
+      });
 
-      const cacDongChiTiet = duLieuKiotViet.filter(r => {
-        const maHD = String(r['Mã hóa đơn'] || '').trim().toUpperCase();
-        return hoaDonDuocChon.some(h => h.maHD === maHD);
+      const chiTietBangKe = ((duLieuXuatExcel && duLieuXuatExcel.bangKe) || []).map(r => {
+        const isGL = hoaDonDuocChon.some(h => h.maHD === r.maHD && h.laGiaoLai);
+        return {
+          ...r,
+          ngay: ngayGiao,
+          xe: xe,
+          taiXe: taiXe,
+          giaoHang: nvGiao,
+          thuTien: nvThu,
+          tienMat: 0,
+          chuyenKhoan: 0,
+          traVe: 0,
+          noPhatSinh: 0,
+          maDot: maDot,
+          laGiaoLai: isGL
+        };
       });
 
       const dotMoi = {
@@ -4303,24 +4485,8 @@
         nvThu: nvThu,
         soLuongHD: hoaDonDuocChon.length,
         danhSachHD: hoaDonDuocChon.map(h => h.maHD),
-        danhSachChiTiet: duLieuXuatExcel.bangKe.map(r => {
-          const isGL = hoaDonDuocChon.some(h => h.maHD === r.maHD && h.laGiaoLai);
-          return {
-            ...r,
-            ngay: ngayGiao,
-            xe: xe,
-            taiXe: taiXe,
-            giaoHang: nvGiao,
-            thuTien: nvThu,
-            tienMat: 0,
-            chuyenKhoan: 0,
-            traVe: 0,
-            noPhatSinh: 0,
-            maDot: maDot,
-            laGiaoLai: isGL
-          };
-        }),
-        tongTien: duLieuXuatExcel.tongThanhTien,
+        danhSachChiTiet: chiTietBangKe,
+        tongTien: duLieuXuatExcel ? duLieuXuatExcel.tongThanhTien : 0,
         cacDongChiTietKiotViet: cacDongChiTiet,
         taoLuc: new Date().toISOString()
       };
@@ -4330,14 +4496,14 @@
       // Hoá đơn trống "Người bán" → giữ tên đã có trên máy chủ / lịch sử (không ghi đè thành rỗng)
       await giuNguoiBanKhiLuuChuyen(dotMoi.danhSachChiTiet, lichSu, [cacDongChiTiet, duLieuXuatExcel && duLieuXuatExcel.bangKe]);
 
-      // TỰ ĐỘNG ĐỒNG BỘ ĐƠN GIAO LẠI VỚI BƯỚC 3:
+      // Đồng bộ đơn giao lại với các đợt cũ
       const tapHopMaHDMoi = new Set(hoaDonDuocChon.map(h => h.maHD));
       let soDonGiaoLai = 0;
       lichSu.forEach(dotCu => {
         if (Array.isArray(dotCu.danhSachChiTiet)) {
           dotCu.danhSachChiTiet.forEach(item => {
             const m = String(item.maHD || item.ma_hd || '').trim().toUpperCase();
-            if (tapHopMaHDMoi.has(m)) {
+            if (tapHopMaHDMoi.has(m) && dotCu.maDot !== maDot) {
               item.laGiaoLai = true;
               item.chuyenMoi = `${xe} (${ngayGiao})`;
               item.ghiChu = (item.ghiChu ? item.ghiChu + "; " : "") + `[Đã giao lại ở đợt ${maDot}]`;
@@ -4347,10 +4513,33 @@
         }
       });
 
-      const dotMoiLuu = { ...dotMoi, cacDongChiTietKiotViet: [] };
-      lichSu.unshift(dotMoiLuu);
+      // Cập nhật lịch sử chuyến: nếu chuyến đã có thì UPDATE tại chỗ, chưa có thì thêm mới
+      let dotLS = lichSu.find(d => d.maDot === maDot);
+      if (dotLS) {
+        dotLS.xe = xe;
+        dotLS.taiXe = taiXe;
+        dotLS.ngayGiao = ngayGiao;
+        dotLS.ngayRaw = ngayRaw;
+        dotLS.nvGiao = nvGiao;
+        dotLS.nvThu = nvThu;
+        dotLS.soLuongHD = hoaDonDuocChon.length;
+        dotLS.danhSachHD = hoaDonDuocChon.map(h => h.maHD);
+        dotLS.danhSachChiTiet = chiTietBangKe;
+        dotLS.tongTien = dotMoi.tongTien;
+        dotLS.cacDongChiTietKiotViet = cacDongChiTiet;
+        dotLS.capNhatLuc = new Date().toISOString();
+      } else {
+        const dotMoiLuu = { ...dotMoi, cacDongChiTietKiotViet: [] };
+        lichSu.unshift(dotMoiLuu);
+        dotLS = dotMoiLuu;
+      }
       window._lichSuDotB1 = lichSu;
-      localStorage.setItem("tmh_dot_hien_tai", JSON.stringify(dotMoiLuu));
+      localStorage.setItem("tmh_dot_hien_tai", JSON.stringify({ ...dotMoi, cacDongChiTietKiotViet: [] }));
+
+      // Cập nhật trạng thái đang xem lại / chỉnh sửa cho chuyến này
+      chuyenDangXemLai = { maDot: maDot, dot: dotLS, maHDBoSung: new Set() };
+      hoaDonDuocChon.forEach(h => { h.laBoSung = false; });
+      capNhatBannerBoSungXemLai();
 
       // Xóa các đơn đã được phân vào chuyến xe này khỏi hàng đợi chờ giao lại
       try {
@@ -4365,10 +4554,10 @@
         }
       } catch (e) {}
 
-      // Đồng bộ trực tiếp lên Supabase luu_tru và chi_tiet_hoa_don (Auto-healing kháng lỗi)
+      // Đồng bộ trực tiếp lên Supabase luu_tru và chi_tiet_hoa_don
       if (typeof sb !== 'undefined') {
         try {
-          const rowsLuuTru = dotMoi.danhSachChiTiet.map(r => ({
+          const rowsLuuTru = chiTietBangKe.map(r => ({
             ma_hd: r.maHD,
             stt: r.stt,
             ngay_giao: ngayGiao,
@@ -4394,28 +4583,27 @@
 
           const resLt = await upsertSupabaseTuTu('luu_tru', rowsLuuTru, { onConflict: 'ma_hd' });
           if (resLt.success) {
-            console.log("✅ Đã lưu chuyến xe lên Supabase luu_tru:", maDot);
+            console.log("✅ Đã lưu toàn bộ hóa đơn lên Supabase luu_tru:", maDot);
           } else {
             console.warn("⚠️ Lưu Supabase luu_tru chưa thành công:", resLt.error);
           }
 
-          // Đồng bộ từng dòng hàng hóa lên chi_tiet_hoa_don để Bước 3 MISA dùng chung trên mọi máy
           if (cacDongChiTiet && cacDongChiTiet.length > 0) {
             const rowsCTHD = cacDongChiTiet.map(r => ({
-              ma_hd: String(r['Mã hóa đơn'] || '').trim().toUpperCase(),
+              ma_hd: String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase(),
               ma_dot: maDot,
               ngay_ct: ngayGiao,
               xe: xe,
-              ma_kh: String(r['Mã khách hàng'] || '').trim().toUpperCase(),
-              ten_kh: String(r['Tên khách hàng'] || '').trim(),
-              ma_hang: String(r['Mã hàng'] || '').trim().toUpperCase(),
-              ten_hang: String(r['Tên hàng'] || '').trim(),
-              dvt: String(r['ĐVT'] || 'Thùng').trim(),
-              so_luong: parseFloat(r['Số lượng'] || 0),
-              don_gia: parseFloat(r['Đơn giá'] || r['Giá bán'] || 0),
-              thanh_tien: parseFloat(r['Thành tiền'] || 0),
-              quy_cach: parseFloat(r['Quy cách'] || 1),
-              la_khuyen_mai: !!r['KM']
+              ma_kh: String(r['Mã khách hàng'] || r.ma_kh || '').trim().toUpperCase(),
+              ten_kh: String(r['Tên khách hàng'] || r.ten_kh || '').trim(),
+              ma_hang: String(r['Mã hàng'] || r.ma_hang || '').trim().toUpperCase(),
+              ten_hang: String(r['Tên hàng'] || r.ten_hang || '').trim(),
+              dvt: String(r['ĐVT'] || r.dvt || 'Thùng').trim(),
+              so_luong: parseFloat(r['Số lượng'] !== undefined ? r['Số lượng'] : r.so_luong || 0),
+              don_gia: parseFloat(r['Đơn giá'] !== undefined ? r['Đơn giá'] : (r['Giá bán'] || r.don_gia || 0)),
+              thanh_tien: parseFloat(r['Thành tiền'] !== undefined ? r['Thành tiền'] : r.thanh_tien || 0),
+              quy_cach: parseFloat(r['Quy cách'] || r.quy_cach || 1),
+              la_khuyen_mai: !!(r['KM'] || r.la_khuyen_mai)
             }));
             await upsertSupabaseTuTu('chi_tiet_hoa_don', rowsCTHD);
           }
@@ -4424,56 +4612,43 @@
         }
       }
 
-      // Gỡ trên bản danh sách chờ MỚI NHẤT của máy chủ (không ghi đè đơn máy khác vừa nạp trong lúc điều xe)
-      await dongBoCoSoKiotTuCloud();
-
-      // TỰ ĐỘNG XÓA HÓA ĐƠN ĐÃ ĐIỀU XE KHỎI DANH SÁCH CHỜ (TRÁNH NẰM LẠI GÂY HIỂU LẦM)
-      const setHDChon = new Set(hoaDonDuocChon.map(h => h.maHD.toUpperCase()));
-      duLieuKiotViet = duLieuKiotViet.filter(r => !setHDChon.has(String(r['Mã hóa đơn'] || '').trim().toUpperCase()));
-      danhSachHoaDon = danhSachHoaDon.filter(h => !setHDChon.has(h.maHD.toUpperCase()));
-
-      if (duLieuKiotViet.length > 0) {
-        const badgeEl = document.getElementById('fileInfoBadge');
-        if (badgeEl) {
-          badgeEl.innerHTML = `📄 Dữ liệu còn lại (<b>${danhSachHoaDon.length}</b> HĐ chưa chia xe)`;
-        }
-        if (typeof dongBoKiotTamLenSupabase === 'function') {
-          await dongBoKiotTamLenSupabase(duLieuKiotViet, danhSachTenFile || []);
-        }
-      } else {
-        danhSachTenFile = [];
-        const badgeEl = document.getElementById('fileInfoBadge');
-        if (badgeEl) badgeEl.style.display = 'none';
-        if (typeof xoaKiotTamSupabase === 'function') {
-          await xoaKiotTamSupabase();
-        }
+      // Xóa các hóa đơn đã lưu khỏi danh sách chờ trên cloud nếu có
+      if (typeof taiKiotTamTuSupabase === 'function') {
+        try {
+          const cloud = await taiKiotTamTuSupabase();
+          if (cloud && Array.isArray(cloud.duLieu) && cloud.duLieu.length) {
+            const setHD = new Set(hoaDonDuocChon.map(h => h.maHD));
+            const conLai = cloud.duLieu.filter(r => !setHD.has(String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase()));
+            if (conLai.length !== cloud.duLieu.length) {
+              if (conLai.length && typeof dongBoKiotTamLenSupabase === 'function') {
+                await dongBoKiotTamLenSupabase(conLai, cloud.danhSachTenFile || []);
+              } else if (!conLai.length && typeof xoaKiotTamSupabase === 'function') {
+                await xoaKiotTamSupabase();
+              }
+            }
+          }
+        } catch (e) { console.warn('Lỗi dọn danh sách chờ trên cloud:', e); }
       }
 
-      veDanhSachCheckboxHD();
-
-      let thongBao = `💾 Đã lưu thành công đợt điều động "${maDot}"!\n\n` +
-            `• Xe: ${xe}\n` +
-            `• Số lượng hóa đơn: ${hoaDonDuocChon.length}\n` +
-            `• Tổng thành tiền: ${formatTien(duLieuXuatExcel.tongThanhTien)} đ\n`;
+      // Hiển thị thông báo thành công
+      let thongBao = `💾 ĐÃ LƯU THÀNH CÔNG CHUYẾN XE "${maDot}"!\n\n` +
+        `• Xe: ${xe} — Ngày giao: ${ngayGiao}\n` +
+        `• Tổng số hóa đơn: ${hoaDonDuocChon.length} HĐ\n` +
+        `• Tổng thành tiền: ${formatTien(duLieuXuatExcel ? duLieuXuatExcel.tongThanhTien : 0)} đ\n`;
 
       if (soDonGiaoLai > 0) {
         thongBao += `• Đã tự động đồng bộ ${soDonGiaoLai} đơn giao lại với kho lưu trữ Bước 3!\n`;
       }
 
-      if (danhSachHoaDon.length > 0) {
-        const tiepTuc = confirm(thongBao + `\n📌 Vẫn còn ${danhSachHoaDon.length} hóa đơn chưa chia xe.\n\n` +
-          `• Bấm [OK] để TIẾP TỤC ĐIỀU XE TIẾP THEO cho các đơn còn lại.\n` +
-          `• Bấm [Hủy / Cancel] để chuyển ngay sang Bước 2 (Quyết toán thu tiền khi xe về).`);
-        if (tiepTuc) {
-          chonTatCaHD(true);
-          chayTaoPhieu();
-          return;
-        }
-      } else {
-        alert(thongBao + `\n🎉 Đã chia xe xong toàn bộ hóa đơn!\n📌 Đang chuyển tiếp sang Bước 2 (Quyết toán thu tiền)...`);
-      }
+      hienThiToast(`✅ Đã lưu ${hoaDonDuocChon.length} HĐ vào chuyến xe "${maDot}"!`);
 
-      window.location.href = `buoc2_quyet_toan_thu_tien.html?maDot=${encodeURIComponent(maDot)}`;
+      const chuyenB2 = confirm(thongBao +
+        `\n• Bấm [OK] để CHUYỂN SANG BƯỚC 2 (Quyết toán thu tiền khi xe về).\n` +
+        `• Bấm [Hủy / Cancel] để Ở LẠI MÀN HÌNH NÀY (in Bảng kê, Phiếu xuất kho, hoặc tiếp tục xem biểu mẫu).`);
+
+      if (chuyenB2) {
+        window.location.href = `buoc2_quyet_toan_thu_tien.html?maDot=${encodeURIComponent(maDot)}`;
+      }
     }
 
     // ========================================================
@@ -4607,11 +4782,12 @@
     // Giữ lại các dòng hàng của đơn hẹn giao lại vừa đưa vào trên máy này (chưa lên máy chủ).
     // Không đọc được máy chủ hoặc máy chủ chưa có dữ liệu → giữ nguyên dữ liệu trên máy như trước.
     async function dongBoCoSoKiotTuCloud() {
+      if (chuyenDangXemLai || window._chuyenHienTaiMaDot) return false;
       if (typeof taiKiotTamTuSupabase !== 'function') return false;
       let cloud = null;
       try { cloud = await taiKiotTamTuSupabase(); } catch (e) { return false; }
       if (!cloud || !Array.isArray(cloud.duLieu) || !cloud.duLieu.length) return false;
-      const maCua = r => String(r['Mã hóa đơn'] || '').trim().toUpperCase();
+      const maCua = r => String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase();
       const maTrenCloud = new Set(cloud.duLieu.map(maCua));
       const maGiaoLai = new Set((danhSachHoaDon || []).filter(h => h.laGiaoLai).map(h => String(h.maHD).toUpperCase()));
       const giuLai = (Array.isArray(duLieuKiotViet) ? duLieuKiotViet : []).filter(r => maGiaoLai.has(maCua(r)) && !maTrenCloud.has(maCua(r)));
@@ -4634,11 +4810,16 @@
       if (!ds.length) return kq;
       if (typeof sb === 'undefined') return null;
       try {
+        const maDotHienTai = (chuyenDangXemLai && chuyenDangXemLai.maDot) || window._chuyenHienTaiMaDot;
         for (let i = 0; i < ds.length; i += 150) {
           const { data, error } = await sb.from('luu_tru').select('ma_hd, xe, ngay_giao, ma_dot').in('ma_hd', ds.slice(i, i + 150));
           if (error) return null;
           (data || []).forEach(r => {
             const m = String(r.ma_hd || '').trim().toUpperCase();
+            if (maDotHienTai && r.ma_dot === maDotHienTai) {
+              // Thuộc chính chuyến xe đang điều/xem lại, không tính là đã chia xe khác
+              return;
+            }
             kq.set(m, `${r.xe || '?'} ${r.ngay_giao || ''}`.trim());
             if (r.ma_dot && !kq.firstMaDot) kq.firstMaDot = r.ma_dot;
           });
@@ -4914,29 +5095,38 @@
         // thêm các HĐ mới vào danh sách của chuyến — bấm "Lưu chuyến xe" để ghi vào chuyến.
         if (boSungVaoChuyen) {
           duLieuKiotViet = duLieuTongHop;
-          const maMoi = maHDMoiNap.filter(m => !(daChiaXe && daChiaXe.has(m)) && !danhSachHoaDon.some(h => h.maHD === m));
-          maMoi.forEach(m => {
-            const dong = duLieuTongHop.filter(r => String(r['Mã hóa đơn'] || '').trim().toUpperCase() === m);
-            danhSachHoaDon.push({
-              maHD: m,
-              tenKH: String((dong[0] && dong[0]['Tên khách hàng']) || 'Khách Lẻ').trim(),
-              tongTien: dong.reduce((s, r) => s + parseVNNumber_(r['Thành tiền']), 0),
-              chon: true,
-              laBoSung: true
-            });
+          const dsMoiThem = [];
+          maHDMoiNap.forEach(m => {
+            if (daChiaXe && daChiaXe.has(m)) return;
+            const dong = duLieuTongHop.filter(r => String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase() === m);
+            const tongTienMoi = dong.reduce((s, r) => s + parseVNNumber_(r['Thành tiền'] !== undefined ? r['Thành tiền'] : r.thanh_tien), 0);
+            const tonTai = danhSachHoaDon.find(h => String(h.maHD || '').toUpperCase() === m);
+            if (tonTai) {
+              tonTai.chon = true;
+              if (tongTienMoi > 0 || tonTai.tongTien === 0) tonTai.tongTien = tongTienMoi;
+            } else {
+              danhSachHoaDon.push({
+                maHD: m,
+                tenKH: String((dong[0] && (dong[0]['Tên khách hàng'] || dong[0].ten_kh)) || 'Khách Lẻ').trim(),
+                tongTien: tongTienMoi,
+                chon: true,
+                laBoSung: true
+              });
+              dsMoiThem.push(m);
+            }
             boSungVaoChuyen.maHDBoSung.add(m);
           });
           veDanhSachCheckboxHD();
           chayTaoPhieu();
           capNhatBannerBoSungXemLai();
           chupDuLieuChuyenDangXemLai();
-          if (!maMoi.length) {
+          if (!dsMoiThem.length && !boSungVaoChuyen.maHDBoSung.size) {
             alert('ℹ️ File vừa chọn không có hoá đơn MỚI nào để bổ sung (các hoá đơn đã có trong chuyến' +
               (daChiaXe && daChiaXe.size ? ' hoặc đã được chia vào chuyến khác' : '') + ').');
             return;
           }
-          alert(`✅ ĐÃ ĐƯA ${maMoi.length} HÓA ĐƠN BỔ SUNG VÀO CHUYẾN "${boSungVaoChuyen.dot.xe || ''} (${boSungVaoChuyen.dot.ngayGiao || ''})":\n\n` +
-            maMoi.map(m => { const h = danhSachHoaDon.find(x => x.maHD === m); return `• ${m} — ${h ? h.tenKH : ''}: ${formatTien(h ? h.tongTien : 0)} đ`; }).join('\n') +
+          alert(`✅ ĐÃ ĐƯA ${dsMoiThem.length} HÓA ĐƠN BỔ SUNG VÀO CHUYẾN "${boSungVaoChuyen.dot.xe || ''} (${boSungVaoChuyen.dot.ngayGiao || ''})":\n\n` +
+            dsMoiThem.map(m => { const h = danhSachHoaDon.find(x => x.maHD === m); return `• ${m} — ${h ? h.tenKH : ''}: ${formatTien(h ? h.tongTien : 0)} đ`; }).join('\n') +
             `\n\nChuyến hiện có ${danhSachHoaDon.length} HĐ trên Bảng kê.` +
             (daChiaXe && daChiaXe.size ? `\n⚠️ Bỏ qua ${daChiaXe.size} HĐ đã được chia vào chuyến khác: ${Array.from(daChiaXe.keys()).slice(0, 6).join(', ')}` : '') +
             `\n\n📌 Bấm "💾 Lưu Chuyến Xe" để GHI các hoá đơn bổ sung vào chuyến này (các HĐ cũ của chuyến giữ nguyên).`);

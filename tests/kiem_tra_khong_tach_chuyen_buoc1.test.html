@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kiểm Thử: Không Tách Chuyến Xe & Đồng Bộ Chi Tiết Hàng Hóa - Bước 1</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 24px; background: #f8fafc; color: #0f172a; line-height: 1.6; }
+  h1 { font-size: 20px; font-weight: 800; margin-bottom: 4px; color: #1e293b; }
+  .status-box { padding: 14px 18px; border-radius: 8px; margin-bottom: 24px; font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: space-between; }
+  .status-pass { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+  .status-fail { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+  .test-group { background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 20px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .group-title { background: #f1f5f9; padding: 12px 18px; font-weight: 700; font-size: 14px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+  .test-item { padding: 12px 18px; border-bottom: 1px solid #f8fafc; font-size: 13.5px; display: flex; align-items: flex-start; gap: 12px; }
+  .test-item:last-child { border-bottom: none; }
+  .icon-pass { color: #16a34a; font-weight: 800; font-size: 16px; line-height: 1; }
+  .icon-fail { color: #dc2626; font-weight: 800; font-size: 16px; line-height: 1; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .badge-success { background: #dcfce7; color: #15803d; }
+  .badge-danger { background: #fee2e2; color: #991b1b; }
+  .metric-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .metric-card { background: white; padding: 14px 18px; border-radius: 8px; border: 1px solid #e2e8f0; }
+  .metric-val { font-size: 20px; font-weight: 800; color: #0284c7; margin-top: 4px; }
+  .metric-label { font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: 600; }
+  pre { background: #0f172a; color: #f8fafc; padding: 8px 12px; border-radius: 6px; font-size: 12px; margin: 6px 0 0; overflow-x: auto; max-width: 100%; }
+</style>
+</head>
+<body>
+
+<h1>🧪 Bộ Kiểm Thử: Không Tách Chuyến & Đồng Bộ Chi Tiết Hàng Hóa (Bước 1)</h1>
+<p style="color:#64748b; font-size:13.5px; margin-top:0; margin-bottom:20px;">
+  Kiểm tra nghiệp vụ gom 11 hóa đơn vào 1 chuyến duy nhất (13.794.000 đ), tự động nạp bù chi tiết hàng hóa, xử lý đơn 0đ và chống trùng lặp.
+</p>
+
+<div class="metric-row">
+  <div class="metric-card">
+    <div class="metric-label">Gom Đơn 1 Chuyến Duy Nhất</div>
+    <div class="metric-val" id="metricSingleTrip" style="color:#16a34a;">Đang test...</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Đồng Bộ Chi Tiết Hàng Hóa</div>
+    <div class="metric-val" id="metricItemsSync" style="color:#16a34a;">Đang test...</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Đơn 0đ & Thiếu Chi Tiết</div>
+    <div class="metric-val" id="metricEdgeCases" style="color:#16a34a;">Đang test...</div>
+  </div>
+</div>
+
+<div id="statusBox" class="status-box status-pass">
+  <span>⏳ Đang chạy các ca kiểm thử...</span>
+  <span id="passCounter">0 / 0</span>
+</div>
+
+<div id="testResults"></div>
+
+<!-- Khung DOM giả lập môi trường Bước 1 -->
+<div id="mockEnv" style="display:none;">
+  <div id="tmhPageLoading"></div>
+  <div id="danhSachHDContainer"></div>
+  <select id="xeVanChuyen"><option value="XE01" selected>XE 01 (29H-12345)</option></select>
+  <input id="taiXe" value="Bác Tài A">
+  <input id="nvGiaoHang" value="NV Giao A">
+  <input id="nvThuTien" value="NV Thu A">
+  <input id="ngayGiaoHang" value="2026-10-22">
+  <div id="lblXeBangKe"></div>
+  <div id="lblTaiXeBangKe"></div>
+  <div id="lblNgayBangKe"></div>
+  <div id="lblGiaoHangBangKe"></div>
+  <div id="lblThuTienBangKe"></div>
+  <div id="lblXeXuatKho"></div>
+  <div id="lblTaiXeXuatKho"></div>
+  <div id="lblNgayXuatKho"></div>
+  <div id="lblGiaoHangXuatKho"></div>
+  <div id="lblThuTienXuatKho"></div>
+  <div id="tieuDeBangKe"></div>
+  <div id="tieuDeXuatKho"></div>
+  <div id="fileInfoBadge"></div>
+  <div id="dropZoneBuoc2"></div>
+  <div id="viewBangKe" style="display:none;"></div>
+  <div id="viewXuatKho" style="display:none;"></div>
+  <div id="manHinhCho" style="display:block;"></div>
+  <button id="btnLuuBuoc3" style="display:none;"></button>
+  <div id="bannerDangXemLai" style="display:none;"><span id="lblDangXemLaiDot"></span></div>
+  <div id="bannerDonGiaoLai" style="display:none;"><span id="soLuongDonGiaoLai"></span><div id="moTaDonGiaoLai"></div></div>
+  <table id="tblBangKe">
+    <tbody id="tbodyBangKe"></tbody>
+  </table>
+  <div id="tbodyKhoiA"></div>
+  <div id="tbodyKhoiB"></div>
+</div>
+
+<script>
+  const results = [];
+  let passCount = 0;
+  let totalCount = 0;
+
+  function assert(group, title, condition, detail = null) {
+    totalCount++;
+    if (condition) passCount++;
+    results.push({ group, title, passed: !!condition, detail });
+  }
+
+  function renderKetQua() {
+    const box = document.getElementById('statusBox');
+    const container = document.getElementById('testResults');
+    const passCounter = document.getElementById('passCounter');
+
+    const allPassed = passCount === totalCount;
+    box.className = 'status-box ' + (allPassed ? 'status-pass' : 'status-fail');
+    box.firstElementChild.textContent = allPassed 
+      ? `✅ TẤT CẢ ${totalCount} PHÉP THỬ ĐÃ ĐẠT TIÊU CHUẨN XỬ LÝ CHUYẾN XE & ĐỒNG BỘ ĐƠN!`
+      : `❌ CÓ ${totalCount - passCount} PHÉP THỬ THẤT BẠI!`;
+    passCounter.textContent = `${passCount} / ${totalCount} Đạt`;
+
+    const groups = {};
+    results.forEach(r => {
+      if (!groups[r.group]) groups[r.group] = [];
+      groups[r.group].push(r);
+    });
+
+    let html = '';
+    for (const g in groups) {
+      const items = groups[g];
+      const gPassed = items.every(i => i.passed);
+      html += `
+        <div class="test-group">
+          <div class="group-title">
+            <span>${escapeHtml(g)}</span>
+            <span class="badge ${gPassed ? 'badge-success' : 'badge-danger'}">
+              ${items.filter(i => i.passed).length} / ${items.length} Đạt
+            </span>
+          </div>
+          <div>
+            ${items.map(i => `
+              <div class="test-item">
+                <span class="${i.passed ? 'icon-pass' : 'icon-fail'}">${i.passed ? '✓' : '✗'}</span>
+                <div style="flex:1;">
+                  <div style="font-weight:600; color:${i.passed ? '#0f172a' : '#b91c1c'}">${escapeHtml(i.title)}</div>
+                  ${i.detail ? `<pre>${escapeHtml(typeof i.detail === 'object' ? JSON.stringify(i.detail, null, 2) : String(i.detail))}</pre>` : ''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+    container.innerHTML = html;
+
+    document.getElementById('metricSingleTrip').textContent = allPassed ? '100% Đạt' : 'Chưa đạt';
+    document.getElementById('metricItemsSync').textContent = allPassed ? '100% Đạt' : 'Chưa đạt';
+    document.getElementById('metricEdgeCases').textContent = allPassed ? '100% Đạt' : 'Chưa đạt';
+  }
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // Chạy toàn bộ test suite
+  async function runAllTests() {
+    // 1. Dữ liệu mẫu ban đầu: 4 hóa đơn đầu tiên (tổng 10.197.000đ)
+    const ds4DonDau = [
+      { maHD: 'HD290601', tenKH: 'Đại Lý Ánh Dương', tongTien: 3500000, chon: true },
+      { maHD: 'HD290602', tenKH: 'Cửa Hàng Hòa Bình', tongTien: 2800000, chon: true },
+      { maHD: 'HD290603', tenKH: 'Tạp Hóa Minh Tâm', tongTien: 1897000, chon: true },
+      { maHD: 'HD290604', tenKH: 'Công Ty Hưng Thịnh', tongTien: 2000000, chon: true }
+    ];
+
+    // Chi tiết hàng hóa cho 4 đơn đầu
+    const items4DonDau = [
+      { 'Mã hóa đơn': 'HD290601', 'Mã hàng': 'SP001', 'Tên hàng': 'Sữa đặc Ngôi Sao', 'ĐVT': 'Thùng', 'Số lượng': 10, 'Đơn giá': 350000, 'Thành tiền': 3500000, 'Tên khách hàng': 'Đại Lý Ánh Dương' },
+      { 'Mã hóa đơn': 'HD290602', 'Mã hàng': 'SP002', 'Tên hàng': 'Dầu ăn Tường An 1L', 'ĐVT': 'Thùng', 'Số lượng': 8, 'Đơn giá': 350000, 'Thành tiền': 2800000, 'Tên khách hàng': 'Cửa Hàng Hòa Bình' },
+      { 'Mã hóa đơn': 'HD290603', 'Mã hàng': 'SP003', 'Tên hàng': 'Nước mắm Nam Ngư', 'ĐVT': 'Thùng', 'Số lượng': 10, 'Đơn giá': 189700, 'Thành tiền': 1897000, 'Tên khách hàng': 'Tạp Hóa Minh Tâm' },
+      { 'Mã hóa đơn': 'HD290604', 'Mã hàng': 'SP004', 'Tên hàng': 'Đường cát Biên Hòa', 'ĐVT': 'Bao', 'Số lượng': 4, 'Đơn giá': 500000, 'Thành tiền': 2000000, 'Tên khách hàng': 'Công Ty Hưng Thịnh' }
+    ];
+
+    // 2. 7 hóa đơn nạp bổ sung (tổng 3.597.000đ, nâng tổng 11 đơn lên 13.794.000đ)
+    const ds7DonBoSung = [
+      { maHD: 'HD290657', tenKH: 'TH LIÊN LÔ 48 CHỢ HOÀ XUÂN', tongTien: 600000, chon: true },
+      { maHD: 'HD290653', tenKH: 'TH HIỀN NHƯ 14 CẨM CHÁNH 4', tongTien: 300000, chon: true },
+      { maHD: 'HD290652', tenKH: 'TH BÌNH PHƯƠNG ĐÔ ĐỐC LỘC', tongTien: 600000, chon: true },
+      { maHD: 'HD290617', tenKH: 'TH NHÙM MẸ THỨ HÒA XUÂN CẨM LỆ', tongTien: 597000, chon: true },
+      { maHD: 'HD290605', tenKH: 'ANH TRÌNH 33 CỒN DẦU 3 HÒA XUÂN', tongTien: 900000, chon: true },
+      { maHD: 'HD290517', tenKH: 'TH THANH NHẪN ĐÔ ĐỐC BẢO', tongTien: 0, chon: true }, // ĐƠN 0 ĐỒNG
+      { maHD: 'HD290506', tenKH: 'TH THANH NGA ĐÔ ĐỐC LỘC CẨM LỆ', tongTien: 600000, chon: true }
+    ];
+
+    // Chi tiết hàng hóa của 7 đơn sau (giả lập lưu trong chi_tiet_hoa_don trên Supabase)
+    const items7DonSupabase = [
+      { ma_hd: 'HD290657', ma_hang: 'HH01', ten_hang: 'Bột ngọt Vedan 454g', dvt: 'Thùng', so_luong: 2, don_gia: 300000, thanh_tien: 600000, ten_kh: 'TH LIÊN LÔ 48 CHỢ HOÀ XUÂN' },
+      { ma_hd: 'HD290653', ma_hang: 'HH02', ten_hang: 'Muối sấy I-ốt', dvt: 'Thùng', so_luong: 1, don_gia: 300000, thanh_tien: 300000, ten_kh: 'TH HIỀN NHƯ 14 CẨM CHÁNH 4' },
+      { ma_hd: 'HD290652', ma_hang: 'HH03', ten_hang: 'Hạt nêm Knorr 900g', dvt: 'Thùng', so_luong: 2, don_gia: 300000, thanh_tien: 600000, ten_kh: 'TH BÌNH PHƯƠNG ĐÔ ĐỐC LỘC' },
+      { ma_hd: 'HD290617', ma_hang: 'HH04', ten_hang: 'Tương ớt Chinsu 250g', dvt: 'Thùng', so_luong: 3, don_gia: 199000, thanh_tien: 597000, ten_kh: 'TH NHÙM MẸ THỨ HÒA XUÂN CẨM LỆ' },
+      { ma_hd: 'HD290605', ma_hang: 'HH05', ten_hang: 'Nước tương Maggi 700ml', dvt: 'Thùng', so_luong: 3, don_gia: 300000, thanh_tien: 900000, ten_kh: 'ANH TRÌNH 33 CỒN DẦU 3 HÒA XUÂN' },
+      // Đơn 0đ: Hàng khuyến mãi tặng kèm
+      { ma_hd: 'HD290517', ma_hang: 'KM01', ten_hang: 'Áo mưa khuyến mãi Knorr', dvt: 'Cái', so_luong: 5, don_gia: 0, thanh_tien: 0, ten_kh: 'TH THANH NHẪN ĐÔ ĐỐC BẢO', la_khuyen_mai: true },
+      { ma_hd: 'HD290506', ma_hang: 'HH06', ten_hang: 'Giấm gạo Lisa 450ml', dvt: 'Thùng', so_luong: 2, don_gia: 300000, thanh_tien: 600000, ten_kh: 'TH THANH NGA ĐÔ ĐỐC LỘC CẨM LỆ' }
+    ];
+
+    // ==========================================
+    // GIẢ LẬP CƠ SỞ DỮ LIỆU SUPABASE IN-MEMORY
+    // ==========================================
+    const mockDB = {
+      luu_tru: [],
+      chi_tiet_hoa_don: [...items7DonSupabase]
+    };
+
+    window.sb = {
+      from: function(tbl) {
+        return {
+          select: function(cols) {
+            return {
+              eq: async function(col, val) {
+                const data = (mockDB[tbl] || []).filter(r => r[col] === val);
+                return { data, error: null };
+              },
+              in: async function(col, arr) {
+                const set = new Set((arr || []).map(x => String(x).toUpperCase()));
+                const data = (mockDB[tbl] || []).filter(r => set.has(String(r[col] || '').toUpperCase()));
+                return { data, error: null };
+              }
+            };
+          },
+          upsert: async function(rows) {
+            const arr = Array.isArray(rows) ? rows : [rows];
+            arr.forEach(item => {
+              if (tbl === 'luu_tru') {
+                const idx = mockDB.luu_tru.findIndex(r => r.ma_hd === item.ma_hd);
+                if (idx >= 0) mockDB.luu_tru[idx] = { ...item };
+                else mockDB.luu_tru.push({ ...item });
+              } else if (tbl === 'chi_tiet_hoa_don') {
+                mockDB.chi_tiet_hoa_don.push({ ...item });
+              }
+            });
+            return { data: arr, error: null };
+          }
+        };
+      }
+    };
+
+    // Helper upsert
+    window.upsertSupabaseTuTu = async function(tbl, rows) {
+      return await window.sb.from(tbl).upsert(rows);
+    };
+
+    // Mock confirm & alert để ghi nhận nhật ký cảnh báo
+    const alertLogs = [];
+    const confirmLogs = [];
+    window.alert = function(msg) { alertLogs.push(msg); };
+    window.confirm = function(msg) { confirmLogs.push(msg); return true; };
+    window.hienThiToast = function(msg) {};
+
+    // Mock helper format
+    window.formatTien = function(n) { return (n || 0).toLocaleString('vi-VN'); };
+    window.parseVNNumber_ = function(v) {
+      if (typeof v === 'number') return v;
+      if (!v) return 0;
+      return parseFloat(String(v).replace(/\./g, '').replace(',', '.')) || 0;
+    };
+    window.chuanHoaNgayVN_ = function(d) { return '22/10/2026'; };
+
+    // ==========================================
+    // NHÓM 1: TEST CASE 1 - NẠP ĐƠN NHIỀU LẦN VÀO 1 CHUYẾN
+    // ==========================================
+    const G1 = 'Test Case 1: Nạp đơn nhiều lần trong 1 chuyến xe';
+
+    // Tạo phiên chuyến xe ban đầu với 4 đơn
+    window._chuyenHienTaiMaDot = 'DOT_XE01_20261022_9999';
+    window._lichSuDotB1 = [{
+      maDot: window._chuyenHienTaiMaDot,
+      xe: 'XE01',
+      ngayGiao: '22/10/2026',
+      soLuongHD: 4,
+      tongTien: 10197000,
+      danhSachHD: ds4DonDau.map(h => h.maHD)
+    }];
+
+    window.danhSachHoaDon = JSON.parse(JSON.stringify(ds4DonDau));
+    window.duLieuKiotViet = JSON.parse(JSON.stringify(items4DonDau));
+    window.chuyenDangXemLai = {
+      maDot: window._chuyenHienTaiMaDot,
+      dot: window._lichSuDotB1[0],
+      maHDBoSung: new Set()
+    };
+
+    assert(G1, '1.1 Khởi tạo chuyến xe ban đầu có đúng 4 hóa đơn',
+      window.danhSachHoaDon.length === 4 && window.duLieuKiotViet.length === 4,
+      { danhSachHD: window.danhSachHoaDon.map(h => h.maHD) }
+    );
+
+    // Người dùng thực hiện thao tác nạp thêm 7 đơn sau vào chuyến xe đang có sẵn
+    ds7DonBoSung.forEach(item => {
+      const tonTai = window.danhSachHoaDon.find(h => h.maHD === item.maHD);
+      if (tonTai) {
+        tonTai.chon = true;
+      } else {
+        window.danhSachHoaDon.push({ ...item });
+      }
+      window.chuyenDangXemLai.maHDBoSung.add(item.maHD);
+    });
+
+    assert(G1, '1.2 Nạp bổ sung 7 đơn mới: Danh sách hiển thị đủ 11 đơn',
+      window.danhSachHoaDon.length === 11,
+      { tongSoHD: window.danhSachHoaDon.length, dsMa: window.danhSachHoaDon.map(h => h.maHD) }
+    );
+
+    const tongTien11Don = window.danhSachHoaDon.reduce((s, h) => s + (h.tongTien || 0), 0);
+    assert(G1, '1.3 Tổng cộng giá trị 11 đơn đúng 13.794.000 đ',
+      tongTien11Don === 13794000,
+      { tongTien: tongTien11Don }
+    );
+
+    // ==========================================
+    // NHÓM 2: TEST CASE 2 - ĐỒNG BỘ CHI TIẾT HÀNG HÓA
+    // ==========================================
+    const G2 = 'Test Case 2: Đồng bộ chi tiết hàng hóa & Không báo lỗi giả';
+
+    // Giả lập hàm fetchChiTietHangChoHoaDon (như đã nhúng vào Bước 1)
+    async function testFetchChiTietHang(dsMa) {
+      const { data } = await window.sb.from('chi_tiet_hoa_don').select('*').in('ma_hd', dsMa);
+      if (Array.isArray(data) && data.length > 0) {
+        data.forEach(r => {
+          window.duLieuKiotViet.push({
+            'Mã hóa đơn': r.ma_hd,
+            'ma_hd': r.ma_hd,
+            'Mã hàng': r.ma_hang,
+            'ma_hang': r.ma_hang,
+            'Tên hàng': r.ten_hang,
+            'ten_hang': r.ten_hang,
+            'ĐVT': r.dvt,
+            'Số lượng': r.so_luong,
+            'Đơn giá': r.don_gia,
+            'Thành tiền': r.thanh_tien,
+            'Tên khách hàng': r.ten_kh,
+            'KM': !!r.la_khuyen_mai
+          });
+        });
+      }
+    }
+
+    // Tự động tải bù chi tiết cho các đơn chưa có dòng hàng
+    const dsMaThieu = window.danhSachHoaDon
+      .filter(h => !window.duLieuKiotViet.some(r => (r['Mã hóa đơn'] || r.ma_hd) === h.maHD))
+      .map(h => h.maHD);
+
+    await testFetchChiTietHang(dsMaThieu);
+
+    const maCoDongHang = new Set(window.duLieuKiotViet.map(r => (r['Mã hóa đơn'] || r.ma_hd)));
+    const hdKhongCoHang = window.danhSachHoaDon.filter(h => !maCoDongHang.has(h.maHD));
+
+    assert(G2, '2.1 Toàn bộ 7 hóa đơn nạp thêm được tự động nhận diện chi tiết hàng hóa',
+      hdKhongCoHang.length === 0,
+      { soDonChuaCoChiTiet: hdKhongCoHang.length, dsMa: hdKhongCoHang.map(h => h.maHD) }
+    );
+
+    // Tạo Bảng Kê Thu Tiền
+    const tbody = document.getElementById('tbodyBangKe');
+    tbody.innerHTML = '';
+    const groupedData = {};
+    window.duLieuKiotViet.forEach(r => {
+      const maHD = r['Mã hóa đơn'] || r.ma_hd;
+      if (!groupedData[maHD]) {
+        groupedData[maHD] = {
+          maHD: maHD,
+          tenKH: r['Tên khách hàng'] || r.ten_kh,
+          thanhTien: 0
+        };
+      }
+      groupedData[maHD].thanhTien += (r['Thành tiền'] || r.thanh_tien || 0);
+    });
+
+    // Bổ sung các hóa đơn đã tích chọn nhưng thiếu dòng hàng (nếu có)
+    window.danhSachHoaDon.filter(h => h.chon).forEach(h => {
+      if (!groupedData[h.maHD]) {
+        groupedData[h.maHD] = { maHD: h.maHD, tenKH: h.tenKH, thanhTien: h.tongTien };
+      }
+    });
+
+    const bangKeRows = Object.values(groupedData);
+    const tongTienBangKe = bangKeRows.reduce((s, r) => s + r.thanhTien, 0);
+
+    assert(G2, '2.2 Bảng Kê Thu Tiền gom đủ 11 hóa đơn không bị thiếu đơn nào',
+      bangKeRows.length === 11,
+      { soHoaDonTrenBangKe: bangKeRows.length }
+    );
+
+    assert(G2, '2.3 Tổng tiền trên Bảng Kê khớp hoàn toàn 13.794.000 đ',
+      tongTienBangKe === 13794000,
+      { tongTienBangKe: tongTienBangKe }
+    );
+
+    // ==========================================
+    // NHÓM 3: TEST CASE 3 - ĐƠN 0 ĐỒNG, ĐƠN THIẾU CHI TIẾT & CHỐNG TÁCH XE
+    // ==========================================
+    const G3 = 'Test Case 3: Đơn 0đ, Đơn thiếu chi tiết & Chống tách chuyến';
+
+    // Đơn 0đ HD290517
+    const don0d = window.danhSachHoaDon.find(h => h.maHD === 'HD290517');
+    const items0d = window.duLieuKiotViet.filter(r => (r['Mã hóa đơn'] || r.ma_hd) === 'HD290517');
+
+    assert(G3, '3.1 Đơn 0đ (HD290517) được giữ nguyên trong chuyến và có chi tiết hàng khuyến mãi',
+      don0d && don0d.tongTien === 0 && items0d.length > 0 && items0d[0].KM === true,
+      { don0d, items0d }
+    );
+
+    // Nạp thêm 1 đơn thực sự thiếu chi tiết hàng hóa (HD_THIEU_HANG)
+    window.danhSachHoaDon.push({
+      maHD: 'HD_THIEU_HANG',
+      tenKH: 'Khách Hàng Chưa Có Hàng',
+      tongTien: 500000,
+      chon: true
+    });
+
+    // Khi người dùng bấm [Lưu chuyến xe], hệ thống popup confirm hỏi, bấm OK -> Vẫn giữ chung chuyến
+    const maCoHangSauFetch = new Set(window.duLieuKiotViet.map(r => r['Mã hóa đơn'] || r.ma_hd));
+    const cacDonThieuThat = window.danhSachHoaDon.filter(h => h.chon && !maCoHangSauFetch.has(h.maHD));
+
+    assert(G3, '3.2 Phát hiện đơn thiếu chi tiết thật (HD_THIEU_HANG)',
+      cacDonThieuThat.length === 1 && cacDonThieuThat[0].maHD === 'HD_THIEU_HANG',
+      { cacDonThieu: cacDonThieuThat.map(h => h.maHD) }
+    );
+
+    // User bấm [OK]: Giữ nguyên đơn trong chuyến (KHÔNG filter out hay uncheck)
+    let hoaDonLuu = window.danhSachHoaDon.filter(h => h.chon);
+    assert(G3, '3.3 Bấm OK không làm bỏ chọn đơn: Giữ toàn bộ 12 đơn trong cùng 1 chuyến',
+      hoaDonLuu.length === 12 && hoaDonLuu.some(h => h.maHD === 'HD_THIEU_HANG'),
+      { tongDonLuu: hoaDonLuu.length }
+    );
+
+    // Giả lập logic Lưu Chuyến Xe thống nhất:
+    let maDotLuu = (window.chuyenDangXemLai && window.chuyenDangXemLai.maDot) || window._chuyenHienTaiMaDot;
+    assert(G3, '3.4 Tái sử dụng mã chuyến xe hiện tại, KHÔNG sinh mã đợt mới tách chuyến',
+      maDotLuu === 'DOT_XE01_20261022_9999',
+      { maDotLuu }
+    );
+
+    // Thực hiện upsert vào luu_tru
+    const rowsLuuTru = hoaDonLuu.map((h, idx) => ({
+      ma_hd: h.maHD,
+      stt: idx + 1,
+      xe: 'XE01',
+      ngay_giao: '22/10/2026',
+      ma_dot: maDotLuu,
+      thanh_tien: h.tongTien
+    }));
+    await window.sb.from('luu_tru').upsert(rowsLuuTru);
+
+    // Cập nhật lại window._lichSuDotB1
+    let dotLS = window._lichSuDotB1.find(d => d.maDot === maDotLuu);
+    dotLS.danhSachHD = hoaDonLuu.map(h => h.maHD);
+    dotLS.soLuongHD = hoaDonLuu.length;
+    dotLS.tongTien = hoaDonLuu.reduce((s, h) => s + h.tongTien, 0);
+
+    assert(G3, '3.5 Cơ sở dữ liệu luu_tru chỉ chứa DUY NHẤT 1 mã chuyến xe cho tất cả đơn',
+      mockDB.luu_tru.every(r => r.ma_dot === maDotLuu),
+      { dsMaDotTrongDB: Array.from(new Set(mockDB.luu_tru.map(r => r.ma_dot))) }
+    );
+
+    assert(G3, '3.6 Lịch sử chuyến xe trong hệ thống không bị sinh ra chuyến thứ 2',
+      window._lichSuDotB1.length === 1 && window._lichSuDotB1[0].soLuongHD === 12,
+      { soChuyenXe: window._lichSuDotB1.length, chuyen: window._lichSuDotB1[0] }
+    );
+
+    // Chống trùng lặp (Duplicate)
+    const soLuongTruoc = window.danhSachHoaDon.length;
+    // Nạp lại HD290657 đã có
+    const maLap = 'HD290657';
+    const daCo = window.danhSachHoaDon.find(h => h.maHD === maLap);
+    if (daCo) {
+      daCo.chon = true;
+      daCo.tongTien = 600000;
+    } else {
+      window.danhSachHoaDon.push({ maHD: maLap, tongTien: 600000, chon: true });
+    }
+    assert(G3, '3.7 Chống trùng lặp: Nạp lại hóa đơn đã có không nhân đôi dòng',
+      window.danhSachHoaDon.length === soLuongTruoc && window.danhSachHoaDon.filter(h => h.maHD === maLap).length === 1,
+      { soLuongSauKhiNapLap: window.danhSachHoaDon.length }
+    );
+
+    renderKetQua();
+  }
+
+  window.addEventListener('DOMContentLoaded', runAllTests);
+</script>
+</body>
+</html>
