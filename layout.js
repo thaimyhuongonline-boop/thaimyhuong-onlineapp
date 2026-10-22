@@ -41,14 +41,30 @@ async function khoiTaoLayout(options = {}) {
     document.body.prepend(overlay);
   }
 
+  // Tự động giải phóng overlay sau tối đa 4 giây để phòng ngừa trắng trang khi rớt mạng
+  setTimeout(() => {
+    const ov = document.getElementById("tmhPageLoading");
+    if (ov && ov.style.display !== "none") ov.style.display = "none";
+  }, 4000);
+
   // 2. Kiểm tra đăng nhập và lấy hồ sơ
-  const nd = await baoVeTrang();
+  let nd = null;
+  try {
+    nd = await baoVeTrang();
+  } catch (errAuth) {
+    console.warn("⚠️ Lỗi baoVeTrang:", errAuth);
+  }
   if (!nd) return null; // Chưa đăng nhập -> baoVeTrang() đã chuyển hướng về index.html
 
   // 2b. Làm mới ma trận quyền mới nhất từ Supabase rồi kiểm tra quyền truy cập trang
-  await lamMoiMaTranQuyen(nd.chuc_vu, nd);
-  const moduleTrang = layModuleCuaTrang();
-  const quyenTrang = moduleTrang ? layQuyenModule(moduleTrang) : "all";
+  try {
+    await lamMoiMaTranQuyen(nd.chuc_vu, nd);
+  } catch (errPq) {
+    console.warn("⚠️ Lỗi lamMoiMaTranQuyen:", errPq);
+  }
+
+  const moduleTrang = (typeof layModuleCuaTrang === "function") ? layModuleCuaTrang() : null;
+  const quyenTrang = moduleTrang && (typeof layQuyenModule === "function") ? layQuyenModule(moduleTrang) : "all";
   if (quyenTrang === "none") {
     return chanTruyCapTrang(overlay);
   }

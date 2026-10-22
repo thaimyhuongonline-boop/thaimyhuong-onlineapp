@@ -1205,6 +1205,7 @@
       duLieuKiotViet = duLieuKiotViet.filter(r => {
         const m = String(r['Mã hóa đơn'] || '').trim().toUpperCase();
         return !setXoa.has(m);
+      });
       veDanhSachCheckboxHD();
 
       // Nếu đang hiển thị biểu mẫu xem trước, tự động tính lại
@@ -2509,181 +2510,235 @@
     // ========================================================
 
     async function khoiTaoTrang() {
-      const layoutData = await khoiTaoLayout({
-        pageTitle: "Bước 1: Nạp Excel, Điều Động Xe & Tạo PXK",
-        breadcrumb: "Quy trình Bán hàng ➡ MISA",
-        activeMenuId: "buoc1"
-      });
-      if (!layoutData) return;
+      // Đảm bảo màn hình loading luôn được giải phóng trong mọi trường hợp, tuyệt đối không để trắng trang
+      const anOverlayLoading = () => {
+        const ov = document.getElementById("tmhPageLoading");
+        if (ov && ov.style.display !== "none") ov.style.display = "none";
+      };
 
-      // Hiển thị skeleton loading trong danh sách hoá đơn trong lúc chờ dữ liệu từ Supabase
-      hienThiSkeletonDanhSachHD();
-
-      khoiTaoDragAndDrop();
-
-      // Ngày giao: giữ ngày đã chọn trong ngày làm việc (không tự nhảy về hôm nay sau khi lưu / tải lại trang)
-      khoiTaoNgayGiao();
-
-      napDropdownXe();
-      napDropdownNhanSu();
-      // Ô chọn Xe / Tài xế / NV giao hàng / NV thu tiền: cho phép GÕ ĐỂ TÌM khi danh sách dài
-      if (window.TMHSearchSelect) {
-        ['xeVanChuyen', 'taiXe', 'nvGiaoHang', 'nvThuTien'].forEach(id => TMHSearchSelect.enhance(document.getElementById(id)));
-      }
-      // Đổi xe / nhân sự / ngày sau khi đã tạo biểu mẫu → cập nhật ngay trên Bảng kê & Phiếu xuất kho
-      ['xeVanChuyen', 'taiXe', 'nvGiaoHang', 'nvThuTien', 'ngayGiaoHang'].forEach(id =>
-        document.getElementById(id).addEventListener('change', capNhatThongTinDieuDongTrenBieuMau));
-      // Danh mục xe & nhân sự: đồng bộ với máy chủ (thêm ở máy nào / lần đăng nhập nào cũng còn)
-      dongBoDanhMucDieuXe(false);
-      await napQuyCachHangHoa();
-
-      // 1. Đồng bộ lịch sử chuyến xe từ Supabase luu_tru (để xem lại biểu mẫu có ngay trên mọi máy)
-      if (typeof sb !== 'undefined') {
-        try {
-          const { data: dataLT } = (typeof docLuuTruMoiNhat === 'function')
-            ? await docLuuTruMoiNhat(2000)
-            : await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(2000);
-          if (dataLT && dataLT.length > 0 && typeof chuyenDoiLuuTruThanhDanhSachDot === 'function') {
-            const dsDotSB = chuyenDoiLuuTruThanhDanhSachDot(dataLT);
-            dsDotSB.sort((a, b) => (b.taoLuc || '').localeCompare(a.taoLuc || ''));
-            window._lichSuDotB1 = dsDotSB;
-          }
-        } catch (e) {
-          console.warn("Lỗi tải lịch sử từ Supabase:", e);
+      try {
+        const layoutData = await khoiTaoLayout({
+          pageTitle: "Bước 1: Nạp Excel, Điều Động Xe & Tạo PXK",
+          breadcrumb: "Quy trình Bán hàng ➡ MISA",
+          activeMenuId: "buoc1"
+        });
+        if (!layoutData) {
+          anOverlayLoading();
+          return;
         }
-      }
 
-      // 2. Đồng bộ dữ liệu Excel KiotViet tạm từ Supabase (Đảm bảo máy A, máy B và Quản lý đều thấy chung)
-      if (typeof taiKiotTamTuSupabase === 'function') {
-        try {
-          const kiotCloud = await taiKiotTamTuSupabase();
-          if (kiotCloud && Array.isArray(kiotCloud.duLieu) && kiotCloud.duLieu.length > 0) {
-            duLieuKiotViet = kiotCloud.duLieu;
-            danhSachTenFile = kiotCloud.danhSachTenFile || [];
-          } else {
+        // Hiển thị skeleton loading trong danh sách hoá đơn trong lúc chờ dữ liệu từ Supabase
+        hienThiSkeletonDanhSachHD();
+
+        try { khoiTaoDragAndDrop(); } catch (e) { console.warn("Lỗi khoiTaoDragAndDrop:", e); }
+
+        // Ngày giao: giữ ngày đã chọn trong ngày làm việc (không tự nhảy về hôm nay sau khi lưu / tải lại trang)
+        try { khoiTaoNgayGiao(); } catch (e) { console.warn("Lỗi khoiTaoNgayGiao:", e); }
+
+        try { napDropdownXe(); } catch (e) { console.warn("Lỗi napDropdownXe:", e); }
+        try { napDropdownNhanSu(); } catch (e) { console.warn("Lỗi napDropdownNhanSu:", e); }
+
+        // Ô chọn Xe / Tài xế / NV giao hàng / NV thu tiền: cho phép GÕ ĐỂ TÌM khi danh sách dài
+        if (window.TMHSearchSelect) {
+          try {
+            ['xeVanChuyen', 'taiXe', 'nvGiaoHang', 'nvThuTien'].forEach(id => {
+              const el = document.getElementById(id);
+              if (el) TMHSearchSelect.enhance(el);
+            });
+          } catch (e) { console.warn("Lỗi TMHSearchSelect:", e); }
+        }
+
+        // Đổi xe / nhân sự / ngày sau khi đã tạo biểu mẫu → cập nhật ngay trên Bảng kê & Phiếu xuất kho
+        ['xeVanChuyen', 'taiXe', 'nvGiaoHang', 'nvThuTien', 'ngayGiaoHang'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.addEventListener('change', capNhatThongTinDieuDongTrenBieuMau);
+        });
+
+        // Danh mục xe & nhân sự: đồng bộ với máy chủ (thêm ở máy nào / lần đăng nhập nào cũng còn)
+        try { dongBoDanhMucDieuXe(false); } catch (e) { console.warn("Lỗi dongBoDanhMucDieuXe:", e); }
+        try { await napQuyCachHangHoa(); } catch (e) { console.warn("Lỗi napQuyCachHangHoa:", e); }
+
+        // 1. Đồng bộ lịch sử chuyến xe từ Supabase luu_tru (để xem lại biểu mẫu có ngay trên mọi máy)
+        if (typeof sb !== 'undefined') {
+          try {
+            const layLuuTruPromise = (typeof docLuuTruMoiNhat === 'function')
+              ? docLuuTruMoiNhat(2000)
+              : sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(2000);
+
+            const resLT = await Promise.race([
+              layLuuTruPromise,
+              new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout tải luu_tru")), 6000))
+            ]);
+
+            const dataLT = resLT && resLT.data;
+            if (dataLT && dataLT.length > 0 && typeof chuyenDoiLuuTruThanhDanhSachDot === 'function') {
+              const dsDotSB = chuyenDoiLuuTruThanhDanhSachDot(dataLT);
+              dsDotSB.sort((a, b) => (b.taoLuc || '').localeCompare(a.taoLuc || ''));
+              window._lichSuDotB1 = dsDotSB;
+            }
+          } catch (e) {
+            console.warn("⚠️ Lỗi tải lịch sử từ Supabase:", e);
+          }
+        }
+
+        // 2. Đồng bộ dữ liệu Excel KiotViet tạm từ Supabase (Đảm bảo máy A, máy B và Quản lý đều thấy chung)
+        if (typeof taiKiotTamTuSupabase === 'function') {
+          try {
+            const kiotCloud = await Promise.race([
+              taiKiotTamTuSupabase(),
+              new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout tải file_kiot_tam")), 6000))
+            ]);
+            if (kiotCloud && Array.isArray(kiotCloud.duLieu) && kiotCloud.duLieu.length > 0) {
+              duLieuKiotViet = kiotCloud.duLieu;
+              danhSachTenFile = Array.isArray(kiotCloud.danhSachTenFile) ? kiotCloud.danhSachTenFile : [];
+            } else {
+              duLieuKiotViet = [];
+              danhSachTenFile = [];
+            }
+          } catch (e) {
+            console.warn("⚠️ Lỗi tải KiotViet tạm từ Supabase:", e);
+            hienThiToast("⚠️ Không thể tải dữ liệu Excel tạm từ máy chủ. Vui lòng thử lại!");
             duLieuKiotViet = [];
             danhSachTenFile = [];
           }
-        } catch (e) {
-          console.warn("Lỗi tải KiotViet tạm từ Supabase:", e);
         }
-      }
 
-      // 3. Đồng bộ danh sách đơn hẹn giao lại từ Supabase don_giao_lai
-      if (typeof taiDonGiaoLaiTuSupabase === 'function') {
-        try {
-          const donGLCloud = await taiDonGiaoLaiTuSupabase();
-          if (Array.isArray(donGLCloud) && donGLCloud.length > 0) {
-            let dsGL = [];
-            try { dsGL = JSON.parse(localStorage.getItem('tmh_danh_sach_cho_giao_lai') || '[]'); } catch(e){}
-            const setMaGL = new Set(dsGL.map(x => x.maHD));
-            donGLCloud.forEach(d => {
-              if (!setMaGL.has(d.maHD)) dsGL.push(d);
-            });
-            localStorage.setItem('tmh_danh_sach_cho_giao_lai', JSON.stringify(dsGL));
-          }
-        } catch(e) {}
-      }
-      // Đối chiếu hàng đợi hẹn giao lại với kho lưu trữ: chỉ giữ đơn mà chuyến gốc ở Bước 2 thật sự có hàng trả về
-      await donDepDonGiaoLaiTreoBuoc1(true);
-
-      // Dọn dẹp dữ liệu KiotViet tạm nếu các hóa đơn đã được phân hết vào các chuyến xe đã lưu trên Cloud
-      let hdDaGoKhiMoTrang = null; // mã HĐ -> "xe ngày" đã bị gỡ khỏi danh sách chờ (để báo cho người dùng)
-      try {
-        const daChiaTrenCloud = await timHoaDonDaChiaXe((Array.isArray(duLieuKiotViet) ? duLieuKiotViet : []).map(r => String(r['Mã hóa đơn'] || '').trim().toUpperCase()));
-        if (daChiaTrenCloud && daChiaTrenCloud.size > 0 && Array.isArray(duLieuKiotViet) && duLieuKiotViet.length > 0) {
-          const setMaDaLuu = new Set();
-          daChiaTrenCloud.forEach((_, m) => setMaDaLuu.add(m));
-          const rawMoi = duLieuKiotViet.filter(r => !setMaDaLuu.has(String(r['Mã hóa đơn'] || '').trim().toUpperCase()));
-          if (rawMoi.length !== duLieuKiotViet.length) {
-            hdDaGoKhiMoTrang = new Map();
-            duLieuKiotViet.forEach(r => {
-              const m = String(r['Mã hóa đơn'] || '').trim().toUpperCase();
-              if (setMaDaLuu.has(m)) hdDaGoKhiMoTrang.set(m, daChiaTrenCloud.get(m) || '');
-            });
-            duLieuKiotViet = rawMoi;
-            if (rawMoi.length > 0) {
-              dongBoKiotTamLenSupabase(rawMoi, danhSachTenFile);
-            } else {
-              xoaKiotTamSupabase();
-            }
-          }
-        }
-      } catch (e) {}
-
-      napDuLieuTuBuoc1();
-      kiemTraBannerDonGiaoLai();
-      if (hdDaGoKhiMoTrang && hdDaGoKhiMoTrang.size) {
-        const ds = Array.from(hdDaGoKhiMoTrang.entries());
-        alert(`ℹ️ Đã gỡ ${ds.length} hóa đơn khỏi danh sách chờ chia xe vì ĐÃ ĐƯỢC CHIA VÀO CHUYẾN XE:\n\n` +
-          ds.slice(0, 15).map(([m, x]) => `• ${m}${x ? ' — ' + x : ''}`).join('\n') +
-          (ds.length > 15 ? `\n… và ${ds.length - 15} hóa đơn khác` : '') +
-          `\n\nNếu hóa đơn cần giao lại, hãy dùng nút "Đơn hẹn giao lại".`);
-      }
-
-      // Phục hồi badge hiển thị file đã nạp nếu có dữ liệu
-      try {
-        const danhSachTenFile = JSON.parse(localStorage.getItem('tmh_danh_sach_ten_file') || '[]');
-        const badgeEl = document.getElementById('fileInfoBadge');
-        if (badgeEl && duLieuKiotViet && duLieuKiotViet.length > 0) {
-          badgeEl.style.display = 'block';
-          const fileText = danhSachTenFile.length > 2 
-            ? `${danhSachTenFile.length} file (${danhSachTenFile.slice(0, 2).join(', ')}...)`
-            : (danhSachTenFile.length > 0 ? danhSachTenFile.join(' + ') : 'Dữ liệu KiotViet');
-          badgeEl.innerHTML = `📄 <b>${fileText}</b> (${danhSachHoaDon.length} HĐ, ${duLieuKiotViet.length} dòng)`;
-        }
-      } catch (e) {}
-
-      // Kích hoạt cơ chế Realtime đồng bộ tức thời giữa các máy tính ở Bước 1
-      khoiTaoRealtimeB1();
-
-      // Kiểm tra nếu mở từ Bước 3 xem lại biểu mẫu đợt cụ thể (?maDot=...)
-      const urlParams = new URLSearchParams(window.location.search);
-      const paramMaDot = urlParams.get('maDot');
-      if (paramMaDot) {
-        let lichSu = window._lichSuDotB1 || [];
-        let dot = lichSu.find(d => d.maDot === paramMaDot);
-        if (!dot && typeof sb !== 'undefined') {
+        // 3. Đồng bộ danh sách đơn hẹn giao lại từ Supabase don_giao_lai
+        if (typeof taiDonGiaoLaiTuSupabase === 'function') {
           try {
-            const { data } = await sb.from('luu_tru').select('*').eq('ma_dot', paramMaDot);
-            if (data && data.length > 0 && typeof chuyenDoiLuuTruThanhDanhSachDot === 'function') {
-              const arr = chuyenDoiLuuTruThanhDanhSachDot(data);
-              if (arr.length > 0) dot = arr[0];
+            const donGLCloud = await Promise.race([
+              taiDonGiaoLaiTuSupabase(),
+              new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout tải don_giao_lai")), 5000))
+            ]);
+            if (Array.isArray(donGLCloud) && donGLCloud.length > 0) {
+              let dsGL = [];
+              try { dsGL = JSON.parse(localStorage.getItem('tmh_danh_sach_cho_giao_lai') || '[]'); } catch (e) {}
+              const setMaGL = new Set(dsGL.map(x => x.maHD));
+              donGLCloud.forEach(d => {
+                if (!setMaGL.has(d.maHD)) dsGL.push(d);
+              });
+              localStorage.setItem('tmh_danh_sach_cho_giao_lai', JSON.stringify(dsGL));
             }
-          } catch (e) {}
-        }
-        if (dot) {
-          if (dot.xe) chonXeVanChuyen(dot.xe);
-          if (dot.taiXe) document.getElementById('taiXe').value = dot.taiXe;
-          if (dot.nvGiao) document.getElementById('nvGiaoHang').value = dot.nvGiao;
-          if (dot.nvThu) document.getElementById('nvThuTien').value = dot.nvThu;
-          if (chuanHoaNgayISO_(dot.ngayRaw || dot.ngayGiao)) document.getElementById('ngayGiaoHang').value = chuanHoaNgayISO_(dot.ngayRaw || dot.ngayGiao);
-
-          if (Array.isArray(dot.cacDongChiTietKiotViet) && dot.cacDongChiTietKiotViet.length > 0) {
-            duLieuKiotViet = dot.cacDongChiTietKiotViet;
-            const mapHD = new Map();
-            duLieuKiotViet.forEach(r => {
-              const maHD = String(r['Mã hóa đơn'] || '').trim().toUpperCase();
-              if (!maHD || maHD.includes('TỔNG')) return;
-              const tenKH = String(r['Tên khách hàng'] || 'Khách Lẻ').trim();
-              const thanhTien = parseVNNumber_(r['Thành tiền']);
-              if (!mapHD.has(maHD)) {
-                mapHD.set(maHD, { maHD, tenKH, tongTien: 0, chon: true });
-              }
-              mapHD.get(maHD).tongTien += thanhTien;
-            });
-            danhSachHoaDon = Array.from(mapHD.values());
-            veDanhSachCheckboxHD();
-            chayTaoPhieu();
-          } else if (Array.isArray(dot.danhSachHD)) {
-            const setHD = new Set(dot.danhSachHD);
-            danhSachHoaDon.forEach(h => {
-              h.chon = setHD.has(h.maHD);
-            });
-            veDanhSachCheckboxHD();
-            chayTaoPhieu();
+          } catch (e) {
+            console.warn("⚠️ Lỗi tải đơn giao lại:", e);
           }
         }
+
+        // Đối chiếu hàng đợi hẹn giao lại với kho lưu trữ: chỉ giữ đơn mà chuyến gốc ở Bước 2 thật sự có hàng trả về
+        try { await donDepDonGiaoLaiTreoBuoc1(true); } catch (e) { console.warn(e); }
+
+        // Dọn dẹp dữ liệu KiotViet tạm nếu các hóa đơn đã được phân hết vào các chuyến xe đã lưu trên Cloud
+        let hdDaGoKhiMoTrang = null;
+        try {
+          if (Array.isArray(duLieuKiotViet) && duLieuKiotViet.length > 0) {
+            const daChiaTrenCloud = await timHoaDonDaChiaXe(duLieuKiotViet.map(r => String(r['Mã hóa đơn'] || '').trim().toUpperCase()));
+            if (daChiaTrenCloud && daChiaTrenCloud.size > 0) {
+              const setMaDaLuu = new Set();
+              daChiaTrenCloud.forEach((_, m) => setMaDaLuu.add(m));
+              const rawMoi = duLieuKiotViet.filter(r => !setMaDaLuu.has(String(r['Mã hóa đơn'] || '').trim().toUpperCase()));
+              if (rawMoi.length !== duLieuKiotViet.length) {
+                hdDaGoKhiMoTrang = new Map();
+                duLieuKiotViet.forEach(r => {
+                  const m = String(r['Mã hóa đơn'] || '').trim().toUpperCase();
+                  if (setMaDaLuu.has(m)) hdDaGoKhiMoTrang.set(m, daChiaTrenCloud.get(m) || '');
+                });
+                duLieuKiotViet = rawMoi;
+                if (rawMoi.length > 0) {
+                  dongBoKiotTamLenSupabase(rawMoi, danhSachTenFile);
+                } else {
+                  xoaKiotTamSupabase();
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("Lỗi kiểm tra hóa đơn đã chia xe:", e);
+        }
+
+        // Render dữ liệu lên DOM (luôn chạy an toàn)
+        napDuLieuTuBuoc1();
+        kiemTraBannerDonGiaoLai();
+
+        if (hdDaGoKhiMoTrang && hdDaGoKhiMoTrang.size) {
+          const ds = Array.from(hdDaGoKhiMoTrang.entries());
+          alert(`ℹ️ Đã gỡ ${ds.length} hóa đơn khỏi danh sách chờ chia xe vì ĐÃ ĐƯỢC CHIA VÀO CHUYẾN XE:\n\n` +
+            ds.slice(0, 15).map(([m, x]) => `• ${m}${x ? ' — ' + x : ''}`).join('\n') +
+            (ds.length > 15 ? `\n… và ${ds.length - 15} hóa đơn khác` : '') +
+            `\n\nNếu hóa đơn cần giao lại, hãy dùng nút "Đơn hẹn giao lại".`);
+        }
+
+        // Phục hồi badge hiển thị file đã nạp nếu có dữ liệu
+        try {
+          const badgeEl = document.getElementById('fileInfoBadge');
+          if (badgeEl && Array.isArray(duLieuKiotViet) && duLieuKiotViet.length > 0) {
+            badgeEl.style.display = 'block';
+            const dsFiles = Array.isArray(danhSachTenFile) ? danhSachTenFile : [];
+            const fileText = dsFiles.length > 2 
+              ? `${dsFiles.length} file (${dsFiles.slice(0, 2).join(', ')}...)`
+              : (dsFiles.length > 0 ? dsFiles.join(' + ') : 'Dữ liệu KiotViet');
+            badgeEl.innerHTML = `📄 <b>${fileText}</b> (${(danhSachHoaDon || []).length} HĐ, ${duLieuKiotViet.length} dòng)`;
+          }
+        } catch (e) {}
+
+        // Kích hoạt cơ chế Realtime đồng bộ tức thời giữa các máy tính ở Bước 1
+        try { khoiTaoRealtimeB1(); } catch (e) { console.warn("Lỗi realtime:", e); }
+
+        // Kiểm tra nếu mở từ Bước 3 xem lại biểu mẫu đợt cụ thể (?maDot=...)
+        const urlParams = new URLSearchParams(window.location.search);
+        const paramMaDot = urlParams.get('maDot');
+        if (paramMaDot) {
+          try {
+            let lichSu = Array.isArray(window._lichSuDotB1) ? window._lichSuDotB1 : [];
+            let dot = lichSu.find(d => d.maDot === paramMaDot);
+            if (!dot && typeof sb !== 'undefined') {
+              const { data } = await sb.from('luu_tru').select('*').eq('ma_dot', paramMaDot);
+              if (data && data.length > 0 && typeof chuyenDoiLuuTruThanhDanhSachDot === 'function') {
+                const arr = chuyenDoiLuuTruThanhDanhSachDot(data);
+                if (arr && arr.length > 0) dot = arr[0];
+              }
+            }
+            if (dot) {
+              if (dot.xe) chonXeVanChuyen(dot.xe);
+              if (dot.taiXe) document.getElementById('taiXe').value = dot.taiXe;
+              if (dot.nvGiao) document.getElementById('nvGiaoHang').value = dot.nvGiao;
+              if (dot.nvThu) document.getElementById('nvThuTien').value = dot.nvThu;
+              if (chuanHoaNgayISO_(dot.ngayRaw || dot.ngayGiao)) document.getElementById('ngayGiaoHang').value = chuanHoaNgayISO_(dot.ngayRaw || dot.ngayGiao);
+
+              if (Array.isArray(dot.cacDongChiTietKiotViet) && dot.cacDongChiTietKiotViet.length > 0) {
+                duLieuKiotViet = dot.cacDongChiTietKiotViet;
+                const mapHD = new Map();
+                duLieuKiotViet.forEach(r => {
+                  const maHD = String(r['Mã hóa đơn'] || '').trim().toUpperCase();
+                  if (!maHD || maHD.includes('TỔNG')) return;
+                  const tenKH = String(r['Tên khách hàng'] || 'Khách Lẻ').trim();
+                  const thanhTien = parseVNNumber_(r['Thành tiền']);
+                  if (!mapHD.has(maHD)) {
+                    mapHD.set(maHD, { maHD, tenKH, tongTien: 0, chon: true });
+                  }
+                  mapHD.get(maHD).tongTien += thanhTien;
+                });
+                danhSachHoaDon = Array.from(mapHD.values());
+                veDanhSachCheckboxHD();
+                chayTaoPhieu();
+              } else if (Array.isArray(dot.danhSachHD)) {
+                const setHD = new Set(dot.danhSachHD);
+                (danhSachHoaDon || []).forEach(h => {
+                  h.chon = setHD.has(h.maHD);
+                });
+                veDanhSachCheckboxHD();
+                chayTaoPhieu();
+              }
+            }
+          } catch (e) {
+            console.warn("Lỗi nạp xem lại đợt theo url param:", e);
+          }
+        }
+      } catch (errToanCuc) {
+        console.error("❌ Lỗi nghiêm trọng khi khởi tạo trang Bước 1:", errToanCuc);
+        try { napDuLieuTuBuoc1(); } catch (_) {}
+        hienThiToast("⚠️ Không thể tải dữ liệu tự động từ máy chủ. Vui lòng tải lại trang (F5).");
+      } finally {
+        anOverlayLoading();
       }
     }
 
