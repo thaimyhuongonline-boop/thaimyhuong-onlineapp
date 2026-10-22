@@ -31,6 +31,13 @@
     "tmh_sidebar_collapsed", "tmh_quyen_rieng_tk", "tmh_quyen_rieng_local", "tmh_trang_tu_dang_ky"
   ]);
 
+  // Các khoá dữ liệu phiên KiotViet / chuyến xe đã chuyển thẳng lên Supabase,
+  // TUYỆT ĐỐI KHÔNG lưu vào localStorage hay IndexedDB nữa
+  const KHOA_PHIEN_SUPABASE = new Set([
+    "tmh_kiotviet_data", "tmh_danh_sach_ten_file", "tmh_lich_su_dot", "tmh_dot_hien_tai",
+    "tmh_bang_ke_tam", "tmh_phieu_xuat_kho_tam", "KEY_BUOC2_DATA"
+  ]);
+
   let LS = null;
   try { LS = window.localStorage; } catch (e) { LS = null; }
   if (!LS || !window.Storage) { window.TMHKho = { sanSang: Promise.resolve(), cheDo: "ls" }; return; }
@@ -41,7 +48,7 @@
   const lsSet = (k, v) => { try { goc.set.call(LS, k, v); return true; } catch (e) { return false; } };
   const lsRm = k => { try { goc.rm.call(LS, k); } catch (e) {} };
 
-  const laKhoaLon = k => typeof k === "string" && k.indexOf("tmh_") === 0 && k.indexOf("tmh__") !== 0 && !GIU_TRONG_LS.has(k);
+  const laKhoaLon = k => typeof k === "string" && k.indexOf("tmh_") === 0 && k.indexOf("tmh__") !== 0 && !GIU_TRONG_LS.has(k) && !KHOA_PHIEN_SUPABASE.has(k);
 
   const cache = new Map();   // khoá → chuỗi giá trị
   let cheDo = "cho";         // "cho" (đang mở IndexedDB) | "idb" | "ls" (dùng localStorage như cũ)
@@ -78,6 +85,9 @@
 
   // ---------- Thay hàm localStorage (chỉ tác động localStorage, không đụng sessionStorage) ----------
   P.getItem = function (k) {
+    if (this === LS && KHOA_PHIEN_SUPABASE.has(String(k))) {
+      return null;
+    }
     if (this === LS && cheDo !== "ls" && laKhoaLon(String(k))) {
       k = String(k);
       if (cache.has(k)) return cache.get(k);
@@ -87,6 +97,10 @@
     return goc.get.apply(this, arguments);
   };
   P.setItem = function (k, v) {
+    if (this === LS && KHOA_PHIEN_SUPABASE.has(String(k))) {
+      lsRm(String(k));
+      return;
+    }
     if (this === LS && cheDo !== "ls" && laKhoaLon(String(k))) {
       k = String(k); v = String(v);
       cache.set(k, v);
@@ -98,6 +112,13 @@
     return goc.set.apply(this, arguments);
   };
   P.removeItem = function (k) {
+    if (this === LS && KHOA_PHIEN_SUPABASE.has(String(k))) {
+      k = String(k);
+      lsRm(k);
+      cache.delete(k);
+      xepGhi(k, null);
+      return;
+    }
     if (this === LS && cheDo !== "ls" && laKhoaLon(String(k))) {
       k = String(k);
       cache.delete(k);
@@ -140,23 +161,42 @@
   }
   function cacKhoaLonTrongLS() {
     const ds = [];
-    try { for (let i = 0; i < LS.length; i++) { const k = LS.key(i); if (laKhoaLon(k)) ds.push(k); } } catch (e) {}
+    try {
+      for (let i = 0; i < LS.length; i++) {
+        const k = LS.key(i);
+        if (laKhoaLon(k)) ds.push(k);
+      }
+    } catch (e) {}
     return ds;
   }
 
   const sanSang = (async function () {
     try {
+      // Dọn sạch các khoá phiên cũ khỏi localStorage ngay lập tức
+      KHOA_PHIEN_SUPABASE.forEach(k => {
+        lsRm(k);
+        cache.delete(k);
+      });
+
       const d = await Promise.race([
         moDB(),
         new Promise((_, rej) => setTimeout(() => rej(new Error("Mở IndexedDB quá lâu")), 8000))
       ]);
       const tuDB = await docTatCa(d);
-      tuDB.forEach((v, k) => { if (!cache.has(k)) cache.set(k, typeof v === "string" ? v : JSON.stringify(v)); });
+      const canGhi = [];
+      tuDB.forEach((v, k) => {
+        if (KHOA_PHIEN_SUPABASE.has(k)) {
+          // Xoá bỏ khỏi IndexedDB nếu còn sót
+          canGhi.push({ k, v: null });
+        } else if (!cache.has(k)) {
+          cache.set(k, typeof v === "string" ? v : JSON.stringify(v));
+        }
+      });
       // Khoá đã xoá nhưng IndexedDB chưa kịp xoá (trang chuyển đi ngay sau khi xoá)
       const choXoa = docChoXoa();
       choXoa.forEach(k => { if (!lsGet(k)) cache.delete(k); });
       // Dữ liệu trong localStorage (dữ liệu cũ chưa chuyển hoặc bản tạm chưa ghi xong) luôn MỚI hơn IndexedDB
-      const canGhi = choXoa.filter(k => !lsGet(k)).map(k => ({ k, v: null }));
+      choXoa.filter(k => !lsGet(k)).forEach(k => canGhi.push({ k, v: null }));
       cacKhoaLonTrongLS().forEach(k => {
         const v = lsGet(k);
         if (v == null) return;

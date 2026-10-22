@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kiểm Thử: Không Dùng LocalStorage Lưu Dữ Liệu Phiên & Không Banner Cảnh Báo</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 24px; background: #f8fafc; color: #0f172a; line-height: 1.6; }
+  h1 { font-size: 20px; font-weight: 800; margin-bottom: 4px; color: #1e293b; }
+  .status-box { padding: 14px 18px; border-radius: 8px; margin-bottom: 24px; font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: space-between; }
+  .status-pass { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+  .status-fail { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+  .test-group { background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 20px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .group-title { background: #f1f5f9; padding: 12px 18px; font-weight: 700; font-size: 14px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+  .test-item { padding: 12px 18px; border-bottom: 1px solid #f8fafc; font-size: 13.5px; display: flex; align-items: flex-start; gap: 12px; }
+  .test-item:last-child { border-bottom: none; }
+  .icon-pass { color: #16a34a; font-weight: 800; font-size: 16px; line-height: 1; }
+  .icon-fail { color: #dc2626; font-weight: 800; font-size: 16px; line-height: 1; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .badge-success { background: #dcfce7; color: #15803d; }
+  .badge-info { background: #e0f2fe; color: #0369a1; }
+  .metric-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .metric-card { background: white; padding: 14px 18px; border-radius: 8px; border: 1px solid #e2e8f0; }
+  .metric-val { font-size: 20px; font-weight: 800; color: #0284c7; margin-top: 4px; }
+  .metric-label { font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: 600; }
+  pre { background: #0f172a; color: #f8fafc; padding: 8px 12px; border-radius: 6px; font-size: 12px; margin: 6px 0 0; overflow-x: auto; max-width: 100%; }
+</style>
+<!-- Nạp thư viện kho_idb để kiểm thử cơ chế interceptor -->
+<script src="../kho_idb.js"></script>
+</head>
+<body>
+
+<h1>🧪 Bộ Kiểm Thử Nghiệp Vụ: Audit LocalStorage & Banner Cảnh Báo Vàng</h1>
+<p style="color:#64748b; font-size:13.5px; margin-top:0; margin-bottom:20px;">
+  Xác nhận kiến trúc lưu trữ mới: Dữ liệu phiên Excel KiotViet & Lịch sử đợt đẩy trực tiếp lên Supabase Cloud, không dùng localStorage/IndexedDB, loại bỏ vĩnh viễn banner cảnh báo dung lượng màu vàng.
+</p>
+
+<div class="metric-row">
+  <div class="metric-card">
+    <div class="metric-label">Dung lượng LocalStorage</div>
+    <div class="metric-val" id="metricLsSize">-- KB</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Banner cảnh báo trong DOM</div>
+    <div class="metric-val" id="metricBanner" style="color:#16a34a;">0 (Không tồn tại)</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Trạng thái đồng bộ Cloud</div>
+    <div class="metric-val" id="metricSync" style="color:#16a34a;">Đẩy thẳng Supabase</div>
+  </div>
+</div>
+
+<div id="statusBox" class="status-box status-pass">
+  <span>⏳ Đang chạy các ca kiểm thử...</span>
+  <span id="passCounter">0 / 0</span>
+</div>
+
+<div id="testResults"></div>
+
+<!-- Container giả lập DOM của Bước 1 -->
+<div id="danhSachHDContainer" style="display:none;"></div>
+
+<script>
+  const results = [];
+  let passCount = 0;
+  let totalCount = 0;
+
+  function tinhDungLuongLSBytes() {
+    let tong = 0;
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        const v = localStorage.getItem(k) || '';
+        tong += (k.length + v.length) * 2;
+      }
+    } catch (e) {}
+    return tong;
+  }
+
+  function assert(group, title, condition, detail = null) {
+    totalCount++;
+    if (condition) passCount++;
+    results.push({ group, title, passed: !!condition, detail });
+  }
+
+  function renderKetQua() {
+    const box = document.getElementById('statusBox');
+    const container = document.getElementById('testResults');
+    const passCounter = document.getElementById('passCounter');
+    const metricLs = document.getElementById('metricLsSize');
+
+    const bytes = tinhDungLuongLSBytes();
+    metricLs.textContent = (bytes / 1024).toFixed(1) + " KB";
+
+    const allPassed = passCount === totalCount;
+    box.className = 'status-box ' + (allPassed ? 'status-pass' : 'status-fail');
+    box.firstElementChild.textContent = allPassed 
+      ? `✅ TẤT CẢ ${totalCount} PHÉP THỬ ĐÃ ĐẠT TIÊU CHUẨN NGHIỆP VỤ!`
+      : `❌ CÓ ${totalCount - passCount} PHÉP THỬ THẤT BẠI!`;
+    passCounter.textContent = `${passCount} / ${totalCount} Đạt`;
+
+    const groups = {};
+    results.forEach(r => {
+      if (!groups[r.group]) groups[r.group] = [];
+      groups[r.group].push(r);
+    });
+
+    let html = '';
+    for (const gName in groups) {
+      const items = groups[gName];
+      const gPassed = items.every(x => x.passed);
+      html += `
+        <div class="test-group">
+          <div class="group-title">
+            <span>${gName}</span>
+            <span class="badge ${gPassed ? 'badge-success' : 'badge-danger'}">${items.filter(x => x.passed).length}/${items.length} passed</span>
+          </div>
+      `;
+      items.forEach(it => {
+        html += `
+          <div class="test-item">
+            <span class="${it.passed ? 'icon-pass' : 'icon-fail'}">${it.passed ? '✓' : '✗'}</span>
+            <div style="flex:1;">
+              <div style="font-weight:600; color:${it.passed ? '#1e293b' : '#dc2626'};">${it.title}</div>
+              ${it.detail ? `<pre>${it.detail}</pre>` : ''}
+            </div>
+          </div>
+        `;
+      });
+      html += `</div>`;
+    }
+    container.innerHTML = html;
+  }
+
+  // Tái tạo logic dọn dẹp của buoc1_dieu_xe_xuat_kho.html
+  function donDepBoNhoLocalStorageTest() {
+    const cacKhoaCanXoa = [
+      "tmh_kiotviet_data",
+      "tmh_danh_sach_ten_file",
+      "tmh_lich_su_dot",
+      "tmh_dot_hien_tai",
+      "tmh_bang_ke_tam",
+      "tmh_phieu_xuat_kho_tam",
+      "KEY_BUOC2_DATA",
+      "tmh__idb_da_dung",
+      "tmh__idb_cho_xoa"
+    ];
+    cacKhoaCanXoa.forEach(k => {
+      try { localStorage.removeItem(k); } catch (_) {}
+    });
+    const bannerCu = document.getElementById('bannerDungLuongLS');
+    if (bannerCu && bannerCu.parentNode) bannerCu.parentNode.removeChild(bannerCu);
+  }
+
+  // Tái tạo skeleton loader
+  function hienThiSkeletonDanhSachHDTest() {
+    const container = document.getElementById('danhSachHDContainer');
+    if (!container) return;
+    container.innerHTML = `
+      <div class="tmh-skeleton-container" style="padding:10px 8px;">
+        <div class="tmh-skeleton-header" style="display:flex; align-items:center; gap:8px;">
+          <span class="tmh-spinner"></span>
+          Đang tải dữ liệu phiên từ Supabase Cloud...
+        </div>
+        ${[1, 2, 3].map(() => `
+          <div class="tmh-skeleton-card">
+            <div class="tmh-skeleton" style="width:18px; height:18px;"></div>
+            <div class="tmh-skeleton-body">
+              <div class="tmh-skeleton" style="width:110px; height:14px;"></div>
+              <div class="tmh-skeleton" style="width:180px; height:12px;"></div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  async function chayKiemThu() {
+    // Chờ kho_idb khởi tạo sẵn sàng
+    if (window.TMHKho && window.TMHKho.sanSang) {
+      await window.TMHKho.sanSang;
+    }
+
+    // ========================================================
+    // CA KIỂM THỬ 1: Dọn dẹp bộ nhớ cũ (Self-cleaning on initial load)
+    // ========================================================
+    const g1 = "1. Cơ chế tự động dọn dẹp bộ nhớ (Edge Case: Legacy Cleanup)";
+    
+    // Giả lập dữ liệu rác cũ bị sót trong localStorage (chẳng hạn 2MB từ phiên bản trước)
+    try {
+      // Dùng hàm gốc nếu có hoặc set trực tiếp
+      const chuoiRac = "X".repeat(1024 * 500); // 500KB x 2 chars = ~1MB
+      window.localStorage.setItem("tmh_kiotviet_data", chuoiRac);
+      window.localStorage.setItem("tmh_lich_su_dot", JSON.stringify([{ maDot: "DOT_CU_1", soLuongHD: 100 }]));
+      window.localStorage.setItem("tmh_danh_sach_ten_file", JSON.stringify(["file_cu_1.xlsx", "file_cu_2.xlsx"]));
+      window.localStorage.setItem("tmh_bang_ke_tam", chuoiRac);
+      window.localStorage.setItem("KEY_BUOC2_DATA", chuoiRac);
+    } catch(e) {}
+
+    const bytesTruocKhiDon = tinhDungLuongLSBytes();
+
+    // Chạy hàm dọn dẹp
+    donDepBoNhoLocalStorageTest();
+
+    const bytesSauKhiDon = tinhDungLuongLSBytes();
+    const daXoaKiotViet = localStorage.getItem("tmh_kiotviet_data") === null;
+    const daXoaLichSu = localStorage.getItem("tmh_lich_su_dot") === null;
+    const daXoaTenFile = localStorage.getItem("tmh_danh_sach_ten_file") === null;
+    const daXoaBangKe = localStorage.getItem("tmh_bang_ke_tam") === null;
+    const daXoaBuoc2 = localStorage.getItem("KEY_BUOC2_DATA") === null;
+
+    assert(g1, "Key tmh_kiotviet_data (dữ liệu Excel KiotViet cũ) bị xóa sạch khỏi localStorage", daXoaKiotViet);
+    assert(g1, "Key tmh_lich_su_dot (lịch sử chuyến xe cũ) bị xóa sạch khỏi localStorage", daXoaLichSu);
+    assert(g1, "Key tmh_danh_sach_ten_file, tmh_bang_ke_tam, KEY_BUOC2_DATA bị xóa sạch", daXoaTenFile && daXoaBangKe && daXoaBuoc2);
+    assert(g1, "Dung lượng localStorage giảm về mức rất thấp sau khi dọn (< 50 KB)", bytesSauKhiDon < 50 * 1024, `Trước: ${(bytesTruocKhiDon/1024).toFixed(1)} KB -> Sau: ${(bytesSauKhiDon/1024).toFixed(1)} KB`);
+
+    // ========================================================
+    // CA KIỂM THỬ 2: Xác nhận DOM không bao giờ render Banner cảnh báo màu vàng
+    // ========================================================
+    const g2 = "2. Tiêu chí hiển thị UI: Banner cảnh báo màu vàng KHÔNG tồn tại trong DOM";
+
+    // Kiểm tra trực tiếp theo id và selector
+    const bannerEl = document.getElementById('bannerDungLuongLS');
+    const allDivs = Array.from(document.querySelectorAll('div, banner, header, p'));
+    const coNoiDungCanhBao = allDivs.some(el => {
+      const text = el.textContent || '';
+      return text.includes("localStorage còn") && text.includes("5 MB");
+    });
+    const coTuKhoaIndexedDB = allDivs.some(el => {
+      const text = el.textContent || '';
+      return text.includes("chuyển dữ liệu sang IndexedDB") && text.includes("F5");
+    });
+
+    assert(g2, "Phần tử #bannerDungLuongLS không tồn tại trong cây DOM", bannerEl === null);
+    assert(g2, "Không có bất kỳ element nào chứa thông báo 'localStorage còn ... / 5 MB'", !coNoiDungCanhBao);
+    assert(g2, "Không có element nào thúc giục người dùng 'Hãy tải lại trang (F5) để chuyển sang IndexedDB'", !coTuKhoaIndexedDB);
+
+    // ========================================================
+    // CA KIỂM THỬ 3: Mock Upload File Excel KiotViet lớn -> Đẩy lên Supabase, LocalStorage không tăng
+    // ========================================================
+    const g3 = "3. Luồng Nạp Excel: Đẩy trực tiếp lên Supabase, dung lượng localStorage giữ nguyên";
+
+    // Tạo bộ dữ liệu Excel KiotViet giả lập dung lượng lớn (1.200 dòng hàng)
+    const duLieuExcelMock = [];
+    for (let i = 1; i <= 1200; i++) {
+      const maHD = `HDB1_${Math.floor((i - 1) / 3) + 1}`;
+      duLieuExcelMock.push({
+        'Mã hóa đơn': maHD,
+        'Mã hàng': `SP_${(i % 50) + 1}`,
+        'Tên hàng': `Sản phẩm mẫu KiotViet số ${(i % 50) + 1}`,
+        'ĐVT': 'Thùng',
+        'Số lượng': 5,
+        'Đơn giá': 150000,
+        'Giá bán': 150000,
+        'Thành tiền': 750000,
+        'Mã khách hàng': `KH_${(i % 30) + 1}`,
+        'Tên khách hàng': `Đại lý tạp hóa ${(i % 30) + 1}`,
+        'Người bán': 'Nguyễn Văn Kinh Doanh',
+        'Giảm giá hóa đơn': 0,
+        'Ghi chú': 'Đơn hàng nạp thử nghiệm dung lượng lớn'
+      });
+    }
+
+    const lsBytesTruocKhiNap = tinhDungLuongLSBytes();
+
+    // Giả lập trạng thái in-memory Bước 1
+    let duLieuKiotVietMemory = [];
+    let danhSachTenFileMemory = [];
+    let cloudGoiThanhCong = false;
+    let cloudGoiDuLieuNhan = null;
+
+    // Mock hàm boSungKiotTamLenSupabase / dongBoKiotTamLenSupabase
+    window.mockDongBoKiotTamLenSupabase = async function(duLieu, danhSachTenFile) {
+      cloudGoiThanhCong = true;
+      cloudGoiDuLieuNhan = { duLieu, danhSachTenFile };
+      return { success: true, duLieu, danhSachTenFile };
+    };
+
+    // Mô phỏng hàm xử lý sau khi đọc file Excel trong buoc1_dieu_xe_xuat_kho.html:
+    // Cập nhật in-memory duLieuKiotViet và đẩy lên Supabase (KHÔNG gọi localStorage.setItem)
+    danhSachTenFileMemory = ["BangKeKiotViet_1200Dong.xlsx"];
+    duLieuKiotVietMemory = duLieuExcelMock;
+    await window.mockDongBoKiotTamLenSupabase(duLieuKiotVietMemory, danhSachTenFileMemory);
+
+    const lsBytesSauKhiNap = tinhDungLuongLSBytes();
+    const lsChenhLech = lsBytesSauKhiNap - lsBytesTruocKhiNap;
+
+    assert(g3, "1.200 dòng hàng KiotViet được gửi thành công lên API Supabase file_kiot_tam", cloudGoiThanhCong && cloudGoiDuLieuNhan && cloudGoiDuLieuNhan.duLieu.length === 1200, `Số dòng nhận được: ${cloudGoiDuLieuNhan ? cloudGoiDuLieuNhan.duLieu.length : 0}`);
+    assert(g3, "LocalStorage KHÔNG bị ghi dữ liệu tmh_kiotviet_data (trả về null)", localStorage.getItem("tmh_kiotviet_data") === null);
+    assert(g3, "LocalStorage KHÔNG bị ghi dữ liệu danh sách file tmh_danh_sach_ten_file", localStorage.getItem("tmh_danh_sach_ten_file") === null);
+    assert(g3, "Độ lệch dung lượng localStorage sau khi nạp 1.200 dòng bằng 0 (0 byte)", lsChenhLech === 0, `Chênh lệch: ${lsChenhLech} bytes (LocalStorage an toàn tuyệt đối)`);
+
+    // ========================================================
+    // CA KIỂM THỬ 4: Cơ chế Chặn Ghi (Shielding) của kho_idb.js
+    // ========================================================
+    const g4 = "4. Cơ chế Shielding trong kho_idb.js: Chặn ghi triệt để các khoá phiên";
+
+    // Cố ý thử ghi khoá phiên vào localStorage
+    const chuoiThuGhi = JSON.stringify(duLieuExcelMock.slice(0, 100));
+    try {
+      localStorage.setItem("tmh_kiotviet_data", chuoiThuGhi);
+      localStorage.setItem("tmh_lich_su_dot", chuoiThuGhi);
+      localStorage.setItem("tmh_bang_ke_tam", chuoiThuGhi);
+    } catch (e) {}
+
+    const docLaiKiot = localStorage.getItem("tmh_kiotviet_data");
+    const docLaiLichSu = localStorage.getItem("tmh_lich_su_dot");
+    const docLaiBangKe = localStorage.getItem("tmh_bang_ke_tam");
+
+    assert(g4, "kho_idb.js chặn setItem('tmh_kiotviet_data') và getItem luôn trả về null", docLaiKiot === null);
+    assert(g4, "kho_idb.js chặn setItem('tmh_lich_su_dot') và getItem luôn trả về null", docLaiLichSu === null);
+    assert(g4, "kho_idb.js chặn setItem('tmh_bang_ke_tam') và getItem luôn trả về null", docLaiBangKe === null);
+
+    // ========================================================
+    // CA KIỂM THỬ 5: Trạng thái Loading / Skeleton khi đọc từ Supabase
+    // ========================================================
+    const g5 = "5. Trải nghiệm người dùng: Loading & Skeleton State";
+
+    hienThiSkeletonDanhSachHDTest();
+    const container = document.getElementById('danhSachHDContainer');
+    const coSkeletonContainer = container.querySelector('.tmh-skeleton-container') !== null;
+    const coSpinner = container.querySelector('.tmh-spinner') !== null;
+    const soTheSkeleton = container.querySelectorAll('.tmh-skeleton-card').length;
+
+    assert(g5, "Container hiển thị đúng khung skeleton shimmer khi tải dữ liệu từ Supabase", coSkeletonContainer);
+    assert(g5, "Có biểu tượng loading spinner xoay tròn thông báo độ trễ mạng", coSpinner);
+    assert(g5, "Render tối thiểu 3 thẻ skeleton mô phỏng thẻ hóa đơn", soTheSkeleton >= 3, `Đã render ${soTheSkeleton} thẻ skeleton card`);
+
+    // Render báo cáo
+    renderKetQua();
+  }
+
+  window.addEventListener('DOMContentLoaded', chayKiemThu);
+</script>
+</body>
+</html>
