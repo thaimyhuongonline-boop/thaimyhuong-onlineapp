@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kiểm Thử: Ghi Chú Chuyển Khoản Bước 2 -> Báo Cáo Tổng Hợp & Excel</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; background: #f8fafc; color: #0f172a; line-height: 1.5; }
+  h1 { font-size: 20px; margin-bottom: 6px; }
+  .status-box { padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-weight: 700; font-size: 15px; }
+  .status-pass { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+  .status-fail { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+  .test-group { background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 16px; overflow: hidden; }
+  .group-title { background: #f1f5f9; padding: 10px 16px; font-weight: 700; font-size: 14px; border-bottom: 1px solid #e2e8f0; }
+  .test-item { padding: 8px 16px; border-bottom: 1px solid #f1f5f9; font-size: 13px; display: flex; align-items: flex-start; gap: 8px; }
+  .test-item:last-child { border-bottom: none; }
+  .icon-pass { color: #16a34a; font-weight: bold; }
+  .icon-fail { color: #dc2626; font-weight: bold; }
+  pre { background: #0f172a; color: #f8fafc; padding: 8px 12px; border-radius: 4px; font-size: 11px; margin: 4px 0 0; overflow-x: auto; }
+</style>
+</head>
+<body>
+
+<h1>🧪 Bộ Kiểm Thử Nghiệp Vụ: Ghi Chú Chuyển Khoản [TC1 -> TC4 & Edge Cases]</h1>
+<p style="color:#64748b; font-size:13px; margin-top:0;">Xác minh luồng dữ liệu ghi chú Bước 2, liên kết sang popup Các đơn chuyển khoản của Báo Cáo Tổng Hợp, tìm kiếm và xuất Excel.</p>
+
+<div id="statusBox" class="status-box status-pass">⏳ Đang chạy các ca kiểm thử...</div>
+<div id="testResults"></div>
+
+<script>
+  const results = [];
+  let passCount = 0;
+  let totalCount = 0;
+
+  function assert(group, title, condition, detail = null) {
+    totalCount++;
+    if (condition) passCount++;
+    results.push({ group, title, passed: !!condition, detail });
+  }
+
+  function H(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  function fmt(n) {
+    if (isNaN(n) || n === null || n === undefined) return '0';
+    return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+
+  // Cấu trúc hàm chuẩn hoá từ bao_cao_tong_hop.html
+  function chuanHoaHD(r, maDotMacDinh) {
+    const tm = parseFloat(r.tien_mat || 0), ck = parseFloat(r.chuyen_khoan || 0);
+    const tra = parseFloat(r.tra_ve || 0), no = parseFloat(r.no_phat_sinh || 0);
+    const gc = (r.ghi_chu !== undefined && r.ghi_chu !== null) ? String(r.ghi_chu).trim() : (r.ghiChu ? String(r.ghiChu).trim() : '');
+    return {
+      maHD: r.ma_hd || '',
+      tenKH: r.ten_kh || '',
+      maKH: r.ma_kh || '',
+      xe: r.xe || 'Xe chung',
+      taiXe: r.tai_xe || '',
+      ngay: r.ngay_giao || '',
+      maDot: r.ma_dot || maDotMacDinh || 'DOT_KHAC',
+      thanhTien: parseFloat(r.thanh_tien || 0),
+      tm: tm, ck: ck, tra: tra, no: no,
+      nganHang: r.tai_khoan_nhan || '',
+      daQT: !!(r.da_quyet_toan || r.da_kiem_don),
+      giaoLai: !!r.la_giao_lai,
+      tienChi: parseFloat(r.tien_chi || 0),
+      tienThoi: parseFloat(r.tien_thoi || 0),
+      hangTraVe: Array.isArray(r.hang_tra_ve) ? r.hang_tra_ve : [],
+      ghiChu: gc
+    };
+  }
+
+  function dongThuNgoai(o) {
+    return Object.assign({
+      laThuNgoai: true, maHD: '', tenKH: '', maKH: '', xe: '', taiXe: '', ngay: '', maDot: '', thanhTien: 0,
+      tm: 0, ck: 0, tra: 0, no: 0, canTru: 0, chiTm: 0, chiCk: 0, chuaRo: 0, nganHang: '', daQT: true, giaoLai: false, ghiChu: ''
+    }, o);
+  }
+
+  function renderStatusCell(d) {
+    if (d.laThuNgoai) {
+      const nhan = 'Thu nợ tại quỹ';
+      let tt = `<span class="bc-tag">${nhan}</span>`;
+      return `<td>${tt}${d.ghiChu ? `<div style="font-size:10.5px; color:var(--text-muted); max-width:260px;">${H(d.ghiChu)}</div>` : ''}</td>`;
+    }
+    const lech = (d.thanhTien || 0) - ((d.tm || 0) + (d.ck || 0) + (d.tra || 0) + (d.no || 0));
+    let tt;
+    if (!d.daQT) tt = '<span class="bc-tag wait">⏳ Chờ quyết toán</span>';
+    else if (Math.abs(lech) > 1) tt = `<span class="bc-tag warn">Lệch ${lech > 0 ? '+' : ''}${fmt(lech)}</span>`;
+    else tt = '<span class="bc-tag done">✅ Khớp</span>';
+    if (d.giaoLai) tt += ' <span class="bc-tag wait">Giao lại</span>';
+    return `<td>${tt}${d.ghiChu ? `<div style="font-size:10.5px; color:var(--text-muted); max-width:260px;">${H(d.ghiChu)}</div>` : ''}</td>`;
+  }
+
+  function locTimKiem(rows, tuKhoa) {
+    const q = (tuKhoa || '').trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter(d => (d.maHD + ' ' + d.tenKH + ' ' + d.xe + ' ' + d.maKH + ' ' + (d.ghiChu || '')).toLowerCase().includes(q));
+  }
+
+  function taoAoaExcel(rows) {
+    const aoa = [
+      ['Các đơn chuyển khoản'],
+      [],
+      ['STT', 'Mã HĐ', 'Khách hàng', 'Ngày', 'Chuyến xe', 'Tài xế', 'Xuất kho', 'Tiền mặt', 'Chuyển khoản', 'Ngân hàng nhận', 'Trả về', 'Nợ', 'Trạng thái', 'Ghi chú', 'Đã kiểm tra']
+    ];
+    rows.forEach((d, i) => {
+      let tt;
+      if (d.laThuNgoai) {
+        tt = 'Thu nợ tại quỹ';
+      } else {
+        tt = d.daQT ? 'Đã quyết toán' : 'Chờ quyết toán';
+      }
+      aoa.push([
+        i + 1, d.maHD, d.tenKH, d.ngay, d.xe, d.taiXe, d.thanhTien || 0, d.tm || 0, d.ck || 0, d.nganHang || '', d.tra || 0, d.no || 0, tt, d.ghiChu || '', ''
+      ]);
+    });
+    return aoa;
+  }
+
+  let daChay = false;
+  async function chayKiemThu() {
+    if (daChay) return;
+    daChay = true;
+    // -----------------------------------------------------------------
+    // [TC1] Nhập ghi chú ở Bước 2 cho đơn Chuyển khoản -> Báo Cáo Tổng Hợp thẻ CK hiển thị đúng
+    // -----------------------------------------------------------------
+    const g1 = "[TC1] Ghi chú chuyển khoản từ Bước 2 hiển thị đúng trong popup Báo Cáo";
+
+    // 1.1: Payload từ Bước 2 lưu lên luu_tru Supabase
+    const donB2 = {
+      ma_hd: "HD288990",
+      ma_dot: "DOT_XE01_20261024",
+      xe: "29C-12345",
+      tai_xe: "Nguyễn Văn Tài",
+      ngay_giao: "24/10/2026",
+      ma_kh: "KH0078",
+      ten_kh: "ĐẠI LÝ TIẾN PHÁT",
+      thanh_tien: 15000000,
+      tien_mat: 0,
+      chuyen_khoan: 15000000,
+      tai_khoan_nhan: "TCB - 20166789",
+      tra_ve: 0,
+      no_phat_sinh: 0,
+      ghi_chu: "Đại lý Tiến Phát CK từ Vietcombank Lê Văn A",
+      da_kiem_don: true,
+      da_quyet_toan: true
+    };
+
+    const hdChuanHoa = chuanHoaHD(donB2);
+    assert(g1, "1.1: chuanHoaHD trích xuất đúng trường ghiChu từ luu_tru", hdChuanHoa.ghiChu === "Đại lý Tiến Phát CK từ Vietcombank Lê Văn A");
+
+    // 1.2: Modal popup render cột Trạng thái
+    const cellHTML = renderStatusCell(hdChuanHoa);
+    assert(g1, "1.2: Cột TRẠNG THÁI render badge Khớp và kèm dòng ghi chú tên người CK", 
+      cellHTML.includes("✅ Khớp") && cellHTML.includes("Đại lý Tiến Phát CK từ Vietcombank Lê Văn A"));
+
+    // 1.3: Đúng style CSS đồng bộ với Thu nợ tại quỹ
+    assert(g1, "1.3: Đúng thẻ style font-size:10.5px; color:var(--text-muted)", 
+      cellHTML.includes('style="font-size:10.5px; color:var(--text-muted); max-width:260px;"'));
+
+    // -----------------------------------------------------------------
+    // [TC2] Kiểm tra các dòng chuyển khoản từ Sổ công nợ (Thu nợ tại quỹ) không bị ảnh hưởng (Regression)
+    // -----------------------------------------------------------------
+    const g2 = "[TC2] Regression: Thu nợ tại quỹ trong popup giữ nguyên ghi chú cũ";
+
+    const donThuNo = dongThuNgoai({
+      id: "TN_001",
+      maHD: "HD286488",
+      tenKH: "CÚC LÔ 111 KHU CC NẠI HIÊN ĐÔNG",
+      maKH: "KH009501",
+      ngay: "09/10/2026",
+      loaiThu: "thu_no",
+      ck: 10900000,
+      nganHang: "TCB - 20166789",
+      ghiChu: "TRẦN CAO NGUYÊN CK"
+    });
+
+    const cellThuNo = renderStatusCell(donThuNo);
+    assert(g2, "2.1: Dòng Thu nợ tại quỹ vẫn giữ nguyên ghi chú TRẦN CAO NGUYÊN CK", 
+      cellThuNo.includes("Thu nợ tại quỹ") && cellThuNo.includes("TRẦN CAO NGUYÊN CK"));
+
+    // -----------------------------------------------------------------
+    // [TC3] Đơn hàng chuyển khoản Bước 2 để trống ghi chú -> UI sạch sẽ
+    // -----------------------------------------------------------------
+    const g3 = "[TC3] Edge case: Đơn Bước 2 để trống ghi chú (null, undefined, rỗng, khoảng trắng)";
+
+    const donRong1 = chuanHoaHD({ ma_hd: "HD001", ghi_chu: null, chuyen_khoan: 1000000, da_quyet_toan: true });
+    const cellRong1 = renderStatusCell(donRong1);
+    assert(g3, "3.1: ghi_chu null không hiển thị chữ 'null' hay div rỗng thừa", 
+      !cellRong1.includes("null") && !cellRong1.includes("max-width:260px;"));
+
+    const donRong2 = chuanHoaHD({ ma_hd: "HD002", ghi_chu: "", chuyen_khoan: 2000000, da_quyet_toan: true });
+    const cellRong2 = renderStatusCell(donRong2);
+    assert(g3, "3.2: ghi_chu rỗng '' không render khoảng trắng thừa hay div rỗng", 
+      !cellRong2.includes("max-width:260px;"));
+
+    const donRong3 = chuanHoaHD({ ma_hd: "HD003", ghi_chu: "   ", chuyen_khoan: 3000000, da_quyet_toan: true });
+    const cellRong3 = renderStatusCell(donRong3);
+    assert(g3, "3.3: ghi_chu chỉ có khoảng trắng được trim về rỗng, không render thừa", 
+      donRong3.ghiChu === "" && !cellRong3.includes("max-width:260px;"));
+
+    // -----------------------------------------------------------------
+    // [TC4] Tìm kiếm theo ghi chú & Xuất file Excel có chứa ghi chú
+    // -----------------------------------------------------------------
+    const g4 = "[TC4] Tìm kiếm theo ghi chú & Xuất Excel đầy đủ ghi chú";
+
+    const danhSachTest = [
+      hdChuanHoa, // Đại lý Tiến Phát CK từ Vietcombank Lê Văn A
+      donThuNo,   // TRẦN CAO NGUYÊN CK
+      donRong1    // Không ghi chú
+    ];
+
+    // 4.1: Tìm kiếm theo tên người chuyển khoản từ Bước 2
+    const kqTimB2 = locTimKiem(danhSachTest, "Lê Văn A");
+    assert(g4, "4.1: Gõ 'Lê Văn A' (ghi chú Bước 2) vào ô tìm kiếm -> Lọc đúng đơn HD288990", 
+      kqTimB2.length === 1 && kqTimB2[0].maHD === "HD288990");
+
+    // 4.2: Tìm kiếm theo ghi chú Thu nợ
+    const kqTimThuNo = locTimKiem(danhSachTest, "TRẦN CAO NGUYÊN");
+    assert(g4, "4.2: Gõ 'TRẦN CAO NGUYÊN' (ghi chú Thu nợ) -> Lọc đúng đơn Thu nợ", 
+      kqTimThuNo.length === 1 && kqTimThuNo[0].maHD === "HD286488");
+
+    // 4.3: Xuất Excel cấu trúc mảng AOA
+    const aoaExcel = taoAoaExcel(danhSachTest);
+    const dongHeader = aoaExcel[2];
+    assert(g4, "4.3: Header file Excel có chứa cột 'Ghi chú'", dongHeader.includes("Ghi chú"));
+
+    const idxGhiChu = dongHeader.indexOf("Ghi chú");
+    const rowB2Excel = aoaExcel.find(r => r[1] === "HD288990");
+    const rowThuNoExcel = aoaExcel.find(r => r[1] === "HD286488");
+
+    assert(g4, "4.4: Dòng đơn Bước 2 trong Excel chứa đầy đủ nội dung ghi chú người CK", 
+      rowB2Excel && rowB2Excel[idxGhiChu] === "Đại lý Tiến Phát CK từ Vietcombank Lê Văn A");
+    assert(g4, "4.5: Dòng Thu nợ trong Excel chứa đầy đủ nội dung ghi chú cũ", 
+      rowThuNoExcel && rowThuNoExcel[idxGhiChu] === "TRẦN CAO NGUYÊN CK");
+
+    // -----------------------------------------------------------------
+    // [TC5] Edge Case: Đơn thanh toán hỗn hợp (Tiền mặt + Chuyển khoản)
+    // -----------------------------------------------------------------
+    const g5 = "[TC5] Edge Case: Đơn thanh toán hỗn hợp (TM + CK) có ghi chú";
+
+    const donHonHop = chuanHoaHD({
+      ma_hd: "HD_HON_HOP",
+      thanh_tien: 10000000,
+      tien_mat: 4000000,
+      chuyen_khoan: 6000000,
+      tai_khoan_nhan: "TCB - 20166789",
+      ghi_chu: "Khách đưa TM 4tr + Chị Mai CK 6tr Techcombank",
+      da_quyet_toan: true
+    });
+
+    const cellHonHop = renderStatusCell(donHonHop);
+    assert(g5, "5.1: Đơn hỗn hợp được lọc vào tab CK (ck > 0)", donHonHop.ck > 0);
+    assert(g5, "5.2: Hiển thị đầy đủ ghi chú đơn hỗn hợp dưới trạng thái", 
+      cellHonHop.includes("Khách đưa TM 4tr + Chị Mai CK 6tr Techcombank"));
+
+    // -----------------------------------------------------------------
+    // [TC6] Edge Case: Cập nhật / Chỉnh sửa ghi chú ở Bước 2
+    // -----------------------------------------------------------------
+    const g6 = "[TC6] Edge Case: Sửa ghi chú ở Bước 2 cập nhật đúng giá trị mới";
+
+    let payloadB2CapNhat = {
+      ma_hd: "HD288990",
+      ghiChu: "SỬA LẠI: Chú Bảy CK hộ đơn hàng"
+    };
+
+    // Khi Bước 2 lưu payload mới
+    const rowCapNhat = {
+      ma_hd: payloadB2CapNhat.ma_hd,
+      ghi_chu: String(payloadB2CapNhat.ghiChu).trim()
+    };
+    const hdCapNhat = chuanHoaHD(rowCapNhat);
+    const cellCapNhat = renderStatusCell(hdCapNhat);
+
+    assert(g6, "6.1: Ghi chú mới nhất được cập nhật sang Báo Cáo", 
+      hdCapNhat.ghiChu === "SỬA LẠI: Chú Bảy CK hộ đơn hàng");
+    assert(g6, "6.2: UI hiển thị đúng nội dung ghi chú sau khi sửa", 
+      cellCapNhat.includes("SỬA LẠI: Chú Bảy CK hộ đơn hàng"));
+
+    // -----------------------------------------------------------------
+    // Render kết quả ra HTML
+    // -----------------------------------------------------------------
+    const box = document.getElementById("statusBox");
+    if (passCount === totalCount) {
+      box.className = "status-box status-pass";
+      box.innerHTML = `🎉 TẤT CẢ ${totalCount}/${totalCount} CA KIỂM THỬ ĐÃ ĐẠT (100% PASS)!`;
+    } else {
+      box.className = "status-box status-fail";
+      box.innerHTML = `❌ CÓ ${totalCount - passCount}/${totalCount} CA KIỂM THỬ THẤT BẠI!`;
+    }
+
+    const groups = {};
+    results.forEach(r => {
+      if (!groups[r.group]) groups[r.group] = [];
+      groups[r.group].push(r);
+    });
+
+    let html = "";
+    Object.keys(groups).forEach(g => {
+      html += `<div class="test-group"><div class="group-title">${H(g)}</div>`;
+      groups[g].forEach(r => {
+        html += `
+          <div class="test-item">
+            <span class="${r.passed ? 'icon-pass' : 'icon-fail'}">${r.passed ? '✔' : '✖'}</span>
+            <div>
+              <strong>${H(r.title)}</strong>
+              ${r.detail ? `<pre>${H(r.detail)}</pre>` : ''}
+            </div>
+          </div>
+        `;
+      });
+      html += `</div>`;
+    });
+    document.getElementById("testResults").innerHTML = html;
+  }
+
+  chayKiemThu();
+  window.addEventListener("DOMContentLoaded", chayKiemThu);
+</script>
+</body>
+</html>

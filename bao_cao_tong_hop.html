@@ -464,6 +464,7 @@
     function chuanHoaHD(r, maDotMacDinh) {
       const tm = parseFloat(r.tien_mat || 0), ck = parseFloat(r.chuyen_khoan || 0);
       const tra = parseFloat(r.tra_ve || 0), no = parseFloat(r.no_phat_sinh || 0);
+      const gc = (r.ghi_chu !== undefined && r.ghi_chu !== null) ? String(r.ghi_chu).trim() : (r.ghiChu ? String(r.ghiChu).trim() : '');
       return {
         maHD: r.ma_hd || '',
         tenKH: r.ten_kh || '',
@@ -479,7 +480,8 @@
         giaoLai: !!r.la_giao_lai,
         tienChi: parseFloat(r.tien_chi || 0),
         tienThoi: parseFloat(r.tien_thoi || 0),
-        hangTraVe: Array.isArray(r.hang_tra_ve) ? r.hang_tra_ve : []
+        hangTraVe: Array.isArray(r.hang_tra_ve) ? r.hang_tra_ve : [],
+        ghiChu: gc
       };
     }
 
@@ -516,7 +518,8 @@
             tien_mat: h.tienMat, chuyen_khoan: h.chuyenKhoan, tai_khoan_nhan: h.taiKhoanNhan,
             tra_ve: h.traVe, no_phat_sinh: h.noPhatSinh, da_kiem_don: h.daKiemDon || h.daQuyetToan || dot.daQuyetToan,
             la_giao_lai: h.laGiaoLai, tien_chi: dot.tienChi || 0, tien_thoi: dot.tienThoi || 0,
-            hang_tra_ve: h.hangTraVe
+            hang_tra_ve: h.hangTraVe,
+            ghi_chu: h.ghiChu || h.ghi_chu || ''
           }, dot.maDot));
         });
       });
@@ -1626,9 +1629,9 @@
     }
 
     function dsChiTietSauTim() {
-      const q = (document.getElementById('bcModalTim').value || '').trim().toLowerCase();
+      const q = (document.getElementById('bcModalTim')?.value || '').trim().toLowerCase();
       if (!q) return chiTietHienTai.rows;
-      return chiTietHienTai.rows.filter(d => (d.maHD + ' ' + d.tenKH + ' ' + d.xe + ' ' + d.maKH).toLowerCase().includes(q));
+      return chiTietHienTai.rows.filter(d => (d.maHD + ' ' + d.tenKH + ' ' + d.xe + ' ' + d.maKH + ' ' + (d.ghiChu || '')).toLowerCase().includes(q));
     }
 
     function veChiTiet() {
@@ -1716,7 +1719,7 @@
             <td class="num">${d.tra ? fmt(d.tra) : '–'}</td>
             <td class="num">${d.no ? fmt(d.no) : '–'}</td>
             ${oChiThoiTrong}
-            <td>${tt}</td>
+            <td>${tt}${d.ghiChu ? `<div style="font-size:10.5px; color:var(--text-muted); max-width:260px;">${H(d.ghiChu)}</div>` : ''}</td>
             ${oKiemTraBC(d, i)}
           </tr>`;
       }).join('') + dsPhieuChuyen.map(dongPhieuChuyenBC).join('');
@@ -1938,15 +1941,26 @@
     function xuatExcelChiTiet() {
       const rows = dsChiTietSauTim();
       const aoa = [[chiTietHienTai.title.replace(/^[^\wÀ-ỹ]+/, '')], [],
-        ['STT', 'Mã HĐ', 'Khách hàng', 'Ngày', 'Chuyến xe', 'Tài xế', 'Xuất kho', 'Tiền mặt', 'Chuyển khoản', 'Ngân hàng nhận', 'Trả về', 'Nợ', 'Trạng thái', 'Đã kiểm tra']];
+        ['STT', 'Mã HĐ', 'Khách hàng', 'Ngày', 'Chuyến xe', 'Tài xế', 'Xuất kho', 'Tiền mặt', 'Chuyển khoản', 'Ngân hàng nhận', 'Trả về', 'Nợ', 'Trạng thái', 'Ghi chú', 'Đã kiểm tra']];
       const oKT = d => { const x = kiemTraBC.get(khoaKiemTraBC(d)); return x && x.da ? `Đã kiểm tra — ${x.nguoi || ''}${x.luc ? ' ' + new Date(x.luc).toLocaleString('vi-VN') : ''}` : ''; };
-      rows.forEach((d, i) => aoa.push(d.laThuNgoai
-        ? [i + 1, d.maHD, d.tenKH, d.ngay, d.xe || '', d.taiXe || '', 0, d.tm - d.chiTm, d.ck - d.chiCk, d.nganHang, d.tra, 0,
-          ((NHAN_THU_NGOAI[d.loaiThu] || ['Khoản khác'])[0]).replace(/^[^\wÀ-ỹ]+/, '') + (d.canTru ? ` ${d.canTru}` : '') + (d.chuaRo ? ` ${d.chuaRo}` : ''), oKT(d)]
-        : [i + 1, d.maHD, d.tenKH, d.ngay, d.xe, d.taiXe, d.thanhTien, d.tm, d.ck, d.nganHang, d.tra, d.no, d.daQT ? 'Đã quyết toán' : 'Chờ quyết toán', oKT(d)]));
+      rows.forEach((d, i) => {
+        let tt;
+        if (d.laThuNgoai) {
+          tt = ((NHAN_THU_NGOAI[d.loaiThu] || ['Khoản khác'])[0]).replace(/^[^\wÀ-ỹ]+/, '') + (d.canTru ? ` ${d.canTru}` : '') + (d.chuaRo ? ` ${d.chuaRo}` : '');
+        } else {
+          const lech = lechCuaDon(d);
+          if (!d.daQT) tt = 'Chờ quyết toán';
+          else if (Math.abs(lech) > 1) tt = `Lệch ${lech > 0 ? '+' : ''}${fmt(lech)}`;
+          else tt = 'Đã quyết toán';
+          if (d.giaoLai) tt += ' (Giao lại)';
+        }
+        aoa.push(d.laThuNgoai
+          ? [i + 1, d.maHD, d.tenKH, d.ngay, d.xe || '', d.taiXe || '', 0, d.tm - d.chiTm, d.ck - d.chiCk, d.nganHang, d.tra, 0, tt, d.ghiChu || '', oKT(d)]
+          : [i + 1, d.maHD, d.tenKH, d.ngay, d.xe, d.taiXe, d.thanhTien, d.tm, d.ck, d.nganHang, d.tra, d.no, tt, d.ghiChu || '', oKT(d)]);
+      });
       const t = tongHop(rows);
-      aoa.push(['', 'TỔNG CỘNG', '', '', '', '', t.xuat, t.tm, t.ck, '', t.tra, t.no, '', `${rows.filter(d => daKiemTraBC(d)).length}/${rows.length} đã kiểm tra`]);
-      const cotRong = [5, 16, 30, 12, 16, 14, 14, 14, 14, 26, 14, 14, 26, 34];
+      aoa.push(['', 'TỔNG CỘNG', '', '', '', '', t.xuat, t.tm, t.ck, '', t.tra, t.no, '', '', `${rows.filter(d => daKiemTraBC(d)).length}/${rows.length} đã kiểm tra`]);
+      const cotRong = [5, 16, 30, 12, 16, 14, 14, 14, 14, 26, 14, 14, 20, 26, 34];
       // Bảng chuyến xe / tất cả đơn: thêm cột Tiền chi, Tiền thối (sau cột Nợ) + dòng phiếu nộp tiền Bước 2 của từng chuyến
       if (laBangCoChiThoiBC(chiTietHienTai.key)) {
         const dsPhieu = phieuChuyenTrongChiTietBC(rows, chiTietHienTai.key);
@@ -1957,7 +1971,7 @@
         });
         const dongTong = aoa.pop();
         dsPhieu.forEach(p => {
-          const dong = ['', 'Phiếu nộp tiền (Bước 2, cả chuyến)', dienGiaiPhieuChuyenBC(p).join('; '), p.ngay, p.xe, p.nguoiNop || p.taiXe || '', '', '', '', '', '', '', p.tienChi, p.tienThoi, 'Theo chuyến xe', ''];
+          const dong = ['', 'Phiếu nộp tiền (Bước 2, cả chuyến)', dienGiaiPhieuChuyenBC(p).join('; '), p.ngay, p.xe, p.nguoiNop || p.taiXe || '', '', '', '', '', '', '', p.tienChi, p.tienThoi, 'Theo chuyến xe', '', ''];
           aoa.push(dong);
         });
         dongTong[viTri] = dsPhieu.reduce((s, p) => s + p.tienChi, 0);
