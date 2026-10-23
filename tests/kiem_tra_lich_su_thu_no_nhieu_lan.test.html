@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kiểm Thử: Lịch Sử Thu Nợ Nhiều Lần & In Đối Chiếu</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; background: #f8fafc; color: #0f172a; line-height: 1.5; }
+  h1 { font-size: 20px; margin-bottom: 6px; }
+  .status-box { padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-weight: 700; font-size: 15px; }
+  .status-pass { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+  .status-fail { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+  .test-group { background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 16px; overflow: hidden; }
+  .group-title { background: #f1f5f9; padding: 10px 16px; font-weight: 700; font-size: 14px; border-bottom: 1px solid #e2e8f0; }
+  .test-item { padding: 8px 16px; border-bottom: 1px solid #f1f5f9; font-size: 13px; display: flex; align-items: flex-start; gap: 8px; }
+  .test-item:last-child { border-bottom: none; }
+  .icon-pass { color: #16a34a; font-weight: bold; }
+  .icon-fail { color: #dc2626; font-weight: bold; }
+  pre { background: #0f172a; color: #f8fafc; padding: 8px 12px; border-radius: 4px; font-size: 11px; margin: 4px 0 0; overflow-x: auto; }
+</style>
+</head>
+<body>
+
+<h1>🧪 Bộ Kiểm Thử Nghiệp Vụ: Lịch Sử Thu Nợ Nhiều Lần & In Đối Chiếu [TC1 -> TC4 & Edge Cases]</h1>
+<p style="color:#64748b; font-size:13px; margin-top:0;">Xác minh luồng thu nợ nhiều đợt, truy xuất lịch sử, hiển thị chi tiết từng lần trả, sửa ghi chú và in biên bản đối chiếu.</p>
+
+<div id="statusBox" class="status-box status-pass">⏳ Đang chạy các ca kiểm thử...</div>
+<div id="testResults"></div>
+
+<!-- Container giả lập các phần tử DOM phục vụ modal và in đối chiếu -->
+<div id="sandbox" style="display:none;">
+  <div id="modalLichSuTitle"></div>
+  <table class="table-lich-su">
+    <tbody id="tbodyLichSuDon"></tbody>
+  </table>
+  <span id="histTongHD"></span>
+  <span id="histTongNo"></span>
+  <span id="histDaThu"></span>
+  <span id="histConLai"></span>
+  <div id="modalLichSuKhachHang" style="display:none;"></div>
+
+  <table class="statement-table">
+    <tbody id="p_tbodyStatement"></tbody>
+  </table>
+  <span id="p_tenKhachHang"></span>
+  <span id="p_maKhachHang"></span>
+  <span id="p_nvPhuTrach"></span>
+  <span id="p_ngayLap"></span>
+  <span id="p_statementGiaiDoan"></span>
+  <span id="p_sumTienHD"></span>
+  <span id="p_sumTienNo"></span>
+  <span id="p_sumDaThu"></span>
+  <span id="p_sumConLai"></span>
+  <span id="p_tongNoBox"></span>
+  <span id="p_daThuBox"></span>
+  <span id="p_conLaiBox"></span>
+  <span id="p_soTienBangChu"></span>
+  <div id="p_traTruocBox"></div>
+  <input id="locKhachHang" value="" />
+</div>
+
+<script>
+  const results = [];
+  let passCount = 0;
+  let totalCount = 0;
+
+  function assert(group, title, condition, detail = null) {
+    totalCount++;
+    if (condition) passCount++;
+    results.push({ group, title, passed: !!condition, detail });
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  function formatTien(n) {
+    if (isNaN(n) || n === null || n === undefined) return '0';
+    return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+  function dinhDangNgayVN(s) {
+    if (!s) return '--';
+    const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : s;
+  }
+  function docSoThanhChu(n) {
+    return (n || 0) + ' đồng';
+  }
+
+  // Khởi tạo các Map dùng chung như trong theo_doi_cong_no.html
+  const thuNoTheoDon = new Map();
+  const thuNoHinhThucCloudMap = new Map();
+  const thuNoNgayCloudMap = new Map();
+  let danhSachCongNo = [];
+  let khachHangDangXemLichSu = null;
+
+  // 1. Hàm layLichSuThuCuaDon chuẩn từ theo_doi_cong_no.html
+  function layLichSuThuCuaDon(d) {
+    if (!d) return [];
+    const dsThuRaw = [];
+    const daCoKey = new Set();
+
+    const themRow = (r) => {
+      if (!r) return;
+      const st = parseFloat(r.so_tien ?? r.soTien ?? 0);
+      if (st <= 0) return;
+      const rId = r.id ? String(r.id) : '';
+      const key = rId || ((r.ngay_thu || r.ngay || '') + '_' + st + '_' + (r.ghi_chu || r.ghiChu || '') + '_' + (r.hinh_thuc || r.hinhThuc || ''));
+      if (daCoKey.has(key)) return;
+      daCoKey.add(key);
+      dsThuRaw.push({
+        id: rId,
+        ngay: r.ngay_thu || r.ngay || r.ngayThanhToan || '',
+        soTien: st,
+        hinhThuc: r.hinh_thuc || r.hinhThuc || 'Tiền mặt',
+        taiKhoan: r.tai_khoan_nhan || r.taiKhoan || r.taiKhoanNhan || '',
+        nguoiThu: r.nguoi_thu || r.nguoiThu || '',
+        ghiChu: r.ghi_chu || r.ghiChu || '',
+        hangTraLai: r.hang_tra_lai || r.hangTraLai || null,
+        taoLuc: r.tao_luc || r.taoLuc || ''
+      });
+    };
+
+    const idNo = d.id;
+    const maHD = d.maHD;
+    const listById = idNo ? (thuNoTheoDon.get(idNo) || []) : [];
+    const listByHD = maHD ? (thuNoTheoDon.get(maHD) || []) : [];
+    const listByNoHD = (maHD && !maHD.startsWith('NO_')) ? (thuNoTheoDon.get('NO_' + maHD) || []) : [];
+    [...listById, ...listByHD, ...listByNoHD].forEach(themRow);
+
+    if (Array.isArray(d.lichSuThu)) {
+      d.lichSuThu.forEach(themRow);
+    }
+
+    if (dsThuRaw.length === 0 && (d.daThu || 0) > 0) {
+      dsThuRaw.push({
+        id: 'legacy_' + (d.id || d.maHD || 'don'),
+        ngay: d.ngayThanhToan || d.ngayGhiNo || '',
+        soTien: d.daThu || 0,
+        hinhThuc: d.hinhThuc || (d.chuyenKhoan > 0 ? 'Chuyển khoản' : 'Tiền mặt'),
+        taiKhoan: d.taiKhoanNhan || '',
+        nguoiThu: '',
+        ghiChu: d.ghiChuThu || '',
+        hangTraLai: null,
+        taoLuc: ''
+      });
+    }
+
+    dsThuRaw.sort((a, b) => {
+      if (a.taoLuc && b.taoLuc) return a.taoLuc.localeCompare(b.taoLuc);
+      if (a.ngay && b.ngay) return a.ngay.localeCompare(b.ngay);
+      return 0;
+    });
+
+    return dsThuRaw.map((item, idx) => ({
+      ...item,
+      dot: idx + 1
+    }));
+  }
+
+  // 2. Hàm layHinhThucThanhToanDon chuẩn
+  function layHinhThucThanhToanDon(d) {
+    const daThu = d.daThu || 0;
+    if (daThu <= 0) return '<span style="color:var(--text-muted);">--</span>';
+
+    const dsThu = layLichSuThuCuaDon(d);
+    if (dsThu.length > 0) {
+      const hasTM = dsThu.some(x => /tiền mặt|tm/i.test(x.hinhThuc || ''));
+      const hasCK = dsThu.some(x => /chuyển khoản|ck/i.test(x.hinhThuc || ''));
+      const hasTLH = dsThu.some(x => /trả lại hàng/i.test(x.hinhThuc || ''));
+      const tk = dsThu.map(x => x.taiKhoan).filter(Boolean)[0] || '';
+      if ((hasTM && hasCK) || (dsThu.length > 1 && (hasTM || hasCK) && hasTLH)) {
+        return `<span class="badge-status" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:10.5px;">💵+💳 Hỗn hợp</span>`;
+      } else if (hasCK) {
+        return `<span class="badge-status" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-size:10.5px;" title="${tk ? 'TK nhận: ' + escapeHtml(tk) : 'Chuyển khoản'}">💳 Chuyển khoản${tk ? `<div style="font-size:9.5px; font-weight:normal; opacity:0.9;">${escapeHtml(tk)}</div>` : ''}</span>`;
+      } else if (hasTM) {
+        return `<span class="badge-status" style="background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; font-size:10.5px;">💵 Tiền mặt</span>`;
+      } else if (hasTLH) {
+        return `<span class="badge-status" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-size:10.5px;">📦 Trả lại hàng</span>`;
+      }
+    }
+
+    const thuNoArr = thuNoHinhThucCloudMap.get(d.id) || (d.maHD ? thuNoHinhThucCloudMap.get(d.maHD) : null) || [];
+    if (thuNoArr.length > 0) {
+      const hasTM = thuNoArr.some(x => /tiền mặt|tm/i.test(x.hinhThuc || ''));
+      const hasCK = thuNoArr.some(x => /chuyển khoản|ck/i.test(x.hinhThuc || ''));
+      const tk = thuNoArr.map(x => x.taiKhoan).filter(Boolean)[0] || '';
+      if (hasTM && hasCK) {
+        return `<span class="badge-status" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:10.5px;">💵+💳 Hỗn hợp</span>`;
+      } else if (hasCK) {
+        return `<span class="badge-status" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-size:10.5px;">💳 Chuyển khoản</span>`;
+      } else if (hasTM) {
+        return `<span class="badge-status" style="background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; font-size:10.5px;">💵 Tiền mặt</span>`;
+      }
+    }
+
+    const ht = (d.hinhThuc || '').trim();
+    const tm = parseFloat(d.tienMat || 0);
+    const ck = parseFloat(d.chuyenKhoan || 0);
+    if ((tm > 0 && ck > 0) || /hỗn hợp|\+|tiền mặt.*chuyển khoản|tm.*ck/i.test(ht)) {
+      return `<span class="badge-status" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:10.5px;">💵+💳 Hỗn hợp</span>`;
+    }
+    if (ck > 0 || /chuyển khoản|ck/i.test(ht)) return `<span class="badge-status">💳 Chuyển khoản</span>`;
+    if (tm > 0 || /tiền mặt|tm/i.test(ht)) return `<span class="badge-status">💵 Tiền mặt</span>`;
+    return `<span class="badge-status">💵 Tiền mặt</span>`;
+  }
+
+  // 3. Hàm render modalLichSu
+  function renderModalLichSu(tenKH) {
+    khachHangDangXemLichSu = tenKH;
+    const dsCuaKH = danhSachCongNo.filter(d => (d.tenKH || '').trim() === tenKH);
+    let sumHD = 0, sumNo = 0, sumThu = 0, sumCon = 0;
+
+    const tbody = document.getElementById('tbodyLichSuDon');
+    tbody.innerHTML = dsCuaKH.map((d, i) => {
+      const cl = (d.conLai !== undefined) ? d.conLai : Math.max(0, (d.soTienNo || 0) - (d.daThu || 0));
+      const daThu = d.daThu || 0;
+      sumHD += (d.tienHD || 0);
+      sumNo += (d.soTienNo || 0);
+      sumThu += daThu;
+      sumCon += cl;
+
+      const dsThu = layLichSuThuCuaDon(d);
+
+      let badge = (d.trangThai === 'da_thu_du' || cl <= 0) 
+        ? `<span class="badge-status badge-da-thu">Đã thu đủ</span>`
+        : (daThu > 0 ? `<span class="badge-status badge-mot-phan">Thu 1 phần</span>` : `<span class="badge-status badge-chua-thu">Chưa thu</span>`);
+
+      let htmlNgayTT = '--';
+      if (dsThu.length > 1) {
+        htmlNgayTT = `
+          <div style="display:flex; flex-direction:column; gap:2px; font-size:10.5px;">
+            ${dsThu.map(t => `<div style="white-space:nowrap;"><span style="color:var(--text-muted); font-size:9.5px;">Đ${t.dot}:</span> ${t.ngay ? dinhDangNgayVN(t.ngay) : '--'}</div>`).join('')}
+          </div>
+        `;
+      } else if (dsThu.length === 1) {
+        htmlNgayTT = (dsThu[0].ngay || d.ngayThanhToan) ? dinhDangNgayVN(dsThu[0].ngay || d.ngayThanhToan) : '--';
+      }
+
+      return `
+        <tr id="row_${d.id}">
+          <td style="text-align:center;">${i + 1}</td>
+          <td>${d.ngayGiao || '--'}</td>
+          <td class="col-ma-hd">${escapeHtml(d.maHD)}</td>
+          <td>${d.xe || '--'}</td>
+          <td>${d.taiXe || '--'}</td>
+          <td class="col-tien-hd">${formatTien(d.tienHD || 0)}</td>
+          <td class="col-tien-no">${formatTien(d.soTienNo || 0)}</td>
+          <td class="col-da-thu">${formatTien(daThu)}</td>
+          <td class="col-hinh-thuc">${layHinhThucThanhToanDon(d)}</td>
+          <td class="col-con-lai">${formatTien(cl)}</td>
+          <td class="col-trang-thai">${badge}</td>
+          <td class="col-ngay-tt">${htmlNgayTT}</td>
+          <td class="col-ghi-chu" style="font-size:11px; min-width:200px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:${dsThu.length ? '3px' : '0'};">
+              <div class="txt-ghi-chu-don">${d.ghiChu ? escapeHtml(d.ghiChu) : '(Ghi chú đơn)'}</div>
+              <button class="btn-sua-gc" onclick="suaGhiChuDonNo('${d.id}', '${d.maHD}', '${d.ghiChu || ''}')">✏️</button>
+            </div>
+            ${dsThu.length > 0 ? `
+              <div class="list-dot-thu" style="display:flex; flex-direction:column; gap:3px;">
+                ${dsThu.map(t => {
+                  const isCK = /chuyển khoản|ck/i.test(t.hinhThuc || '');
+                  const isTLH = /trả lại hàng/i.test(t.hinhThuc || '');
+                  const icon = isTLH ? '📦' : (isCK ? '💳' : '💵');
+                  const htText = isTLH ? 'Trả hàng trừ nợ' : (isCK ? (t.taiKhoan ? `CK ${t.taiKhoan}` : 'CK') : 'Tiền mặt');
+                  const gc = (t.ghiChu || '').trim();
+                  const ngayVN = t.ngay ? dinhDangNgayVN(t.ngay) : '--';
+                  return `
+                    <div class="dot-item dot-${t.dot}">
+                      <div class="dot-header">
+                        <b class="dot-label">Đợt ${t.dot} (${ngayVN}):</b>
+                        <b class="dot-so-tien">+${formatTien(t.soTien)} đ</b>
+                      </div>
+                      <div class="dot-body">
+                        <span class="dot-ht">${icon} ${escapeHtml(htText)}</span>
+                        ${gc ? `<span class="dot-gc"> — ${escapeHtml(gc)}</span>` : ''}
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            ` : ''}
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    document.getElementById('histTongHD').textContent = formatTien(sumHD) + ' đ';
+    document.getElementById('histTongNo').textContent = formatTien(sumNo) + ' đ';
+    document.getElementById('histDaThu').textContent = formatTien(sumThu) + ' đ';
+    document.getElementById('histConLai').textContent = formatTien(sumCon) + ' đ';
+  }
+
+  // 4. Giả lập luồng thu nợ tại quỹ
+  function mockThuNo(idDon, soTien, hinhThuc, taiKhoan, ngayThu, ghiChu) {
+    const don = danhSachCongNo.find(d => d.id === idDon);
+    if (!don) return;
+
+    if (!Array.isArray(don.lichSuThu)) {
+      don.lichSuThu = layLichSuThuCuaDon(don);
+    }
+
+    const item = {
+      id: 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      ngay: ngayThu,
+      soTien: soTien,
+      hinhThuc: hinhThuc,
+      taiKhoan: taiKhoan || '',
+      nguoiThu: 'Thủ Quỹ',
+      ghiChu: ghiChu || '',
+      taoLuc: new Date().toISOString()
+    };
+    don.lichSuThu.push(item);
+
+    if (!thuNoTheoDon.has(don.id)) thuNoTheoDon.set(don.id, []);
+    thuNoTheoDon.get(don.id).push({
+      id: item.id, id_don_no: don.id, ma_hd: don.maHD, so_tien: soTien,
+      hinh_thuc: hinhThuc, tai_khoan_nhan: taiKhoan, ngay_thu: ngayThu,
+      ghi_chu: ghiChu, tao_luc: item.taoLuc
+    });
+
+    don.daThu = (don.daThu || 0) + soTien;
+    don.conLai = Math.max(0, (don.soTienNo || 0) - don.daThu);
+    don.trangThai = don.conLai <= 0 ? 'da_thu_du' : 'da_thu_mot_phan';
+    don.ngayThanhToan = ngayThu;
+
+    const arrHT = thuNoHinhThucCloudMap.get(don.id) || [];
+    arrHT.push({ hinhThuc: hinhThuc, taiKhoan: taiKhoan, soTien: soTien });
+    thuNoHinhThucCloudMap.set(don.id, arrHT);
+
+    if (khachHangDangXemLichSu) renderModalLichSu(khachHangDangXemLichSu);
+  }
+
+  // 5. Giả lập in đối chiếu
+  function mockInDoiChieu(tenKH) {
+    const dsIn = danhSachCongNo.filter(d => (d.tenKH || '').trim() === tenKH);
+    let sumHD = 0, sumNo = 0, sumThu = 0, sumCon = 0;
+    const tbody = document.getElementById('p_tbodyStatement');
+    tbody.innerHTML = dsIn.map((d, i) => {
+      const cl = (d.conLai !== undefined) ? d.conLai : Math.max(0, (d.soTienNo || 0) - (d.daThu || 0));
+      const daThu = d.daThu || 0;
+      sumHD += (d.tienHD || 0);
+      sumNo += (d.soTienNo || 0);
+      sumThu += daThu;
+      sumCon += cl;
+
+      const dsThu = layLichSuThuCuaDon(d);
+      let strNgayTT = '--';
+      if (dsThu.length > 1) {
+        strNgayTT = dsThu.map(t => t.ngay ? dinhDangNgayVN(t.ngay) : '--').join(', ');
+      } else if (dsThu.length === 1) {
+        strNgayTT = (dsThu[0].ngay || d.ngayThanhToan) ? dinhDangNgayVN(dsThu[0].ngay || d.ngayThanhToan) : '--';
+      }
+
+      const subRowThu = (dsThu.length > 0) ? `
+        <tr class="subrow-statement">
+          <td></td>
+          <td colspan="8">
+            <div class="stmt-summary">↳ Chi tiết ${dsThu.length} đợt thanh toán (Tổng đã thu: ${formatTien(daThu)} đ):</div>
+            <div class="stmt-list">
+              ${dsThu.map(t => {
+                const isCK = /chuyển khoản|ck/i.test(t.hinhThuc || '');
+                const ht = isCK ? `Chuyển khoản${t.taiKhoan ? ' (' + t.taiKhoan + ')' : ''}` : 'Tiền mặt';
+                return `<div class="stmt-item">• Đợt ${t.dot} (${t.ngay ? dinhDangNgayVN(t.ngay) : '--'}): ${formatTien(t.soTien)} đ — ${escapeHtml(ht)}${t.ghiChu ? ' — ' + escapeHtml(t.ghiChu) : ''}</div>`;
+              }).join('')}
+            </div>
+          </td>
+        </tr>
+      ` : '';
+
+      return `
+        <tr class="mainrow-statement">
+          <td>${i + 1}</td>
+          <td>${d.ngayGiao || '--'}</td>
+          <td class="stmt-ma-hd">${escapeHtml(d.maHD)}</td>
+          <td>${d.xe || '--'}</td>
+          <td class="stmt-ngay-tt">${strNgayTT}</td>
+          <td class="stmt-tien-hd">${formatTien(d.tienHD || 0)}</td>
+          <td class="stmt-tien-no">${formatTien(d.soTienNo || 0)}</td>
+          <td class="stmt-da-thu">${formatTien(daThu)}</td>
+          <td class="stmt-con-lai">${formatTien(cl)}</td>
+        </tr>
+        ${subRowThu}
+      `;
+    }).join('');
+
+    document.getElementById('p_sumTienHD').textContent = formatTien(sumHD);
+    document.getElementById('p_sumTienNo').textContent = formatTien(sumNo);
+    document.getElementById('p_sumDaThu').textContent = formatTien(sumThu);
+    document.getElementById('p_sumConLai').textContent = formatTien(sumCon);
+  }
+
+  // ========================================================
+  // THỰC HIỆN TEST SUITE
+  // ========================================================
+
+  // --- NHÓM 1: TEST CASE 1 - Thu nợ 3 lần liên tiếp trên 1 đơn ---
+  const donTC1 = {
+    id: 'NO_HD999001',
+    maHD: 'HD999001',
+    tenKH: 'KHÁCH HÀNG TEST TC1',
+    maKH: 'KH001',
+    ngayGiao: '2026-10-01',
+    tienHD: 10000000,
+    soTienNo: 10000000,
+    daThu: 0,
+    conLai: 10000000,
+    trangThai: 'chua_thu',
+    ghiChu: 'Giao hàng đợt 1 cho khách'
+  };
+  danhSachCongNo = [donTC1];
+
+  // Khởi đầu đơn chưa thu
+  renderModalLichSu('KHÁCH HÀNG TEST TC1');
+  let dsThu = layLichSuThuCuaDon(donTC1);
+  assert('TC1: Thu nợ 3 lần liên tiếp', 'Đơn nợ ban đầu chưa thu: dsThu rỗng', dsThu.length === 0);
+  assert('TC1: Thu nợ 3 lần liên tiếp', 'Hình thức thanh toán ban đầu hiển thị --', layHinhThucThanhToanDon(donTC1).includes('--'));
+
+  // Lần 1: Thu Tiền mặt 3,000,000 đ
+  mockThuNo('NO_HD999001', 3000000, 'Tiền mặt', '', '2026-10-10', 'Lần 1 khách trả tiền mặt');
+  dsThu = layLichSuThuCuaDon(donTC1);
+  assert('TC1: Thu nợ 3 lần liên tiếp', 'Sau lần 1: Đã ghi nhận đúng 1 đợt thu', dsThu.length === 1);
+  assert('TC1: Thu nợ 3 lần liên tiếp', 'Sau lần 1: Đợt 1 đúng 3.000.000 đ Tiền mặt', dsThu[0].soTien === 3000000 && dsThu[0].hinhThuc === 'Tiền mặt');
+  assert('TC1: Thu nợ 3 lần liên tiếp', 'Sau lần 1: Hình thức TT hiển thị 💵 Tiền mặt', layHinhThucThanhToanDon(donTC1).includes('Tiền mặt'));
+
+  // Lần 2: Thu Chuyển khoản TCB 2,000,000 đ
+  mockThuNo('NO_HD999001', 2000000, 'Chuyển khoản', 'TCB - 20166789', '2026-10-15', 'Lần 2 ck Techcombank');
+  dsThu = layLichSuThuCuaDon(donTC1);
+  assert('TC1: Thu nợ 3 lần liên tiếp', 'Sau lần 2: Đã ghi nhận đúng 2 đợt thu (không ghi đè đợt 1)', dsThu.length === 2);
+  assert('TC1: Thu nợ 3 lần liên tiếp', 'Sau lần 2: Đợt 1 Tiền mặt + Đợt 2 Chuyển khoản TCB', dsThu[0].hinhThuc === 'Tiền mặt' && dsThu[1].taiKhoan === 'TCB - 20166789');
+  assert('TC1: Thu nợ 3 lần liên tiếp', 'Sau lần 2: Hình thức TT tự chuyển sang 💵+💳 Hỗn hợp', layHinhThucThanhToanDon(donTC1).includes('Hỗn hợp'));
+
+  // Lần 3: Thu Chuyển khoản VCB 1,500,000 đ
+  mockThuNo('NO_HD999001', 1500000, 'Chuyển khoản', 'VCB - 00410008888', '2026-10-20', 'Lần 3 ck Vietcombank');
+  dsThu = layLichSuThuCuaDon(donTC1);
+  assert('TC1: Thu nợ 3 lần liên tiếp', 'Sau lần 3: Đã ghi nhận đủ cả 3 đợt thu', dsThu.length === 3);
+  assert('TC1: Thu nợ 3 lần liên tiếp', 'Sau lần 3: Đợt 3 đúng 1.500.000 đ VCB và ghi chú', dsThu[2].soTien === 1500000 && dsThu[2].taiKhoan.includes('VCB') && dsThu[2].ghiChu === 'Lần 3 ck Vietcombank');
+
+  const tong3Dot = dsThu.reduce((s, x) => s + x.soTien, 0);
+  assert('TC1: Thu nợ 3 lần liên tiếp', 'Tổng số tiền 3 đợt khớp 100% với cột Đã Thu (6.500.000 đ)', tong3Dot === donTC1.daThu && donTC1.daThu === 6500000);
+  assert('TC1: Thu nợ 3 lần liên tiếp', 'Còn lại tính chuẩn xác (3.500.000 đ)', donTC1.conLai === 3500000 && donTC1.trangThai === 'da_thu_mot_phan');
+
+  // Verify trên DOM HTML modal
+  const dotElements = document.querySelectorAll('#row_NO_HD999001 .dot-item');
+  assert('TC1: Thu nợ 3 lần liên tiếp', 'Giao diện modal render đủ 3 thẻ đợt thu', dotElements.length === 3);
+  const ngayTTCel = document.querySelector('#row_NO_HD999001 .col-ngay-tt');
+  assert('TC1: Thu nợ 3 lần liên tiếp', 'Cột Ngày TT hiển thị đầy đủ ngày của cả 3 đợt (Đ1, Đ2, Đ3)', ngayTTCel && ngayTTCel.textContent.includes('Đ1:') && ngayTTCel.textContent.includes('Đ2:') && ngayTTCel.textContent.includes('Đ3:'));
+
+  // --- NHÓM 2: TEST CASE 2 - Khôi phục & hiển thị lịch sử từ dữ liệu Supabase thu_no (VD: HD286308) ---
+  const donTC2 = {
+    id: 'NO_HD286308',
+    maHD: 'HD286308',
+    tenKH: 'QAV TOKBOKI HỒ QUÝ LY',
+    maKH: 'KH006053',
+    ngayGiao: '2026-10-06',
+    xe: 'XE THUÊ 2 SÁNG',
+    taiXe: 'LINH',
+    tienHD: 20895000,
+    soTienNo: 20895000,
+    daThu: 15385000,
+    conLai: 5510000,
+    trangThai: 'da_thu_mot_phan',
+    ghiChu: ''
+  };
+  danhSachCongNo.push(donTC2);
+
+  // Nạp các bản ghi lịch sử thực tế của HD286308 vào thuNoTheoDon
+  thuNoTheoDon.set('NO_HD286308', [
+    { id: 517, id_don_no: 'NO_HD286308', ma_hd: 'HD286308', so_tien: 3900000, hinh_thuc: 'Tiền mặt', tai_khoan_nhan: '', ngay_thu: '2026-10-21', ghi_chu: 'truong khanh vy em', tao_luc: '2026-10-21T04:36:23' },
+    { id: 518, id_don_no: 'NO_HD286308', ma_hd: 'HD286308', so_tien: 1500000, hinh_thuc: 'Chuyển khoản', tai_khoan_nhan: 'TCB - 20166789', ngay_thu: '2026-10-21', ghi_chu: 'truong khanh vy em', tao_luc: '2026-10-21T04:36:24' },
+    { id: 594, id_don_no: 'NO_HD286308', ma_hd: 'HD286308', so_tien: 0, hinh_thuc: 'Chuyển khoản', tai_khoan_nhan: 'TCB - 20166789', ngay_thu: '2026-10-22', ghi_chu: 'Hoàn gạch nợ 7.000.000 đ', tao_luc: '2026-10-23T02:07:40' },
+    { id: 595, id_don_no: 'NO_HD286308', ma_hd: 'HD286308', so_tien: 2985000, hinh_thuc: 'Chuyển khoản', tai_khoan_nhan: 'TCB - 20166789', ngay_thu: '2026-10-22', ghi_chu: 'NHUAN HA CHUYEN TIEN', tao_luc: '2026-10-23T02:08:28' },
+    { id: 598, id_don_no: 'NO_HD286308', ma_hd: 'HD286308', so_tien: 7000000, hinh_thuc: 'Chuyển khoản', tai_khoan_nhan: 'TCB - 20166789', ngay_thu: '2026-10-22', ghi_chu: 'TRUONG KHANH VY EM CHUYỂN TIỀN', tao_luc: '2026-10-23T05:36:31' }
+  ]);
+
+  renderModalLichSu('QAV TOKBOKI HỒ QUÝ LY');
+  const dsThuTC2 = layLichSuThuCuaDon(donTC2);
+  assert('TC2: Khôi phục đơn cũ nhiều lần thu', 'Bỏ qua khoản hoàn lại (so_tien = 0), lấy đủ 4 đợt có hiệu lực', dsThuTC2.length === 4);
+  const sumTC2 = dsThuTC2.reduce((s, x) => s + x.soTien, 0);
+  assert('TC2: Khôi phục đơn cũ nhiều lần thu', 'Tổng 4 đợt khớp 100% với Đã Thu (15.385.000 đ)', sumTC2 === 15385000 && sumTC2 === donTC2.daThu);
+  assert('TC2: Khôi phục đơn cũ nhiều lần thu', 'Hình thức thanh toán là Hỗn hợp (Tiền mặt + CK)', layHinhThucThanhToanDon(donTC2).includes('Hỗn hợp'));
+
+  const rowTC2 = document.getElementById('row_NO_HD286308');
+  assert('TC2: Khôi phục đơn cũ nhiều lần thu', 'Trên bảng hiển thị Đợt 3 (2.985.000 đ NHUAN HA CHUYEN TIEN) không bị đè mất các đợt 3.9M, 1.5M, 7M', rowTC2 && rowTC2.textContent.includes('2.985.000') && rowTC2.textContent.includes('3.900.000') && rowTC2.textContent.includes('7.000.000'));
+
+  // --- NHÓM 3: TEST CASE 3 - Sửa ghi chú đơn (icon cây bút) không làm mất lịch sử thu ---
+  function suaGhiChuDonNo(idDon, maHD, gcMoi) {
+    const d = danhSachCongNo.find(x => x.id === idDon || x.maHD === maHD);
+    if (d) {
+      d.ghiChu = gcMoi;
+    }
+    if (khachHangDangXemLichSu) renderModalLichSu(khachHangDangXemLichSu);
+  }
+
+  renderModalLichSu('KHÁCH HÀNG TEST TC1');
+  suaGhiChuDonNo('NO_HD999001', 'HD999001', 'Khách hẹn thanh toán nốt phần nợ vào cuối tháng 10');
+  const donTC1SauSua = danhSachCongNo.find(d => d.id === 'NO_HD999001');
+  const dsThuSauSua = layLichSuThuCuaDon(donTC1SauSua);
+  assert('TC3: Sửa ghi chú đơn', 'Ghi chú đơn được cập nhật thành công', donTC1SauSua.ghiChu === 'Khách hẹn thanh toán nốt phần nợ vào cuối tháng 10');
+  assert('TC3: Sửa ghi chú đơn', 'Lịch sử 3 đợt thanh toán vẫn giữ nguyên 100%', dsThuSauSua.length === 3);
+  assert('TC3: Sửa ghi chú đơn', 'Tổng đã thu vẫn giữ nguyên 6.500.000 đ', donTC1SauSua.daThu === 6500000);
+
+  const txtGCSauSua = document.querySelector('#row_NO_HD999001 .txt-ghi-chu-don');
+  assert('TC3: Sửa ghi chú đơn', 'Giao diện modal hiển thị ghi chú mới và đủ 3 đợt thu', txtGCSauSua && txtGCSauSua.textContent.includes('Khách hẹn thanh toán nốt') && document.querySelectorAll('#row_NO_HD999001 .dot-item').length === 3);
+
+  // --- NHÓM 4: TEST CASE 4 - In đối chiếu công nợ chi tiết các đợt ---
+  mockInDoiChieu('KHÁCH HÀNG TEST TC1');
+  const stmtSubRows = document.querySelectorAll('#p_tbodyStatement .subrow-statement');
+  assert('TC4: In Đối Chiếu', 'Mẫu in có dòng sub-row chi tiết các đợt thanh toán', stmtSubRows.length === 1);
+  const stmtItems = document.querySelectorAll('#p_tbodyStatement .stmt-item');
+  assert('TC4: In Đối Chiếu', 'Mẫu in liệt kê đầy đủ cả 3 đợt thanh toán', stmtItems.length === 3);
+  const stmtText = document.getElementById('p_tbodyStatement').textContent;
+  assert('TC4: In Đối Chiếu', 'Mẫu in chứa thông tin Đợt 1 (Tiền mặt), Đợt 2 (TCB), Đợt 3 (VCB)', stmtText.includes('Tiền mặt') && stmtText.includes('TCB - 20166789') && stmtText.includes('VCB - 00410008888'));
+  assert('TC4: In Đối Chiếu', 'Tổng đã thu trên bảng in khớp với tổng các đợt (6.500.000 đ)', document.getElementById('p_sumDaThu').textContent === '6.500.000');
+
+  // --- NHÓM 5: EDGE CASES ---
+  // Edge Case 1: Đơn chưa thu đồng nào
+  const donChuaThu = {
+    id: 'NO_HD000', maHD: 'HD000', tenKH: 'KH CHƯA THU', tienHD: 5000000, soTienNo: 5000000, daThu: 0, conLai: 5000000, trangThai: 'chua_thu', ghiChu: ''
+  };
+  danhSachCongNo.push(donChuaThu);
+  renderModalLichSu('KH CHƯA THU');
+  const rowChuaThu = document.getElementById('row_NO_HD000');
+  assert('Edge Cases', 'Đơn chưa thu: không sinh thẻ đợt thu nào', rowChuaThu && rowChuaThu.querySelectorAll('.dot-item').length === 0);
+  assert('Edge Cases', 'Đơn chưa thu: Ngày TT hiển thị --', rowChuaThu && rowChuaThu.querySelector('.col-ngay-tt').textContent.trim() === '--');
+
+  mockInDoiChieu('KH CHƯA THU');
+  assert('Edge Cases', 'Đơn chưa thu khi in: không tạo sub-row thừa', document.querySelectorAll('#p_tbodyStatement .subrow-statement').length === 0);
+
+  // Edge Case 2: Đơn thu 1 lần duy nhất bằng Chuyển khoản
+  const donThu1Lan = {
+    id: 'NO_HD111', maHD: 'HD111', tenKH: 'KH THU 1 LẦN', tienHD: 4000000, soTienNo: 4000000, daThu: 4000000, conLai: 0, trangThai: 'da_thu_du', ghiChu: 'Đã xong'
+  };
+  danhSachCongNo.push(donThu1Lan);
+  thuNoTheoDon.set('NO_HD111', [
+    { id: 801, id_don_no: 'NO_HD111', ma_hd: 'HD111', so_tien: 4000000, hinh_thuc: 'Chuyển khoản', tai_khoan_nhan: 'MB - 123456', ngay_thu: '2026-10-18', ghi_chu: 'Trả hết 1 lần' }
+  ]);
+  renderModalLichSu('KH THU 1 LẦN');
+  assert('Edge Cases', 'Đơn thu 1 lần: Hình thức TT hiển thị 💳 Chuyển khoản', layHinhThucThanhToanDon(donThu1Lan).includes('Chuyển khoản'));
+  assert('Edge Cases', 'Đơn thu 1 lần: hiển thị 1 đợt duy nhất gọn gàng', document.querySelectorAll('#row_NO_HD111 .dot-item').length === 1);
+
+  // Edge Case 3: Hoàn lại một khoản thu nợ (bấm nút ↩️)
+  // Đang có 3 đợt: 3M, 2M, 1.5M. Giờ hoàn lại đợt 2 (2M):
+  const dsTC1TruocHoan = layLichSuThuCuaDon(donTC1);
+  const idThuHoan = dsTC1TruocHoan[1].id;
+  // Cập nhật số tiền dòng này về 0
+  const rowHoan = thuNoTheoDon.get(donTC1.id).find(r => r.id === idThuHoan);
+  if (rowHoan) rowHoan.so_tien = 0;
+  donTC1.lichSuThu = donTC1.lichSuThu.filter(x => x.id !== idThuHoan);
+  donTC1.daThu -= 2000000;
+  donTC1.conLai += 2000000;
+  renderModalLichSu('KHÁCH HÀNG TEST TC1');
+  const dsTC1SauHoan = layLichSuThuCuaDon(donTC1);
+  assert('Edge Cases: Hoàn lại khoản gạch', 'Sau khi hoàn đợt 2: còn lại đúng 2 đợt (3M và 1.5M)', dsTC1SauHoan.length === 2 && dsTC1SauHoan[0].soTien === 3000000 && dsTC1SauHoan[1].soTien === 1500000);
+  assert('Edge Cases: Hoàn lại khoản gạch', 'Đã Thu giảm đúng 2M còn 4.500.000 đ', donTC1.daThu === 4500000);
+  assert('Edge Cases: Hoàn lại khoản gạch', 'Còn Lại tăng đúng 2M thành 5.500.000 đ', donTC1.conLai === 5500000);
+  assert('Edge Cases: Hoàn lại khoản gạch', 'Các đợt còn lại được đánh số lại liên tục (Đợt 1, Đợt 2)', dsTC1SauHoan[0].dot === 1 && dsTC1SauHoan[1].dot === 2);
+
+  // ========================================================
+  // HIỂN THỊ KẾT QUẢ RA GIAO DIỆN
+  // ========================================================
+  const statusBox = document.getElementById('statusBox');
+  const isAllPass = passCount === totalCount;
+  statusBox.className = 'status-box ' + (isAllPass ? 'status-pass' : 'status-fail');
+  statusBox.innerHTML = `${isAllPass ? '✅ TẤT CẢ CÁC CA KIỂM THỬ ĐÃ VƯỢT QUA THÀNH CÔNG!' : '❌ CÓ CA KIỂM THỬ THẤT BẠI!'} (${passCount}/${totalCount} assertions pass)`;
+
+  const groups = {};
+  results.forEach(r => {
+    if (!groups[r.group]) groups[r.group] = [];
+    groups[r.group].push(r);
+  });
+
+  const container = document.getElementById('testResults');
+  container.innerHTML = Object.keys(groups).map(gName => {
+    const items = groups[gName];
+    return `
+      <div class="test-group">
+        <div class="group-title">${escapeHtml(gName)} (${items.filter(x => x.passed).length}/${items.length})</div>
+        ${items.map(it => `
+          <div class="test-item">
+            <span class="${it.passed ? 'icon-pass' : 'icon-fail'}">${it.passed ? '✔' : '✖'}</span>
+            <div>
+              <b>${escapeHtml(it.title)}</b>
+              ${it.detail ? `<pre>${escapeHtml(typeof it.detail === 'object' ? JSON.stringify(it.detail, null, 2) : it.detail)}</pre>` : ''}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }).join('');
+</script>
+
+</body>
+</html>
