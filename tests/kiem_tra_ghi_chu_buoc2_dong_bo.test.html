@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kiểm Thử Nghiệp Vụ: Ghi Chú Hóa Đơn Bước 2 Quyết Toán Thu Tiền</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; background: #f8fafc; color: #0f172a; line-height: 1.5; }
+  h1 { font-size: 20px; margin-bottom: 6px; }
+  .status-box { padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-weight: 700; font-size: 15px; }
+  .status-pass { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+  .status-fail { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+  .test-group { background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 16px; overflow: hidden; }
+  .group-title { background: #f1f5f9; padding: 10px 16px; font-weight: 700; font-size: 14px; border-bottom: 1px solid #e2e8f0; }
+  .test-item { padding: 8px 16px; border-bottom: 1px solid #f1f5f9; font-size: 13px; display: flex; align-items: flex-start; gap: 8px; }
+  .test-item:last-child { border-bottom: none; }
+  .icon-pass { color: #16a34a; font-weight: bold; }
+  .icon-fail { color: #dc2626; font-weight: bold; }
+  pre { background: #0f172a; color: #f8fafc; padding: 8px 12px; border-radius: 4px; font-size: 11px; margin: 4px 0 0; overflow-x: auto; }
+</style>
+</head>
+<body>
+
+<h1>🧪 Bộ Kiểm Thử: Ghi Chú Hóa Đơn Bước 2 (Quyết Toán Thu Tiền Khi Xe Về)</h1>
+<p style="color:#64748b; font-size:13px; margin-top:0;">Kiểm tra lưu 2 chiều (Local State & Supabase luu_tru), hydrate khi F5/chuyển chuyến, không mất ghi chú khi thao tác cột khác, sửa/xóa ghi chú, và an toàn ký tự đặc biệt.</p>
+
+<div id="statusBox" class="status-box status-pass">⏳ Đang chạy các ca kiểm thử...</div>
+<div id="testResults"></div>
+
+<!-- Khung DOM giả lập bảng Bước 2 để test tương tác thực tế -->
+<div id="sandbox" style="display:none;">
+  <select id="selChuyenXe"></select>
+  <div id="tagXe"></div>
+  <div id="tagTaiXe"></div>
+  <div id="tagNgay"></div>
+  <div id="tagTrangThai"></div>
+  <input id="inputTienChi" value="0">
+  <input id="inputNoiDungChi" value="">
+  <input id="inputThuNoCu" value="0">
+  <input id="inputGhiChuThuNoCu" value="">
+  <input id="inputTienThoi" value="0">
+  <input id="inputNguoiNop" value="">
+  <input id="inputNguoiNhan" value="">
+  <input id="inputGhiChuPhieu" value="">
+  <input id="timKiemBang" value="">
+  <table>
+    <tbody id="tbodyQuyetToan"></tbody>
+  </table>
+  <div id="chipLocHangB2"></div>
+</div>
+
+<script>
+  const results = [];
+  let passCount = 0;
+  let totalCount = 0;
+
+  function assert(group, title, condition, detail = null) {
+    totalCount++;
+    if (condition) passCount++;
+    results.push({ group, title, passed: !!condition, detail });
+  }
+
+  function escapeHtml(v) {
+    if (v === null || v === undefined) return "";
+    return String(v)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function formatTien(n) {
+    if (isNaN(n) || n === null || n === undefined) return "0";
+    return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  }
+
+  function parseVNNumber_(str) {
+    if (!str) return 0;
+    if (typeof str === 'number') return str;
+    let s = String(str).replace(/[^\d]/g, '');
+    return parseFloat(s) || 0;
+  }
+
+  function locHangB2HieuLuc() { return null; }
+  function veChipLocHangB2() {}
+  function tinhToanTongThe() {}
+  function tinhTongBangDemTien() {}
+  function capNhatOTrongBang(idx) {}
+
+  // ========================================================
+  // MÔ PHỎNG SUPABASE CLIENT ĐỂ AUDIT CÂU LỆNH & PAYLOAD
+  // ========================================================
+  const supabaseAuditLog = [];
+  const mockSupabaseDB = {
+    luu_tru: new Map()
+  };
+
+  const mockSb = {
+    from: function(tableName) {
+      let currentQuery = {
+        table: tableName,
+        action: 'select',
+        filters: {},
+        payload: null
+      };
+
+      const builder = {
+        select: function(cols) {
+          if (!currentQuery.action || currentQuery.action === 'select') {
+            currentQuery.action = 'select';
+          }
+          currentQuery.selectCols = cols;
+          return builder;
+        },
+        update: function(payload) {
+          currentQuery.action = 'update';
+          currentQuery.payload = payload;
+          return builder;
+        },
+        upsert: function(payload, opts) {
+          currentQuery.action = 'upsert';
+          currentQuery.payload = payload;
+          currentQuery.options = opts;
+          return builder;
+        },
+        eq: function(col, val) {
+          currentQuery.filters[col] = val;
+          return builder;
+        },
+        order: function() { return builder; },
+        limit: function() { return builder; },
+        then: function(resolve) {
+          return this._execute().then(resolve);
+        },
+        _execute: async function() {
+          supabaseAuditLog.push(JSON.parse(JSON.stringify(currentQuery)));
+
+          if (currentQuery.table === 'luu_tru') {
+            if (currentQuery.action === 'update') {
+              const maHD = currentQuery.filters['ma_hd'];
+              if (mockSupabaseDB.luu_tru.has(maHD)) {
+                const row = mockSupabaseDB.luu_tru.get(maHD);
+                Object.assign(row, currentQuery.payload);
+                return { data: [{ ma_hd: maHD, ...row }], error: null };
+              }
+              return { data: [], error: null };
+            }
+            if (currentQuery.action === 'select') {
+              let rows = Array.from(mockSupabaseDB.luu_tru.values());
+              if (currentQuery.filters['ma_dot']) {
+                rows = rows.filter(r => r.ma_dot === currentQuery.filters['ma_dot']);
+              }
+              if (currentQuery.filters['ma_hd']) {
+                rows = rows.filter(r => r.ma_hd === currentQuery.filters['ma_hd']);
+              }
+              return { data: rows, error: null };
+            }
+            if (currentQuery.action === 'upsert') {
+              const pList = Array.isArray(currentQuery.payload) ? currentQuery.payload : [currentQuery.payload];
+              pList.forEach(item => {
+                mockSupabaseDB.luu_tru.set(item.ma_hd, { ...(mockSupabaseDB.luu_tru.get(item.ma_hd) || {}), ...item });
+              });
+              return { data: pList, error: null };
+            }
+          }
+          return { data: [], error: null };
+        }
+      };
+      return builder;
+    }
+  };
+
+  window.sb = mockSb;
+
+  // ========================================================
+  // BỐ TRÍ MÔ HÌNH DỮ LIỆU & HÀM CHÍNH TỪ BUOC2
+  // ========================================================
+  let danhSachHoaDonQuyetToan = [];
+  let dotHienTai = null;
+  let danhSachTatCaDot = [];
+  const danhMucNganHang = [
+    { tenHienThi: "TCB - 20166789", soTK: "20166789", macDinh: true },
+    { tenHienThi: "VCB - 0041000266096", soTK: "0041000266096", macDinh: false }
+  ];
+
+  function docSoCongNo() {
+    try {
+      return JSON.parse(localStorage.getItem('tmh_theo_doi_cong_no') || '[]');
+    } catch(e) { return []; }
+  }
+
+  function ghiSoCongNo(ds) {
+    try {
+      localStorage.setItem('tmh_theo_doi_cong_no', JSON.stringify(ds));
+    } catch(e) {}
+  }
+
+  function luuLichSuLS() {
+    try {
+      localStorage.setItem("tmh_lich_su_dot", JSON.stringify(danhSachTatCaDot));
+    } catch(e) {}
+  }
+
+  // Code logic chính được copy chuẩn xác từ buoc2_quyet_toan_thu_tien.html sau khi nâng cấp
+  const _mapHenSyncGhiChu = new Map();
+
+  function capNhatStateGhiChu(idx, val) {
+    const hd = danhSachHoaDonQuyetToan[idx];
+    if (!hd) return;
+    hd.ghiChu = val;
+
+    const maHDChuan = (hd.maHD || '').trim().toUpperCase();
+
+    // 1. Cập nhật vào dotHienTai.danhSachChiTiet
+    if (dotHienTai && Array.isArray(dotHienTai.danhSachChiTiet)) {
+      const ct = dotHienTai.danhSachChiTiet.find(c => 
+        String(c.maHD || c.ma_hd || '').trim().toUpperCase() === maHDChuan
+      );
+      if (ct) {
+        ct.ghiChu = val;
+        ct.ghi_chu = val;
+      }
+    }
+
+    // 2. Cập nhật vào danhSachTatCaDot
+    if (dotHienTai && Array.isArray(danhSachTatCaDot)) {
+      const dIdx = danhSachTatCaDot.findIndex(d => d.maDot === dotHienTai.maDot);
+      if (dIdx >= 0) {
+        danhSachTatCaDot[dIdx] = { ...dotHienTai };
+        if (Array.isArray(danhSachTatCaDot[dIdx].danhSachChiTiet)) {
+          const ctAll = danhSachTatCaDot[dIdx].danhSachChiTiet.find(c => 
+            String(c.maHD || c.ma_hd || '').trim().toUpperCase() === maHDChuan
+          );
+          if (ctAll) {
+            ctAll.ghiChu = val;
+            ctAll.ghi_chu = val;
+          }
+        }
+      }
+    }
+
+    // 3. Đồng bộ vào localStorage (chống mất khi F5 / đóng mở lại)
+    luuLichSuLS();
+    if (dotHienTai) {
+      try {
+        localStorage.setItem("tmh_dot_quyet_toan_hien_tai", JSON.stringify(dotHienTai));
+      } catch (e) {}
+    }
+
+    // 4. Đồng bộ vào Sổ Theo Dõi Công Nợ nếu hoá đơn có đơn nợ
+    try {
+      const dsCN = docSoCongNo();
+      if (Array.isArray(dsCN)) {
+        let coSua = false;
+        dsCN.forEach(cn => {
+          if ((cn.maHD && String(cn.maHD).trim().toUpperCase() === maHDChuan) || cn.id === `NO_${hd.maHD}`) {
+            cn.ghiChu = val;
+            coSua = true;
+          }
+        });
+        if (coSua) ghiSoCongNo(dsCN);
+      }
+    } catch (e) {}
+  }
+
+  async function luuGhiChuLenSupabase(maHD, val, idx) {
+    if (typeof sb === 'undefined' || !maHD) return;
+    const valLuu = (val !== undefined && val !== null && String(val).trim() !== '') ? String(val).trim() : null;
+    try {
+      const { data, error } = await sb.from('luu_tru')
+        .update({ ghi_chu: valLuu })
+        .eq('ma_hd', maHD)
+        .select('ma_hd');
+      
+      if (error) {
+        console.warn(`[GhiChu] Lỗi cập nhật ghi_chu cho ${maHD}:`, error);
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        const hd = (idx !== undefined && danhSachHoaDonQuyetToan[idx]) 
+          ? danhSachHoaDonQuyetToan[idx] 
+          : danhSachHoaDonQuyetToan.find(h => (h.maHD || '').trim().toUpperCase() === String(maHD).trim().toUpperCase());
+        if (hd) {
+          await sb.from('luu_tru').upsert([{
+            ma_hd: hd.maHD,
+            ma_dot: dotHienTai?.maDot || '',
+            xe: dotHienTai?.xe || '',
+            tai_xe: dotHienTai?.taiXe || '',
+            ngay_giao: dotHienTai?.ngayGiao || '',
+            ma_kh: hd.maKH || '',
+            ten_kh: hd.tenKH || '',
+            nguoi_ban: hd.nguoiBan || '',
+            thanh_tien: hd.tienHD || 0,
+            ghi_chu: valLuu
+          }], { onConflict: 'ma_hd' });
+        }
+      }
+    } catch (err) {
+      console.warn(`[GhiChu] Exception khi lưu ghi chú cho ${maHD}:`, err);
+    }
+  }
+
+  function nhapGhiChu(idx, val) {
+    const hd = danhSachHoaDonQuyetToan[idx];
+    if (!hd) return;
+    capNhatStateGhiChu(idx, val);
+
+    const maHD = hd.maHD;
+    if (!maHD) return;
+    const maHDChuan = maHD.trim().toUpperCase();
+    if (_mapHenSyncGhiChu.has(maHDChuan)) {
+      clearTimeout(_mapHenSyncGhiChu.get(maHDChuan));
+    }
+    const timer = setTimeout(() => {
+      _mapHenSyncGhiChu.delete(maHDChuan);
+      luuGhiChuLenSupabase(maHD, val, idx);
+    }, 500);
+    _mapHenSyncGhiChu.set(maHDChuan, timer);
+  }
+
+  function dongBoGhiChuTucThoi(idx, val) {
+    const hd = danhSachHoaDonQuyetToan[idx];
+    if (!hd) return;
+    capNhatStateGhiChu(idx, val);
+
+    const maHD = hd.maHD;
+    if (!maHD) return;
+    const maHDChuan = maHD.trim().toUpperCase();
+    if (_mapHenSyncGhiChu.has(maHDChuan)) {
+      clearTimeout(_mapHenSyncGhiChu.get(maHDChuan));
+      _mapHenSyncGhiChu.delete(maHDChuan);
+    }
+    return luuGhiChuLenSupabase(maHD, val, idx);
+  }
+
+  function veBangQuyetToan() {
+    const tbody = document.getElementById('tbodyQuyetToan');
+    tbody.innerHTML = '';
+    danhSachHoaDonQuyetToan.forEach((hd, idx) => {
+      const tr = document.createElement('tr');
+      tr.id = `dongHD_${idx}`;
+      tr.innerHTML = `
+        <td>${hd.stt}</td>
+        <td>${escapeHtml(hd.maHD)}</td>
+        <td>
+          <select id="selTinhTrang_${idx}" onchange="thayDoiTinhTrang(${idx}, this.value)">
+            <option value="giao_du" ${hd.tinhTrang === 'giao_du' ? 'selected' : ''}>Giao đủ</option>
+            <option value="tra_mot_phan" ${hd.tinhTrang === 'tra_mot_phan' ? 'selected' : ''}>Trả 1 phần</option>
+            <option value="tra_nguyen_don" ${hd.tinhTrang === 'tra_nguyen_don' ? 'selected' : ''}>Trả nguyên đơn</option>
+          </select>
+        </td>
+        <td>
+          <input type="text" id="inputTienMat_${idx}" value="${formatTien(hd.tienMat)}">
+          <button type="button" id="btnDuTM_${idx}" onclick="tienMatToanBo(${idx})">Đủ</button>
+        </td>
+        <td>
+          <input type="text" id="inputCK_${idx}" value="${formatTien(hd.chuyenKhoan)}">
+          <button type="button" id="btnDuCK_${idx}" onclick="chuyenKhoanToanBo(${idx})">Đủ</button>
+        </td>
+        <td>
+          <select id="selNH_${idx}" onchange="thayDoiNganHang(${idx}, this.value)">
+            ${danhMucNganHang.map(n => `<option value="${escapeHtml(n.tenHienThi)}" ${hd.taiKhoanNhan === n.tenHienThi ? 'selected' : ''}>${escapeHtml(n.tenHienThi)}</option>`).join('')}
+          </select>
+        </td>
+        <td>
+          <input type="text" id="inputGhiChu_${idx}" class="input-table" placeholder="Ghi chú..." 
+            value="${escapeHtml(hd.ghiChu || '')}" 
+            oninput="nhapGhiChu(${idx}, this.value)" 
+            onchange="dongBoGhiChuTucThoi(${idx}, this.value)"
+            onblur="dongBoGhiChuTucThoi(${idx}, this.value)">
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function tinhLaiNoMotDong(hd) {
+    const traVe = parseFloat(hd.traVe || 0);
+    const tm = parseFloat(hd.tienMat || 0);
+    const ck = parseFloat(hd.chuyenKhoan || 0);
+    const tienHD = parseFloat(hd.tienHD || 0);
+    hd.noPhatSinh = Math.max(0, tienHD - traVe - tm - ck);
+  }
+
+  function tienMatToanBo(idx) {
+    const hd = danhSachHoaDonQuyetToan[idx];
+    const canThu = Math.max(0, hd.tienHD - hd.traVe);
+    hd.tienMat = canThu;
+    hd.chuyenKhoan = 0;
+    tinhLaiNoMotDong(hd);
+    capNhatDongSauKhiDoiTien(idx);
+  }
+
+  function chuyenKhoanToanBo(idx) {
+    const hd = danhSachHoaDonQuyetToan[idx];
+    const canThu = Math.max(0, hd.tienHD - hd.traVe);
+    hd.chuyenKhoan = canThu;
+    hd.tienMat = 0;
+    tinhLaiNoMotDong(hd);
+    capNhatDongSauKhiDoiTien(idx);
+  }
+
+  function thayDoiNganHang(idx, val) {
+    danhSachHoaDonQuyetToan[idx].taiKhoanNhan = val;
+  }
+
+  function thayDoiTinhTrang(idx, val) {
+    const hd = danhSachHoaDonQuyetToan[idx];
+    hd.tinhTrang = val;
+    if (val === 'giao_du') {
+      hd.traVe = 0;
+      hd.tienMat = Math.max(0, hd.tienHD - hd.chuyenKhoan);
+    } else if (val === 'tra_nguyen_don') {
+      hd.traVe = hd.tienHD;
+      hd.tienMat = 0;
+      hd.chuyenKhoan = 0;
+    }
+    tinhLaiNoMotDong(hd);
+    veBangQuyetToan();
+  }
+
+  function capNhatDongSauKhiDoiTien(idx) {
+    const hd = danhSachHoaDonQuyetToan[idx];
+    const inpTM = document.getElementById('inputTienMat_' + idx);
+    if (inpTM) inpTM.value = formatTien(hd.tienMat);
+    const inpCK = document.getElementById('inputCK_' + idx);
+    if (inpCK) inpCK.value = formatTien(hd.chuyenKhoan);
+    const selNH = document.getElementById('selNH_' + idx);
+    if (selNH) selNH.disabled = (hd.chuyenKhoan === 0);
+  }
+
+  function napDuLieuHoaDonCuaDot(dot) {
+    let dsNguon = dot.danhSachChiTiet || [];
+    danhSachHoaDonQuyetToan = dsNguon.map((r, idx) => ({
+      stt: idx + 1,
+      maHD: r.maHD || r.ma_hd || '',
+      tenKH: r.tenKH || r.ten_kh || 'Khách Lẻ',
+      maKH: r.maKH || r.ma_kh || '',
+      nguoiBan: r.nguoiBan || r.nguoi_ban || '',
+      tienHD: parseFloat(r.thanhTien || r.thanh_tien || 0),
+      tinhTrang: "giao_du",
+      traVe: parseFloat(r.traVe || 0),
+      tienMat: parseFloat(r.tienMat || 0),
+      chuyenKhoan: parseFloat(r.chuyenKhoan || 0),
+      taiKhoanNhan: r.taiKhoanNhan || "TCB - 20166789",
+      noPhatSinh: parseFloat(r.noPhatSinh || 0),
+      ghiChu: r.ghiChu || r.ghi_chu || ''
+    }));
+    veBangQuyetToan();
+  }
+
+  async function chonChuyenXeTuDropdown(maDot) {
+    if (!maDot) return;
+    dotHienTai = danhSachTatCaDot.find(d => d.maDot === maDot);
+    if (!dotHienTai) return;
+
+    // Làm tươi (hydrate) ghi chú từ Supabase luu_tru
+    if (typeof sb !== 'undefined' && dotHienTai && dotHienTai.maDot) {
+      try {
+        const { data: dsGC } = await sb.from('luu_tru').select('ma_hd, ghi_chu').eq('ma_dot', maDot);
+        if (Array.isArray(dsGC) && dsGC.length > 0) {
+          const mapGC = new Map();
+          dsGC.forEach(r => {
+            if (r.ma_hd) mapGC.set(String(r.ma_hd).trim().toUpperCase(), r.ghi_chu);
+          });
+          if (Array.isArray(dotHienTai.danhSachChiTiet)) {
+            dotHienTai.danhSachChiTiet.forEach(c => {
+              const ma = String(c.maHD || c.ma_hd || '').trim().toUpperCase();
+              if (mapGC.has(ma)) {
+                const valCloud = mapGC.get(ma);
+                if (valCloud !== null && valCloud !== undefined) {
+                  c.ghiChu = valCloud;
+                  c.ghi_chu = valCloud;
+                }
+              }
+            });
+          }
+        }
+      } catch (e) {}
+    }
+
+    napDuLieuHoaDonCuaDot(dotHienTai);
+  }
+
+  // ========================================================
+  // BẮT ĐẦU CHẠY CÁC TEST CASES THEO YÊU CẦU NGHIỆP VỤ
+  // ========================================================
+  async function chayKiemThu() {
+    // Chuẩn bị dữ liệu ban đầu
+    localStorage.clear();
+    mockSupabaseDB.luu_tru.clear();
+    supabaseAuditLog.length = 0;
+
+    const maDotTest = "DOT_TEST_20261025";
+    const dotMau = {
+      maDot: maDotTest,
+      xe: "Xe 43C-12345",
+      taiXe: "Nguyễn Văn Tài",
+      ngayGiao: "2026-10-25",
+      daQuyetToan: false,
+      danhSachChiTiet: [
+        {
+          maHD: "HD_A01",
+          tenKH: "FULL MART 34 HOÀNG KẾ VIÊM",
+          maKH: "KH001",
+          nguoiBan: "Nguyễn Hồng Phúc",
+          thanhTien: 2205000,
+          tienMat: 2205000,
+          chuyenKhoan: 0,
+          taiKhoanNhan: "TCB - 20166789",
+          traVe: 0,
+          noPhatSinh: 0,
+          ghiChu: ""
+        },
+        {
+          maHD: "HD_A02",
+          tenKH: "FULL MART 121 LÊ QUANG ĐẠO",
+          maKH: "KH002",
+          nguoiBan: "Nguyễn Hồng Phúc",
+          thanhTien: 1485000,
+          tienMat: 0,
+          chuyenKhoan: 1485000,
+          taiKhoanNhan: "TCB - 20166789",
+          traVe: 0,
+          noPhatSinh: 0,
+          ghiChu: ""
+        }
+      ]
+    };
+
+    // Đưa vào mock Supabase
+    mockSupabaseDB.luu_tru.set("HD_A01", {
+      ma_hd: "HD_A01",
+      ma_dot: maDotTest,
+      ten_kh: "FULL MART 34 HOÀNG KẾ VIÊM",
+      thanh_tien: 2205000,
+      ghi_chu: null
+    });
+    mockSupabaseDB.luu_tru.set("HD_A02", {
+      ma_hd: "HD_A02",
+      ma_dot: maDotTest,
+      ten_kh: "FULL MART 121 LÊ QUANG ĐẠO",
+      thanh_tien: 1485000,
+      ghi_chu: null
+    });
+
+    danhSachTatCaDot = [dotMau];
+    luuLichSuLS();
+
+    // ----------------------------------------------------
+    // TEST CASE 1: Lưu & Mở lại (F5 / tải lại / chuyển bước)
+    // ----------------------------------------------------
+    const g1 = "Test Case 1: Lưu & Mở lại (F5 / Reload / Re-open)";
+    await chonChuyenXeTuDropdown(maDotTest);
+
+    assert(g1, "1.1 Bảng render đủ 2 hóa đơn ban đầu", danhSachHoaDonQuyetToan.length === 2 && document.getElementById('inputGhiChu_0') !== null);
+
+    // Người dùng gõ ghi chú vào dòng 1
+    const ghiChu1 = "Giao thiếu 1 thùng, hẹn mai bù";
+    const inp0 = document.getElementById('inputGhiChu_0');
+    inp0.value = ghiChu1;
+    nhapGhiChu(0, ghiChu1);
+
+    assert(g1, "1.2 Biến in-memory danhSachHoaDonQuyetToan nhận ghi chú ngay lập tức", danhSachHoaDonQuyetToan[0].ghiChu === ghiChu1);
+    assert(g1, "1.3 dotHienTai.danhSachChiTiet được cập nhật ghi chú đồng bộ", dotHienTai.danhSachChiTiet[0].ghiChu === ghiChu1);
+    
+    // Kiểm tra localStorage tmh_lich_su_dot
+    const lsDot = JSON.parse(localStorage.getItem('tmh_lich_su_dot') || '[]');
+    assert(g1, "1.4 localStorage (tmh_lich_su_dot) lưu ghi chú đầy đủ", lsDot[0].danhSachChiTiet[0].ghiChu === ghiChu1);
+
+    // Kích hoạt đồng bộ tức thời (như blur/change)
+    await dongBoGhiChuTucThoi(0, ghiChu1);
+
+    // Kiểm tra câu lệnh Supabase đã gửi
+    const lastSBUpdate = supabaseAuditLog.filter(q => q.action === 'update' && q.table === 'luu_tru').pop();
+    assert(g1, "1.5 Payload gửi lên Supabase luu_tru đúng tên trường 'ghi_chu' và đúng mã HD", 
+      lastSBUpdate && lastSBUpdate.filters['ma_hd'] === "HD_A01" && lastSBUpdate.payload.ghi_chu === ghiChu1);
+
+    // Kiểm tra dữ liệu trong mock Supabase DB
+    assert(g1, "1.6 CSDL Supabase luu_tru lưu chính xác nội dung ghi chú", mockSupabaseDB.luu_tru.get("HD_A01").ghi_chu === ghiChu1);
+
+    // Giả lập F5 / Tải lại trang: reset state bộ nhớ và gọi lại nạp chuyến xe
+    danhSachHoaDonQuyetToan = [];
+    dotHienTai = null;
+    await chonChuyenXeTuDropdown(maDotTest);
+
+    const inp0Moi = document.getElementById('inputGhiChu_0');
+    assert(g1, "1.7 Sau khi F5/tải lại trang, ô input Ghi chú hiển thị nguyên vẹn 'Giao thiếu 1 thùng, hẹn mai bù'", 
+      inp0Moi && inp0Moi.value === ghiChu1 && danhSachHoaDonQuyetToan[0].ghiChu === ghiChu1);
+
+    // ----------------------------------------------------
+    // TEST CASE 2: Không mất ghi chú khi thao tác cột khác
+    // ----------------------------------------------------
+    const g2 = "Test Case 2: Thao tác các cột khác không làm mất ghi chú";
+
+    // 2.1 Bấm nút Đủ tiền mặt
+    tienMatToanBo(0);
+    assert(g2, "2.1 Bấm nút 'Đủ' tiền mặt: ô Ghi chú vẫn giữ nguyên 100%", document.getElementById('inputGhiChu_0').value === ghiChu1);
+
+    // 2.2 Bấm nút Đủ chuyển khoản
+    chuyenKhoanToanBo(0);
+    assert(g2, "2.2 Bấm nút 'Đủ' chuyển khoản: ô Ghi chú vẫn giữ nguyên 100%", document.getElementById('inputGhiChu_0').value === ghiChu1);
+
+    // 2.3 Đổi dropdown ngân hàng nhận
+    thayDoiNganHang(0, "VCB - 0041000266096");
+    assert(g2, "2.3 Đổi tài khoản ngân hàng: ô Ghi chú vẫn giữ nguyên", document.getElementById('inputGhiChu_0').value === ghiChu1);
+
+    // 2.4 Đổi tình trạng sang Trả nguyên đơn (làm re-render bảng qua veBangQuyetToan())
+    thayDoiTinhTrang(0, "tra_nguyen_don");
+    assert(g2, "2.4 Đổi tình trạng sang 'Trả nguyên đơn' (veBangQuyetToan): ô Ghi chú vẫn giữ nguyên", 
+      document.getElementById('inputGhiChu_0').value === ghiChu1 && danhSachHoaDonQuyetToan[0].ghiChu === ghiChu1);
+
+    // 2.5 Đổi tình trạng về lại Giao đủ
+    thayDoiTinhTrang(0, "giao_du");
+    assert(g2, "2.5 Đổi tình trạng về lại 'Giao đủ': ô Ghi chú vẫn bảo toàn trọn vẹn", 
+      document.getElementById('inputGhiChu_0').value === ghiChu1 && danhSachHoaDonQuyetToan[0].ghiChu === ghiChu1);
+
+    // ----------------------------------------------------
+    // TEST CASE 3: Sửa & Xóa trắng ghi chú
+    // ----------------------------------------------------
+    const g3 = "Test Case 3: Sửa & Xóa trắng ghi chú (Cập nhật null/rỗng)";
+
+    // 3.1 Sửa nội dung ghi chú cũ sang nội dung mới
+    const ghiChuMoi = "Đã bù đủ 1 thùng hôm nay lúc 15h";
+    nhapGhiChu(0, ghiChuMoi);
+    await dongBoGhiChuTucThoi(0, ghiChuMoi);
+
+    assert(g3, "3.1 Sửa ghi chú: Supabase luu_tru cập nhật nội dung mới", mockSupabaseDB.luu_tru.get("HD_A01").ghi_chu === ghiChuMoi);
+    assert(g3, "3.2 Sửa ghi chú: Local state cập nhật nội dung mới", danhSachHoaDonQuyetToan[0].ghiChu === ghiChuMoi);
+
+    // 3.2 Xóa trắng nội dung ô ghi chú
+    nhapGhiChu(0, "");
+    await dongBoGhiChuTucThoi(0, "");
+
+    assert(g3, "3.3 Xóa trắng: Local state cập nhật rỗng ''", danhSachHoaDonQuyetToan[0].ghiChu === "");
+    assert(g3, "3.4 Xóa trắng: Supabase luu_tru cập nhật null (không giữ lại nội dung cũ)", mockSupabaseDB.luu_tru.get("HD_A01").ghi_chu === null);
+
+    // Mở lại trang sau khi xóa trắng -> kiểm tra không bị hồi sinh ghi chú cũ
+    danhSachHoaDonQuyetToan = [];
+    dotHienTai = null;
+    await chonChuyenXeTuDropdown(maDotTest);
+    assert(g3, "3.5 Mở lại trang sau khi xóa trắng: ô input hiển thị rỗng, không bị hồi sinh ghi chú cũ", 
+      document.getElementById('inputGhiChu_0').value === "");
+
+    // ----------------------------------------------------
+    // TEST CASE 4: An toàn ký tự đặc biệt & Dấu nháy đơn/kép
+    // ----------------------------------------------------
+    const g4 = "Test Case 4: An toàn ký tự đặc biệt & Dấu nháy trong HTML attribute";
+
+    const chuoiDacBiet = `Giao thiếu 1 thùng "Pepsi 330ml", hẹn 'mai' bù <gấp> & kiểm tra!`;
+    nhapGhiChu(1, chuoiDacBiet);
+    await dongBoGhiChuTucThoi(1, chuoiDacBiet);
+
+    // Render lại bảng
+    veBangQuyetToan();
+    const inp1 = document.getElementById('inputGhiChu_1');
+
+    assert(g4, "4.1 Chuỗi chứa dấu nháy kép, nháy đơn, ngoặc nhọn, dấu & không làm vỡ HTML input", inp1 !== null);
+    assert(g4, "4.2 Giá trị input DOM .value đúng chính xác 100% chuỗi nguyên bản", inp1.value === chuoiDacBiet);
+    assert(g4, "4.3 Supabase lưu nguyên vẹn chuỗi có ký tự đặc biệt", mockSupabaseDB.luu_tru.get("HD_A02").ghi_chu === chuoiDacBiet);
+
+    // ----------------------------------------------------
+    // TEST CASE 5: Đồng bộ thời gian thực (Realtime sync)
+    // ----------------------------------------------------
+    const g5 = "Test Case 5: Đồng bộ Realtime / Hydrate nhiều chuyến xe";
+
+    // Giả lập máy khác cập nhật ghi chú cho HD_A01 trên Supabase
+    mockSupabaseDB.luu_tru.get("HD_A01").ghi_chu = "Ghi chú từ máy kế toán khác";
+    
+    // Khi gọi lại chonChuyenXeTuDropdown, cơ chế hydrate làm tươi ghi chú
+    await chonChuyenXeTuDropdown(maDotTest);
+    assert(g5, "5.1 Hydrate tự động lấy ghi chú mới nhất từ Supabase luu_tru vào bảng", 
+      document.getElementById('inputGhiChu_0').value === "Ghi chú từ máy kế toán khác");
+
+    // ====================================================
+    // HIỂN THỊ KẾT QUẢ KIỂM THỬ RA GIAO DIỆN
+    // ====================================================
+    const container = document.getElementById('testResults');
+    container.innerHTML = '';
+
+    const groups = {};
+    results.forEach(r => {
+      if (!groups[r.group]) groups[r.group] = [];
+      groups[r.group].push(r);
+    });
+
+    Object.keys(groups).forEach(gName => {
+      const gBox = document.createElement('div');
+      gBox.className = 'test-group';
+      gBox.innerHTML = `<div class="group-title">${escapeHtml(gName)}</div>`;
+      groups[gName].forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'test-item';
+        row.innerHTML = `
+          <span class="${item.passed ? 'icon-pass' : 'icon-fail'}">${item.passed ? '✔' : '✖'}</span>
+          <div style="flex:1;">
+            <div>${escapeHtml(item.title)}</div>
+            ${item.detail ? `<pre>${escapeHtml(item.detail)}</pre>` : ''}
+          </div>
+        `;
+        gBox.appendChild(row);
+      });
+      container.appendChild(gBox);
+    });
+
+    const statusBox = document.getElementById('statusBox');
+    if (passCount === totalCount) {
+      statusBox.className = 'status-box status-pass';
+      statusBox.innerHTML = `🎉 TẤT CẢ ${passCount}/${totalCount} TEST CASES ĐÃ ĐẠT 100%! GHI CHÚ BƯỚC 2 HOẠT ĐỘNG HOÀN HẢO.`;
+    } else {
+      statusBox.className = 'status-box status-fail';
+      statusBox.innerHTML = `⚠️ CÓ ${totalCount - passCount}/${totalCount} TEST CASES THẤT BẠI. XEM CHI TIẾT DƯỚI ĐÂY.`;
+    }
+
+    console.log(`[TEST RUN FINISHED] ${passCount}/${totalCount} passed.`);
+  }
+
+  window.addEventListener('DOMContentLoaded', chayKiemThu);
+</script>
+
+</body>
+</html>

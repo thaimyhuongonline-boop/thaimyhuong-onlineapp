@@ -2118,7 +2118,39 @@
                   danhSachTatCaDot[idx].ngayGiao = dotSB.ngayGiao || danhSachTatCaDot[idx].ngayGiao;
                   danhSachTatCaDot[idx].ngayRaw = dotSB.ngayRaw || danhSachTatCaDot[idx].ngayRaw;
                   if (!dotHienTai || dotHienTai.maDot !== dotSB.maDot) {
+                    // Khi cập nhật chi tiết đợt từ Supabase: giữ lại ghi chú local nếu Supabase trả về rỗng
+                    if (Array.isArray(dotSB.danhSachChiTiet) && Array.isArray(danhSachTatCaDot[idx].danhSachChiTiet)) {
+                      const mapLoc = new Map();
+                      danhSachTatCaDot[idx].danhSachChiTiet.forEach(c => {
+                        const ma = String(c.maHD || c.ma_hd || '').trim().toUpperCase();
+                        if (ma && (c.ghiChu || c.ghi_chu)) mapLoc.set(ma, c.ghiChu || c.ghi_chu);
+                      });
+                      dotSB.danhSachChiTiet.forEach(cSB => {
+                        const ma = String(cSB.maHD || cSB.ma_hd || '').trim().toUpperCase();
+                        if ((!cSB.ghiChu || String(cSB.ghiChu).trim() === '') && mapLoc.has(ma)) {
+                          cSB.ghiChu = mapLoc.get(ma);
+                          cSB.ghi_chu = cSB.ghiChu;
+                        }
+                      });
+                    }
                     danhSachTatCaDot[idx].danhSachChiTiet = dotSB.danhSachChiTiet;
+                  } else if (dotHienTai && dotHienTai.maDot === dotSB.maDot && Array.isArray(dotSB.danhSachChiTiet)) {
+                    // Nếu chuyến đang mở được đồng bộ thời gian thực: cập nhật ghi chú từ cloud vào danh sách nếu người dùng không đang gõ ô đó
+                    const activeEl = document.activeElement;
+                    dotSB.danhSachChiTiet.forEach(cSB => {
+                      const ma = String(cSB.maHD || cSB.ma_hd || '').trim().toUpperCase();
+                      const hd = danhSachHoaDonQuyetToan.find(h => String(h.maHD || '').trim().toUpperCase() === ma);
+                      if (hd) {
+                        const inputEl = document.getElementById(`inputGhiChu_${hd.stt - 1}`);
+                        const isFocused = (activeEl && inputEl && activeEl === inputEl);
+                        if (!isFocused && cSB.ghiChu !== undefined && cSB.ghiChu !== null && cSB.ghiChu !== '') {
+                          hd.ghiChu = cSB.ghiChu;
+                          if (inputEl && inputEl.value !== hd.ghiChu) {
+                            inputEl.value = hd.ghiChu;
+                          }
+                        }
+                      }
+                    });
                   }
                 }
               });
@@ -2439,6 +2471,35 @@
             }
           }
         } catch (e) {}
+      }
+
+      // Luôn làm tươi ghi chú hoá đơn từ Supabase luu_tru cho chuyến xe đang chọn
+      if (typeof sb !== 'undefined' && dotHienTai && dotHienTai.maDot) {
+        try {
+          const { data: dsGC, error: errGC } = await sb.from('luu_tru')
+            .select('ma_hd, ghi_chu')
+            .eq('ma_dot', dotHienTai.maDot);
+          if (!errGC && Array.isArray(dsGC) && dsGC.length > 0) {
+            const mapGC = new Map();
+            dsGC.forEach(r => {
+              if (r.ma_hd) mapGC.set(String(r.ma_hd).trim().toUpperCase(), r.ghi_chu);
+            });
+            if (Array.isArray(dotHienTai.danhSachChiTiet)) {
+              dotHienTai.danhSachChiTiet.forEach(c => {
+                const ma = String(c.maHD || c.ma_hd || '').trim().toUpperCase();
+                if (mapGC.has(ma)) {
+                  const valCloud = mapGC.get(ma);
+                  if (valCloud !== null && valCloud !== undefined) {
+                    c.ghiChu = valCloud;
+                    c.ghi_chu = valCloud;
+                  }
+                }
+              });
+            }
+          }
+        } catch (e) {
+          console.warn("[GhiChu] Lỗi làm tươi ghi chú từ cloud khi chọn chuyến:", e);
+        }
       }
 
       // Cập nhật thanh thông tin chuyến xe
@@ -3149,12 +3210,21 @@
                 tenKH: r['Tên khách hàng'] || 'Khách Lẻ',
                 nguoiBan: r['Người bán'] || '',
                 maKH: r['Mã khách hàng'] || '',
-                thanhTien: 0
+                thanhTien: 0,
+                ghiChu: ''
               });
             }
             mapKiot.get(m).thanhTien += (parseFloat(r['Thành tiền']) || 0);
           }
         });
+        // Bổ sung ghi chú từ Sổ Công Nợ nếu có
+        try {
+          const dsCongNo = docSoCongNo();
+          mapKiot.forEach((val, m) => {
+            const cn = dsCongNo.find(c => String(c.maHD || '').trim().toUpperCase() === m);
+            if (cn && cn.ghiChu) val.ghiChu = cn.ghiChu;
+          });
+        } catch (e) {}
         dsNguon = Array.from(mapKiot.values());
       }
 
@@ -3319,7 +3389,11 @@
             ${hd.noPhatSinh > 0 ? formatTien(hd.noPhatSinh) : '0'}
           </td>
           <td>
-            <input type="text" class="input-table" placeholder="Ghi chú..." value="${escapeHtml(hd.ghiChu || '')}" oninput="nhapGhiChu(${idx}, this.value)" onchange="nhapGhiChu(${idx}, this.value)">
+            <input type="text" id="inputGhiChu_${idx}" class="input-table" placeholder="Ghi chú..." 
+              value="${escapeHtml(hd.ghiChu || '')}" 
+              oninput="nhapGhiChu(${idx}, this.value)" 
+              onchange="dongBoGhiChuTucThoi(${idx}, this.value)"
+              onblur="dongBoGhiChuTucThoi(${idx}, this.value)">
           </td>
         `;
         tbody.appendChild(tr);
@@ -3696,9 +3770,157 @@
       tinhToanTongThe();
     }
 
-    function nhapGhiChu(idx, val) {
-      danhSachHoaDonQuyetToan[idx].ghiChu = val;
+    // ========================================================
+    // QUẢN LÝ & ĐỒNG BỘ 2 CHIỀU GHI CHÚ HÓA ĐƠN QUYẾT TOÁN
+    // ========================================================
+    const _mapHenSyncGhiChu = new Map();
+
+    function capNhatStateGhiChu(idx, val) {
+      const hd = danhSachHoaDonQuyetToan[idx];
+      if (!hd) return;
+      hd.ghiChu = val;
+
+      const maHDChuan = (hd.maHD || '').trim().toUpperCase();
+
+      // 1. Cập nhật vào dotHienTai.danhSachChiTiet
+      if (dotHienTai && Array.isArray(dotHienTai.danhSachChiTiet)) {
+        const ct = dotHienTai.danhSachChiTiet.find(c => 
+          String(c.maHD || c.ma_hd || '').trim().toUpperCase() === maHDChuan
+        );
+        if (ct) {
+          ct.ghiChu = val;
+          ct.ghi_chu = val;
+        }
+      }
+
+      // 2. Cập nhật vào danhSachTatCaDot
+      if (dotHienTai && Array.isArray(danhSachTatCaDot)) {
+        const dIdx = danhSachTatCaDot.findIndex(d => d.maDot === dotHienTai.maDot);
+        if (dIdx >= 0) {
+          danhSachTatCaDot[dIdx] = { ...dotHienTai };
+          if (Array.isArray(danhSachTatCaDot[dIdx].danhSachChiTiet)) {
+            const ctAll = danhSachTatCaDot[dIdx].danhSachChiTiet.find(c => 
+              String(c.maHD || c.ma_hd || '').trim().toUpperCase() === maHDChuan
+            );
+            if (ctAll) {
+              ctAll.ghiChu = val;
+              ctAll.ghi_chu = val;
+            }
+          }
+        }
+      }
+
+      // 3. Đồng bộ vào localStorage (chống mất khi F5 / đóng mở lại)
+      luuLichSuLS();
+      if (dotHienTai) {
+        try {
+          localStorage.setItem("tmh_dot_quyet_toan_hien_tai", JSON.stringify(dotHienTai));
+        } catch (e) {}
+      }
+
+      // 4. Đồng bộ vào Sổ Theo Dõi Công Nợ nếu hoá đơn có đơn nợ
+      try {
+        const dsCN = docSoCongNo();
+        if (Array.isArray(dsCN)) {
+          let coSua = false;
+          dsCN.forEach(cn => {
+            if ((cn.maHD && String(cn.maHD).trim().toUpperCase() === maHDChuan) || cn.id === `NO_${hd.maHD}`) {
+              cn.ghiChu = val;
+              coSua = true;
+            }
+          });
+          if (coSua) ghiSoCongNo(dsCN);
+        }
+      } catch (e) {}
     }
+
+    async function luuGhiChuLenSupabase(maHD, val, idx) {
+      if (typeof sb === 'undefined' || !maHD) return;
+      const valLuu = (val !== undefined && val !== null && String(val).trim() !== '') ? String(val).trim() : null;
+      try {
+        const { data, error } = await sb.from('luu_tru')
+          .update({ ghi_chu: valLuu })
+          .eq('ma_hd', maHD)
+          .select('ma_hd');
+        
+        if (error) {
+          console.warn(`[GhiChu] Lỗi cập nhật ghi_chu cho ${maHD}:`, error);
+          return;
+        }
+
+        // Nếu hoá đơn chưa từng được tạo trên Supabase luu_tru, tự động upsert bản ghi cơ sở
+        if (!data || data.length === 0) {
+          const hd = (idx !== undefined && danhSachHoaDonQuyetToan[idx]) 
+            ? danhSachHoaDonQuyetToan[idx] 
+            : danhSachHoaDonQuyetToan.find(h => (h.maHD || '').trim().toUpperCase() === String(maHD).trim().toUpperCase());
+          if (hd && typeof upsertSupabaseTuTu === 'function') {
+            await upsertSupabaseTuTu('luu_tru', [{
+              ma_hd: hd.maHD,
+              ma_dot: dotHienTai?.maDot || '',
+              xe: dotHienTai?.xe || '',
+              tai_xe: dotHienTai?.taiXe || '',
+              ngay_giao: dotHienTai?.ngayGiao || '',
+              ma_kh: hd.maKH || '',
+              ten_kh: hd.tenKH || '',
+              nguoi_ban: hd.nguoiBan || '',
+              thanh_tien: hd.tienHD || 0,
+              ghi_chu: valLuu
+            }], { onConflict: 'ma_hd' });
+          }
+        }
+      } catch (err) {
+        console.warn(`[GhiChu] Exception khi lưu ghi chú cho ${maHD}:`, err);
+      }
+    }
+
+    function nhapGhiChu(idx, val) {
+      const hd = danhSachHoaDonQuyetToan[idx];
+      if (!hd) return;
+      // 1. Cập nhật state & local storage ngay lập tức
+      capNhatStateGhiChu(idx, val);
+
+      // 2. Debounce lưu lên Supabase (500ms để không spam mạng khi đang gõ liên tục)
+      const maHD = hd.maHD;
+      if (!maHD) return;
+      const maHDChuan = maHD.trim().toUpperCase();
+      if (_mapHenSyncGhiChu.has(maHDChuan)) {
+        clearTimeout(_mapHenSyncGhiChu.get(maHDChuan));
+      }
+      const timer = setTimeout(() => {
+        _mapHenSyncGhiChu.delete(maHDChuan);
+        luuGhiChuLenSupabase(maHD, val, idx);
+      }, 500);
+      _mapHenSyncGhiChu.set(maHDChuan, timer);
+    }
+
+    function dongBoGhiChuTucThoi(idx, val) {
+      const hd = danhSachHoaDonQuyetToan[idx];
+      if (!hd) return;
+      capNhatStateGhiChu(idx, val);
+
+      const maHD = hd.maHD;
+      if (!maHD) return;
+      const maHDChuan = maHD.trim().toUpperCase();
+      if (_mapHenSyncGhiChu.has(maHDChuan)) {
+        clearTimeout(_mapHenSyncGhiChu.get(maHDChuan));
+        _mapHenSyncGhiChu.delete(maHDChuan);
+      }
+      luuGhiChuLenSupabase(maHD, val, idx);
+    }
+
+    // Đảm bảo không mất ký tự cuối nếu người dùng gõ xong chuyển tab hoặc đóng trình duyệt
+    window.addEventListener('beforeunload', () => {
+      if (_mapHenSyncGhiChu && _mapHenSyncGhiChu.size > 0) {
+        _mapHenSyncGhiChu.forEach((timer, maChuan) => {
+          clearTimeout(timer);
+          const hd = danhSachHoaDonQuyetToan.find(h => (h.maHD || '').trim().toUpperCase() === maChuan);
+          if (hd) {
+            luuGhiChuLenSupabase(hd.maHD, hd.ghiChu);
+          }
+        });
+        _mapHenSyncGhiChu.clear();
+      }
+    });
 
     // ========================================================
     // CHỌN HÀNG TRẢ VỀ (TRẢ 1 PHẦN) → BƯỚC 3 TRỪ ĐÚNG MẶT HÀNG
