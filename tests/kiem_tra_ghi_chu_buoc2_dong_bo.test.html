@@ -209,6 +209,7 @@
     const hd = danhSachHoaDonQuyetToan[idx];
     if (!hd) return;
     hd.ghiChu = val;
+    hd.ghi_chu = val;
 
     const maHDChuan = (hd.maHD || '').trim().toUpperCase();
 
@@ -245,6 +246,18 @@
     if (dotHienTai) {
       try {
         localStorage.setItem("tmh_dot_quyet_toan_hien_tai", JSON.stringify(dotHienTai));
+      } catch (e) {}
+
+      try {
+        const keyGCLuu = `tmh_ghi_chu_hoa_don_${dotHienTai.maDot}`;
+        let mapGCLuu = {};
+        try { mapGCLuu = JSON.parse(localStorage.getItem(keyGCLuu) || '{}'); } catch(e){}
+        if (val && String(val).trim() !== '') {
+          mapGCLuu[maHDChuan] = String(val).trim();
+        } else {
+          delete mapGCLuu[maHDChuan];
+        }
+        localStorage.setItem(keyGCLuu, JSON.stringify(mapGCLuu));
       } catch (e) {}
     }
 
@@ -433,30 +446,66 @@
 
   function napDuLieuHoaDonCuaDot(dot) {
     let dsNguon = dot.danhSachChiTiet || [];
-    danhSachHoaDonQuyetToan = dsNguon.map((r, idx) => ({
-      stt: idx + 1,
-      maHD: r.maHD || r.ma_hd || '',
-      tenKH: r.tenKH || r.ten_kh || 'Khách Lẻ',
-      maKH: r.maKH || r.ma_kh || '',
-      nguoiBan: r.nguoiBan || r.nguoi_ban || '',
-      tienHD: parseFloat(r.thanhTien || r.thanh_tien || 0),
-      tinhTrang: "giao_du",
-      traVe: parseFloat(r.traVe || 0),
-      tienMat: parseFloat(r.tienMat || 0),
-      chuyenKhoan: parseFloat(r.chuyenKhoan || 0),
-      taiKhoanNhan: r.taiKhoanNhan || "TCB - 20166789",
-      noPhatSinh: parseFloat(r.noPhatSinh || 0),
-      ghiChu: r.ghiChu || r.ghi_chu || ''
-    }));
+    let mapGCLuu = {};
+    if (dot && dot.maDot) {
+      try {
+        mapGCLuu = JSON.parse(localStorage.getItem(`tmh_ghi_chu_hoa_don_${dot.maDot}`) || '{}');
+      } catch (e) {}
+    }
+
+    danhSachHoaDonQuyetToan = dsNguon.map((r, idx) => {
+      const maHD = r.maHD || r.ma_hd || '';
+      const maChuan = String(maHD).trim().toUpperCase();
+      let gc = (r.ghiChu !== undefined && r.ghiChu !== null && String(r.ghiChu).trim() !== '')
+        ? String(r.ghiChu).trim()
+        : ((r.ghi_chu !== undefined && r.ghi_chu !== null && String(r.ghi_chu).trim() !== '')
+          ? String(r.ghi_chu).trim()
+          : (mapGCLuu[maChuan] || ''));
+
+      r.ghiChu = gc;
+      r.ghi_chu = gc;
+
+      return {
+        stt: idx + 1,
+        maHD: maHD,
+        tenKH: r.tenKH || r.ten_kh || 'Khách Lẻ',
+        maKH: r.maKH || r.ma_kh || '',
+        nguoiBan: r.nguoiBan || r.nguoi_ban || '',
+        tienHD: parseFloat(r.thanhTien || r.thanh_tien || 0),
+        tinhTrang: "giao_du",
+        traVe: parseFloat(r.traVe || 0),
+        tienMat: parseFloat(r.tienMat || 0),
+        chuyenKhoan: parseFloat(r.chuyenKhoan || 0),
+        taiKhoanNhan: r.taiKhoanNhan || "TCB - 20166789",
+        noPhatSinh: parseFloat(r.noPhatSinh || 0),
+        ghiChu: gc,
+        ghi_chu: gc
+      };
+    });
     veBangQuyetToan();
   }
 
   async function chonChuyenXeTuDropdown(maDot) {
     if (!maDot) return;
     dotHienTai = danhSachTatCaDot.find(d => d.maDot === maDot);
+    if (!dotHienTai) {
+      try {
+        const dsLS = JSON.parse(localStorage.getItem('tmh_lich_su_dot') || '[]');
+        dotHienTai = dsLS.find(d => d.maDot === maDot);
+        if (dotHienTai) {
+          danhSachTatCaDot.push(dotHienTai);
+          window.danhSachTatCaDot = danhSachTatCaDot;
+        }
+      } catch (e) {}
+    }
     if (!dotHienTai) return;
 
-    // Làm tươi (hydrate) ghi chú từ Supabase luu_tru
+    let mapGCLuu = {};
+    try {
+      mapGCLuu = JSON.parse(localStorage.getItem(`tmh_ghi_chu_hoa_don_${dotHienTai.maDot}`) || '{}');
+    } catch (e) {}
+
+    // Làm tươi (hydrate) ghi chú từ Supabase luu_tru (bảo vệ chống đè rỗng)
     if (typeof sb !== 'undefined' && dotHienTai && dotHienTai.maDot) {
       try {
         const { data: dsGC } = await sb.from('luu_tru').select('ma_hd, ghi_chu').eq('ma_dot', maDot);
@@ -470,9 +519,9 @@
               const ma = String(c.maHD || c.ma_hd || '').trim().toUpperCase();
               if (mapGC.has(ma)) {
                 const valCloud = mapGC.get(ma);
-                if (valCloud !== null && valCloud !== undefined) {
-                  c.ghiChu = valCloud;
-                  c.ghi_chu = valCloud;
+                if (valCloud !== null && valCloud !== undefined && String(valCloud).trim() !== '') {
+                  c.ghiChu = String(valCloud).trim();
+                  c.ghi_chu = c.ghiChu;
                 }
               }
             });
@@ -481,7 +530,72 @@
       } catch (e) {}
     }
 
+    if (Array.isArray(dotHienTai.danhSachChiTiet) && Object.keys(mapGCLuu).length > 0) {
+      dotHienTai.danhSachChiTiet.forEach(c => {
+        const ma = String(c.maHD || c.ma_hd || '').trim().toUpperCase();
+        if ((!c.ghiChu || !String(c.ghiChu).trim()) && mapGCLuu[ma]) {
+          c.ghiChu = mapGCLuu[ma];
+          c.ghi_chu = mapGCLuu[ma];
+        }
+      });
+    }
+
+    const idxD = danhSachTatCaDot.findIndex(d => d.maDot === dotHienTai.maDot);
+    if (idxD >= 0) danhSachTatCaDot[idxD] = dotHienTai;
+    window.danhSachTatCaDot = danhSachTatCaDot;
+
     napDuLieuHoaDonCuaDot(dotHienTai);
+  }
+
+  async function luuKetQuaQuyetToanChiTiet() {
+    if (!dotHienTai) return;
+
+    // Thu thập DOM input trực tiếp
+    danhSachHoaDonQuyetToan.forEach((h, idx) => {
+      const inpGC = document.getElementById(`inputGhiChu_${idx}`);
+      if (inpGC) {
+        h.ghiChu = inpGC.value;
+        h.ghi_chu = inpGC.value;
+      }
+    });
+
+    dotHienTai.daQuyetToan = true;
+    dotHienTai.thoiGianQuyetToan = new Date().toISOString();
+    dotHienTai.danhSachChiTiet = danhSachHoaDonQuyetToan.map(h => ({
+      ...h,
+      ghiChu: (h.ghiChu !== undefined && h.ghiChu !== null) ? String(h.ghiChu).trim() : (h.ghi_chu || ''),
+      ghi_chu: (h.ghiChu !== undefined && h.ghiChu !== null) ? String(h.ghiChu).trim() : (h.ghi_chu || ''),
+      daKiemDon: true
+    }));
+
+    const mapGCLuuChuyen = {};
+    dotHienTai.danhSachChiTiet.forEach(h => {
+      const m = String(h.maHD || h.ma_hd || '').trim().toUpperCase();
+      if (m && (h.ghiChu || h.ghi_chu)) {
+        mapGCLuuChuyen[m] = String(h.ghiChu || h.ghi_chu).trim();
+      }
+    });
+    try {
+      localStorage.setItem(`tmh_ghi_chu_hoa_don_${dotHienTai.maDot}`, JSON.stringify(mapGCLuuChuyen));
+    } catch (e) {}
+
+    const dotCapNhat = JSON.parse(JSON.stringify(dotHienTai));
+    const idx = danhSachTatCaDot.findIndex(d => d.maDot === dotHienTai.maDot);
+    if (idx >= 0) danhSachTatCaDot[idx] = dotCapNhat;
+    else danhSachTatCaDot.unshift(dotCapNhat);
+
+    window.danhSachTatCaDot = danhSachTatCaDot;
+    luuLichSuLS();
+    localStorage.setItem("tmh_dot_quyet_toan_hien_tai", JSON.stringify(dotCapNhat));
+
+    if (typeof sb !== 'undefined') {
+      const rowsUpdate = danhSachHoaDonQuyetToan.map(h => ({
+        ma_hd: h.maHD,
+        ma_dot: dotHienTai.maDot,
+        ghi_chu: (h.ghiChu !== undefined && h.ghiChu !== null && String(h.ghiChu).trim() !== '') ? String(h.ghiChu).trim() : null
+      }));
+      await sb.from('luu_tru').upsert(rowsUpdate, { onConflict: 'ma_hd' });
+    }
   }
 
   // ========================================================
@@ -662,17 +776,102 @@
     assert(g4, "4.3 Supabase lưu nguyên vẹn chuỗi có ký tự đặc biệt", mockSupabaseDB.luu_tru.get("HD_A02").ghi_chu === chuoiDacBiet);
 
     // ----------------------------------------------------
-    // TEST CASE 5: Đồng bộ thời gian thực (Realtime sync)
+    // TEST CASE 6: Chuyến Đã quyết toán - Gõ ghi chú, Bấm Lưu, Chuyển xe khác và Quay lại
+    // (Mô phỏng 100% kịch bản thực tế của người dùng trên xe XE MÁY XANH CHIỀU)
     // ----------------------------------------------------
-    const g5 = "Test Case 5: Đồng bộ Realtime / Hydrate nhiều chuyến xe";
+    const g6 = "Test Case 6: Chuyến Đã quyết toán - Lưu, Chuyển xe khác & Quay lại";
 
-    // Giả lập máy khác cập nhật ghi chú cho HD_A01 trên Supabase
-    mockSupabaseDB.luu_tru.get("HD_A01").ghi_chu = "Ghi chú từ máy kế toán khác";
+    const maDotA = "DOT_XEMYXANHCHIU_20261017_6139";
+    const maDotB = "DOT_XETHUE2SANG_20261006";
+
+    const dotA = {
+      maDot: maDotA,
+      xe: "XE MÁY XANH CHIỀU",
+      taiXe: "PHUOC LONG",
+      ngayGiao: "17/10/2026",
+      daQuyetToan: true,
+      danhSachChiTiet: Array.from({ length: 11 }, (_, i) => ({
+        maHD: i === 9 ? "HD289677" : `HD28960${i}`,
+        tenKH: i === 9 ? "TH HẢI HÀ ĐÔNG, ĐIỆN HÒA" : `Khách hàng ${i + 1}`,
+        maKH: `KH00${i}`,
+        nguoiBan: "Đinh Thị Hồng Nhung",
+        thanhTien: 897000,
+        tienMat: 0,
+        chuyenKhoan: 897000,
+        taiKhoanNhan: "TCB - 20166789",
+        traVe: 0,
+        noPhatSinh: 0,
+        ghiChu: ""
+      }))
+    };
+
+    const dotB = {
+      maDot: maDotB,
+      xe: "XE THUÊ 2 SÁNG",
+      taiXe: "LINH",
+      ngayGiao: "06/10/2026",
+      daQuyetToan: true,
+      danhSachChiTiet: [
+        {
+          maHD: "HD999999",
+          tenKH: "Khách Xe Thuê",
+          thanhTien: 1000000,
+          tienMat: 1000000,
+          chuyenKhoan: 0,
+          taiKhoanNhan: "TCB - 20166789",
+          traVe: 0,
+          noPhatSinh: 0,
+          ghiChu: ""
+        }
+      ]
+    };
+
+    // Đưa cả 2 đợt vào danhSachTatCaDot
+    danhSachTatCaDot = [dotA, dotB];
+    luuLichSuLS();
+
+    // Bước 1: Người dùng chọn chuyến A
+    await chonChuyenXeTuDropdown(maDotA);
+    assert(g6, "6.1 Chọn chuyến A (XE MÁY XANH CHIỀU): render đủ 11 dòng hóa đơn", 
+      danhSachHoaDonQuyetToan.length === 11 && document.getElementById('inputGhiChu_9') !== null);
+
+    // Bước 2: Người dùng gõ "Tính test dữ liệu" vào ô Ghi chú dòng 10 (HD289677, idx=9)
+    const ghiChuTest = "Tính test dữ liệu";
+    const inpGC9 = document.getElementById('inputGhiChu_9');
+    inpGC9.value = ghiChuTest;
+    nhapGhiChu(9, ghiChuTest);
+
+    // Bước 3: Người dùng bấm nút "Lưu Quyết Toán Chuyến Xe"
+    await luuKetQuaQuyetToanChiTiet();
+
+    assert(g6, "6.2 Bấm Lưu: In-memory danhSachHoaDonQuyetToan giữ đúng ghi chú", 
+      danhSachHoaDonQuyetToan[9].ghiChu === ghiChuTest);
+    assert(g6, "6.3 Bấm Lưu: dotHienTai.danhSachChiTiet giữ đúng ghi chú", 
+      dotHienTai.danhSachChiTiet[9].ghiChu === ghiChuTest);
+    assert(g6, "6.4 Bấm Lưu: danhSachTatCaDot[0] trong cache bộ nhớ được cập nhật ghi chú mới nhất", 
+      danhSachTatCaDot.find(d => d.maDot === maDotA).danhSachChiTiet[9].ghiChu === ghiChuTest);
     
-    // Khi gọi lại chonChuyenXeTuDropdown, cơ chế hydrate làm tươi ghi chú
-    await chonChuyenXeTuDropdown(maDotTest);
-    assert(g5, "5.1 Hydrate tự động lấy ghi chú mới nhất từ Supabase luu_tru vào bảng", 
-      document.getElementById('inputGhiChu_0').value === "Ghi chú từ máy kế toán khác");
+    const mapGCLs = JSON.parse(localStorage.getItem(`tmh_ghi_chu_hoa_don_${maDotA}`) || '{}');
+    assert(g6, "6.5 Bấm Lưu: localStorage độc lập tmh_ghi_chu_hoa_don lưu chính xác 'HD289677' -> 'Tính test dữ liệu'", 
+      mapGCLs["HD289677"] === ghiChuTest);
+
+    // Bước 4: Người dùng chuyển sang chuyến xe khác trên dropdown (Chuyến B)
+    await chonChuyenXeTuDropdown(maDotB);
+    assert(g6, "6.6 Chuyển sang chuyến B (XE THUÊ 2 SÁNG): bảng hiển thị đúng chuyến B", 
+      dotHienTai.maDot === maDotB && danhSachHoaDonQuyetToan.length === 1);
+
+    // Bước 5: Người dùng chọn QUAY LẠI chuyến xe vừa lưu (Chuyến A)
+    await chonChuyenXeTuDropdown(maDotA);
+    assert(g6, "6.7 Quay lại chuyến A: dotHienTai nạp đúng chuyến A", 
+      dotHienTai.maDot === maDotA && danhSachHoaDonQuyetToan.length === 11);
+
+    const inpGC9SauKhiQuayLai = document.getElementById('inputGhiChu_9');
+    assert(g6, "6.8 KHÔNG BỊ MẤT TRẮNG: Ô input Ghi chú dòng 10 (HD289677) hiển thị đúng 'Tính test dữ liệu'", 
+      inpGC9SauKhiQuayLai && inpGC9SauKhiQuayLai.value === ghiChuTest);
+    assert(g6, "6.9 Dữ liệu danhSachHoaDonQuyetToan[9].ghiChu giữ nguyên vẹn 'Tính test dữ liệu'", 
+      danhSachHoaDonQuyetToan[9].ghiChu === ghiChuTest);
+    assert(g6, "6.10 Cả 2 trường ghiChu & ghi_chu đều được đồng bộ đồng nhất", 
+      danhSachHoaDonQuyetToan[9].ghi_chu === ghiChuTest && dotHienTai.danhSachChiTiet[9].ghi_chu === ghiChuTest);
 
     // ====================================================
     // HIỂN THỊ KẾT QUẢ KIỂM THỬ RA GIAO DIỆN
