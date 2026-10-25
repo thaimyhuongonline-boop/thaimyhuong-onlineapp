@@ -6364,12 +6364,12 @@
       const wb = new ExcelJS.Workbook();
       wb.creator = 'Thái Mỹ Hương';
       const ws = wb.addWorksheet('Cong_No', {
-        views: [{ state: 'frozen', xSplit: 3, ySplit: 5 }],
+        views: [{ state: 'frozen', xSplit: 4, ySplit: 5 }],
         pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
           margins: { left: 0.25, right: 0.25, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 }, printTitlesRow: '5:5' }
       });
       const soCotHang = dsCot.length;
-      const cotThanhTien = 4 + soCotHang, cotSoHD = cotThanhTien + 1, cotTrangThai = cotThanhTien + 2, cotTongHD = cotThanhTien + 3;
+      const cotThanhTien = 5 + soCotHang, cotSoHD = cotThanhTien + 1, cotTrangThai = cotThanhTien + 2, cotTongHD = cotThanhTien + 3;
       const soCot = cotTongHD;
       const FONT = 'Times New Roman';
       const vien = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
@@ -6379,7 +6379,7 @@
       // tên dài hơn thì xuống dòng (dòng tiêu đề tự cao lên, xem bên dưới)
       const tenCotHang = c => String(c.tenHang || c.maHang || '');
       const doRongCotHang = c => Math.min(16, Math.max(9, Math.ceil(tenCotHang(c).length / 3) + 2));
-      ws.columns = [{ width: 5 }, { width: 11 }, { width: 34 }]
+      ws.columns = [{ width: 5 }, { width: 11 }, { width: 34 }, { width: 22 }]
         .concat(dsCot.map(c => ({ width: doRongCotHang(c) })))
         .concat([{ width: 13 }, { width: 14 }, { width: 22 }, { width: 15 }]);
 
@@ -6412,26 +6412,36 @@
 
       // Dòng tiêu đề bảng (vàng như mẫu)
       const hangTieuDe = ws.getRow(5);
-      const tieuDeCot = ['STT', 'NGÀY', 'KHÁCH HÀNG']
+      const tieuDeCot = ['STT', 'NGÀY', 'KHÁCH HÀNG', 'NV BÁN HÀNG']
         .concat(dsCot.map(c => (c.tenHang || c.maHang) + (c.km ? '\n(KM)' : '')))   // tên sản phẩm (không có tên thì dùng mã)
         .concat(['THÀNH TIỀN', 'SỐ HĐ', 'TRẠNG THÁI THANH TOÁN', 'TỔNG TIỀN TRÊN HOÁ ĐƠN']);
       tieuDeCot.forEach((v, i) => {
         const c = hangTieuDe.getCell(i + 1);
         c.value = v;
-        c.font = { name: FONT, bold: true, size: i >= 3 && i < 3 + soCotHang ? 8 : 9 };
+        c.font = { name: FONT, bold: true, size: i >= 4 && i < 4 + soCotHang ? 8 : 9 };
         c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         c.fill = nen('FFFF00');
         c.border = vien;
       });
       // Tiêu đề cột đã là tên sản phẩm → ghi chú ô giữ MÃ HÀNG để đối chiếu KiotViet / MISA
       dsCot.forEach((cot, i) => {
-        hangTieuDe.getCell(4 + i).note = `Mã hàng: ${cot.maHang}` + (cot.tenHang ? `\n${cot.tenHang}` : '') + (cot.km ? ' (khuyến mãi)' : '');
+        hangTieuDe.getCell(5 + i).note = `Mã hàng: ${cot.maHang}` + (cot.tenHang ? `\n${cot.tenHang}` : '') + (cot.km ? ' (khuyến mãi)' : '');
       });
       // Tên sản phẩm dài xuống nhiều dòng → dòng tiêu đề cao hơn
       // (chữ cỡ 8: mỗi dòng chứa khoảng "độ rộng cột × 1,2" ký tự)
       const soDongTenNhieuNhat = dsCot.reduce((m, c) =>
         Math.max(m, Math.ceil(tenCotHang(c).length / (doRongCotHang(c) * 1.2)) + (c.km ? 1 : 0)), 1);
       hangTieuDe.height = Math.min(110, Math.max(42, soDongTenNhieuNhat * 11 + 8));
+
+      // Bảng tra cứu NV bán hàng theo khách (fallback khi đơn nợ trống nguoiBan nhưng khách đã có sales phụ trách)
+      const mapNVTheoKhach = new Map();
+      danhSachCongNo.forEach(item => {
+        const k = khoaKhachCongNo(item);
+        const nb = String(item.nguoiBan || '').trim();
+        if (k && nb && !mapNVTheoKhach.has(k)) {
+          mapNVTheoKhach.set(k, nb);
+        }
+      });
 
       // Các dòng hoá đơn
       let dongSo = 6;
@@ -6440,7 +6450,13 @@
         const cl = conLaiCuaDon(d);
         const daThu = d.daThu || 0;
         const tt = (d.trangThai === 'da_thu_du' || cl <= 0) ? 'Đã thanh toán' : (daThu > 0 ? 'Thanh toán một phần' : 'Chưa thanh toán');
-        const giaTri = [idx + 1, dinhDangNgayVN(ngayNoCuaDon(d)) || d.ngayGiao || '', tenKhachTrenBaoCao(khoaKhachCongNo(d), chung.soTu)]
+        let nvBanHang = String(d.nguoiBan || '').trim();
+        if (!nvBanHang) {
+          nvBanHang = String(mapNVTheoKhach.get(khoaKhachCongNo(d)) || '').trim();
+        }
+        if (nvBanHang === 'null' || nvBanHang === 'undefined') nvBanHang = '';
+
+        const giaTri = [idx + 1, dinhDangNgayVN(ngayNoCuaDon(d)) || d.ngayGiao || '', tenKhachTrenBaoCao(khoaKhachCongNo(d), chung.soTu), nvBanHang]
           .concat(dsCot.map(c => { const v = Math.round((m.get(c.khoa) || 0) * 1000) / 1000; return v ? v : null; }))
           .concat([d.tienHD || d.soTienNo || 0, d.maHD || '', tt, null]);
         const hang = ws.getRow(dongSo);
@@ -6451,17 +6467,33 @@
           c.border = vien;
           c.fill = nen(mauNen);
           c.font = { name: FONT, size: 10, bold: i + 1 === cotThanhTien };
-          c.alignment = { vertical: 'middle', horizontal: (i === 2) ? 'left' : 'center', wrapText: i === 2 };
+          c.alignment = { vertical: 'middle', horizontal: (i === 2 || i === 3) ? 'left' : 'center', wrapText: (i === 2 || i === 3) };
           if (i + 1 === cotThanhTien) { c.numFmt = '#,##0'; c.alignment = { vertical: 'middle', horizontal: 'right' }; }
         });
         dongSo++;
       });
 
+      const dongDuLieuCuoi = dongSo - 1;
+
+      // Hàm chuyển số thứ tự cột sang chữ cái Excel (1 -> A, 8 -> H, 27 -> AA...)
+      function cotSangChu(col) {
+        let s = '';
+        while (col > 0) {
+          const m = (col - 1) % 26;
+          s = String.fromCharCode(65 + m) + s;
+          col = Math.floor((col - 1) / 26);
+        }
+        return s;
+      }
+
+      // Mở rộng phạm vi AutoFilter cho toàn bộ các cột từ STT đến TỔNG TIỀN TRÊN HOÁ ĐƠN
+      ws.autoFilter = `${cotSangChu(1)}5:${cotSangChu(soCot)}${Math.max(5, dongDuLieuCuoi)}`;
+
       // Dòng tổng cộng
       const hangTong = ws.getRow(dongSo);
-      gop(dongSo, 1, 3);
+      gop(dongSo, 1, 4);
       hangTong.getCell(1).value = `TỔNG CỘNG (${dsDon.length} hoá đơn)`;
-      dsCot.forEach((c, i) => { const v = Math.round(c.tong * 1000) / 1000; hangTong.getCell(4 + i).value = v || null; });
+      dsCot.forEach((c, i) => { const v = Math.round(c.tong * 1000) / 1000; hangTong.getCell(5 + i).value = v || null; });
       hangTong.getCell(cotThanhTien).value = dsDon.reduce((s, d) => s + (d.tienHD || d.soTienNo || 0), 0);
       for (let i = 1; i <= soCot; i++) {
         const c = hangTong.getCell(i);

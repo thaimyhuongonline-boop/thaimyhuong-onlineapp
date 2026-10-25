@@ -203,18 +203,20 @@
       // ========================================================
       // TEST CASE 4: Xuất Excel theo mẫu - Đổi tên cột CL thành SỐ HĐ, CM thành TRẠNG THÁI THANH TOÁN
       // ========================================================
+      // TEST CASE 4: Xuất Excel theo mẫu - Bổ sung cột NV BÁN HÀNG, giữ SỐ HĐ và TRẠNG THÁI THANH TOÁN
+      // ========================================================
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet('Cong_No');
       const dsCotMock = [{ khoa: 'SP01', tenHang: 'Bia Saigon', km: false }];
       const soCotHang = dsCotMock.length;
-      const cotThanhTien = 4 + soCotHang;   // Cột CK (index 5)
-      const cotSoHD = cotThanhTien + 1;     // Cột CL (index 6)
-      const cotTrangThai = cotThanhTien + 2;// Cột CM (index 7)
-      const cotTongHD = cotThanhTien + 3;   // Cột CN (index 8)
+      const cotThanhTien = 5 + soCotHang;   // Cột 6
+      const cotSoHD = cotThanhTien + 1;     // Cột 7
+      const cotTrangThai = cotThanhTien + 2;// Cột 8
+      const cotTongHD = cotThanhTien + 3;   // Cột 9
 
       // Tiêu đề cột hàng 5
       const hangTieuDe = ws.getRow(5);
-      const tieuDeCot = ['STT', 'NGÀY', 'KHÁCH HÀNG']
+      const tieuDeCot = ['STT', 'NGÀY', 'KHÁCH HÀNG', 'NV BÁN HÀNG']
         .concat(dsCotMock.map(c => c.tenHang))
         .concat(['THÀNH TIỀN', 'SỐ HĐ', 'TRẠNG THÁI THANH TOÁN', 'TỔNG TIỀN TRÊN HOÁ ĐƠN']);
 
@@ -222,11 +224,11 @@
         hangTieuDe.getCell(i + 1).value = v;
       });
 
-      // Data 3 đơn với 3 trạng thái thanh toán khác nhau
+      // Data 3 đơn với 3 trạng thái thanh toán khác nhau và có sales
       const testDonExport = [
-        { maHD: 'HD285687', tenKH: 'HS MART', tienHD: 1656000, soTienNo: 1656000, daThu: 1656000, conLai: 0, trangThai: 'da_thu_du' },
-        { maHD: 'HD285693', tenKH: 'FULL MART', tienHD: 2180000, soTienNo: 2180000, daThu: 1000000, conLai: 1180000, trangThai: 'da_thu_mot_phan' },
-        { maHD: 'HD285696', tenKH: 'FAIFO MART', tienHD: 1663000, soTienNo: 1663000, daThu: 0, conLai: 1663000, trangThai: 'chua_thu' }
+        { maHD: 'HD285687', tenKH: 'HS MART', nguoiBan: 'Đặng Văn Tiến', tienHD: 1656000, soTienNo: 1656000, daThu: 1656000, conLai: 0, trangThai: 'da_thu_du' },
+        { maHD: 'HD285693', tenKH: 'FULL MART', nguoiBan: 'Lê Đức Tính', tienHD: 2180000, soTienNo: 2180000, daThu: 1000000, conLai: 1180000, trangThai: 'da_thu_mot_phan' },
+        { maHD: 'HD285696', tenKH: 'Khách Lẻ', nguoiBan: '', tienHD: 1663000, soTienNo: 1663000, daThu: 0, conLai: 1663000, trangThai: 'chua_thu' }
       ];
 
       let dongSo = 6;
@@ -234,7 +236,8 @@
         const cl = conLaiCuaDon(d);
         const daThu = d.daThu || 0;
         const tt = (d.trangThai === 'da_thu_du' || cl <= 0) ? 'Đã thanh toán' : (daThu > 0 ? 'Thanh toán một phần' : 'Chưa thanh toán');
-        const giaTri = [idx + 1, '14/10/2026', d.tenKH]
+        const nvBanHang = String(d.nguoiBan || '').trim();
+        const giaTri = [idx + 1, '14/10/2026', d.tenKH, nvBanHang]
           .concat([10]) // số lượng sản phẩm SP01
           .concat([d.tienHD, d.maHD || '', tt, null]);
 
@@ -246,22 +249,26 @@
       });
 
       // Kiểm tra tiêu đề cột tại dòng 5
-      kiemTra("Test 4.1: Tiêu đề cột CL (vị trí cũ 'GHI CHÚ') được đổi thành 'SỐ HĐ'", hangTieuDe.getCell(cotSoHD).value === 'SỐ HĐ');
-      kiemTra("Test 4.2: Tiêu đề cột CM (vị trí cũ 'SỐ HĐ') được đổi thành 'TRẠNG THÁI THANH TOÁN'", hangTieuDe.getCell(cotTrangThai).value === 'TRẠNG THÁI THANH TOÁN');
+      kiemTra("Test 4.1: Tiêu đề cột 4 là 'NV BÁN HÀNG'", hangTieuDe.getCell(4).value === 'NV BÁN HÀNG');
+      kiemTra("Test 4.2: Tiêu đề cột SỐ HĐ được định vị đúng sau THÀNH TIỀN", hangTieuDe.getCell(cotSoHD).value === 'SỐ HĐ');
+      kiemTra("Test 4.3: Tiêu đề cột TRẠNG THÁI THANH TOÁN được định vị đúng sau SỐ HĐ", hangTieuDe.getCell(cotTrangThai).value === 'TRẠNG THÁI THANH TOÁN');
 
       // Kiểm tra dữ liệu tại các dòng hoá đơn
       const row6 = ws.getRow(6);
       const row7 = ws.getRow(7);
       const row8 = ws.getRow(8);
 
-      kiemTra("Test 4.3: Dòng 1 cột SỐ HĐ chứa đúng mã HD285687", row6.getCell(cotSoHD).value === 'HD285687');
-      kiemTra("Test 4.4: Dòng 1 cột TRẠNG THÁI THANH TOÁN chứa 'Đã thanh toán'", row6.getCell(cotTrangThai).value === 'Đã thanh toán');
+      kiemTra("Test 4.4: Dòng 1 cột NV BÁN HÀNG chứa 'Đặng Văn Tiến'", row6.getCell(4).value === 'Đặng Văn Tiến');
+      kiemTra("Test 4.5: Dòng 1 cột SỐ HĐ chứa đúng mã HD285687", row6.getCell(cotSoHD).value === 'HD285687');
+      kiemTra("Test 4.6: Dòng 1 cột TRẠNG THÁI THANH TOÁN chứa 'Đã thanh toán'", row6.getCell(cotTrangThai).value === 'Đã thanh toán');
 
-      kiemTra("Test 4.5: Dòng 2 cột SỐ HĐ chứa đúng mã HD285693", row7.getCell(cotSoHD).value === 'HD285693');
-      kiemTra("Test 4.6: Dòng 2 cột TRẠNG THÁI THANH TOÁN chứa 'Thanh toán một phần'", row7.getCell(cotTrangThai).value === 'Thanh toán một phần');
+      kiemTra("Test 4.7: Dòng 2 cột NV BÁN HÀNG chứa 'Lê Đức Tính'", row7.getCell(4).value === 'Lê Đức Tính');
+      kiemTra("Test 4.8: Dòng 2 cột SỐ HĐ chứa đúng mã HD285693", row7.getCell(cotSoHD).value === 'HD285693');
+      kiemTra("Test 4.9: Dòng 2 cột TRẠNG THÁI THANH TOÁN chứa 'Thanh toán một phần'", row7.getCell(cotTrangThai).value === 'Thanh toán một phần');
 
-      kiemTra("Test 4.7: Dòng 3 cột SỐ HĐ chứa đúng mã HD285696", row8.getCell(cotSoHD).value === 'HD285696');
-      kiemTra("Test 4.8: Dòng 3 cột TRẠNG THÁI THANH TOÁN chứa 'Chưa thanh toán'", row8.getCell(cotTrangThai).value === 'Chưa thanh toán');
+      kiemTra("Test 4.10: Dòng 3 Khách Lẻ có ô NV BÁN HÀNG để trống sạch sẽ ('')", row8.getCell(4).value === '');
+      kiemTra("Test 4.11: Dòng 3 cột SỐ HĐ chứa đúng mã HD285696", row8.getCell(cotSoHD).value === 'HD285696');
+      kiemTra("Test 4.12: Dòng 3 cột TRẠNG THÁI THANH TOÁN chứa 'Chưa thanh toán'", row8.getCell(cotTrangThai).value === 'Chưa thanh toán');
 
       // ========================================================
       // TEST CASE 5: Kiểm tra trực tiếp file nguồn theo_doi_cong_no.html & buoc2_quyet_toan_thu_tien.html
@@ -279,8 +286,9 @@
         kiemTra("Test 5.5: Có hàm tnhlNhapChuyenKhoan", htmlTD.includes('function tnhlNhapChuyenKhoan('));
         kiemTra("Test 5.6: Có hàm tnhlNhapGhiChu", htmlTD.includes('function tnhlNhapGhiChu('));
         kiemTra("Test 5.7: Có cột 'Ghi Chú' trên bảng Chi Tiết Từng Hóa Đơn Nợ", htmlTD.includes('>Ghi Chú</th>'));
-        kiemTra("Test 5.8: xuatBaoCaoExcelTheoMau có tiêu đề cột 'SỐ HĐ'", htmlTD.includes("'SỐ HĐ'"));
-        kiemTra("Test 5.9: xuatBaoCaoExcelTheoMau có tiêu đề cột 'TRẠNG THÁI THANH TOÁN'", htmlTD.includes("'TRẠNG THÁI THANH TOÁN'"));
+        kiemTra("Test 5.8: xuatBaoCaoExcelTheoMau có tiêu đề cột 'NV BÁN HÀNG'", htmlTD.includes("'NV BÁN HÀNG'"));
+        kiemTra("Test 5.9: xuatBaoCaoExcelTheoMau có tiêu đề cột 'SỐ HĐ'", htmlTD.includes("'SỐ HĐ'"));
+        kiemTra("Test 5.10: xuatBaoCaoExcelTheoMau có tiêu đề cột 'TRẠNG THÁI THANH TOÁN'", htmlTD.includes("'TRẠNG THÁI THANH TOÁN'"));
 
         const xhrB2 = new XMLHttpRequest();
         xhrB2.open("GET", "../buoc2_quyet_toan_thu_tien.html", false);
