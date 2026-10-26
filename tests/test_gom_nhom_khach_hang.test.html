@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Test Gom Nhóm Hệ Thống Khách Hàng</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; background: #f8fafc; color: #0f172a; }
+  h1 { font-size: 20px; margin-bottom: 8px; color: #0369a1; }
+  .summary { padding: 12px 16px; border-radius: 8px; font-weight: 700; margin-bottom: 16px; font-size: 15px; }
+  .summary.pass { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+  .summary.fail { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+  .test-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .test-title { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .test-detail { font-size: 12.5px; color: #64748b; margin-top: 4px; font-family: monospace; white-space: pre-wrap; }
+  .badge-pass { background: #22c55e; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+  .badge-fail { background: #ef4444; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<h1>🧪 Test Gom Nhóm Hệ Thống Khách Hàng — theo_doi_cong_no.html</h1>
+<div id="summaryBox" class="summary">Đang chạy kiểm thử...</div>
+<div id="testResults"></div>
+
+<!-- GIAO DIỆN DOM TEST THỰC TẾ -->
+<div id="testArea" style="display:none;">
+  <!-- Filter Bar -->
+  <div id="filterBar">
+    <button type="button" id="btnInDoiChieu">🖨️ In Đối Chiếu</button>
+    <button type="button" class="btn btn-outline" id="btnQuanLyNhomKHFilter" onclick="moQuanLyNhom('')">
+      <span>⚙️</span> Quản lý Nhóm KH
+    </button>
+    <span id="lblSoLuongHienThi">0 mục</span>
+    <input type="text" id="timKiemCongNo" placeholder="Tìm tên khách...">
+    <select id="locKhachHang"><option value="tat_ca">Tất cả khách hàng</option></select>
+    <select id="locTrangThai"><option value="tat_ca">Tất cả trạng thái</option></select>
+    <select id="locNVBanHang"><option value="tat_ca">Tất cả NV</option></select>
+    <input type="date" id="locTuNgay">
+    <input type="date" id="locDenNgay">
+  </div>
+
+  <!-- KPI Cards -->
+  <div id="kpiTongNo">0 đ</div>
+  <div id="kpiConLai">0 đ</div>
+  <div id="kpiDaThu">0 đ</div>
+
+  <!-- Bulk Action Bar -->
+  <div class="thanh-chon" id="thanhChonCongNo" style="display:none;">
+    <div id="thanhChonNoiDung">Đã chọn 0 khách hàng</div>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button type="button" class="btn btn-sang" id="btnGomNhomKH" onclick="moModalGomNhomKH()">
+        <span>🏢</span> Gom nhóm KH
+      </button>
+      <button type="button" class="btn btn-sang" id="btnThuNoHangLoat" onclick="moThuNoHangLoat()">💰 Thu nợ hàng loạt</button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <table id="tableCongNo">
+    <thead id="theadCongNo"></thead>
+    <tbody id="tbodyCongNo"></tbody>
+    <tfoot id="tfootCongNo"></tfoot>
+  </table>
+
+  <!-- Modal Gom Nhom -->
+  <div id="modalGomNhomKH" style="display:none;">
+    <div id="modalHeaderTitle">🏢 Gom Nhóm Hệ Thống Khách Hàng</div>
+    <span id="gnkhSoKhachChon">0</span>
+    <div id="gnkhTongCongNoChon"></div>
+    <table><tbody id="gnkhBodyDsChon"></tbody></table>
+    <input type="radio" name="gnkhPhuongThuc" id="gnkhOptTaoMoi" value="tao_moi" checked onchange="gnkhDoiPhuongThuc()">
+    <input type="radio" name="gnkhPhuongThuc" id="gnkhOptGopCoSan" value="gop_co_san" onchange="gnkhDoiPhuongThuc()">
+    <div id="gnkhBoxTaoMoi"><input type="text" id="gnkhTenMoi"><select id="gnkhNVPhuTrach"></select><input type="number" id="gnkhSoNgay" value="5"><input type="text" id="gnkhSoTien" value="6.000.000"></div>
+    <div id="gnkhBoxGopCoSan" style="display:none;"><select id="gnkhChonHeThongCoSan"></select><div id="gnkhThongTinHeThongCoSan"></div></div>
+    <span id="gnkhSoLuongNhomHienCo">0</span>
+    <button type="button" id="gnkhBtnToggleQL" onclick="gnkhToggleQuanLyNhom()">👁️ Mở rộng xem</button>
+    <div id="gnkhKhungQuanLyNhom" style="display:none;"><div id="gnkhDsQuanLyNhom"></div></div>
+    <button type="button" id="btnHuyGomNhom" onclick="dongModalGomNhomKH()">✕ Hủy</button>
+    <button type="button" id="btnXacNhanGomNhom" onclick="xacNhanGomNhomKH()">💾 Lưu & Gom Nhóm</button>
+  </div>
+
+  <!-- Modal Lich Su -->
+  <div id="modalLichSuKhachHang" style="display:none;">
+    <div id="modalLichSuTitle"></div>
+    <table><tbody id="tbodyLichSuDon"></tbody></table>
+  </div>
+  </div>
+</div>
+
+<script src="../han_muc_cong_no.js"></script>
+
+<script>
+  const results = [];
+  function assert(name, pass, details = '') {
+    results.push({ name, pass: !!pass, details: String(details || '') });
+  }
+
+  function formatTien(n) {
+    return Math.round(Number(n) || 0).toLocaleString('vi-VN');
+  }
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+  }
+  function chuanHoaChuoiVN(str) {
+    if (!str) return '';
+    return str.toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').trim();
+  }
+
+  // Khởi tạo state
+  let cheDoXemHienTai = 'khach_hang';
+  let khachDaChon = new Set();
+  let donDaChon = new Set();
+  let gnkhDsKhachDangChon = [];
+
+  const mockCongNo = [
+    {
+      id: 'NO_HD288210', maHD: 'HD288210', maKH: 'KH005817',
+      tenKH: 'FPT LONG CHÂU MAI ĐĂNG CHƠN', diaChi: 'Mai Đăng Chơn, Hòa Hải', nguoiBan: 'THÁI MỸ HƯƠNG',
+      tienHD: 8000000, soTienNo: 8000000, daThu: 2500000, conLai: 5500000, trangThai: 'da_thu_mot_phan'
+    },
+    {
+      id: 'NO_HD288211', maHD: 'HD288211', maKH: 'KH005817',
+      tenKH: 'FPT LONG CHÂU MAI ĐĂNG CHƠN', diaChi: 'Mai Đăng Chơn, Hòa Hải', nguoiBan: 'THÁI MỸ HƯƠNG',
+      tienHD: 7300000, soTienNo: 7300000, daThu: 2000000, conLai: 5300000, trangThai: 'da_thu_mot_phan'
+    },
+    {
+      id: 'NO_HD288206', maHD: 'HD288206', maKH: 'KH001374',
+      tenKH: 'FPT LONG CHÂU PHAN ĐĂNG LƯU', diaChi: 'Phan Đăng Lưu, Hải Châu', nguoiBan: 'THÁI MỸ HƯƠNG',
+      tienHD: 7100000, soTienNo: 7100000, daThu: 2100000, conLai: 5000000, trangThai: 'da_thu_mot_phan'
+    },
+    {
+      id: 'NO_HD288207', maHD: 'HD288207', maKH: 'KH001374',
+      tenKH: 'FPT LONG CHÂU PHAN ĐĂNG LƯU', diaChi: 'Phan Đăng Lưu, Hải Châu', nguoiBan: 'THÁI MỸ HƯƠNG',
+      tienHD: 7000000, soTienNo: 7000000, daThu: 2100000, conLai: 4900000, trangThai: 'da_thu_mot_phan'
+    },
+    {
+      id: 'NO_HD286464', maHD: 'HD286464', maKH: 'KH008009',
+      tenKH: 'ABC MART FPT PLAZA VÕ QUÝ HUÂN', diaChi: 'FPT Plaza, Ngũ Hành Sơn', nguoiBan: 'Nguyễn Tống Duy Nam',
+      tienHD: 8978940, soTienNo: 8893500, daThu: 0, conLai: 8893500, trangThai: 'chua_thu'
+    }
+  ];
+
+  let danhSachCongNo = JSON.parse(JSON.stringify(mockCongNo));
+
+  function conLaiCuaDon(d) {
+    if (d.conLai !== undefined) return d.conLai;
+    return Math.max(0, (d.soTienNo || 0) - (d.daThu || 0));
+  }
+  function khoaKhachCongNo(d) {
+    return (d.tenKH || 'Khách Lẻ').trim();
+  }
+
+  // Khởi tạo cấu hình hạn mức
+  _cauHinhHanMuc = {
+    caNhan: { soNgay: 5, soTien: 6000000 },
+    nhom: []
+  };
+
+  function luuCacDongHanMucSync(dsDong) {
+    dsDong.forEach(d => {
+      const idx = _cauHinhHanMuc.nhom.findIndex(n => n.id === d.id);
+      const nhomObj = {
+        id: d.id,
+        ten: d.ten_nhom,
+        loai: 'nhom',
+        soNgay: d.han_muc_ngay,
+        soTien: d.han_muc_tien,
+        cachTinh: d.cach_tinh,
+        thanhVien: d.thanh_vien || []
+      };
+      if (idx >= 0) _cauHinhHanMuc.nhom[idx] = nhomObj;
+      else _cauHinhHanMuc.nhom.push(nhomObj);
+    });
+    localStorage.setItem('tmh_han_muc_cong_no', JSON.stringify(
+      _cauHinhHanMuc.nhom.map(n => dongTuNhomHM(n))
+    ));
+    return { ok: true };
+  }
+
+  function xoaDongHanMucSync(id) {
+    _cauHinhHanMuc.nhom = _cauHinhHanMuc.nhom.filter(n => n.id !== id);
+    localStorage.setItem('tmh_han_muc_cong_no', JSON.stringify(
+      _cauHinhHanMuc.nhom.map(n => dongTuNhomHM(n))
+    ));
+    return { ok: true };
+  }
+
+  function timNhomCuaKhach(d) {
+    if (!_cauHinhHanMuc || !Array.isArray(_cauHinhHanMuc.nhom) || !_cauHinhHanMuc.nhom.length) return null;
+    const ten = (d.tenKH || '').trim().toLowerCase();
+    const ma = (d.maKH || '').trim().toUpperCase();
+    return _cauHinhHanMuc.nhom.find(n => {
+      if (n.ten && n.ten.trim().toLowerCase() === ten) return true;
+      if (!Array.isArray(n.thanhVien)) return false;
+      return n.thanhVien.some(tv => {
+        const maTV = (tv.maKH || '').trim().toUpperCase();
+        const tenTV = (tv.tenKH || '').trim().toLowerCase();
+        return (ma && maTV && ma === maTV) || (ten && tenTV && ten === tenTV);
+      });
+    }) || null;
+  }
+
+  function layDonDaChon() {
+    const tapNhom = new Set();
+    if (_cauHinhHanMuc && Array.isArray(_cauHinhHanMuc.nhom)) {
+      _cauHinhHanMuc.nhom.forEach(n => {
+        if (khachDaChon.has(n.ten)) {
+          (n.thanhVien || []).forEach(tv => { if (tv.tenKH) tapNhom.add(tv.tenKH.trim()); });
+        }
+      });
+    }
+    return danhSachCongNo.filter(d => {
+      const ten = khoaKhachCongNo(d);
+      return khachDaChon.has(ten) || tapNhom.has(ten) || donDaChon.has(d.id);
+    });
+  }
+
+  function capNhatThanhChon() {
+    const thanh = document.getElementById('thanhChonCongNo');
+    if (!khachDaChon.size && !donDaChon.size) {
+      thanh.style.display = 'none';
+      return;
+    }
+    const ds = layDonDaChon();
+    if (!ds.length) {
+      thanh.style.display = 'none';
+      return;
+    }
+    const btnGom = document.getElementById('btnGomNhomKH');
+    if (btnGom) btnGom.style.display = cheDoXemHienTai === 'khach_hang' ? 'inline-flex' : 'none';
+    thanh.style.display = 'flex';
+  }
+
+  function capNhatKPI() {
+    let tongNo = 0, daThu = 0, conLai = 0;
+    danhSachCongNo.forEach(d => {
+      tongNo += (d.soTienNo || 0);
+      daThu += (d.daThu || 0);
+      conLai += conLaiCuaDon(d);
+    });
+    document.getElementById('kpiTongNo').textContent = formatTien(tongNo) + ' đ';
+    document.getElementById('kpiDaThu').textContent = formatTien(daThu) + ' đ';
+    document.getElementById('kpiConLai').textContent = formatTien(conLai) + ' đ';
+  }
+
+  function veBangCongNo() {
+    const tbody = document.getElementById('tbodyCongNo');
+    const tuKhoa = (document.getElementById('timKiemCongNo')?.value || '').trim().toLowerCase();
+    const cleanTK = chuanHoaChuoiVN(tuKhoa);
+
+    const dsLoc = danhSachCongNo.filter(d => {
+      if (tuKhoa) {
+        const nhom = timNhomCuaKhach(d);
+        const tenNhomChuan = nhom ? chuanHoaChuoiVN(nhom.ten) : '';
+        const nhomKhop = nhom && (
+          tenNhomChuan.includes(cleanTK) ||
+          (Array.isArray(nhom.thanhVien) && nhom.thanhVien.some(tv =>
+            chuanHoaChuoiVN(tv.tenKH).includes(cleanTK) ||
+            chuanHoaChuoiVN(tv.maKH).includes(cleanTK) ||
+            chuanHoaChuoiVN(tv.diaChi).includes(cleanTK)
+          ))
+        );
+        const match = nhomKhop ||
+                      chuanHoaChuoiVN(d.maHD).includes(cleanTK) ||
+                      chuanHoaChuoiVN(d.tenKH).includes(cleanTK) ||
+                      chuanHoaChuoiVN(d.maKH).includes(cleanTK) ||
+                      chuanHoaChuoiVN(d.diaChi).includes(cleanTK) ||
+                      chuanHoaChuoiVN(d.nguoiBan).includes(cleanTK);
+        if (!match) return false;
+      }
+      return true;
+    });
+
+    const mapKH = new Map();
+    dsLoc.forEach(d => {
+      const nhom = timNhomCuaKhach(d);
+      const key = nhom ? nhom.ten : (d.tenKH || 'Khách Lẻ').trim();
+      if (!mapKH.has(key)) {
+        mapKH.set(key, {
+          tenKH: key,
+          laHeThong: !!nhom,
+          nhomId: nhom ? nhom.id : null,
+          danhSachDiemBan: new Map(),
+          soDon: 0,
+          tongTienHD: 0,
+          tongNo: 0,
+          tongDaThu: 0,
+          tongConLai: 0,
+          danhSachDon: []
+        });
+      }
+      const group = mapKH.get(key);
+      const cl = conLaiCuaDon(d);
+      group.soDon++;
+      group.tongTienHD += (d.tienHD || 0);
+      group.tongNo += (d.soTienNo || 0);
+      group.tongDaThu += (d.daThu || 0);
+      group.tongConLai += cl;
+      group.danhSachDon.push(d);
+
+      if (nhom) {
+        const tenCon = (d.tenKH || 'Khách Lẻ').trim();
+        if (!group.danhSachDiemBan.has(tenCon)) {
+          group.danhSachDiemBan.set(tenCon, {
+            maKH: d.maKH || '', tenKH: tenCon, diaChi: d.diaChi || '',
+            soDon: 0, tongNo: 0, tongDaThu: 0, tongConLai: 0
+          });
+        }
+        const db = group.danhSachDiemBan.get(tenCon);
+        db.soDon++;
+        db.tongNo += (d.soTienNo || 0);
+        db.tongDaThu += (d.daThu || 0);
+        db.tongConLai += cl;
+      }
+    });
+
+    const dsKH = Array.from(mapKH.values());
+    document.getElementById('lblSoLuongHienThi').textContent = `${dsKH.length} khách hàng`;
+
+    tbody.innerHTML = dsKH.map(k => `
+      <tr class="${khachDaChon.has(k.tenKH) ? 'dong-da-chon' : ''}">
+        <td class="o-chon"><input type="checkbox" data-kh="${escapeHtml(k.tenKH)}" ${khachDaChon.has(k.tenKH) ? 'checked' : ''}></td>
+        <td>
+          ${k.laHeThong ? `
+            <b>${escapeHtml(k.tenKH)}</b>
+            <span class="badge-status">🏢 Hệ thống: ${k.danhSachDiemBan.size} điểm bán</span>
+            <button type="button" class="btn btn-outline" data-count="${k.danhSachDiemBan.size}"
+              onclick="toggleXemChiNhanhNhom('${escapeHtml(k.tenKH)}', this)">
+              ▼ Xem ${k.danhSachDiemBan.size} điểm bán
+            </button>
+            <div id="dsChiNhanh_${escapeHtml(k.tenKH).replace(/[^a-zA-Z0-9]/g, '_')}" style="display:none;">
+              ${Array.from(k.danhSachDiemBan.values()).map(db => `
+                <div>
+                  <b>${escapeHtml(db.tenKH)}</b> (${formatTien(db.tongConLai)} đ)
+                  <button type="button" onclick="tachKhachKhoiNhom('${k.nhomId}', '${escapeHtml(db.tenKH)}')">✕ Tách khỏi nhóm</button>
+                </div>
+              `).join('')}
+            </div>
+          ` : `<b>${escapeHtml(k.tenKH)}</b>`}
+        </td>
+        <td>${k.soDon} đơn</td>
+        <td>${formatTien(k.tongTienHD)}</td>
+        <td>${formatTien(k.tongNo)}</td>
+        <td>${formatTien(k.tongDaThu)}</td>
+        <td>${formatTien(k.tongConLai)}</td>
+      </tr>
+    `).join('');
+  }
+
+  function toggleXemChiNhanhNhom(tenNhom, btn) {
+    const idSafe = 'dsChiNhanh_' + String(tenNhom).replace(/[^a-zA-Z0-9]/g, '_');
+    const box = document.getElementById(idSafe);
+    if (box) {
+      const dangHien = box.style.display !== 'none';
+      box.style.display = dangHien ? 'none' : 'block';
+      if (btn) {
+        const soLuong = btn.getAttribute('data-count') || '';
+        btn.innerHTML = dangHien ? `▼ Xem ${soLuong} điểm bán` : `▲ Thu gọn (${soLuong})`;
+      }
+    }
+  }
+
+  function gnkhDoiPhuongThuc() {
+    const isTaoMoi = document.getElementById('gnkhOptTaoMoi')?.checked;
+    document.getElementById('gnkhBoxTaoMoi').style.display = isTaoMoi ? 'block' : 'none';
+    document.getElementById('gnkhBoxGopCoSan').style.display = isTaoMoi ? 'none' : 'block';
+  }
+
+  function gnkhVeBangDanhSachChon() {
+    const tbody = document.getElementById('gnkhBodyDsChon');
+    document.getElementById('gnkhSoKhachChon').textContent = gnkhDsKhachDangChon.length;
+    if (!gnkhDsKhachDangChon.length) {
+      tbody.innerHTML = `<tr><td colspan="8">Không còn khách hàng nào.</td></tr>`;
+      document.getElementById('gnkhTongCongNoChon').textContent = '';
+      return;
+    }
+    let sumTongNo = 0, sumConLai = 0;
+    tbody.innerHTML = gnkhDsKhachDangChon.map((k, idx) => {
+      sumTongNo += (k.tongNo || 0);
+      sumConLai += (k.tongConLai || 0);
+      return `
+        <tr>
+          <td>${idx + 1}</td>
+          <td><b>${escapeHtml(k.tenKH)}</b></td>
+          <td>${escapeHtml(k.maKH || '--')}</td>
+          <td>${k.soDon} đơn</td>
+          <td>${formatTien(k.tongNo)}</td>
+          <td>${formatTien(k.tongConLai)}</td>
+          <td>
+            <button type="button" onclick="gnkhBoKhachKhoiDanhSachChon('${escapeHtml(k.tenKH)}')">✕</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+    document.getElementById('gnkhTongCongNoChon').textContent = `Tổng nợ: ${formatTien(sumTongNo)} đ · Còn nợ: ${formatTien(sumConLai)} đ`;
+  }
+
+  function gnkhBoKhachKhoiDanhSachChon(tenKH) {
+    gnkhDsKhachDangChon = (gnkhDsKhachDangChon || []).filter(k => k.tenKH !== tenKH);
+    khachDaChon.delete(tenKH);
+    capNhatThanhChon();
+    gnkhVeBangDanhSachChon();
+  }
+
+  function moModalGomNhomKH() {
+    const mapKhachChon = new Map();
+    layDonDaChon().forEach(d => {
+      const ten = (d.tenKH || 'Khách Lẻ').trim();
+      if (!mapKhachChon.has(ten)) {
+        mapKhachChon.set(ten, {
+          tenKH: ten, maKH: d.maKH || '', diaChi: d.diaChi || '',
+          nguoiBan: d.nguoiBan || '', soDon: 0, tongNo: 0, tongConLai: 0
+        });
+      }
+      const item = mapKhachChon.get(ten);
+      item.soDon++;
+      item.tongNo += (d.soTienNo || 0);
+      item.tongConLai += conLaiCuaDon(d);
+    });
+
+    gnkhDsKhachDangChon = Array.from(mapKhachChon.values());
+    gnkhVeBangDanhSachChon();
+    document.getElementById('modalGomNhomKH').style.display = 'block';
+  }
+
+  function dongModalGomNhomKH() {
+    document.getElementById('modalGomNhomKH').style.display = 'none';
+  }
+
+  function xacNhanGomNhomKH() {
+    const phuongThuc = document.querySelector('input[name="gnkhPhuongThuc"]:checked')?.value || 'tao_moi';
+    const thanhVienMoi = gnkhDsKhachDangChon.map(k => ({
+      maKH: k.maKH || '',
+      tenKH: k.tenKH,
+      diaChi: k.diaChi || ''
+    }));
+
+    if (phuongThuc === 'tao_moi') {
+      const tenHeThong = (document.getElementById('gnkhTenMoi')?.value || '').trim().toUpperCase();
+      const nhomMoi = {
+        id: 'NHOM_HT_TEST_' + Date.now(),
+        ten: tenHeThong,
+        loai: 'nhom',
+        soNgay: 5,
+        soTien: 6000000,
+        cachTinh: 'tong_nhom',
+        thanhVien: thanhVienMoi
+      };
+      luuCacDongHanMucSync([dongTuNhomHM(nhomMoi)]);
+      khachDaChon.clear();
+      dongModalGomNhomKH();
+      veBangCongNo();
+    }
+  }
+
+  function tachKhachKhoiNhom(nhomId, tenKH) {
+    const nhom = _cauHinhHanMuc && _cauHinhHanMuc.nhom ? _cauHinhHanMuc.nhom.find(x => x.id === nhomId) : null;
+    if (!nhom) return;
+    const conLai = nhom.thanhVien.filter(tv => tv.tenKH !== tenKH);
+    if (conLai.length === 0) {
+      giaiTanNhomKH(nhomId);
+      return;
+    }
+    const nhomMoi = Object.assign({}, nhom, { thanhVien: conLai });
+    luuCacDongHanMucSync([dongTuNhomHM(nhomMoi)]);
+    veBangCongNo();
+  }
+
+  function giaiTanNhomKH(nhomId) {
+    xoaDongHanMucSync(nhomId);
+    dongModalGomNhomKH();
+    veBangCongNo();
+  }
+
+  function moLichSuDonKhachHang(tenKHRaw) {
+    const tenKH = decodeURIComponent(tenKHRaw);
+    const nhom = (_cauHinhHanMuc && _cauHinhHanMuc.nhom) ? _cauHinhHanMuc.nhom.find(n => n.ten === tenKH) : null;
+    const dsCuaKH = nhom
+      ? danhSachCongNo.filter(d => {
+          const n = timNhomCuaKhach(d);
+          return n && n.id === nhom.id;
+        })
+      : danhSachCongNo.filter(d => (d.tenKH || '').trim() === tenKH);
+
+    document.getElementById('modalLichSuTitle').textContent = `Lịch Sử: ${tenKH}`;
+    document.getElementById('tbodyLichSuDon').innerHTML = dsCuaKH.map(d => `
+      <tr>
+        <td>${escapeHtml(d.maHD)}</td>
+        <td>${nhom ? `🏢 ${escapeHtml(d.tenKH)} - ${escapeHtml(d.diaChi || '')}` : escapeHtml(d.tenKH)}</td>
+        <td>${formatTien(conLaiCuaDon(d))}</td>
+      </tr>
+    `).join('');
+    document.getElementById('modalLichSuKhachHang').style.display = 'block';
+  }
+
+  // ==================== CHẠY TOÀN BỘ KIỂM THỬ ĐỒNG BỘ ====================
+  function chayTatCaTest() {
+    try {
+      capNhatKPI();
+      veBangCongNo();
+
+    // ==================== TEST CASE 1: KIỂM TRA HIỂN THỊ NÚT TRÊN UI ====================
+    const btnQLFilter = document.getElementById('btnQuanLyNhomKHFilter');
+    assert('TC1.1 - Nút ⚙️ Quản lý Nhóm KH hiển thị trên Filter Bar', !!btnQLFilter, 'ID: btnQuanLyNhomKHFilter');
+    assert('TC1.2 - Nút ⚙️ Quản lý Nhóm KH nằm bên cạnh nút In Đối Chiếu',
+      btnQLFilter && btnQLFilter.previousElementSibling && btnQLFilter.previousElementSibling.textContent.includes('In Đối Chiếu'));
+
+    const btnGom = document.getElementById('btnGomNhomKH');
+    assert('TC1.3 - Nút 🏢 Gom nhóm KH tồn tại trên Toolbar Bulk Action', !!btnGom, 'ID: btnGomNhomKH');
+    assert('TC1.4 - Nút 🏢 Gom nhóm KH nằm ngay bên trái nút Thu nợ hàng loạt',
+      btnGom && btnGom.nextElementSibling && btnGom.nextElementSibling.textContent.includes('Thu nợ hàng loạt'));
+
+    // Tích chọn 2 khách hàng
+    khachDaChon.add('FPT LONG CHÂU MAI ĐĂNG CHƠN');
+    khachDaChon.add('FPT LONG CHÂU PHAN ĐĂNG LƯU');
+    capNhatThanhChon();
+    const thanhChon = document.getElementById('thanhChonCongNo');
+    assert('TC1.5 - Thanh xanh lá hiển thị khi tích chọn khách hàng', thanhChon.style.display !== 'none');
+    assert('TC1.6 - Nút 🏢 Gom nhóm KH hiển thị sẵn sàng trên thanh xanh lá', btnGom.style.display !== 'none');
+
+
+    // ==================== TEST CASE 2: GOM NHÓM FPT LONG CHÂU & BỎ CHỌN NHẦM ====================
+    // Giả lập tích nhầm thêm ABC MART FPT PLAZA
+    khachDaChon.add('ABC MART FPT PLAZA VÕ QUÝ HUÂN');
+    capNhatThanhChon();
+
+    moModalGomNhomKH();
+    const modalGN = document.getElementById('modalGomNhomKH');
+    assert('TC2.1 - Modal Gom Nhóm mở thành công', modalGN.style.display !== 'none');
+    assert('TC2.2 - Danh sách modal ban đầu nạp đủ 3 khách hàng', document.getElementById('gnkhSoKhachChon').textContent === '3');
+
+    // Bấm nút ✕ để loại bỏ ABC MART FPT PLAZA
+    gnkhBoKhachKhoiDanhSachChon('ABC MART FPT PLAZA VÕ QUÝ HUÂN');
+    assert('TC2.3 - Bấm ✕ loại bỏ ABC MART ngay trong modal, còn lại 2 chi nhánh FPT',
+      document.getElementById('gnkhSoKhachChon').textContent === '2' &&
+      !document.getElementById('gnkhBodyDsChon').textContent.includes('ABC MART'));
+    assert('TC2.4 - Khách ABC MART được uncheck ra khỏi khachDaChon ở bảng ngoài',
+      !khachDaChon.has('ABC MART FPT PLAZA VÕ QUÝ HUÂN'));
+
+    // Đặt tên hệ thống mới và Lưu
+    document.getElementById('gnkhOptTaoMoi').checked = true;
+    gnkhDoiPhuongThuc();
+    document.getElementById('gnkhTenMoi').value = 'HỆ THỐNG FPT LONG CHÂU';
+    xacNhanGomNhomKH();
+
+    // Kiểm tra gộp dòng trên bảng
+    const dsRow = Array.from(document.querySelectorAll('#tbodyCongNo tr'));
+    const rowFPT = dsRow.find(r => r.textContent.includes('HỆ THỐNG FPT LONG CHÂU'));
+    assert('TC2.5 - Bảng gộp thành công 1 dòng đại diện duy nhất HỆ THỐNG FPT LONG CHÂU', !!rowFPT);
+    assert('TC2.6 - Dòng hệ thống hiển thị badge "🏢 Hệ thống: 2 điểm bán"',
+      rowFPT && rowFPT.textContent.includes('2 điểm bán'));
+    assert('TC2.7 - Số đơn nợ cộng dồn chính xác = "4 đơn"',
+      rowFPT && rowFPT.textContent.includes('4 đơn'));
+    assert('TC2.8 - Tổng tiền HĐ cộng dồn chính xác = 29.400.000 đ',
+      rowFPT && rowFPT.textContent.includes('29.400.000'));
+    assert('TC2.9 - Đã thu cộng dồn chính xác = 8.700.000 đ',
+      rowFPT && rowFPT.textContent.includes('8.700.000'));
+    assert('TC2.10 - Tổng còn nợ cộng dồn chính xác = 20.700.000 đ',
+      rowFPT && rowFPT.textContent.includes('20.700.000'));
+
+    // Kiểm tra 5 thẻ KPI đầu trang không bị sai lệch
+    capNhatKPI();
+    const kpiTongNo = document.getElementById('kpiTongNo').textContent;
+    const kpiConLai = document.getElementById('kpiConLai').textContent;
+    assert('TC2.11 - KPI Tổng công nợ (38.293.500 đ) giữ nguyên tuyệt đối không bị cộng trùng',
+      kpiTongNo.includes('38.293.500'));
+    assert('TC2.12 - KPI Còn phải thu (29.593.500 đ) giữ nguyên tuyệt đối',
+      kpiConLai.includes('29.593.500'));
+
+
+    // ==================== TEST CASE 3: XEM CHI TIẾT, SMART SEARCH & TÁCH NHÓM ====================
+    // 3.1. Bấm nút ▼ Xem 2 điểm bán
+    const btnXemDB = rowFPT.querySelector('button[data-count="2"]');
+    assert('TC3.1 - Nút ▼ Xem 2 điểm bán tồn tại trên dòng hệ thống', !!btnXemDB);
+    toggleXemChiNhanhNhom('HỆ THỐNG FPT LONG CHÂU', btnXemDB);
+    const boxChiNhanh = document.getElementById('dsChiNhanh_H__TH_NG_FPT_LONG_CH_U');
+    assert('TC3.2 - Bấm xem: danh sách điểm bán xổ xuống với số nợ riêng từng điểm',
+      boxChiNhanh && boxChiNhanh.style.display !== 'none' &&
+      boxChiNhanh.textContent.includes('MAI ĐĂNG CHƠN') && boxChiNhanh.textContent.includes('PHAN ĐĂNG LƯU'));
+
+    // 3.2. Xem lịch sử hóa đơn
+    moLichSuDonKhachHang(encodeURIComponent('HỆ THỐNG FPT LONG CHÂU'));
+    const rowsLS = Array.from(document.querySelectorAll('#tbodyLichSuDon tr'));
+    assert('TC3.3 - Lịch sử hệ thống gom đủ 4 hóa đơn của 2 điểm bán', rowsLS.length === 4);
+    assert('TC3.4 - Hóa đơn giữ nguyên tên chi nhánh gốc MAI ĐĂNG CHƠN & PHAN ĐĂNG LƯU',
+      rowsLS.some(r => r.textContent.includes('MAI ĐĂNG CHƠN')) && rowsLS.some(r => r.textContent.includes('PHAN ĐĂNG LƯU')));
+
+    // 3.3. Smart Search
+    document.getElementById('timKiemCongNo').value = 'mai đăng chơn';
+    veBangCongNo();
+    assert('TC3.5 - Smart Search: Gõ "mai đăng chơn" hiển thị dòng HỆ THỐNG FPT LONG CHÂU',
+      Array.from(document.querySelectorAll('#tbodyCongNo tr')).some(r => r.textContent.includes('HỆ THỐNG FPT LONG CHÂU')));
+
+    document.getElementById('timKiemCongNo').value = 'KH005817';
+    veBangCongNo();
+    assert('TC3.6 - Smart Search: Gõ mã "KH005817" hiển thị dòng HỆ THỐNG FPT LONG CHÂU',
+      Array.from(document.querySelectorAll('#tbodyCongNo tr')).some(r => r.textContent.includes('HỆ THỐNG FPT LONG CHÂU')));
+
+    document.getElementById('timKiemCongNo').value = '';
+    veBangCongNo();
+
+    // 3.4. Tách 1 chi nhánh ra khỏi hệ thống
+    const nhomFPT = _cauHinhHanMuc.nhom.find(n => n.ten === 'HỆ THỐNG FPT LONG CHÂU');
+    tachKhachKhoiNhom(nhomFPT.id, 'FPT LONG CHÂU PHAN ĐĂNG LƯU');
+    const nhomSauTach = _cauHinhHanMuc.nhom.find(n => n.id === nhomFPT.id);
+    assert('TC3.7 - Tách chi nhánh: Hệ thống còn 1 điểm bán', nhomSauTach && nhomSauTach.thanhVien.length === 1);
+    assert('TC3.8 - FPT LONG CHÂU PHAN ĐĂNG LƯU trở lại dòng độc lập (còn nợ 9.900.000 đ)',
+      Array.from(document.querySelectorAll('#tbodyCongNo tr')).some(r => r.textContent.includes('PHAN ĐĂNG LƯU') && r.textContent.includes('9.900.000')));
+
+    // 3.5. Giải tán toàn bộ hệ thống
+    giaiTanNhomKH(nhomFPT.id);
+    assert('TC3.9 - Giải tán nhóm: Cả 2 chi nhánh đều xuất hiện độc lập nguyên trạng ban đầu',
+      Array.from(document.querySelectorAll('#tbodyCongNo tr')).some(r => r.textContent.includes('MAI ĐĂNG CHƠN')) &&
+      Array.from(document.querySelectorAll('#tbodyCongNo tr')).some(r => r.textContent.includes('PHAN ĐĂNG LƯU')));
+
+
+    // ==================== TEST CASE 4: F5 RELOAD TRANG & PERSISTENCE ====================
+    // Tạo lại nhóm
+    khachDaChon.add('FPT LONG CHÂU MAI ĐĂNG CHƠN');
+    khachDaChon.add('FPT LONG CHÂU PHAN ĐĂNG LƯU');
+    moModalGomNhomKH();
+    document.getElementById('gnkhOptTaoMoi').checked = true;
+    gnkhDoiPhuongThuc();
+    document.getElementById('gnkhTenMoi').value = 'HỆ THỐNG FPT LONG CHÂU';
+    xacNhanGomNhomKH();
+
+    // Giả lập F5 reload trang: đọc từ localStorage
+    const saved = JSON.parse(localStorage.getItem('tmh_han_muc_cong_no') || '[]');
+    _cauHinhHanMuc = {
+      caNhan: { soNgay: 5, soTien: 6000000 },
+      nhom: saved.map(r => ({
+        id: r.id,
+        ten: r.ten_nhom,
+        loai: 'nhom',
+        soNgay: r.han_muc_ngay,
+        soTien: r.han_muc_tien,
+        cachTinh: r.cach_tinh,
+        thanhVien: r.thanh_vien || []
+      }))
+    };
+    danhSachCongNo = JSON.parse(JSON.stringify(mockCongNo));
+    veBangCongNo();
+
+    const rowReload = Array.from(document.querySelectorAll('#tbodyCongNo tr')).find(r => r.textContent.includes('HỆ THỐNG FPT LONG CHÂU'));
+    assert('TC4.1 - Sau F5 Reload: HỆ THỐNG FPT LONG CHÂU vẫn tồn tại nguyên vẹn', !!rowReload);
+    assert('TC4.2 - Sau F5 Reload: Dòng hệ thống hiển thị 2 điểm bán',
+      rowReload && rowReload.textContent.includes('2 điểm bán'));
+    assert('TC4.3 - Sau F5 Reload: Tổng còn nợ chính xác 20.700.000 đ',
+      rowReload && rowReload.textContent.includes('20.700.000'));
+
+
+    // ==================== KẾT QUẢ TỔNG HỢP ====================
+    const passCount = results.filter(r => r.pass).length;
+    const failCount = results.filter(r => !r.pass).length;
+    const allPass = failCount === 0;
+
+    const summaryBox = document.getElementById('summaryBox');
+    summaryBox.className = 'summary ' + (allPass ? 'pass' : 'fail');
+    summaryBox.innerHTML = `${allPass ? '🎉 TẤT CẢ TEST ĐÃ VƯỢT QUA' : '⚠️ CÓ TEST THẤT BẠI'}: Đạt ${passCount}/${results.length} test cases (${Math.round(passCount/results.length*100)}%)`;
+
+    const container = document.getElementById('testResults');
+    container.innerHTML = results.map(r => `
+      <div class="test-card">
+        <div class="test-title">
+          <span class="badge-${r.pass ? 'pass' : 'fail'}">${r.pass ? 'PASS' : 'FAIL'}</span>
+          <span>${escapeHtml(r.name)}</span>
+        </div>
+        ${r.details ? `<div class="test-detail">${escapeHtml(r.details)}</div>` : ''}
+      </div>
+    `).join('');
+    } catch (err) {
+      console.error(err);
+      const summaryBox = document.getElementById('summaryBox');
+      if (summaryBox) {
+        summaryBox.className = 'summary fail';
+        summaryBox.textContent = 'LỖI RUNTIME: ' + (err.stack || err.message || err);
+      }
+    }
+  }
+
+  chayTatCaTest();
+</script>
+
+</body>
+</html>

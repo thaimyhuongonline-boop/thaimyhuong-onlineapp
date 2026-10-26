@@ -731,6 +731,9 @@
           <button type="button" class="btn btn-outline" style="height:32px; padding:0 10px; font-size:11.5px;" onclick="inDoiChieuCongNoTuBoLoc()">
             <span>🖨️</span> In Đối Chiếu
           </button>
+          <button type="button" class="btn btn-outline" id="btnQuanLyNhomKHFilter" style="height:32px; padding:0 11px; font-size:12px; font-weight:700; white-space:nowrap; color:#0369a1; border-color:#7dd3fc; background:#f0f9ff;" onclick="moQuanLyNhom('')" title="Xem và quản lý các Hệ thống / Chuỗi khách hàng đã tạo ngay cả khi chưa tích chọn dòng nào">
+            <span>⚙️</span> Quản lý Nhóm KH
+          </button>
           <div style="font-size:12px; color:var(--text-muted);">
             Hiển thị: <b id="lblSoLuongHienThi" style="color:var(--text-main);">0</b> mục
           </div>
@@ -785,7 +788,8 @@
       <!-- THANH BÁO CÁO CÁC KHÁCH HÀNG / ĐƠN ĐÃ TÍCH CHỌN (vd: cả chuỗi hệ thống AU MART) -->
       <div class="thanh-chon" id="thanhChonCongNo" style="display:none;">
         <div id="thanhChonNoiDung">Đã chọn 0 khách hàng</div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <button type="button" class="btn btn-sang" id="btnGomNhomKH" style="background:#e0f2fe; border-color:#bae6fd; color:#0369a1; font-weight:800; display:inline-flex; align-items:center; gap:5px;" onclick="moModalGomNhomKH()" title="Gom các khách hàng đang chọn thành một Hệ thống / Chuỗi khách hàng hoặc gộp vào hệ thống có sẵn"><span>🏢</span> Gom nhóm KH</button>
           <button type="button" class="btn btn-sang" style="background:#fef08a; border-color:#fef08a; color:#713f12;" onclick="moThuNoHangLoat()" title="Thu nợ cùng lúc tất cả đơn nợ còn phải thu trong phần đã chọn">💰 Thu nợ hàng loạt</button>
           <button type="button" class="btn btn-sang" onclick="moBaoCaoDaChon()">📊 Xem báo cáo đã chọn</button>
           <button type="button" class="btn btn-sang" onclick="xuatBaoCaoExcelTheoMau()" title="Xuất Bảng theo dõi công nợ các đơn đã chọn ra Excel theo mẫu">📥 Xuất Excel theo mẫu</button>
@@ -1420,6 +1424,136 @@
   </div>
 
   <!-- ======================================================== -->
+  <!-- MODAL GOM NHÓM HỆ THỐNG / CHUỖI KHÁCH HÀNG              -->
+  <!-- ======================================================== -->
+  <div id="modalGomNhomKH" class="modal-overlay no-print" style="display:none;" onclick="if(event.target===this) dongModalGomNhomKH()">
+    <div class="modal-card modal-card-large" style="max-width:860px; width:95vw; max-height:92vh; display:flex; flex-direction:column;">
+      <div class="modal-header" style="background:#f0f9ff; border-bottom:1px solid #bae6fd; padding:12px 18px;">
+        <div>
+          <div style="font-weight:800; font-size:15px; color:#0369a1; display:flex; align-items:center; gap:6px;">
+            <span>🏢</span> Gom Nhóm Hệ Thống Khách Hàng
+          </div>
+          <div style="font-size:12px; color:#0284c7; margin-top:2px;">
+            Gộp các chi nhánh / điểm bán độc lập vào chung một Hệ thống để quản lý và đối chiếu công nợ tập trung
+          </div>
+        </div>
+        <button type="button" class="btn btn-outline" style="height:28px; padding:0 8px; font-weight:800; border-color:#cbd5e1;" onclick="dongModalGomNhomKH()" title="Hủy / Đóng">✕</button>
+      </div>
+
+      <div class="modal-body" style="padding:16px 18px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:14px;">
+        <!-- 1. Danh sách khách hàng đang chọn -->
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="font-weight:700; color:var(--text-main); font-size:13px; display:flex; align-items:center; gap:6px;">
+              <span>📋</span> Danh sách khách hàng / điểm bán đang chọn (<span id="gnkhSoKhachChon" style="color:#0369a1;">0</span> khách)
+            </div>
+            <div id="gnkhTongCongNoChon" style="font-size:12px; font-weight:700; color:#b91c1c;"></div>
+          </div>
+          <div class="table-container" style="max-height:180px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px; background:#fff;">
+            <table class="table-cong-no" style="font-size:12px;">
+              <thead>
+                <tr style="background:#f1f5f9;">
+                  <th style="width:35px; text-align:center;">STT</th>
+                  <th>Tên Khách Hàng / Điểm Bán</th>
+                  <th style="width:95px; text-align:center;">Mã KH</th>
+                  <th style="width:130px;">NV Bán Hàng</th>
+                  <th style="width:75px; text-align:center;">Số Đơn</th>
+                  <th style="width:110px; text-align:right;">Tổng Nợ</th>
+                  <th style="width:110px; text-align:right;">Còn Nợ</th>
+                  <th style="width:48px; text-align:center;" title="Bỏ bớt khách hàng bị tích nhầm">Bỏ</th>
+                </tr>
+              </thead>
+              <tbody id="gnkhBodyDsChon">
+                <!-- Render động -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 2. Phương thức gom nhóm -->
+        <div style="border:1px solid #cbd5e1; border-radius:8px; padding:14px; background:#ffffff;">
+          <div style="font-weight:700; color:var(--text-main); font-size:13px; margin-bottom:10px;">
+            ⚙️ Chọn phương thức gom nhóm:
+          </div>
+
+          <div style="display:flex; gap:20px; margin-bottom:12px; flex-wrap:wrap;">
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600; color:#0369a1;">
+              <input type="radio" name="gnkhPhuongThuc" id="gnkhOptTaoMoi" value="tao_moi" checked onchange="gnkhDoiPhuongThuc()">
+              1. Tạo Hệ Thống Khách Hàng Mới
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600; color:#15803d;">
+              <input type="radio" name="gnkhPhuongThuc" id="gnkhOptGopCoSan" value="gop_co_san" onchange="gnkhDoiPhuongThuc()">
+              2. Gộp Vào Hệ Thống Đã Có Sẵn
+            </label>
+          </div>
+
+          <!-- Form 1: Tạo hệ thống mới -->
+          <div id="gnkhBoxTaoMoi" style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:6px; padding:12px 14px;">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+              <div class="form-group" style="margin:0;">
+                <label style="font-weight:700; color:#0369a1; font-size:12px;">🏢 Tên Hệ thống / Chuỗi đại diện: <span style="color:#ef4444;">*</span></label>
+                <input type="text" id="gnkhTenMoi" class="form-control" placeholder="VD: HỆ THỐNG FULL MART" style="font-weight:700; text-transform:uppercase;">
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label style="font-weight:700; color:#0369a1; font-size:12px;">👤 NV bán hàng phụ trách chính:</label>
+                <select id="gnkhNVPhuTrach" class="form-control" style="font-size:12.5px;">
+                  <!-- Options render động -->
+                </select>
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label style="font-weight:700; color:#0369a1; font-size:12px;">⏰ Số ngày được nợ (hạn mức):</label>
+                <input type="number" id="gnkhSoNgay" class="form-control" min="0" step="1" value="5" placeholder="0 = không giới hạn">
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label style="font-weight:700; color:#0369a1; font-size:12px;">💰 Hạn mức nợ tiền chung (đ):</label>
+                <input type="text" id="gnkhSoTien" class="form-control" value="6.000.000" oninput="formatInputTienModal(this)">
+              </div>
+            </div>
+            <div style="font-size:11.5px; color:#0284c7; margin-top:8px; font-style:italic;">
+              ℹ️ Sau khi tạo, toàn bộ các điểm bán trên sẽ được gộp chung thành 1 dòng Hệ thống trên bảng công nợ; tổng nợ và lịch sử thanh toán được tính chung.
+            </div>
+          </div>
+
+          <!-- Form 2: Gộp vào hệ thống có sẵn -->
+          <div id="gnkhBoxGopCoSan" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:12px 14px;">
+            <div class="form-group" style="margin:0;">
+              <label style="font-weight:700; color:#15803d; font-size:12px;">🏢 Chọn Hệ Thống Khách Hàng Đã Có Sẵn: <span style="color:#ef4444;">*</span></label>
+              <select id="gnkhChonHeThongCoSan" class="form-control" style="font-size:13px; font-weight:700;">
+                <!-- Options render động -->
+              </select>
+            </div>
+            <div id="gnkhThongTinHeThongCoSan" style="font-size:11.5px; color:#166534; margin-top:8px;"></div>
+          </div>
+        </div>
+
+        <!-- 3. Khu vực quản lý / giải tán nhóm nếu đã có nhóm -->
+        <div style="border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; background:#f8fafc;">
+          <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="gnkhToggleQuanLyNhom()">
+            <div style="font-weight:700; color:#475569; font-size:12.5px; display:flex; align-items:center; gap:6px;">
+              <span>📁</span> Quản lý các Hệ thống đã tạo & Gỡ điểm bán / Giải tán nhóm (<span id="gnkhSoLuongNhomHienCo">0</span> hệ thống)
+            </div>
+            <button type="button" class="btn btn-outline" style="height:24px; padding:0 8px; font-size:11px;" id="gnkhBtnToggleQL">
+              👁️ Mở rộng xem
+            </button>
+          </div>
+          <div id="gnkhKhungQuanLyNhom" style="display:none; margin-top:10px;">
+            <div id="gnkhDsQuanLyNhom" style="display:flex; flex-direction:column; gap:10px; max-height:220px; overflow-y:auto;">
+              <!-- Render động danh sách nhóm, thành viên con, nút gỡ và giải tán -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="padding:12px 18px; border-top:1px solid #e2e8f0; background:#f8fafc; display:flex; justify-content:flex-end; gap:10px;">
+        <button type="button" class="btn btn-outline" onclick="dongModalGomNhomKH()">✕ Hủy</button>
+        <button type="button" class="btn btn-primary" id="btnXacNhanGomNhom" style="background:#0284c7; border-color:#0284c7; font-weight:700; padding:0 16px;" onclick="xacNhanGomNhomKH()">
+          💾 Lưu & Gom Nhóm
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
   <!-- THU NỢ HÀNG LOẠT (các đơn nợ đã tích chọn)                -->
   <!-- ======================================================== -->
   <div id="modalThuNoHangLoat" class="modal-overlay no-print" style="display:none;" onclick="if(event.target===this) dongThuNoHangLoat()">
@@ -1826,6 +1960,11 @@
 
       // 3. Nạp danh mục tài khoản ngân hàng từ hệ thống (giống Bước 2)
       await taiDanhMucTaiKhoanNganHang();
+
+      // 3b. Tải cấu hình hạn mức & nhóm khách hàng (Supabase & cache)
+      if (typeof taiCauHinhHanMuc === 'function') {
+        try { await taiCauHinhHanMuc(); } catch (e) { console.warn("Lỗi tải hạn mức & nhóm:", e); }
+      }
 
       // 4. Tải và tổng hợp dữ liệu công nợ từ các nguồn
       await taiLaiDuLieuCongNo();
@@ -2314,31 +2453,54 @@
           .on('postgres_changes', { event: '*', schema: 'public', table: 'luu_tru' }, () => taiLaiDuLieuCongNoDebounce())
           .on('postgres_changes', { event: '*', schema: 'public', table: 'khach_tra_truoc' }, () => napSoDuTraTruoc())
           .on('postgres_changes', { event: '*', schema: 'public', table: 'kiem_tra_bao_cao' }, () => napKiemTraCongNo())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'nhom_han_muc_cong_no' }, () => { if (typeof taiCauHinhHanMuc === 'function') taiCauHinhHanMuc(true).then(() => { capNhatDropdownKhachHang(); veBangCongNo(); }).catch(() => {}); })
           .subscribe();
       } catch (e) {
         console.warn('Không bật được Realtime cho sổ công nợ:', e);
       }
     }
 
-    // Cập nhật danh sách khách hàng vào bộ lọc
+    // Cập nhật danh sách khách hàng vào bộ lọc (hỗ trợ lọc theo Hệ thống)
     function capNhatDropdownKhachHang() {
       const sel = document.getElementById('locKhachHang');
+      if (!sel) return;
       const valDangChon = sel.value;
       const setKH = new Set();
+      const setNhom = new Set();
+      if (_cauHinhHanMuc && Array.isArray(_cauHinhHanMuc.nhom)) {
+        _cauHinhHanMuc.nhom.forEach(n => {
+          if (n && n.ten) setNhom.add(n.ten.trim());
+        });
+      }
 
       danhSachCongNo.forEach(d => {
         if (d.tenKH) setKH.add(d.tenKH.trim());
       });
 
-      const dsSorted = Array.from(setKH).sort();
       sel.innerHTML = '<option value="tat_ca">👥 Tất cả khách hàng</option>';
-      dsSorted.forEach(ten => {
+      if (setNhom.size > 0) {
+        const optgroupNhom = document.createElement('optgroup');
+        optgroupNhom.label = '🏢 Hệ thống / Chuỗi khách hàng';
+        Array.from(setNhom).sort((a, b) => a.localeCompare(b, 'vi')).forEach(ten => {
+          const opt = document.createElement('option');
+          opt.value = ten;
+          opt.textContent = `🏢 ${ten}`;
+          if (ten === valDangChon) opt.selected = true;
+          optgroupNhom.appendChild(opt);
+        });
+        sel.appendChild(optgroupNhom);
+      }
+
+      const optgroupKhach = document.createElement('optgroup');
+      optgroupKhach.label = '👤 Khách hàng riêng lẻ';
+      Array.from(setKH).sort((a, b) => a.localeCompare(b, 'vi')).forEach(ten => {
         const opt = document.createElement('option');
         opt.value = ten;
         opt.textContent = ten;
         if (ten === valDangChon) opt.selected = true;
-        sel.appendChild(opt);
+        optgroupKhach.appendChild(opt);
       });
+      sel.appendChild(optgroupKhach);
 
       capNhatDropdownNVBanHang();
     }
@@ -2958,6 +3120,509 @@
     }
 
     // ========================================================
+    // GOM NHÓM HỆ THỐNG / CHUỖI KHÁCH HÀNG (SUPABASE + CACHE)
+    // ========================================================
+
+    // Tìm nhóm của một khách / đơn nợ (theo mã KH, tên KH, hoặc tên nhóm)
+    function timNhomCuaKhach(d) {
+      if (!_cauHinhHanMuc || !_cauHinhHanMuc.nhom || !_cauHinhHanMuc.nhom.length) return null;
+      if (!d) return null;
+      if (typeof timNhomCuaKhachHM === 'function') {
+        return timNhomCuaKhachHM(_cauHinhHanMuc, { maKH: d.maKH || '', tenKH: d.tenKH || '' });
+      }
+      const ma = String(d.maKH || '').trim().toUpperCase();
+      const ten = typeof khoaTenKhachHM === 'function' ? khoaTenKhachHM(d.tenKH) : String(d.tenKH || '').trim().toUpperCase();
+      return _cauHinhHanMuc.nhom.find(n => {
+        const tenNhom = typeof khoaTenKhachHM === 'function' ? khoaTenKhachHM(n.ten) : String(n.ten || '').trim().toUpperCase();
+        if (ten && tenNhom === ten) return true;
+        return Array.isArray(n.thanhVien) && n.thanhVien.some(tv => {
+          const maTV = String(tv.maKH || '').trim().toUpperCase();
+          const tenTV = typeof khoaTenKhachHM === 'function' ? khoaTenKhachHM(tv.tenKH) : String(tv.tenKH || '').trim().toUpperCase();
+          return (ma && maTV && ma === maTV) || (ten && tenTV && ten === tenTV);
+        });
+      }) || null;
+    }
+
+    // Toggle danh sách điểm bán con dưới dòng hệ thống
+    function toggleXemChiNhanhNhom(tenNhom, btn, e) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      const idSafe = 'dsChiNhanh_' + String(tenNhom).replace(/[^a-zA-Z0-9]/g, '_');
+      const box = document.getElementById(idSafe);
+      if (box) {
+        const dangHien = box.style.display !== 'none';
+        box.style.display = dangHien ? 'none' : 'block';
+        if (btn) {
+          const soLuong = btn.getAttribute('data-count') || '';
+          btn.innerHTML = dangHien ? `▼ Xem ${soLuong} điểm bán` : `▲ Thu gọn (${soLuong})`;
+        }
+      }
+    }
+
+    // Đổi phương thức gom nhóm trong modal (Tạo mới vs Gộp có sẵn)
+    function gnkhDoiPhuongThuc() {
+      const isTaoMoi = document.getElementById('gnkhOptTaoMoi')?.checked;
+      const boxTM = document.getElementById('gnkhBoxTaoMoi');
+      const boxCS = document.getElementById('gnkhBoxGopCoSan');
+      if (boxTM) boxTM.style.display = isTaoMoi ? 'block' : 'none';
+      if (boxCS) boxCS.style.display = isTaoMoi ? 'none' : 'block';
+    }
+
+    // Mở rộng / thu gọn danh sách quản lý nhóm
+    function gnkhToggleQuanLyNhom(moEpBuoc) {
+      const box = document.getElementById('gnkhKhungQuanLyNhom');
+      const btn = document.getElementById('gnkhBtnToggleQL');
+      if (!box) return;
+      const dangHien = box.style.display !== 'none';
+      const seHien = (moEpBuoc !== undefined) ? moEpBuoc : !dangHien;
+      box.style.display = seHien ? 'block' : 'none';
+      if (btn) btn.textContent = seHien ? '▲ Thu gọn' : '👁️ Mở rộng xem';
+      if (seHien) veDanhSachQuanLyNhom();
+    }
+
+    // Mở modal quản lý nhóm từ nút ⚙️ Quản lý trên dòng Hệ thống
+    async function moQuanLyNhom(nhomId = '', e) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      if (typeof taiCauHinhHanMuc === 'function') await taiCauHinhHanMuc();
+      const modal = document.getElementById('modalGomNhomKH');
+      if (!modal) return;
+
+      gnkhDsKhachDangChon = [];
+      document.getElementById('gnkhSoKhachChon').textContent = '0';
+      document.getElementById('gnkhTongCongNoChon').textContent = '';
+      document.getElementById('gnkhBodyDsChon').innerHTML = `
+        <tr><td colspan="8" style="text-align:center; padding:14px; color:var(--text-muted);">
+          Đang xem Quản lý Hệ thống. Tích chọn thêm khách hàng ngoài bảng nếu muốn gộp thêm vào nhóm.
+        </td></tr>`;
+
+      napDropdownNVPhuTrachGNKH();
+      napDropdownHeThongCoSan(nhomId);
+      const soNhom = (_cauHinhHanMuc && _cauHinhHanMuc.nhom) ? _cauHinhHanMuc.nhom.length : 0;
+      document.getElementById('gnkhSoLuongNhomHienCo').textContent = soNhom;
+      gnkhToggleQuanLyNhom(true);
+      modal.style.display = 'flex';
+    }
+
+    // Danh sách khách hàng đang được nạp trong modal gom nhóm
+    let gnkhDsKhachDangChon = [];
+
+    // Render danh sách khách hàng đang chọn trong modal gom nhóm kèm nút bỏ chọn (✕)
+    function gnkhVeBangDanhSachChon() {
+      const tbody = document.getElementById('gnkhBodyDsChon');
+      if (!tbody) return;
+      document.getElementById('gnkhSoKhachChon').textContent = gnkhDsKhachDangChon.length;
+      if (!gnkhDsKhachDangChon.length) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:16px; color:var(--text-muted);">Không còn khách hàng nào trong danh sách. Vui lòng đóng modal và tích chọn lại.</td></tr>`;
+        document.getElementById('gnkhTongCongNoChon').textContent = '';
+        return;
+      }
+
+      let sumTongNo = 0, sumConLai = 0, sumSoDon = 0;
+      tbody.innerHTML = gnkhDsKhachDangChon.map((k, idx) => {
+        sumTongNo += (k.tongNo || 0);
+        sumConLai += (k.tongConLai || 0);
+        sumSoDon += (k.soDon || 0);
+        return `
+          <tr>
+            <td style="text-align:center; font-weight:700; color:var(--text-muted);">${idx + 1}</td>
+            <td><b>${escapeHtml(k.tenKH)}</b></td>
+            <td style="text-align:center; font-size:11px; color:var(--text-muted);">${escapeHtml(k.maKH || '--')}</td>
+            <td>${escapeHtml(k.nguoiBan || '--')}</td>
+            <td style="text-align:center;">${k.soDon} đơn</td>
+            <td class="num-cell" style="color:#b91c1c;">${formatTien(k.tongNo)}</td>
+            <td class="num-cell" style="color:#dc2626; font-weight:700;">${formatTien(k.tongConLai)}</td>
+            <td style="text-align:center;">
+              <button type="button" class="btn btn-outline" style="height:22px; width:22px; padding:0; border-radius:50%; color:#ef4444; border-color:#fca5a5; line-height:20px; font-weight:800; font-size:11px; background:#fff;"
+                onclick="gnkhBoKhachKhoiDanhSachChon('${escapeHtml(k.tenKH)}')" title="Bỏ bớt khách hàng này ra khỏi danh sách gom nhóm (ví dụ bị tích nhầm)">✕</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+      document.getElementById('gnkhTongCongNoChon').textContent = `Tổng nợ: ${formatTien(sumTongNo)} đ · Còn nợ: ${formatTien(sumConLai)} đ`;
+
+      // Cập nhật lại gợi ý tên hệ thống nếu chưa nhập tên thủ công
+      if (gnkhDsKhachDangChon.length > 0) {
+        const dsTen = gnkhDsKhachDangChon.map(x => x.tenKH);
+        const chung = (typeof tienToChungTenKhach === 'function') ? tienToChungTenKhach(dsTen) : { ten: '' };
+        const inp = document.getElementById('gnkhTenMoi');
+        if (inp && (!inp.value || inp.value.startsWith('HỆ THỐNG '))) {
+          inp.value = chung.ten ? `HỆ THỐNG ${chung.ten.toUpperCase()}` : '';
+        }
+      }
+    }
+
+    // Bỏ 1 khách hàng bị tích nhầm ngay trong modal
+    function gnkhBoKhachKhoiDanhSachChon(tenKH) {
+      gnkhDsKhachDangChon = (gnkhDsKhachDangChon || []).filter(k => k.tenKH !== tenKH);
+      khachDaChon.delete(tenKH);
+      try {
+        const escaped = CSS.escape ? CSS.escape(tenKH) : tenKH;
+        const chk = document.querySelector(`input[type="checkbox"][data-kh="${escaped}"]`);
+        if (chk) {
+          chk.checked = false;
+          const tr = chk.closest('tr');
+          if (tr) tr.classList.remove('dong-da-chon');
+        }
+      } catch (err) {}
+      capNhatThanhChon();
+      gnkhVeBangDanhSachChon();
+    }
+
+    // Mở Modal Gom Nhóm Hệ Thống KH từ thanh tác vụ hàng loạt
+    async function moModalGomNhomKH() {
+      if (typeof chanNeuChiXem === 'function' && chanNeuChiXem()) return;
+      if (typeof taiCauHinhHanMuc === 'function') await taiCauHinhHanMuc();
+
+      // Thu thập danh sách khách hàng từ các dòng đã tích chọn
+      const mapKhachChon = new Map();
+      const dsDonDaChon = layDonDaChon();
+
+      khachDaChon.forEach(tenKey => {
+        const nhom = _cauHinhHanMuc && _cauHinhHanMuc.nhom ? _cauHinhHanMuc.nhom.find(n => n.ten === tenKey) : null;
+        if (nhom && Array.isArray(nhom.thanhVien)) {
+          nhom.thanhVien.forEach(tv => {
+            const tenCon = (tv.tenKH || '').trim();
+            if (tenCon && !mapKhachChon.has(tenCon)) {
+              mapKhachChon.set(tenCon, {
+                tenKH: tenCon,
+                maKH: tv.maKH || '',
+                diaChi: tv.diaChi || '',
+                nguoiBan: '',
+                soDon: 0,
+                tongNo: 0,
+                tongConLai: 0
+              });
+            }
+          });
+        } else {
+          if (!mapKhachChon.has(tenKey)) {
+            mapKhachChon.set(tenKey, {
+              tenKH: tenKey,
+              maKH: '',
+              diaChi: '',
+              nguoiBan: '',
+              soDon: 0,
+              tongNo: 0,
+              tongConLai: 0
+            });
+          }
+        }
+      });
+
+      // Bổ sung số liệu đơn nợ
+      dsDonDaChon.forEach(d => {
+        const ten = (d.tenKH || 'Khách Lẻ').trim();
+        if (!mapKhachChon.has(ten)) {
+          mapKhachChon.set(ten, {
+            tenKH: ten,
+            maKH: d.maKH || '',
+            diaChi: d.diaChi || '',
+            nguoiBan: d.nguoiBan || '',
+            soDon: 0,
+            tongNo: 0,
+            tongConLai: 0
+          });
+        }
+        const item = mapKhachChon.get(ten);
+        const cl = conLaiCuaDon(d);
+        item.soDon++;
+        item.tongNo += (d.soTienNo || 0);
+        item.tongConLai += cl;
+        if (d.maKH && !item.maKH) item.maKH = d.maKH;
+        if (d.nguoiBan && !item.nguoiBan) item.nguoiBan = d.nguoiBan;
+        if (d.diaChi && !item.diaChi) item.diaChi = d.diaChi;
+      });
+
+      const dsKhach = Array.from(mapKhachChon.values());
+      const coNhomCoSan = _cauHinhHanMuc && _cauHinhHanMuc.nhom && _cauHinhHanMuc.nhom.length > 0;
+
+      // Chặn thao tác sai theo yêu cầu
+      if (dsKhach.length === 0) {
+        alert('⚠️ Vui lòng tích chọn khách hàng trong bảng trước khi bấm gom nhóm.');
+        return;
+      }
+      if (dsKhach.length === 1 && !coNhomCoSan) {
+        alert('Vui lòng tích chọn từ 2 khách hàng trở lên để gom thành một hệ thống khách hàng');
+        return;
+      }
+
+      gnkhDsKhachDangChon = dsKhach;
+      gnkhVeBangDanhSachChon();
+
+      // Cấu hình radio phương thức gom nhóm
+      const optTaoMoi = document.getElementById('gnkhOptTaoMoi');
+      const optGopCoSan = document.getElementById('gnkhOptGopCoSan');
+      if (dsKhach.length === 1 && coNhomCoSan) {
+        optGopCoSan.checked = true;
+      } else {
+        optTaoMoi.checked = true;
+      }
+      gnkhDoiPhuongThuc();
+
+      // Gợi ý tên hệ thống mới
+      const dsTen = dsKhach.map(x => x.tenKH);
+      const chung = (typeof tienToChungTenKhach === 'function') ? tienToChungTenKhach(dsTen) : { ten: '' };
+      const goiYTen = chung.ten ? `HỆ THỐNG ${chung.ten.toUpperCase()}` : '';
+      document.getElementById('gnkhTenMoi').value = goiYTen;
+
+      // Nạp dropdown NV bán hàng & dropdown nhóm có sẵn
+      napDropdownNVPhuTrachGNKH(dsKhach[0]?.nguoiBan);
+      napDropdownHeThongCoSan();
+
+      const soNhom = (_cauHinhHanMuc && _cauHinhHanMuc.nhom) ? _cauHinhHanMuc.nhom.length : 0;
+      document.getElementById('gnkhSoLuongNhomHienCo').textContent = soNhom;
+      gnkhToggleQuanLyNhom(false);
+
+      document.getElementById('modalGomNhomKH').style.display = 'flex';
+    }
+
+    function dongModalGomNhomKH() {
+      const modal = document.getElementById('modalGomNhomKH');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function napDropdownNVPhuTrachGNKH(nvGoiY = '') {
+      const sel = document.getElementById('gnkhNVPhuTrach');
+      if (!sel) return;
+      const setNV = new Set();
+      danhSachCongNo.forEach(d => { if (d.nguoiBan) setNV.add(d.nguoiBan.trim()); });
+      try {
+        const dm = JSON.parse(localStorage.getItem('tmh_danh_muc_nv_kinh_doanh') || '[]');
+        dm.forEach(n => {
+          const t = n.ho_ten || n.ten_nv || n.ten || '';
+          if (t) setNV.add(t.trim());
+        });
+      } catch (e) {}
+
+      sel.innerHTML = '<option value="">-- Chọn NV bán hàng phụ trách --</option>';
+      Array.from(setNV).sort((a, b) => a.localeCompare(b, 'vi')).forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        if (nvGoiY && t.includes(nvGoiY.trim())) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+
+    function napDropdownHeThongCoSan(nhomIdDangChon = '') {
+      const sel = document.getElementById('gnkhChonHeThongCoSan');
+      const info = document.getElementById('gnkhThongTinHeThongCoSan');
+      if (!sel) return;
+      const dsNhom = (_cauHinhHanMuc && _cauHinhHanMuc.nhom) ? _cauHinhHanMuc.nhom : [];
+      if (!dsNhom.length) {
+        sel.innerHTML = '<option value="">-- Chưa có Hệ thống nào trước đó --</option>';
+        if (info) info.textContent = 'Chưa có hệ thống nào. Vui lòng chọn "1. Tạo Hệ Thống Khách Hàng Mới" ở trên.';
+        return;
+      }
+      sel.innerHTML = dsNhom.map(n => `<option value="${n.id}" ${n.id === nhomIdDangChon ? 'selected' : ''}>🏢 ${escapeHtml(n.ten)} (${n.thanhVien.length} điểm bán)</option>`).join('');
+      sel.onchange = () => {
+        const nid = sel.value;
+        const n = dsNhom.find(x => x.id === nid);
+        if (n && info) {
+          const dsTen = n.thanhVien.map(tv => tv.tenKH).slice(0, 3).join(', ');
+          info.textContent = `Hệ thống hiện có ${n.thanhVien.length} điểm bán: ${dsTen}${n.thanhVien.length > 3 ? '...' : ''} · Hạn mức: ${formatTien(n.soTien || 0)} đ / ${n.soNgay || 0} ngày`;
+        }
+      };
+      sel.onchange();
+    }
+
+    function veDanhSachQuanLyNhom() {
+      const box = document.getElementById('gnkhDsQuanLyNhom');
+      if (!box) return;
+      const dsNhom = (_cauHinhHanMuc && _cauHinhHanMuc.nhom) ? _cauHinhHanMuc.nhom : [];
+      if (!dsNhom.length) {
+        box.innerHTML = `<div style="text-align:center; padding:14px; color:var(--text-muted); font-size:12px;">Chưa có hệ thống khách hàng nào được tạo.</div>`;
+        return;
+      }
+      box.innerHTML = dsNhom.map(n => `
+        <div style="background:#fff; border:1px solid #cbd5e1; border-radius:6px; padding:10px 12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
+            <div>
+              <b style="color:#0369a1; font-size:13px;">🏢 ${escapeHtml(n.ten)}</b>
+              <span class="badge-status" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-size:10.5px; margin-left:6px;">${n.thanhVien.length} điểm bán</span>
+              ${n.ghiChu ? `<span style="color:#64748b; font-size:11px; margin-left:6px;">(${escapeHtml(n.ghiChu)})</span>` : ''}
+            </div>
+            <button type="button" class="btn btn-outline" style="height:24px; padding:0 8px; font-size:11px; color:#dc2626; border-color:#fca5a5;"
+              onclick="giaiTanNhomKH('${n.id}')" title="Giải tán nhóm, trả toàn bộ điểm bán về khách hàng độc lập">
+              🗑️ Giải tán nhóm (Ungroup)
+            </button>
+          </div>
+          <div style="background:#f8fafc; border-radius:4px; padding:6px 8px; font-size:11.5px; display:flex; flex-direction:column; gap:4px;">
+            ${n.thanhVien.map(tv => `
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span>• <b>${escapeHtml(tv.tenKH)}</b> ${tv.maKH ? `<span style="color:var(--text-muted); font-size:10.5px;">(${escapeHtml(tv.maKH)})</span>` : ''}</span>
+                <button type="button" class="btn btn-outline" style="height:20px; padding:0 8px; font-size:10.5px; font-weight:600; color:#ef4444; border-color:#fca5a5;"
+                  onclick="tachKhachKhoiNhom('${n.id}', '${escapeHtml(tv.tenKH)}')">
+                  ✕ Tách khỏi nhóm
+                </button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function xacNhanGomNhomKH() {
+      if (typeof chanNeuChiXem === 'function' && chanNeuChiXem()) return;
+      const btn = document.getElementById('btnXacNhanGomNhom');
+      if (btn) btn.disabled = true;
+
+      try {
+        const phuongThuc = document.querySelector('input[name="gnkhPhuongThuc"]:checked')?.value || 'tao_moi';
+        let thanhVienMoi = [];
+        if (Array.isArray(gnkhDsKhachDangChon) && gnkhDsKhachDangChon.length > 0) {
+          thanhVienMoi = gnkhDsKhachDangChon.map(k => ({
+            maKH: k.maKH || '',
+            tenKH: k.tenKH,
+            diaChi: k.diaChi || ''
+          }));
+        } else {
+          const mapKhachChon = new Map();
+          khachDaChon.forEach(tenKey => {
+            const nhom = _cauHinhHanMuc && _cauHinhHanMuc.nhom ? _cauHinhHanMuc.nhom.find(n => n.ten === tenKey) : null;
+            if (nhom && Array.isArray(nhom.thanhVien)) {
+              nhom.thanhVien.forEach(tv => {
+                if (tv.tenKH && !mapKhachChon.has(tv.tenKH.trim())) mapKhachChon.set(tv.tenKH.trim(), { maKH: tv.maKH || '', tenKH: tv.tenKH.trim(), diaChi: tv.diaChi || '' });
+              });
+            } else {
+              if (!mapKhachChon.has(tenKey)) mapKhachChon.set(tenKey, { maKH: '', tenKH: tenKey, diaChi: '' });
+            }
+          });
+          dsDonDaChon.forEach(d => {
+            const ten = (d.tenKH || 'Khách Lẻ').trim();
+            if (!mapKhachChon.has(ten)) {
+              mapKhachChon.set(ten, { maKH: d.maKH || '', tenKH: ten, diaChi: d.diaChi || '' });
+            } else {
+              const it = mapKhachChon.get(ten);
+              if (d.maKH && !it.maKH) it.maKH = d.maKH;
+              if (d.diaChi && !it.diaChi) it.diaChi = d.diaChi;
+            }
+          });
+          thanhVienMoi = Array.from(mapKhachChon.values());
+        }
+
+        if (phuongThuc === 'tao_moi') {
+          const tenHeThong = (document.getElementById('gnkhTenMoi')?.value || '').trim().toUpperCase();
+          if (!tenHeThong) {
+            alert('⚠️ Vui lòng nhập Tên Hệ thống / Chuỗi đại diện (VD: HỆ THỐNG FULL MART).');
+            document.getElementById('gnkhTenMoi')?.focus();
+            return;
+          }
+          if (thanhVienMoi.length < 2) {
+            alert('Vui lòng tích chọn từ 2 khách hàng trở lên để gom thành một hệ thống khách hàng');
+            return;
+          }
+          if (_cauHinhHanMuc && _cauHinhHanMuc.nhom && _cauHinhHanMuc.nhom.some(x => khoaTenKhachHM(x.ten) === khoaTenKhachHM(tenHeThong))) {
+            alert(`⚠️ Đã tồn tại Hệ thống có tên "${tenHeThong}". Vui lòng đặt tên khác hoặc chọn "Gộp Vào Hệ Thống Đã Có Sẵn".`);
+            return;
+          }
+
+          const nvPhuTrach = (document.getElementById('gnkhNVPhuTrach')?.value || '').trim();
+          const soNgay = parseInt(document.getElementById('gnkhSoNgay')?.value, 10) || 5;
+          const soTien = (typeof parseVNNumber_ === 'function') ? parseVNNumber_(document.getElementById('gnkhSoTien')?.value) : 6000000;
+          const idMoi = 'NHOM_HT_' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase();
+
+          const nhomMoi = {
+            id: idMoi,
+            ten: tenHeThong,
+            loai: 'nhom',
+            soNgay: soNgay,
+            soTien: soTien,
+            cachTinh: 'tong_nhom',
+            thanhVien: thanhVienMoi,
+            ghiChu: nvPhuTrach ? `NV bán: ${nvPhuTrach}` : '',
+            nguoiBan: nvPhuTrach
+          };
+
+          const dongLuu = [dongTuNhomHM(nhomMoi)];
+          const kq = await luuCacDongHanMuc(dongLuu);
+          if (!kq.ok) {
+            alert('❌ Chưa lưu được Hệ thống khách hàng: ' + (kq.loi || 'Lỗi mạng'));
+            return;
+          }
+
+          boChonTatCaCongNo();
+          dongModalGomNhomKH();
+          capNhatDropdownKhachHang();
+          veBangCongNo();
+          baoNhanhCongNo(`✅ Đã gom ${thanhVienMoi.length} điểm bán thành công vào "${tenHeThong}"!`);
+        } else {
+          // Gộp vào hệ thống đã có sẵn
+          const nhomId = document.getElementById('gnkhChonHeThongCoSan')?.value;
+          const nhomCu = _cauHinhHanMuc && _cauHinhHanMuc.nhom ? _cauHinhHanMuc.nhom.find(x => x.id === nhomId) : null;
+          if (!nhomCu) {
+            alert('⚠️ Vui lòng chọn một Hệ thống khách hàng có sẵn.');
+            return;
+          }
+
+          const tvCu = Array.isArray(nhomCu.thanhVien) ? nhomCu.thanhVien.slice() : [];
+          thanhVienMoi.forEach(tvMoi => {
+            if (!tvCu.some(x => laThanhVienHM(x, tvMoi))) {
+              tvCu.push(tvMoi);
+            }
+          });
+
+          const nhomCapNhat = Object.assign({}, nhomCu, { thanhVien: tvCu });
+          const kq = await luuCacDongHanMuc([dongTuNhomHM(nhomCapNhat)]);
+          if (!kq.ok) {
+            alert('❌ Chưa cập nhật được Hệ thống khách hàng: ' + (kq.loi || 'Lỗi mạng'));
+            return;
+          }
+
+          boChonTatCaCongNo();
+          dongModalGomNhomKH();
+          capNhatDropdownKhachHang();
+          veBangCongNo();
+          baoNhanhCongNo(`✅ Đã gộp thêm các điểm bán vào "${nhomCu.ten}" (${tvCu.length} điểm bán)!`);
+        }
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function tachKhachKhoiNhom(nhomId, tenKH) {
+      if (typeof chanNeuChiXem === 'function' && chanNeuChiXem()) return;
+      const nhom = _cauHinhHanMuc && _cauHinhHanMuc.nhom ? _cauHinhHanMuc.nhom.find(x => x.id === nhomId) : null;
+      if (!nhom) return;
+      if (!confirm(`❓ Bạn có chắc muốn gỡ điểm bán "${tenKH}" ra khỏi hệ thống "${nhom.ten}"?\n\nĐiểm bán này sẽ trở về trạng thái khách hàng độc lập.`)) return;
+
+      const conLai = nhom.thanhVien.filter(tv => !laThanhVienHM(tv, { tenKH }));
+      if (conLai.length === 0) {
+        if (confirm(`Hệ thống "${nhom.ten}" không còn điểm bán nào. Bạn có muốn giải tán luôn hệ thống này?`)) {
+          await giaiTanNhomKH(nhomId);
+          return;
+        }
+      }
+
+      const nhomMoi = Object.assign({}, nhom, { thanhVien: conLai });
+      const kq = await luuCacDongHanMuc([dongTuNhomHM(nhomMoi)]);
+      if (!kq.ok) {
+        alert('❌ Chưa tách được điểm bán: ' + (kq.loi || 'Lỗi mạng'));
+        return;
+      }
+      veDanhSachQuanLyNhom();
+      capNhatDropdownKhachHang();
+      veBangCongNo();
+      baoNhanhCongNo(`✅ Đã gỡ "${tenKH}" ra khỏi "${nhom.ten}".`);
+    }
+
+    async function giaiTanNhomKH(nhomId) {
+      if (typeof chanNeuChiXem === 'function' && chanNeuChiXem()) return;
+      const nhom = _cauHinhHanMuc && _cauHinhHanMuc.nhom ? _cauHinhHanMuc.nhom.find(x => x.id === nhomId) : null;
+      if (!nhom) return;
+      if (!confirm(`⚠️ XÁC NHẬN GIẢI TÁN HỆ THỐNG "${nhom.ten}"?\n\nToàn bộ ${nhom.thanhVien.length} điểm bán sẽ được trả về trạng thái khách hàng độc lập với đúng số nợ gốc.`)) return;
+
+      const kq = await xoaDongHanMuc(nhomId);
+      if (!kq.ok) {
+        alert('❌ Chưa giải tán được hệ thống: ' + (kq.loi || 'Lỗi mạng'));
+        return;
+      }
+      dongModalGomNhomKH();
+      capNhatDropdownKhachHang();
+      veBangCongNo();
+      baoNhanhCongNo(`🗑️ Đã giải tán hệ thống "${nhom.ten}". Các khách hàng đã trở về độc lập.`);
+    }
+
+    // ========================================================
     // RENDER BẢNG DỮ LIỆU CÔNG NỢ
     // ========================================================
     function veBangCongNo() {
@@ -2984,12 +3649,18 @@
         if (locTT === 'da_thu_du' && conLai > 0) return false;
         if (locTT === 'vuot_han_muc' && !donViPhamHanMuc(d)) return false;
 
-        // 2. Lọc khách hàng: Chuẩn hóa chuỗi an toàn Unicode
+        // 2. Lọc khách hàng: Chuẩn hóa chuỗi an toàn Unicode & hỗ trợ lọc theo Hệ thống
         if (locKH && locKH !== 'tat_ca') {
-          const cleanKH = chuanHoaChuoiVN(d.tenKH);
-          const cleanLoc = chuanHoaChuoiVN(locKH);
-          if (cleanKH !== cleanLoc && !cleanKH.includes(cleanLoc) && !cleanLoc.includes(cleanKH)) {
-            return false;
+          const nhomLoc = (_cauHinhHanMuc && _cauHinhHanMuc.nhom) ? _cauHinhHanMuc.nhom.find(n => n.ten === locKH) : null;
+          if (nhomLoc) {
+            const nhomCuaDon = timNhomCuaKhach(d);
+            if (!nhomCuaDon || nhomCuaDon.id !== nhomLoc.id) return false;
+          } else {
+            const cleanKH = chuanHoaChuoiVN(d.tenKH);
+            const cleanLoc = chuanHoaChuoiVN(locKH);
+            if (cleanKH !== cleanLoc && !cleanKH.includes(cleanLoc) && !cleanLoc.includes(cleanKH)) {
+              return false;
+            }
           }
         }
 
@@ -3004,12 +3675,24 @@
           if (denNgay && ngayChuan > denNgay) return false;
         }
 
-        // 4. Lọc từ khóa tìm kiếm
+        // 4. Lọc từ khóa tìm kiếm (hỗ trợ tìm cả tên/mã/xe của chi nhánh hoặc tên hệ thống / thành viên con)
         if (tuKhoa) {
           const cleanTK = chuanHoaChuoiVN(tuKhoa);
-          const match = chuanHoaChuoiVN(d.maHD).includes(cleanTK) ||
+          const nhom = timNhomCuaKhach(d);
+          const tenNhomChuan = nhom ? chuanHoaChuoiVN(nhom.ten) : '';
+          const nhomKhop = nhom && (
+            tenNhomChuan.includes(cleanTK) ||
+            (Array.isArray(nhom.thanhVien) && nhom.thanhVien.some(tv =>
+              chuanHoaChuoiVN(tv.tenKH).includes(cleanTK) ||
+              chuanHoaChuoiVN(tv.maKH).includes(cleanTK) ||
+              chuanHoaChuoiVN(tv.diaChi).includes(cleanTK)
+            ))
+          );
+          const match = nhomKhop ||
+                        chuanHoaChuoiVN(d.maHD).includes(cleanTK) ||
                         chuanHoaChuoiVN(d.tenKH).includes(cleanTK) ||
                         chuanHoaChuoiVN(d.maKH).includes(cleanTK) ||
+                        chuanHoaChuoiVN(d.diaChi).includes(cleanTK) ||
                         chuanHoaChuoiVN(d.xe).includes(cleanTK) ||
                         chuanHoaChuoiVN(d.taiXe).includes(cleanTK) ||
                         chuanHoaChuoiVN(d.nguoiBan).includes(cleanTK);
@@ -3040,15 +3723,20 @@
           </tr>
         `;
 
-        // Gom nhóm theo khách hàng
+        // Gom nhóm theo khách hàng hoặc hệ thống chuỗi
         const mapKH = new Map();
         dsLoc.forEach(d => {
-          const key = (d.tenKH || 'Khách Lẻ').trim();
+          const nhom = timNhomCuaKhach(d);
+          const key = nhom ? nhom.ten : (d.tenKH || 'Khách Lẻ').trim();
           if (!mapKH.has(key)) {
             mapKH.set(key, {
               tenKH: key,
+              laHeThong: !!nhom,
+              nhomId: nhom ? nhom.id : null,
+              nhomInfo: nhom || null,
+              danhSachDiemBan: new Map(),
               maKH: d.maKH || '',
-              nguoiBan: d.nguoiBan || '',
+              nguoiBan: (nhom && (nhom.nguoiBan || nhom.nguoi_ban)) || d.nguoiBan || '',
               soDon: 0,
               donGanNhat: d.maHD,
               ngayGanNhat: d.ngayGiao || d.ngayGhiNo,
@@ -3068,9 +3756,38 @@
           group.tongDaThu += (d.daThu || 0);
           group.tongConLai += cl;
           group.danhSachDon.push(d);
+
+          if (nhom) {
+            const tenCon = (d.tenKH || 'Khách Lẻ').trim();
+            if (!group.danhSachDiemBan.has(tenCon)) {
+              group.danhSachDiemBan.set(tenCon, {
+                maKH: d.maKH || '',
+                tenKH: tenCon,
+                diaChi: d.diaChi || '',
+                soDon: 0,
+                tongNo: 0,
+                tongDaThu: 0,
+                tongConLai: 0
+              });
+            }
+            const db = group.danhSachDiemBan.get(tenCon);
+            db.soDon++;
+            db.tongNo += (d.soTienNo || 0);
+            db.tongDaThu += (d.daThu || 0);
+            db.tongConLai += cl;
+            if (d.maKH && !db.maKH) db.maKH = d.maKH;
+          }
+
           if (d.maKH && !group.maKH) group.maKH = d.maKH;
           if (d.nguoiBan && !group.nguoiBan) group.nguoiBan = d.nguoiBan;
           if (d.ngayThanhToan && d.ngayThanhToan > group.ngayThanhToanGanNhat) group.ngayThanhToanGanNhat = d.ngayThanhToan;
+
+          const ngayDon = chuanHoaNgayYYYYMMDD(d.ngayGiao || d.ngayGhiNo || '');
+          const ngayHien = chuanHoaNgayYYYYMMDD(group.ngayGanNhat || '');
+          if (!group.ngayGanNhat || (ngayDon && ngayDon >= ngayHien)) {
+            group.ngayGanNhat = d.ngayGiao || d.ngayGhiNo;
+            group.donGanNhat = d.maHD;
+          }
         });
 
         const dsKH = Array.from(mapKH.values()).map(g => {
@@ -3108,10 +3825,52 @@
                 <td class="o-chon"><input type="checkbox" data-kh="${escapeHtml(k.tenKH)}" ${khachDaChon.has(k.tenKH) ? 'checked' : ''} onchange="chonKhachHangCongNo(this)" title="Tích để đưa khách này vào báo cáo"></td>
                 <td style="text-align:center; font-weight:700; color:var(--text-muted);">${i + 1}</td>
                 <td>
-                  <b style="color:var(--text-main); font-size:13px;">${escapeHtml(k.tenKH)}</b>
-                  ${k.maKH ? `<div style="font-size:11px; color:var(--text-muted);">${escapeHtml(k.maKH)}</div>` : ''}
-                  ${htmlBadgeTraTruoc(k.tenKH)}
-                  ${htmlBadgeHanMucKhach(k.tenKH)}
+                  ${k.laHeThong ? `
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                      <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                        <span style="font-size:16px;">🏢</span>
+                        <b style="color:#0369a1; font-size:13.5px; font-weight:800; letter-spacing:0.2px;">${escapeHtml(k.tenKH)}</b>
+                        <span class="badge-status" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:700; font-size:11px; padding:2px 7px;">
+                          🏢 Hệ thống: ${k.danhSachDiemBan.size} điểm bán
+                        </span>
+                        <button type="button" class="btn btn-outline" style="height:22px; padding:0 8px; font-size:11px; font-weight:700; color:#0284c7; border-color:#7dd3fc; background:#f0f9ff;"
+                          data-count="${k.danhSachDiemBan.size}"
+                          onclick="toggleXemChiNhanhNhom('${escapeHtml(k.tenKH)}', this, event)" title="Bấm để xem danh sách điểm bán / địa chỉ con">
+                          ▼ Xem ${k.danhSachDiemBan.size} điểm bán
+                        </button>
+                        <button type="button" class="btn btn-outline" style="height:22px; padding:0 6px; font-size:11px; color:#475569; border-color:#cbd5e1;"
+                          onclick="moQuanLyNhom('${k.nhomId}', event)" title="Quản lý thành viên / Gỡ bớt điểm bán / Giải tán nhóm">
+                          ⚙️ Quản lý
+                        </button>
+                      </div>
+                      ${htmlBadgeTraTruoc(k.tenKH)}
+                      ${htmlBadgeHanMucKhach(k.tenKH)}
+                      <div id="dsChiNhanh_${escapeHtml(k.tenKH).replace(/[^a-zA-Z0-9]/g, '_')}" style="display:none; margin-top:6px; padding:8px 10px; background:#f8fafc; border:1px dashed #93c5fd; border-radius:6px; font-size:11.5px;">
+                        <div style="font-weight:700; color:#0369a1; margin-bottom:5px; font-size:11px;">📍 DANH SÁCH ĐIỂM BÁN CON TRONG HỆ THỐNG:</div>
+                        <div style="display:flex; flex-direction:column; gap:4px;">
+                          ${Array.from(k.danhSachDiemBan.values()).map(db => `
+                            <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid #f1f5f9;">
+                              <div>
+                                <b style="color:var(--text-main);">${escapeHtml(db.tenKH)}</b> ${db.maKH ? `<span style="color:var(--text-muted); font-size:10.5px;">(${escapeHtml(db.maKH)})</span>` : ''}
+                                <span style="color:#64748b; font-size:11px; margin-left:6px;">
+                                  ${db.soDon} đơn · Nợ: <span style="color:#b91c1c; font-weight:600;">${formatTien(db.tongNo)}</span> · Còn: <b style="color:#dc2626;">${formatTien(db.tongConLai)}</b>
+                                </span>
+                              </div>
+                              <button type="button" class="btn btn-outline" style="height:21px; padding:0 8px; font-size:10.5px; font-weight:600; color:#ef4444; border-color:#fca5a5; background:#fff;" 
+                                onclick="tachKhachKhoiNhom('${k.nhomId}', '${escapeHtml(db.tenKH)}')" title="Tách điểm bán này ra khỏi hệ thống (trả về khách hàng độc lập)">
+                                ✕ Tách khỏi nhóm
+                              </button>
+                            </div>
+                          `).join('')}
+                        </div>
+                      </div>
+                    </div>
+                  ` : `
+                    <b style="color:var(--text-main); font-size:13px;">${escapeHtml(k.tenKH)}</b>
+                    ${k.maKH ? `<div style="font-size:11px; color:var(--text-muted);">${escapeHtml(k.maKH)}</div>` : ''}
+                    ${htmlBadgeTraTruoc(k.tenKH)}
+                    ${htmlBadgeHanMucKhach(k.tenKH)}
+                  `}
                 </td>
                 <td><span title="${escapeHtml(k.nguoiBanHienThi || k.nguoiBan || '--')}">${escapeHtml(k.nguoiBanHienThi || k.nguoiBan || '--')}</span></td>
                 <td style="text-align:center;">
@@ -3461,7 +4220,10 @@
     function layDonDaChon() {
       const kq = new Map();
       danhSachCongNo.forEach(d => {
-        if ((khachDaChon.has(khoaKhachCongNo(d)) && donKhopLocNgayTrangThai(d)) || 
+        const nhom = (typeof timNhomCuaKhach === 'function') ? timNhomCuaKhach(d) : null;
+        const tenNhom = nhom ? nhom.ten : null;
+        const khDaChon = khachDaChon.has(khoaKhachCongNo(d)) || (tenNhom && khachDaChon.has(tenNhom));
+        if ((khDaChon && donKhopLocNgayTrangThai(d)) || 
             (donDaChon.has(d.id) && donKhopLocNgayTrangThai(d))) {
           kq.set(d.id, d);
         }
@@ -3510,6 +4272,10 @@
       if (!ds.length) {
         thanh.style.display = 'none';
         return;
+      }
+      const btnGom = document.getElementById('btnGomNhomKH');
+      if (btnGom) {
+        btnGom.style.display = cheDoXemHienTai === 'khach_hang' ? '' : 'none';
       }
       const soKH = new Set(ds.map(khoaKhachCongNo)).size;
       const tongNo = ds.reduce((s, d) => s + (d.soTienNo || 0), 0);
@@ -5735,7 +6501,13 @@
       const modal = document.getElementById('modalLichSuKhachHang');
       document.getElementById('modalLichSuTitle').textContent = `📜 Lịch Sử Đơn Nợ Khách Hàng: ${tenKH}`;
 
-      const dsCuaKH = danhSachCongNo.filter(d => (d.tenKH || '').trim() === tenKH);
+      const nhom = (_cauHinhHanMuc && _cauHinhHanMuc.nhom) ? _cauHinhHanMuc.nhom.find(n => n.ten === tenKH) : null;
+      const dsCuaKH = nhom
+        ? danhSachCongNo.filter(d => {
+            const n = (typeof timNhomCuaKhach === 'function') ? timNhomCuaKhach(d) : null;
+            return n && n.id === nhom.id;
+          })
+        : danhSachCongNo.filter(d => (d.tenKH || '').trim() === tenKH);
 
       // Nạp bổ sung các khoản thu từ Supabase của toàn bộ đơn thuộc khách hàng này
       if (typeof sb !== 'undefined') {
@@ -5815,7 +6587,10 @@
           <tr class="${daKiemTra ? 'dong-da-kiem-tra' : ''}">
             <td style="text-align:center; font-weight:700; color:var(--text-muted);">${i + 1}</td>
             <td style="text-align:center; white-space:nowrap; font-size:11.5px;">${d.ngayGiao || d.ngayGhiNo || '--'}</td>
-            <td style="text-align:center; font-family:monospace; font-weight:700;">${escapeHtml(d.maHD)}</td>
+            <td style="text-align:center; font-family:monospace; font-weight:700;">
+              ${escapeHtml(d.maHD)}
+              ${nhom ? `<div style="font-size:10.5px; font-weight:600; color:#0369a1; margin-top:2px;">🏢 ${escapeHtml(d.tenKH)}${d.diaChi ? ` <span style="font-weight:normal; color:#64748b; font-size:10px;">(${escapeHtml(d.diaChi)})</span>` : ''}</div>` : ''}
+            </td>
             <td>${(d.ngoaiBangKe || d.xe === 'Ngoài bảng kê' || d.maDot === 'NGOAI_BANG_KE') ? `<span class="badge-status" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:10.5px;">Ngoài bảng kê</span>` : (d.xe || '--')}</td>
             <td>${escapeHtml(d.taiXe || '--')}</td>
             <td class="num-cell">${formatTien(d.tienHD || 0)}</td>
@@ -6382,6 +7157,13 @@
 
     async function moThuNoChoKhachHang(tenKHRaw) {
       const tenKH = decodeURIComponent(tenKHRaw);
+      const nhom = (_cauHinhHanMuc && _cauHinhHanMuc.nhom) ? _cauHinhHanMuc.nhom.find(n => n.ten === tenKH) : null;
+      if (nhom) {
+        khachDaChon.clear();
+        khachDaChon.add(nhom.ten);
+        await moThuNoHangLoat();
+        return;
+      }
       await moModalThuNoTaiQuy();
       const donDauTien = danhSachCongNo.find(d => (d.tenKH || '').trim() === tenKH && Math.max(0, (d.soTienNo || 0) - (d.daThu || 0)) > 0);
       if (donDauTien) {
@@ -6733,11 +7515,18 @@
         return;
       }
 
+      const nhom = (_cauHinhHanMuc && _cauHinhHanMuc.nhom) ? _cauHinhHanMuc.nhom.find(n => n.ten === locKH) : null;
+
       // Lọc các đơn nợ của khách hàng này trong khoảng thời gian (chuẩn hóa ngày và tên)
       const dsIn = danhSachCongNo.filter(d => {
-        const cleanKH = chuanHoaChuoiVN(d.tenKH);
-        const cleanLoc = chuanHoaChuoiVN(locKH);
-        if (cleanKH !== cleanLoc && !cleanKH.includes(cleanLoc) && !cleanLoc.includes(cleanKH)) return false;
+        if (nhom) {
+          const n = (typeof timNhomCuaKhach === 'function') ? timNhomCuaKhach(d) : null;
+          if (!n || n.id !== nhom.id) return false;
+        } else {
+          const cleanKH = chuanHoaChuoiVN(d.tenKH);
+          const cleanLoc = chuanHoaChuoiVN(locKH);
+          if (cleanKH !== cleanLoc && !cleanKH.includes(cleanLoc) && !cleanLoc.includes(cleanKH)) return false;
+        }
 
         // Đồng bộ lọc theo nhân viên bán hàng (nếu đang lọc NV)
         if (!donKhopLocNVBanHang(d)) return false;
@@ -6814,7 +7603,10 @@
           <tr>
             <td style="text-align: center;">${i + 1}</td>
             <td style="text-align: center;">${d.ngayGiao || d.ngayGhiNo || '--'}</td>
-            <td style="text-align: center; font-weight: bold; font-family: monospace;">${escapeHtml(d.maHD)}</td>
+            <td style="text-align: center; font-weight: bold; font-family: monospace;">
+              ${escapeHtml(d.maHD)}
+              ${nhom ? `<div style="font-size:8pt; font-weight:normal; color:#0369a1;">${escapeHtml(d.tenKH)}${d.diaChi ? ` - ${escapeHtml(d.diaChi)}` : ''}</div>` : ''}
+            </td>
             <td>${d.xe ? d.xe + (d.taiXe ? ' (' + d.taiXe + ')' : '') : '--'}</td>
             <td style="text-align: center; font-size:8.5pt;">${strNgayTT}</td>
             <td style="text-align: right;">${formatTien(d.tienHD || 0)}</td>

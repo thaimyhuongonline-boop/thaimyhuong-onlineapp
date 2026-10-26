@@ -127,7 +127,7 @@ function dongTuNhomHM(n) {
   return {
     id: n.id, ten_nhom: n.ten, loai: "nhom", han_muc_ngay: _soNguyenKhongAm(n.soNgay, 0), han_muc_tien: _soNguyenKhongAm(n.soTien, 0),
     cach_tinh: n.cachTinh === "tung_khach" ? "tung_khach" : "tong_nhom",
-    thanh_vien: (n.thanhVien || []).map(tv => ({ maKH: tv.maKH || "", tenKH: tv.tenKH || "" })), ghi_chu: n.ghiChu || ""
+    thanh_vien: (n.thanhVien || []).map(tv => ({ maKH: tv.maKH || "", tenKH: tv.tenKH || "", diaChi: tv.diaChi || "" })), ghi_chu: n.ghiChu || ""
   };
 }
 
@@ -146,10 +146,11 @@ function laThanhVienHM(tv, kh) {
   return (ma && maTV && ma === maTV) || (ten && khoaTenKhachHM(tv.tenKH) === ten);
 }
 
-/** Nhóm của khách (theo mã KH, không có mã thì theo tên) — null nếu là khách cá nhân */
+/** Nhóm của khách (theo mã KH, không có mã thì theo tên, hoặc tên nhóm chính nó) — null nếu là khách cá nhân */
 function timNhomCuaKhachHM(cfg, kh) {
-  if (!cfg) return null;
-  return cfg.nhom.find(n => n.thanhVien.some(tv => laThanhVienHM(tv, kh))) || null;
+  if (!cfg || !cfg.nhom) return null;
+  const ten = khoaTenKhachHM(kh && kh.tenKH);
+  return cfg.nhom.find(n => (ten && khoaTenKhachHM(n.ten) === ten) || (Array.isArray(n.thanhVien) && n.thanhVien.some(tv => laThanhVienHM(tv, kh)))) || null;
 }
 
 /** Hạn mức đang áp dụng cho 1 khách */
