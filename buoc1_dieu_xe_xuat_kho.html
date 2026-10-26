@@ -829,6 +829,21 @@
           </div>
           <button type="button" onclick="dongChonDonGiaoLai()" style="border:none; background:transparent; font-size:18px; cursor:pointer; color:var(--text-muted);">&times;</button>
         </div>
+        <!-- Ô TÌM KIẾM NHANH ĐƠN HẸN GIAO LẠI (STICKY HEADER) -->
+        <div style="padding:10px 18px; border-bottom:1px solid var(--border-color); background:#ffffff; position:sticky; top:0; z-index:10;">
+          <div style="position:relative; display:flex; align-items:center;">
+            <span style="position:absolute; left:10px; font-size:13px; color:var(--text-muted); pointer-events:none; user-select:none;">🔍</span>
+            <input type="text" id="timKiemDonGiaoLai" class="form-control"
+              placeholder="Tìm nhanh mã HĐ, tên khách hàng, địa chỉ, chuyến trước..."
+              autocomplete="off" spellcheck="false"
+              oninput="locDonGiaoLaiTheoTuKhoa(this.value)"
+              onkeydown="if(event.key==='Escape'){ if(this.value){ xoaTimKiemDonGiaoLai(); event.stopPropagation(); } else { dongChonDonGiaoLai(); } }"
+              style="width:100%; height:34px; padding:0 30px 0 32px; font-size:12px; border-radius:var(--radius-sm); border:1px solid var(--border-color); box-sizing:border-box;">
+            <button type="button" id="btnXoaTimKiemDonGiaoLai" onclick="xoaTimKiemDonGiaoLai()"
+              style="display:none; position:absolute; right:8px; border:none; background:transparent; color:#94a3b8; font-size:16px; cursor:pointer; padding:2px 6px; font-weight:700; line-height:1;"
+              title="Xóa tìm kiếm">&times;</button>
+          </div>
+        </div>
         <div id="dsChonDonGiaoLai" style="padding:12px 18px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:6px;"></div>
         <div style="padding:10px 18px; border-top:1px solid var(--border-color); background:#f8fafc; display:flex; justify-content:space-between; align-items:center; gap:8px;">
           <span id="tomTatChonDonGiaoLai" style="font-size:12px; color:var(--text-muted);"></span>
@@ -3284,32 +3299,128 @@
       return (danhSachHoaDon || []).some(h => String(h.maHD || '').toUpperCase() === m);
     }
 
+    function boDauDonGiaoLai_(s) {
+      if (typeof boDauXemLai_ === 'function') return boDauXemLai_(s);
+      return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, m => m === 'đ' ? 'd' : 'D').toLowerCase().trim();
+    }
+
     function moChonDonGiaoLai() {
       let dsGL = [];
       try { dsGL = JSON.parse(localStorage.getItem('tmh_danh_sach_cho_giao_lai') || '[]'); } catch (e) {}
       if (!dsGL.length) { alert("Không có đơn hàng nào đang chờ giao lại!"); return; }
+
+      // Reset ô tìm kiếm nhanh
+      const inputSearch = document.getElementById('timKiemDonGiaoLai');
+      if (inputSearch) inputSearch.value = '';
+      const btnXoa = document.getElementById('btnXoaTimKiemDonGiaoLai');
+      if (btnXoa) btnXoa.style.display = 'none';
+
       const box = document.getElementById('dsChonDonGiaoLai');
-      box.innerHTML = dsGL.map(d => {
+      const htmlItems = dsGL.map(d => {
         const ma = String(d.maHD || '').trim().toUpperCase();
         const daCo = donGiaoLaiDaCoTrongXe(ma);
         const cu = [d.xeCu || d.xeGoc, d.ngayCu || d.ngayGiaoGoc].filter(Boolean).join(' — ');
+        const tien = d.tienHD !== undefined ? d.tienHD : (d.thanhTien || 0);
+        const tienFormatted = formatTien(tien);
+
+        // Chuỗi tìm kiếm tổng hợp: mã HĐ, tên khách hàng, địa chỉ, chuyến trước, ngày, số tiền
+        let diaChiExtra = '';
+        if (Array.isArray(d.chiTietKiotViet) && d.chiTietKiotViet.length) {
+          const r0 = d.chiTietKiotViet[0] || {};
+          diaChiExtra = [r0['Địa chỉ giao hàng'], r0['Địa chỉ'], r0['Khu vực giao'], r0['Khu vực'], r0['Điện thoại']].filter(Boolean).join(' ');
+        }
+
+        const chuoiTim = [
+          ma,
+          d.tenKH || '',
+          d.diaChi || '',
+          d.diaChiGiao || '',
+          d.diaChiGiaoHang || '',
+          d.khuVuc || '',
+          diaChiExtra,
+          d.maKH || '',
+          d.nguoiBan || '',
+          d.xeCu || d.xeGoc || '',
+          d.ngayCu || d.ngayGiaoGoc || '',
+          cu,
+          String(tien),
+          tienFormatted,
+          tienFormatted.replace(/\./g, ''),
+          tienFormatted + 'd',
+          tienFormatted + 'đ'
+        ].filter(Boolean).join(' ');
+
+        const timNorm = boDauDonGiaoLai_(chuoiTim);
+
         return `
-          <label style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; border:1px solid ${daCo ? '#bbf7d0' : '#fed7aa'}; background:${daCo ? '#f0fdf4' : '#ffffff'}; border-radius:6px; cursor:${daCo ? 'default' : 'pointer'}; font-size:12.5px;">
+          <label class="item-don-giao-lai" data-tim="${escapeHtml(timNorm)}" style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; border:1px solid ${daCo ? '#bbf7d0' : '#fed7aa'}; background:${daCo ? '#f0fdf4' : '#ffffff'}; border-radius:6px; cursor:${daCo ? 'default' : 'pointer'}; font-size:12.5px;">
             <input type="checkbox" class="chk-don-giao-lai" value="${escapeHtml(ma)}" ${daCo ? 'disabled checked' : ''} onchange="capNhatTomTatChonDonGiaoLai()" style="margin-top:2px; width:16px; height:16px;">
             <span style="flex:1; min-width:0;">
               <b>${escapeHtml(ma)}</b> — ${escapeHtml(d.tenKH || 'Khách Lẻ')}
-              <span style="color:#15803d; font-weight:700;">(${formatTien(d.tienHD || d.thanhTien || 0)} đ)</span>
+              <span style="color:#15803d; font-weight:700;">(${tienFormatted} đ)</span>
               ${cu ? `<div style="font-size:11px; color:var(--text-muted);">Chuyến trước: ${escapeHtml(cu)}</div>` : ''}
               ${daCo ? '<div style="font-size:11px; color:#15803d; font-weight:700;">✅ Đã có trong xe này</div>' : ''}
             </span>
           </label>`;
       }).join('');
+
+      box.innerHTML = htmlItems + `
+        <div id="emptySearchDonGiaoLai" style="display:none; text-align:center; padding:32px 16px; color:var(--text-muted); font-size:13px;">
+          <div style="font-size:24px; margin-bottom:6px;">🔍</div>
+          <b style="color:var(--text-main);">Không tìm thấy đơn hàng nào phù hợp với từ khóa</b>
+          <div style="font-size:11.5px; margin-top:4px; color:#94a3b8;">Thử tìm theo mã HĐ, tên khách hàng, địa chỉ hoặc số tiền khác</div>
+        </div>
+      `;
+
       capNhatTomTatChonDonGiaoLai();
       document.getElementById('modalChonDonGiaoLai').style.display = 'flex';
+      setTimeout(() => {
+        const inp = document.getElementById('timKiemDonGiaoLai');
+        if (inp) inp.focus();
+      }, 50);
     }
 
     function dongChonDonGiaoLai() {
       document.getElementById('modalChonDonGiaoLai').style.display = 'none';
+      const inputSearch = document.getElementById('timKiemDonGiaoLai');
+      if (inputSearch) inputSearch.value = '';
+      const btnXoa = document.getElementById('btnXoaTimKiemDonGiaoLai');
+      if (btnXoa) btnXoa.style.display = 'none';
+      const emptyEl = document.getElementById('emptySearchDonGiaoLai');
+      if (emptyEl) emptyEl.style.display = 'none';
+      const items = document.querySelectorAll('#dsChonDonGiaoLai .item-don-giao-lai');
+      items.forEach(el => el.style.display = 'flex');
+    }
+
+    function locDonGiaoLaiTheoTuKhoa(val) {
+      const tuKhoaRaw = (val !== undefined ? val : (document.getElementById('timKiemDonGiaoLai')?.value || '')).trim();
+      const btnXoa = document.getElementById('btnXoaTimKiemDonGiaoLai');
+      if (btnXoa) btnXoa.style.display = tuKhoaRaw ? 'block' : 'none';
+
+      const tuGo = boDauDonGiaoLai_(tuKhoaRaw).split(' ').filter(Boolean);
+      const items = document.querySelectorAll('#dsChonDonGiaoLai .item-don-giao-lai');
+      let soHien = 0;
+
+      items.forEach(el => {
+        const textTim = el.dataset.tim || '';
+        const khop = tuGo.length === 0 || tuGo.every(t => textTim.includes(t));
+        el.style.display = khop ? 'flex' : 'none';
+        if (khop) soHien++;
+      });
+
+      const emptyEl = document.getElementById('emptySearchDonGiaoLai');
+      if (emptyEl) {
+        emptyEl.style.display = (items.length > 0 && soHien === 0) ? 'block' : 'none';
+      }
+    }
+
+    function xoaTimKiemDonGiaoLai() {
+      const input = document.getElementById('timKiemDonGiaoLai');
+      if (input) {
+        input.value = '';
+        locDonGiaoLaiTheoTuKhoa('');
+        input.focus();
+      }
     }
 
     function capNhatTomTatChonDonGiaoLai() {

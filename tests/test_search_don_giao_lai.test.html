@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Test Tìm Kiếm Nhanh Trong Modal Chọn Đơn Hẹn Giao Lại</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; background: #f8fafc; color: #0f172a; }
+  h1 { font-size: 20px; margin-bottom: 8px; color: #ea580c; }
+  .summary { padding: 12px 16px; border-radius: 8px; font-weight: 700; margin-bottom: 16px; font-size: 15px; }
+  .summary.pass { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+  .summary.fail { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+  .test-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .test-title { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .test-detail { font-size: 12.5px; color: #64748b; margin-top: 4px; font-family: monospace; white-space: pre-wrap; }
+  .badge-pass { background: #22c55e; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+  .badge-fail { background: #ef4444; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<h1>🧪 Kiểm Thử Tìm Kiếm Nhanh Đơn Hẹn Giao Lại — buoc1_dieu_xe_xuat_kho.html</h1>
+<div id="summaryBox" class="summary">Đang chạy kiểm thử...</div>
+<div id="testResults"></div>
+
+<!-- Modal Container sao chép y nguyên cấu trúc từ buoc1_dieu_xe_xuat_kho.html -->
+<div id="modalChonDonGiaoLai" onclick="if(event.target===this) dongChonDonGiaoLai()" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.5); z-index:99999; align-items:center; justify-content:center; backdrop-filter:blur(2px);">
+  <div style="background:#ffffff; border-radius:8px; width:560px; max-width:94vw; box-shadow:0 10px 15px -3px rgba(0,0,0,0.1); border:1px solid #e2e8f0; overflow:hidden; display:flex; flex-direction:column; max-height:85vh;">
+    <div style="padding:14px 18px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; background:#fff7ed;">
+      <div>
+        <h4 style="margin:0; font-size:14px; font-weight:800; color:#c2410c;">🔄 Chọn đơn hẹn giao lại cho xe này</h4>
+        <div style="font-size:11.5px; color:#9a3412; margin-top:2px;">Tích đúng các đơn sẽ giao lại trên xe đang điều — đơn không chọn vẫn nằm chờ cho xe khác</div>
+      </div>
+      <button type="button" id="btnDongModalHeader" onclick="dongChonDonGiaoLai()" style="border:none; background:transparent; font-size:18px; cursor:pointer; color:#64748b;">&times;</button>
+    </div>
+    <!-- Ô TÌM KIẾM NHANH ĐƠN HẸN GIAO LẠI (STICKY HEADER) -->
+    <div style="padding:10px 18px; border-bottom:1px solid #e2e8f0; background:#ffffff; position:sticky; top:0; z-index:10;">
+      <div style="position:relative; display:flex; align-items:center;">
+        <span style="position:absolute; left:10px; font-size:13px; color:#64748b; pointer-events:none; user-select:none;">🔍</span>
+        <input type="text" id="timKiemDonGiaoLai" class="form-control"
+          placeholder="Tìm nhanh mã HĐ, tên khách hàng, địa chỉ, chuyến trước..."
+          autocomplete="off" spellcheck="false"
+          oninput="locDonGiaoLaiTheoTuKhoa(this.value)"
+          onkeydown="if(event.key==='Escape'){ if(this.value){ xoaTimKiemDonGiaoLai(); event.stopPropagation(); } else { dongChonDonGiaoLai(); } }"
+          style="width:100%; height:34px; padding:0 30px 0 32px; font-size:12px; border-radius:4px; border:1px solid #e2e8f0; box-sizing:border-box;">
+        <button type="button" id="btnXoaTimKiemDonGiaoLai" onclick="xoaTimKiemDonGiaoLai()"
+          style="display:none; position:absolute; right:8px; border:none; background:transparent; color:#94a3b8; font-size:16px; cursor:pointer; padding:2px 6px; font-weight:700; line-height:1;"
+          title="Xóa tìm kiếm">&times;</button>
+      </div>
+    </div>
+    <div id="dsChonDonGiaoLai" style="padding:12px 18px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:6px;"></div>
+    <div style="padding:10px 18px; border-top:1px solid #e2e8f0; background:#f8fafc; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+      <span id="tomTatChonDonGiaoLai" style="font-size:12px; color:#64748b;"></span>
+      <div style="display:flex; gap:6px;">
+        <button type="button" id="btnDongModalFooter" class="btn btn-outline btn-sm" onclick="dongChonDonGiaoLai()">Đóng</button>
+        <button type="button" class="btn btn-sm" id="btnThemDonGiaoLaiDaChon" onclick="themDonGiaoLaiDaChon()" style="background:#ea580c; color:#ffffff; font-weight:700; border:none;">➕ Thêm đơn đã chọn</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Môi trường kiểm thử
+  const results = [];
+  function assert(name, condition, details) {
+    results.push({ name, pass: !!condition, details: details || '' });
+  }
+
+  function escapeHtml(v) {
+    if (v == null) return '';
+    return String(v)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function formatTien(n) {
+    if (isNaN(n) || n === null || n === undefined) return "0";
+    return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  }
+
+  // Toàn bộ logic chính thức từ buoc1_dieu_xe_xuat_kho.html
+  let danhSachHoaDon = [];
+  let duLieuKiotViet = [];
+  let chuyenDangXemLai = null;
+
+  function donGiaoLaiDaCoTrongXe(ma) {
+    const m = String(ma || '').toUpperCase();
+    return (danhSachHoaDon || []).some(h => String(h.maHD || '').toUpperCase() === m);
+  }
+
+  function boDauXemLai_(s) {
+    return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D')
+      .toLowerCase().replace(/\s+/g, ' ').trim();
+  }
+
+  function boDauDonGiaoLai_(s) {
+    if (typeof boDauXemLai_ === 'function') return boDauXemLai_(s);
+    return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, m => m === 'đ' ? 'd' : 'D').toLowerCase().trim();
+  }
+
+  function moChonDonGiaoLai() {
+    let dsGL = [];
+    try { dsGL = JSON.parse(localStorage.getItem('tmh_danh_sach_cho_giao_lai') || '[]'); } catch (e) {}
+    if (!dsGL.length) { return; }
+
+    const inputSearch = document.getElementById('timKiemDonGiaoLai');
+    if (inputSearch) inputSearch.value = '';
+    const btnXoa = document.getElementById('btnXoaTimKiemDonGiaoLai');
+    if (btnXoa) btnXoa.style.display = 'none';
+
+    const box = document.getElementById('dsChonDonGiaoLai');
+    const htmlItems = dsGL.map(d => {
+      const ma = String(d.maHD || '').trim().toUpperCase();
+      const daCo = donGiaoLaiDaCoTrongXe(ma);
+      const cu = [d.xeCu || d.xeGoc, d.ngayCu || d.ngayGiaoGoc].filter(Boolean).join(' — ');
+      const tien = d.tienHD !== undefined ? d.tienHD : (d.thanhTien || 0);
+      const tienFormatted = formatTien(tien);
+
+      let diaChiExtra = '';
+      if (Array.isArray(d.chiTietKiotViet) && d.chiTietKiotViet.length) {
+        const r0 = d.chiTietKiotViet[0] || {};
+        diaChiExtra = [r0['Địa chỉ giao hàng'], r0['Địa chỉ'], r0['Khu vực giao'], r0['Khu vực'], r0['Điện thoại']].filter(Boolean).join(' ');
+      }
+
+      const chuoiTim = [
+        ma,
+        d.tenKH || '',
+        d.diaChi || '',
+        d.diaChiGiao || '',
+        d.diaChiGiaoHang || '',
+        d.khuVuc || '',
+        diaChiExtra,
+        d.maKH || '',
+        d.nguoiBan || '',
+        d.xeCu || d.xeGoc || '',
+        d.ngayCu || d.ngayGiaoGoc || '',
+        cu,
+        String(tien),
+        tienFormatted,
+        tienFormatted.replace(/\./g, ''),
+        tienFormatted + 'd',
+        tienFormatted + 'đ'
+      ].filter(Boolean).join(' ');
+
+      const timNorm = boDauDonGiaoLai_(chuoiTim);
+
+      return `
+        <label class="item-don-giao-lai" data-tim="${escapeHtml(timNorm)}" style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; border:1px solid ${daCo ? '#bbf7d0' : '#fed7aa'}; background:${daCo ? '#f0fdf4' : '#ffffff'}; border-radius:6px; cursor:${daCo ? 'default' : 'pointer'}; font-size:12.5px;">
+          <input type="checkbox" class="chk-don-giao-lai" value="${escapeHtml(ma)}" ${daCo ? 'disabled checked' : ''} onchange="capNhatTomTatChonDonGiaoLai()" style="margin-top:2px; width:16px; height:16px;">
+          <span style="flex:1; min-width:0;">
+            <b>${escapeHtml(ma)}</b> — ${escapeHtml(d.tenKH || 'Khách Lẻ')}
+            <span style="color:#15803d; font-weight:700;">(${tienFormatted} đ)</span>
+            ${cu ? `<div style="font-size:11px; color:#64748b;">Chuyến trước: ${escapeHtml(cu)}</div>` : ''}
+            ${daCo ? '<div style="font-size:11px; color:#15803d; font-weight:700;">✅ Đã có trong xe này</div>' : ''}
+          </span>
+        </label>`;
+    }).join('');
+
+    box.innerHTML = htmlItems + `
+      <div id="emptySearchDonGiaoLai" style="display:none; text-align:center; padding:32px 16px; color:#64748b; font-size:13px;">
+        <div style="font-size:24px; margin-bottom:6px;">🔍</div>
+        <b style="color:#0f172a;">Không tìm thấy đơn hàng nào phù hợp với từ khóa</b>
+        <div style="font-size:11.5px; margin-top:4px; color:#94a3b8;">Thử tìm theo mã HĐ, tên khách hàng, địa chỉ hoặc số tiền khác</div>
+      </div>
+    `;
+
+    capNhatTomTatChonDonGiaoLai();
+    document.getElementById('modalChonDonGiaoLai').style.display = 'flex';
+  }
+
+  function dongChonDonGiaoLai() {
+    document.getElementById('modalChonDonGiaoLai').style.display = 'none';
+    const inputSearch = document.getElementById('timKiemDonGiaoLai');
+    if (inputSearch) inputSearch.value = '';
+    const btnXoa = document.getElementById('btnXoaTimKiemDonGiaoLai');
+    if (btnXoa) btnXoa.style.display = 'none';
+    const emptyEl = document.getElementById('emptySearchDonGiaoLai');
+    if (emptyEl) emptyEl.style.display = 'none';
+    const items = document.querySelectorAll('#dsChonDonGiaoLai .item-don-giao-lai');
+    items.forEach(el => el.style.display = 'flex');
+  }
+
+  function locDonGiaoLaiTheoTuKhoa(val) {
+    const tuKhoaRaw = (val !== undefined ? val : (document.getElementById('timKiemDonGiaoLai')?.value || '')).trim();
+    const btnXoa = document.getElementById('btnXoaTimKiemDonGiaoLai');
+    if (btnXoa) btnXoa.style.display = tuKhoaRaw ? 'block' : 'none';
+
+    const tuGo = boDauDonGiaoLai_(tuKhoaRaw).split(' ').filter(Boolean);
+    const items = document.querySelectorAll('#dsChonDonGiaoLai .item-don-giao-lai');
+    let soHien = 0;
+
+    items.forEach(el => {
+      const textTim = el.dataset.tim || '';
+      const khop = tuGo.length === 0 || tuGo.every(t => textTim.includes(t));
+      el.style.display = khop ? 'flex' : 'none';
+      if (khop) soHien++;
+    });
+
+    const emptyEl = document.getElementById('emptySearchDonGiaoLai');
+    if (emptyEl) {
+      emptyEl.style.display = (items.length > 0 && soHien === 0) ? 'block' : 'none';
+    }
+  }
+
+  function xoaTimKiemDonGiaoLai() {
+    const input = document.getElementById('timKiemDonGiaoLai');
+    if (input) {
+      input.value = '';
+      locDonGiaoLaiTheoTuKhoa('');
+      input.focus();
+    }
+  }
+
+  function capNhatTomTatChonDonGiaoLai() {
+    const chon = Array.from(document.querySelectorAll('#dsChonDonGiaoLai .chk-don-giao-lai:not(:disabled):checked'));
+    const conCho = document.querySelectorAll('#dsChonDonGiaoLai .chk-don-giao-lai:not(:disabled)').length;
+    document.getElementById('tomTatChonDonGiaoLai').textContent = `Đã chọn ${chon.length}/${conCho} đơn đang chờ`;
+    const nut = document.getElementById('btnThemDonGiaoLaiDaChon');
+    nut.disabled = !chon.length;
+    nut.style.opacity = chon.length ? '1' : '.5';
+    nut.textContent = chon.length ? `➕ Thêm ${chon.length} đơn đã chọn` : '➕ Thêm đơn đã chọn';
+  }
+
+  let dsDaNapVaoXe = [];
+  async function fetchChiTietHangChoHoaDon(dsMa) { return true; }
+  function veDanhSachCheckboxHD() {}
+  function chayTaoPhieu() {}
+  function kiemTraBannerDonGiaoLai() {}
+
+  async function napCacDonGiaoLaiVaoChuyenXeNay(dsMaChon) {
+    let dsGL = [];
+    try { dsGL = JSON.parse(localStorage.getItem('tmh_danh_sach_cho_giao_lai') || '[]'); } catch (e) {}
+    if (Array.isArray(dsMaChon) && dsMaChon.length) {
+      const setChon = new Set(dsMaChon.map(m => String(m).trim().toUpperCase()));
+      dsGL = dsGL.filter(it => setChon.has(String(it.maHD || '').trim().toUpperCase()));
+    }
+    dsDaNapVaoXe = dsGL.map(d => d.maHD);
+    dsGL.forEach(item => {
+      danhSachHoaDon.push({
+        maHD: item.maHD,
+        tenKH: item.tenKH,
+        tongTien: item.tienHD,
+        chon: true,
+        laGiaoLai: true
+      });
+    });
+  }
+
+  async function themDonGiaoLaiDaChon() {
+    const dsMa = Array.from(document.querySelectorAll('#dsChonDonGiaoLai .chk-don-giao-lai:not(:disabled):checked')).map(c => c.value);
+    if (!dsMa.length) return;
+    dongChonDonGiaoLai();
+    await napCacDonGiaoLaiVaoChuyenXeNay(dsMa);
+  }
+
+  // --- DỮ LIỆU TEST MẪU THEO ĐÚNG HÌNH ẢNH THỰC TẾ CỦA USER ---
+  const mockDonChoGiaoLai = [
+    {
+      maHD: 'HD285758',
+      tenKH: 'CHỊ VÂN TH AV- 17 HOÀNG VĂN THỤ',
+      diaChi: '17 HOÀNG VĂN THỤ',
+      tienHD: 894000,
+      xeCu: 'XE MÁY XANH SÁNG',
+      ngayCu: '29/09/2026'
+    },
+    {
+      maHD: 'HD285861',
+      tenKH: 'LINDA MART NGÃ 3 ĐOÀN KHUÊ - TRẦN HỮU ĐỘ GIAO HÀNG TRƯỚC 16H',
+      diaChi: 'NGÃ 3 ĐOÀN KHUÊ - TRẦN HỮU ĐỘ',
+      tienHD: 2224492,
+      xeCu: 'HD2 CHIỀU',
+      ngayCu: '29/09/2026'
+    },
+    {
+      maHD: 'HD285965',
+      tenKH: 'HAPPY MART',
+      diaChi: '29 AN THƯỢNG 2',
+      tienHD: 820000,
+      xeCu: 'HD2 CHIỀU',
+      ngayCu: '29/09/2026'
+    },
+    {
+      maHD: 'HD285523',
+      tenKH: 'KA MART',
+      diaChi: 'K20 /20 MỸ ĐA ĐÔNG 12 NGŨ HÀNH SƠN',
+      tienHD: 712000,
+      xeCu: 'HD2 CHIỀU',
+      ngayCu: '29/09/2026'
+    },
+    {
+      maHD: 'HD285815',
+      tenKH: 'MT MART & COFFE',
+      diaChi: '51 TRẦN BẠCH ĐẰNG NGŨ HÀNH SƠN',
+      tienHD: 2295000,
+      xeCu: 'HD2 CHIỀU',
+      ngayCu: '29/09/2026'
+    }
+  ];
+
+  localStorage.setItem('tmh_danh_sach_cho_giao_lai', JSON.stringify(mockDonChoGiaoLai));
+
+  // ==================== BẮT ĐẦU CHẠY CÁC TEST CASES ====================
+
+  async function chayTatCaTest() {
+    // TEST CASE 1: Tìm kiếm tiếng Việt không dấu & Mã HĐ & Số tiền
+    moChonDonGiaoLai();
+    const inputSearch = document.getElementById('timKiemDonGiaoLai');
+    const items = () => Array.from(document.querySelectorAll('#dsChonDonGiaoLai .item-don-giao-lai'));
+    const visibleItems = () => items().filter(el => el.style.display !== 'none');
+
+    // 1.1 Khởi đầu: Đầy đủ 5 đơn
+    assert('TC1.0 - Khởi tạo modal có đủ 5 đơn đang chờ', visibleItems().length === 5, `Số đơn: ${visibleItems().length}`);
+
+    // 1.2 Tìm kiếm theo mã HĐ không tiền tố: "285758"
+    inputSearch.value = '285758';
+    locDonGiaoLaiTheoTuKhoa('285758');
+    let hien = visibleItems();
+    assert('TC1.1 - Tìm mã "285758" lọc đúng 1 đơn HD285758',
+      hien.length === 1 && hien[0].textContent.includes('HD285758'),
+      `Kết quả: ${hien.map(e => e.textContent.trim()).join(' | ')}`);
+
+    // 1.3 Tìm kiếm tiếng Việt không dấu: "hoang van thu"
+    inputSearch.value = 'hoang van thu';
+    locDonGiaoLaiTheoTuKhoa('hoang van thu');
+    hien = visibleItems();
+    assert('TC1.2 - Tìm không dấu "hoang van thu" lọc đúng đơn CHỊ VÂN TH AV- 17 HOÀNG VĂN THỤ',
+      hien.length === 1 && hien[0].textContent.includes('HOÀNG VĂN THỤ'),
+      `Kết quả: ${hien.map(e => e.textContent.trim()).join(' | ')}`);
+
+    // 1.4 Tìm kiếm không dấu tên khách: "chi van"
+    inputSearch.value = 'chi van';
+    locDonGiaoLaiTheoTuKhoa('chi van');
+    hien = visibleItems();
+    assert('TC1.3 - Tìm không dấu "chi van" lọc đúng đơn CHỊ VÂN',
+      hien.length === 1 && hien[0].textContent.includes('CHỊ VÂN'),
+      `Kết quả: ${hien.map(e => e.textContent.trim()).join(' | ')}`);
+
+    // 1.5 Tìm theo số tiền: "894.000" và "894000"
+    inputSearch.value = '894.000';
+    locDonGiaoLaiTheoTuKhoa('894.000');
+    hien = visibleItems();
+    assert('TC1.4a - Tìm theo số tiền có dấu chấm "894.000" lọc đúng',
+      hien.length === 1 && hien[0].textContent.includes('894.000'),
+      `Kết quả: ${hien.length}`);
+
+    inputSearch.value = '894000';
+    locDonGiaoLaiTheoTuKhoa('894000');
+    hien = visibleItems();
+    assert('TC1.4b - Tìm theo số tiền viết liền "894000" lọc đúng',
+      hien.length === 1 && hien[0].textContent.includes('894.000'),
+      `Kết quả: ${hien.length}`);
+
+    // 1.6 Tìm chuyến trước không dấu: "xe may xanh sang"
+    inputSearch.value = 'xe may xanh sang';
+    locDonGiaoLaiTheoTuKhoa('xe may xanh sang');
+    hien = visibleItems();
+    assert('TC1.5 - Tìm chuyến trước không dấu "xe may xanh sang" lọc đúng',
+      hien.length === 1 && hien[0].textContent.includes('XE MÁY XANH SÁNG'),
+      `Kết quả: ${hien.length}`);
+
+    // 1.7 Tìm ngày: "29/09/2026"
+    inputSearch.value = '29/09/2026';
+    locDonGiaoLaiTheoTuKhoa('29/09/2026');
+    hien = visibleItems();
+    assert('TC1.6 - Tìm ngày "29/09/2026" khớp cả 5 đơn cùng ngày',
+      hien.length === 5,
+      `Số đơn khớp: ${hien.length}`);
+
+
+    // ==================== TEST CASE 2: Tích chọn cộng dồn qua nhiều lần tìm kiếm ====================
+    // Reset tìm kiếm trước khi test Case 2
+    xoaTimKiemDonGiaoLai();
+    assert('TC2.0 - Xóa từ khóa khôi phục 5 đơn', visibleItems().length === 5, `Số đơn: ${visibleItems().length}`);
+
+    // Bước 1: Tìm đơn 1 ("285758") và tích chọn
+    inputSearch.value = '285758';
+    locDonGiaoLaiTheoTuKhoa('285758');
+    const chk1 = document.querySelector('#dsChonDonGiaoLai .chk-don-giao-lai[value="HD285758"]');
+    chk1.checked = true;
+    chk1.dispatchEvent(new Event('change'));
+
+    // Kiểm tra tóm tắt đã chọn 1
+    let tomTat = document.getElementById('tomTatChonDonGiaoLai').textContent;
+    assert('TC2.1 - Tích đơn thứ 1, tóm tắt báo Đã chọn 1/5', tomTat === 'Đã chọn 1/5 đơn đang chờ', `Tóm tắt: ${tomTat}`);
+
+    // Bước 2: Tìm đơn 2 ("linda mart") -> đơn 1 bị ẩn đi!
+    inputSearch.value = 'linda mart';
+    locDonGiaoLaiTheoTuKhoa('linda mart');
+    hien = visibleItems();
+    assert('TC2.2 - Tìm đơn 2 "linda mart", đơn 1 bị ẩn (display:none)',
+      hien.length === 1 && hien[0].textContent.includes('LINDA MART') && chk1.closest('.item-don-giao-lai').style.display === 'none',
+      `Đơn 1 style: ${chk1.closest('.item-don-giao-lai').style.display}`);
+
+    // Kiểm tra đơn 1 dù bị ẩn nhưng checkbox VẪN GIỮ checked = true
+    assert('TC2.3 - State Persistence: Đơn 1 bị ẩn nhưng vẫn giữ checked = true', chk1.checked === true, `Checked: ${chk1.checked}`);
+
+    // Bước 3: Tích chọn đơn 2
+    const chk2 = document.querySelector('#dsChonDonGiaoLai .chk-don-giao-lai[value="HD285861"]');
+    chk2.checked = true;
+    chk2.dispatchEvent(new Event('change'));
+
+    // Kiểm tra tóm tắt footer tính tổng cả đơn đang hiện và đơn đang ẩn -> Đã chọn 2/5
+    tomTat = document.getElementById('tomTatChonDonGiaoLai').textContent;
+    assert('TC2.4 - Footer tóm tắt đếm đúng 2/5 (1 hiện + 1 ẩn)', tomTat === 'Đã chọn 2/5 đơn đang chờ', `Tóm tắt: ${tomTat}`);
+
+    // Bước 4: Bấm nút "➕ Thêm 2 đơn đã chọn"
+    await themDonGiaoLaiDaChon();
+    assert('TC2.5 - Thêm đơn đã chọn gom đầy đủ cả 2 đơn (HD285758 và HD285861)',
+      dsDaNapVaoXe.includes('HD285758') && dsDaNapVaoXe.includes('HD285861') && dsDaNapVaoXe.length === 2,
+      `Đã nạp: ${JSON.stringify(dsDaNapVaoXe)}`);
+
+    assert('TC2.6 - Modal tự động đóng sau khi thêm',
+      document.getElementById('modalChonDonGiaoLai').style.display === 'none',
+      `Display: ${document.getElementById('modalChonDonGiaoLai').style.display}`);
+
+
+    // ==================== TEST CASE 3: Từ khóa không khớp & Xóa nhanh ====================
+    // Mở lại modal
+    moChonDonGiaoLai();
+    // Tích chọn 1 đơn
+    const chkMT = document.querySelector('#dsChonDonGiaoLai .chk-don-giao-lai[value="HD285815"]');
+    chkMT.checked = true;
+    chkMT.dispatchEvent(new Event('change'));
+    assert('TC3.1 - Tích chọn 1 đơn MT MART', document.getElementById('tomTatChonDonGiaoLai').textContent.includes('Đã chọn 1/'), `Tóm tắt: ${document.getElementById('tomTatChonDonGiaoLai').textContent}`);
+
+    // Nhập từ khóa không tồn tại "khongtontai123"
+    inputSearch.value = 'khongtontai123';
+    locDonGiaoLaiTheoTuKhoa('khongtontai123');
+    hien = visibleItems();
+    const emptyBox = document.getElementById('emptySearchDonGiaoLai');
+    assert('TC3.2 - Từ khóa "khongtontai123" không có đơn nào hiện (0 đơn)', hien.length === 0, `Số đơn hiện: ${hien.length}`);
+    assert('TC3.3 - Empty state hiển thị rõ thông báo "Không tìm thấy đơn hàng nào phù hợp với từ khóa"',
+      emptyBox && emptyBox.style.display === 'block' && emptyBox.textContent.includes('Không tìm thấy đơn hàng nào phù hợp với từ khóa'),
+      `Empty box style: ${emptyBox?.style.display}`);
+    assert('TC3.4 - Bộ đếm footer vẫn giữ nguyên số đơn đã chọn dù không có kết quả hiển thị',
+      document.getElementById('tomTatChonDonGiaoLai').textContent.includes('Đã chọn 1/'),
+      `Tóm tắt: ${document.getElementById('tomTatChonDonGiaoLai').textContent}`);
+
+    // Nút xóa nhanh (✕) đang hiển thị
+    const btnXoa = document.getElementById('btnXoaTimKiemDonGiaoLai');
+    assert('TC3.5 - Nút xóa nhanh ✕ hiển thị khi có ký tự tìm kiếm', btnXoa && btnXoa.style.display === 'block', `BtnXoa display: ${btnXoa?.style.display}`);
+
+    // Bấm nút xóa nhanh
+    xoaTimKiemDonGiaoLai();
+    hien = visibleItems();
+    assert('TC3.6 - Sau khi bấm xóa nhanh: input rỗng, nút xóa ẩn, empty state ẩn',
+      inputSearch.value === '' && btnXoa.style.display === 'none' && emptyBox.style.display === 'none',
+      `Input: "${inputSearch.value}", btnXoa: ${btnXoa.style.display}, emptyBox: ${emptyBox.style.display}`);
+    assert('TC3.7 - Danh sách hiện lại đầy đủ và đơn MT MART vẫn còn dấu tích checked',
+      hien.length > 0 && chkMT.checked === true,
+      `Số đơn hiện: ${hien.length}, chkMT checked: ${chkMT.checked}`);
+
+
+    // ==================== TEST CASE 4: Đóng / Mở lại Modal ====================
+    // Nhập từ khóa bất kỳ
+    inputSearch.value = 'happy mart';
+    locDonGiaoLaiTheoTuKhoa('happy mart');
+    assert('TC4.1 - Đang lọc "happy mart"', inputSearch.value === 'happy mart' && visibleItems().length === 1, `Số đơn: ${visibleItems().length}`);
+
+    // Bấm nút Đóng
+    dongChonDonGiaoLai();
+    assert('TC4.2 - Bấm đóng: Modal ẩn, input được reset về rỗng',
+      document.getElementById('modalChonDonGiaoLai').style.display === 'none' && inputSearch.value === '',
+      `Modal display: ${document.getElementById('modalChonDonGiaoLai').style.display}, Input: "${inputSearch.value}"`);
+
+    // Mở lại modal
+    moChonDonGiaoLai();
+    assert('TC4.3 - Mở lại modal: Input rỗng, danh sách hiển thị đầy đủ, empty state ẩn',
+      inputSearch.value === '' && visibleItems().length === 5 && document.getElementById('emptySearchDonGiaoLai').style.display === 'none',
+      `Input: "${inputSearch.value}", Visible: ${visibleItems().length}, Empty display: ${document.getElementById('emptySearchDonGiaoLai').style.display}`);
+
+    dongChonDonGiaoLai();
+
+
+    // ==================== TỔNG KẾT KIỂM THỬ ====================
+    const passCount = results.filter(r => r.pass).length;
+    const failCount = results.filter(r => !r.pass).length;
+    const allPass = failCount === 0;
+
+    const summaryBox = document.getElementById('summaryBox');
+    summaryBox.className = 'summary ' + (allPass ? 'pass' : 'fail');
+    summaryBox.textContent = allPass 
+      ? `✅ TẤT CẢ TEST ĐÃ VƯỢT QUA (${passCount}/${results.length} tests)` 
+      : `❌ CÓ ${failCount} TEST THẤT BẠI (${passCount}/${results.length} tests passed)`;
+
+    const container = document.getElementById('testResults');
+    container.innerHTML = results.map(r => `
+      <div class="test-card">
+        <div class="test-title">
+          <span class="badge-${r.pass ? 'pass' : 'fail'}">${r.pass ? 'PASS' : 'FAIL'}</span>
+          <span>${escapeHtml(r.name)}</span>
+        </div>
+        ${r.details ? `<div class="test-detail">${escapeHtml(r.details)}</div>` : ''}
+      </div>
+    `).join('');
+  }
+
+  window.addEventListener('DOMContentLoaded', chayTatCaTest);
+</script>
+</body>
+</html>
