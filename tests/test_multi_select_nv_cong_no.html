@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Test Multi-Select Dropdown NV Bán Hàng — Theo Dõi Công Nợ</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; background: #f8fafc; color: #0f172a; }
+  h1 { font-size: 20px; margin-bottom: 8px; color: #15803d; }
+  .summary { padding: 12px 16px; border-radius: 8px; font-weight: 700; margin-bottom: 16px; font-size: 15px; }
+  .summary.pass { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+  .summary.fail { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+  .test-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .test-title { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .test-detail { font-size: 12.5px; color: #64748b; margin-top: 4px; font-family: monospace; white-space: pre-wrap; }
+  .badge-pass { background: #22c55e; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+  .badge-fail { background: #ef4444; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<h1>🧪 Kiểm Thử Nghiệp Vụ Multi-Select NV Bán Hàng — theo_doi_cong_no.html</h1>
+<div id="summaryBox" class="summary">Đang chạy kiểm thử...</div>
+<div id="testResults"></div>
+
+<script>
+  const results = [];
+  function assert(name, condition, details) {
+    results.push({ name, pass: !!condition, details: details || '' });
+  }
+
+  function chuanHoaChuoiVN(str) {
+    if (!str) return '';
+    return String(str)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[đĐ]/g, m => m === 'đ' ? 'd' : 'D')
+      .toLowerCase()
+      .trim();
+  }
+
+  function khoaNVBanHang(ten) {
+    const s = chuanHoaChuoiVN(ten).replace(/\s+/g, ' ');
+    if (!s) return '';
+    return s.replace(/\s*[-–—:,(\/]*\s*\+?\d[\d\s.\-]{6,}\d\)?$/, '').trim() || s;
+  }
+
+  function formatTien(n) {
+    if (isNaN(n) || n === null || n === undefined) return "0";
+    return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  }
+
+  function conLaiCuaDon(d) {
+    return (d.conLai !== undefined) ? d.conLai : Math.max(0, (d.soTienNo || 0) - (d.daThu || 0));
+  }
+
+  // Giả lập danh sách đơn nợ mẫu phong phú đa dạng
+  const mockDanhSachCongNo = [
+    // Lê Đức Tính (key: 'le duc tinh')
+    { id: 'HD101', maHD: 'HD101', tenKH: 'GU QUÁN', maKH: 'KH01', nguoiBan: 'Lê Đức Tính - 0787 952 774', tienHD: 10000000, soTienNo: 10000000, daThu: 0, conLai: 10000000, trangThai: 'chua_thu', ngayGiao: '2026-10-10' },
+    { id: 'HD102', maHD: 'HD102', tenKH: 'GU QUÁN', maKH: 'KH01', nguoiBan: 'Lê Đức Tính - 0787 952 774', tienHD: 15530000, soTienNo: 15530000, daThu: 0, conLai: 15530000, trangThai: 'chua_thu', ngayGiao: '2026-10-12' },
+    { id: 'HD103', maHD: 'HD103', tenKH: 'MỌI PREMIUM', maKH: 'KH02', nguoiBan: 'Lê Đức Tính - 0787 952 774', tienHD: 20000000, soTienNo: 20000000, daThu: 5000000, conLai: 15000000, trangThai: 'da_thu_mot_phan', ngayGiao: '2026-10-15' },
+    
+    // Đặng Văn Tiên (key: 'dang van tien')
+    { id: 'HD201', maHD: 'HD201', tenKH: 'COCO BEACH', maKH: 'KH03', nguoiBan: 'Đặng Văn Tiên - 0905 714 901', tienHD: 12000000, soTienNo: 12000000, daThu: 0, conLai: 12000000, trangThai: 'chua_thu', ngayGiao: '2026-10-14' },
+    { id: 'HD202', maHD: 'HD202', tenKH: 'MỌI PREMIUM', maKH: 'KH02', nguoiBan: 'Đặng Văn Tiên - 0905 714 901', tienHD: 8000000, soTienNo: 8000000, daThu: 0, conLai: 8000000, trangThai: 'chua_thu', ngayGiao: '2026-10-18' }, // Khách hàng chung với Lê Đức Tính!
+
+    // Nguyễn Khá (key: 'nguyen kha')
+    { id: 'HD301', maHD: 'HD301', tenKH: 'NHÀ HÀNG 4U', maKH: 'KH04', nguoiBan: 'Nguyễn Khá - 0935 784 341', tienHD: 18000000, soTienNo: 18000000, daThu: 18000000, conLai: 0, trangThai: 'da_thu_du', ngayGiao: '2026-10-05' },
+    { id: 'HD302', maHD: 'HD302', tenKH: 'NHÀ HÀNG 4U', maKH: 'KH04', nguoiBan: 'Nguyễn Khá - 0935 784 341', tienHD: 15000000, soTienNo: 15000000, daThu: 5000000, conLai: 10000000, trangThai: 'da_thu_mot_phan', ngayGiao: '2026-10-20' },
+
+    // Chưa có NV bán hàng
+    { id: 'HD401', maHD: 'HD401', tenKH: 'KHÁCH VÃNG LAI', maKH: 'KH05', nguoiBan: '', tienHD: 3000000, soTienNo: 3000000, daThu: 0, conLai: 3000000, trangThai: 'chua_thu', ngayGiao: '2026-10-22' }
+  ];
+
+  // Logic lọc nghiệp vụ
+  let tapNVBanHangDangChon = new Set();
+  let danhSachNVCuaSo = [];
+
+  function initDanhSachNV() {
+    const mapNV = new Map();
+    let soDonChuaCoNV = 0;
+    mockDanhSachCongNo.forEach(d => {
+      const khoa = khoaNVBanHang(d.nguoiBan);
+      if (!khoa) { soDonChuaCoNV++; return; }
+      if (!mapNV.has(khoa)) mapNV.set(khoa, { soDon: 0, tenHienThi: new Map() });
+      const nv = mapNV.get(khoa);
+      const tenGoc = String(d.nguoiBan).trim().replace(/\s+/g, ' ');
+      nv.soDon++;
+      nv.tenHienThi.set(tenGoc, (nv.tenHienThi.get(tenGoc) || 0) + 1);
+    });
+
+    const dsNV = Array.from(mapNV.entries()).map(([khoa, nv]) => {
+      const ten = Array.from(nv.tenHienThi.entries()).sort((a, b) => b[1] - a[1] || b[0].length - a[0].length)[0][0];
+      return { khoa, ten, soDon: nv.soDon };
+    }).sort((a, b) => a.ten.localeCompare(b.ten, 'vi'));
+
+    if (soDonChuaCoNV > 0) {
+      dsNV.push({ khoa: '__chua_co_nv__', ten: '❔ Chưa có NV bán hàng', soDon: soDonChuaCoNV });
+    }
+    danhSachNVCuaSo = dsNV;
+  }
+
+  function donKhopLocNVBanHang(d, locNV) {
+    if (tapNVBanHangDangChon && tapNVBanHangDangChon.size > 0) {
+      if (danhSachNVCuaSo && danhSachNVCuaSo.length > 0 && tapNVBanHangDangChon.size >= danhSachNVCuaSo.length) {
+        return true;
+      }
+      const khoa = khoaNVBanHang(d.nguoiBan);
+      if (!khoa) return tapNVBanHangDangChon.has('__chua_co_nv__');
+      return tapNVBanHangDangChon.has(khoa);
+    }
+    if (locNV === undefined || locNV === 'tat_ca' || !locNV) return true;
+    if (typeof locNV === 'string') {
+      if (locNV.includes(',')) {
+        const tap = new Set(locNV.split(',').map(s => s.trim()).filter(Boolean));
+        const khoa = khoaNVBanHang(d.nguoiBan);
+        if (!khoa) return tap.has('__chua_co_nv__');
+        return tap.has(khoa);
+      }
+      const khoa = khoaNVBanHang(d.nguoiBan);
+      return locNV === '__chua_co_nv__' ? !khoa : khoa === locNV;
+    }
+    return true;
+  }
+
+  function tinhLocCongNo(boLoc = {}) {
+    const { tuKhoa = '', locTT = 'tat_ca', locKH = 'tat_ca', tuNgay = '', denNgay = '' } = boLoc;
+    const cleanTK = chuanHoaChuoiVN(tuKhoa);
+    
+    const dsLoc = mockDanhSachCongNo.filter(d => {
+      const conLai = conLaiCuaDon(d);
+      const daThu = d.daThu || 0;
+
+      // 1. Trạng thái
+      if (locTT === 'chua_thu' && (conLai <= 0 || daThu > 0)) return false;
+      if (locTT === 'da_thu_mot_phan' && (conLai <= 0 || daThu === 0)) return false;
+      if (locTT === 'da_thu_du' && conLai > 0) return false;
+
+      // 2. Khách hàng
+      if (locKH && locKH !== 'tat_ca') {
+        const cleanKH = chuanHoaChuoiVN(d.tenKH);
+        const cleanLoc = chuanHoaChuoiVN(locKH);
+        if (cleanKH !== cleanLoc && !cleanKH.includes(cleanLoc) && !cleanLoc.includes(cleanKH)) return false;
+      }
+
+      // 2b. NV bán hàng
+      if (!donKhopLocNVBanHang(d)) return false;
+
+      // 3. Ngày
+      if (tuNgay && d.ngayGiao < tuNgay) return false;
+      if (denNgay && d.ngayGiao > denNgay) return false;
+
+      // 4. Từ khoá
+      if (cleanTK) {
+        const match = chuanHoaChuoiVN(d.maHD).includes(cleanTK) ||
+                      chuanHoaChuoiVN(d.tenKH).includes(cleanTK) ||
+                      chuanHoaChuoiVN(d.nguoiBan).includes(cleanTK);
+        if (!match) return false;
+      }
+      return true;
+    });
+
+    // Gom nhóm theo khách hàng
+    const mapKH = new Map();
+    dsLoc.forEach(d => {
+      const key = (d.tenKH || 'Khách Lẻ').trim();
+      if (!mapKH.has(key)) {
+        mapKH.set(key, { tenKH: key, soDon: 0, tongNo: 0, tongDaThu: 0, tongConLai: 0, danhSachDon: [] });
+      }
+      const g = mapKH.get(key);
+      g.soDon++;
+      g.tongNo += (d.soTienNo || 0);
+      g.tongDaThu += (d.daThu || 0);
+      g.tongConLai += conLaiCuaDon(d);
+      g.danhSachDon.push(d);
+    });
+
+    return {
+      dsDon: dsLoc,
+      dsKH: Array.from(mapKH.values()),
+      tongNo: dsLoc.reduce((s, d) => s + (d.soTienNo || 0), 0),
+      tongConLai: dsLoc.reduce((s, d) => s + conLaiCuaDon(d), 0)
+    };
+  }
+
+  function getTriggerLabel() {
+    const tongSoNV = danhSachNVCuaSo.length;
+    const soChon = tapNVBanHangDangChon.size;
+    if (soChon === 0 || (tongSoNV > 0 && soChon >= tongSoNV)) {
+      return { text: '🧑‍💼 Tất cả NV bán hàng', title: 'Tất cả nhân viên bán hàng (NV bán của từng hoá đơn)' };
+    } else if (soChon === 1) {
+      const khoaChon = Array.from(tapNVBanHangDangChon)[0];
+      const nv = danhSachNVCuaSo.find(x => x.khoa === khoaChon);
+      const tenHienThi = nv ? `${nv.ten} (${nv.soDon} đơn)` : (khoaChon === '__chua_co_nv__' ? '❔ Chưa có NV bán hàng' : khoaChon);
+      return { text: tenHienThi, title: tenHienThi };
+    } else {
+      const dsTen = danhSachNVCuaSo.filter(x => tapNVBanHangDangChon.has(x.khoa)).map(x => x.ten);
+      return {
+        text: `Đã chọn ${soChon} NV bán hàng`,
+        title: `Đã chọn ${soChon} NV bán hàng:\n• ` + dsTen.join('\n• ')
+      };
+    }
+  }
+
+  // CHẠY TEST SUITE
+  initDanhSachNV();
+
+  // Test Case 0: Danh sách nhân viên được khởi tạo đúng định dạng & số đơn
+  assert(
+    "Khởi tạo danh sách NV bán hàng đúng cấu trúc và số lượng đơn",
+    danhSachNVCuaSo.length === 4 &&
+    danhSachNVCuaSo.find(x => x.khoa === 'le duc tinh')?.soDon === 3 &&
+    danhSachNVCuaSo.find(x => x.khoa === 'dang van tien')?.soDon === 2 &&
+    danhSachNVCuaSo.find(x => x.khoa === 'nguyen kha')?.soDon === 2 &&
+    danhSachNVCuaSo.find(x => x.khoa === '__chua_co_nv__')?.soDon === 1,
+    danhSachNVCuaSo
+  );
+
+  // Test Case 1: Chọn 1 nhân viên bất kỳ (Lê Đức Tính)
+  tapNVBanHangDangChon.clear();
+  tapNVBanHangDangChon.add('le duc tinh');
+  const kq1 = tinhLocCongNo();
+  const lbl1 = getTriggerLabel();
+  assert(
+    "Test case 1: Chọn 1 NV (Lê Đức Tính) -> Hiển thị đúng 3 đơn nợ của 2 khách hàng GU QUÁN và MỌI PREMIUM",
+    kq1.dsDon.length === 3 &&
+    kq1.dsKH.length === 2 &&
+    kq1.tongNo === 45530000 &&
+    kq1.tongConLai === 40530000,
+    { dsDon: kq1.dsDon.length, dsKH: kq1.dsKH.length, tongNo: kq1.tongNo, tongConLai: kq1.tongConLai }
+  );
+  assert(
+    "Test case 1 (Trigger Label): Hiển thị đầy đủ Tên NV - SĐT (số đơn)",
+    lbl1.text === 'Lê Đức Tính - 0787 952 774 (3 đơn)',
+    lbl1
+  );
+
+  // Test Case 2: Chọn nhiều nhân viên (Lê Đức Tính + Đặng Văn Tiên)
+  tapNVBanHangDangChon.clear();
+  tapNVBanHangDangChon.add('le duc tinh');
+  tapNVBanHangDangChon.add('dang van tien');
+  const kq2 = tinhLocCongNo();
+  const lbl2 = getTriggerLabel();
+  // Khách 'MỌI PREMIUM' có đơn của CẢ Lê Đức Tính (HD103) và Đặng Văn Tiên (HD202)
+  // Phải gom nhóm thành 1 dòng khách hàng duy nhất, không duplicate!
+  const moiPremGroup = kq2.dsKH.find(k => k.tenKH === 'MỌI PREMIUM');
+  assert(
+    "Test case 2: Chọn 2 NV (Tính + Tiên) -> Gom đúng 3 khách hàng, không duplicate 'MỌI PREMIUM'",
+    kq2.dsDon.length === 5 &&
+    kq2.dsKH.length === 3 && // GU QUÁN, MỌI PREMIUM, COCO BEACH
+    moiPremGroup && moiPremGroup.soDon === 2 && moiPremGroup.tongNo === 28000000,
+    { soDon: kq2.dsDon.length, soKH: kq2.dsKH.length, moiPrem: moiPremGroup }
+  );
+  assert(
+    "Test case 2 (Trigger Label): Hiển thị rút gọn 'Đã chọn 2 NV bán hàng' kèm tooltip danh sách",
+    lbl2.text === 'Đã chọn 2 NV bán hàng' &&
+    lbl2.title.includes('Lê Đức Tính') && lbl2.title.includes('Đặng Văn Tiên'),
+    lbl2
+  );
+
+  // Test Case 3: Phối hợp đa bộ lọc (2 NV + Lọc trạng thái 'Chưa thu' + Từ khoá)
+  tapNVBanHangDangChon.clear();
+  tapNVBanHangDangChon.add('le duc tinh');
+  tapNVBanHangDangChon.add('dang van tien');
+  const kq3 = tinhLocCongNo({ locTT: 'chua_thu', tuKhoa: 'GU' });
+  assert(
+    "Test case 3: Phối hợp đa bộ lọc (2 NV + Chưa thu + Từ khoá 'GU') -> Ra chính xác 2 đơn của GU QUÁN",
+    kq3.dsDon.length === 2 &&
+    kq3.dsKH.length === 1 &&
+    kq3.dsKH[0].tenKH === 'GU QUÁN' &&
+    kq3.tongConLai === 25530000,
+    kq3
+  );
+
+  // Test Case 4: Bỏ tích toàn bộ nhân viên (Edge Case: empty set)
+  tapNVBanHangDangChon.clear();
+  const kq4 = tinhLocCongNo();
+  const lbl4 = getTriggerLabel();
+  assert(
+    "Edge case: Bỏ tích toàn bộ NV -> Hệ thống tự động trở về mặc định hiển thị tất cả NV (8 đơn, 5 khách)",
+    kq4.dsDon.length === 8 &&
+    kq4.dsKH.length === 5 &&
+    lbl4.text === '🧑‍💼 Tất cả NV bán hàng',
+    { soDon: kq4.dsDon.length, soKH: kq4.dsKH.length, lbl: lbl4.text }
+  );
+
+  // Test Case 5: Chọn tất cả nhân viên (full set)
+  danhSachNVCuaSo.forEach(x => tapNVBanHangDangChon.add(x.khoa));
+  const kq5 = tinhLocCongNo();
+  const lbl5 = getTriggerLabel();
+  assert(
+    "Edge case: Chọn tất cả nhân viên -> Trigger hiển thị '🧑‍💼 Tất cả NV bán hàng' và hiện đầy đủ 8 đơn",
+    kq5.dsDon.length === 8 &&
+    lbl5.text === '🧑‍💼 Tất cả NV bán hàng',
+    { soDon: kq5.dsDon.length, lbl: lbl5.text }
+  );
+
+  // Test Case 6: Tìm kiếm nhanh không dấu & có dấu trong dropdown
+  function timKiemNV(val) {
+    const tuKhoa = chuanHoaChuoiVN(val || '').toLowerCase().trim();
+    return danhSachNVCuaSo.filter(nv => {
+      const ten = chuanHoaChuoiVN(nv.ten).toLowerCase();
+      const khoa = chuanHoaChuoiVN(nv.khoa).toLowerCase();
+      return !tuKhoa || ten.includes(tuKhoa) || khoa.includes(tuKhoa);
+    });
+  }
+  const timKhongDau = timKiemNV('tinh');
+  const timSDT = timKiemNV('0787');
+  const timCoDau = timKiemNV('Nguyễn Khá');
+  assert(
+    "Tìm kiếm nhanh trong dropdown: Gõ không dấu 'tinh', gõ SĐT '0787', gõ có dấu 'Nguyễn Khá' đều tìm thấy chính xác",
+    timKhongDau.some(x => x.khoa === 'le duc tinh') &&
+    timSDT.some(x => x.khoa === 'le duc tinh') &&
+    timCoDau.some(x => x.khoa === 'nguyen kha'),
+    { timKhongDau, timSDT, timCoDau }
+  );
+
+  // RENDER KẾT QUẢ TEST RA UI
+  const total = results.length;
+  const passed = results.filter(r => r.pass).length;
+  const isAllPass = total === passed;
+
+  const summaryBox = document.getElementById('summaryBox');
+  summaryBox.className = 'summary ' + (isAllPass ? 'pass' : 'fail');
+  summaryBox.innerHTML = `${isAllPass ? '🎉 TẤT CẢ TEST ĐÃ VƯỢT QUA' : '⚠️ CÓ TEST THẤT BẠI'}: Đạt ${passed}/${total} test cases (${Math.round(passed/total*100)}%)`;
+
+  const container = document.getElementById('testResults');
+  container.innerHTML = results.map((r, i) => `
+    <div class="test-card">
+      <div class="test-title">
+        <span class="${r.pass ? 'badge-pass' : 'badge-fail'}">${r.pass ? 'PASS' : 'FAIL'}</span>
+        <span>${i + 1}. ${r.name}</span>
+      </div>
+      ${r.details ? `<div class="test-detail">${typeof r.details === 'object' ? JSON.stringify(r.details, null, 2) : r.details}</div>` : ''}
+    </div>
+  `).join('');
+</script>
+
+</body>
+</html>

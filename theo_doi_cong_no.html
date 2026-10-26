@@ -161,6 +161,163 @@
       flex-wrap: wrap;
     }
 
+    /* Multi-select Dropdown NV Bán Hàng */
+    .dropdown-multiselect {
+      position: relative;
+      display: inline-block;
+    }
+    .dropdown-multiselect-btn {
+      height: 32px;
+      min-width: 180px;
+      max-width: 250px;
+      padding: 0 26px 0 10px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-main, #0f172a);
+      background: #ffffff;
+      border: 1px solid var(--border-color, #cbd5e1);
+      border-radius: var(--radius-sm, 6px);
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      text-align: left;
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .dropdown-multiselect-btn:hover {
+      border-color: #94a3b8;
+    }
+    .dropdown-multiselect-btn:focus,
+    .dropdown-multiselect.is-open .dropdown-multiselect-btn {
+      border-color: #16a34a;
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.15);
+    }
+    .dropdown-multiselect-caret {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 9px;
+      color: #64748b;
+      pointer-events: none;
+      transition: transform 0.2s ease;
+    }
+    .dropdown-multiselect.is-open .dropdown-multiselect-caret {
+      transform: translateY(-50%) rotate(180deg);
+    }
+    .dropdown-multiselect-menu {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 4px);
+      z-index: 1050;
+      min-width: 280px;
+      max-width: 360px;
+      width: max-content;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
+      padding: 6px;
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+      animation: tmhFadeInDown 0.15s ease-out;
+    }
+    @keyframes tmhFadeInDown {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .dropdown-multiselect.is-open .dropdown-multiselect-menu {
+      display: flex;
+    }
+    .dropdown-multiselect-search {
+      position: relative;
+      padding: 2px 2px 4px;
+    }
+    .dropdown-multiselect-search input {
+      width: 100%;
+      box-sizing: border-box;
+      height: 30px;
+      padding: 4px 26px 4px 8px;
+      font-size: 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+    .dropdown-multiselect-search input:focus {
+      border-color: #16a34a;
+      box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.15);
+    }
+    .dropdown-multiselect-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 8px;
+      background: #f8fafc;
+      border-radius: 6px;
+      font-size: 11.5px;
+      border: 1px solid #f1f5f9;
+    }
+    .dropdown-multiselect-actions .action-btn {
+      cursor: pointer;
+      font-weight: 700;
+      padding: 2px 4px;
+      border-radius: 4px;
+      transition: background 0.1s;
+    }
+    .dropdown-multiselect-actions .action-btn:hover {
+      background: #e2e8f0;
+    }
+    .dropdown-multiselect-list {
+      max-height: 250px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      padding: 2px 0;
+    }
+    .dropdown-multiselect-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12.5px;
+      user-select: none;
+      transition: background 0.1s ease;
+      margin: 0;
+    }
+    .dropdown-multiselect-item:hover {
+      background: #f1f5f9;
+    }
+    .dropdown-multiselect-item.is-selected {
+      background: #ecfdf5;
+      font-weight: 600;
+    }
+    .dropdown-multiselect-item input[type="checkbox"] {
+      accent-color: #16a34a;
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+      flex-shrink: 0;
+      margin: 0;
+    }
+    .dropdown-multiselect-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 8px 2px;
+      border-top: 1px solid #f1f5f9;
+      font-size: 11px;
+      color: #64748b;
+    }
+
+
     /* Bảng dữ liệu */
     .table-container {
       background: #ffffff;
@@ -577,10 +734,51 @@
           <div style="font-size:12px; color:var(--text-muted);">
             Hiển thị: <b id="lblSoLuongHienThi" style="color:var(--text-main);">0</b> mục
           </div>
-          <!-- LỌC THEO NHÂN VIÊN BÁN HÀNG (lọc theo từng đơn nợ — áp dụng cả 2 tab) -->
-          <select id="locNVBanHang" class="form-control" style="max-width:240px; min-width:180px; font-weight:700;" onchange="locDanhSachCongNo()" title="Lọc công nợ theo nhân viên bán hàng (NV bán của từng hoá đơn)">
-            <option value="tat_ca">🧑‍💼 Tất cả NV bán hàng</option>
-          </select>
+          <!-- LỌC THEO NHÂN VIÊN BÁN HÀNG (MULTI-SELECT CÓ CHECKBOX VÀ TÌM KIẾM) -->
+          <div class="dropdown-multiselect" id="wrapMultiNVBanHang">
+            <button type="button" id="btnTriggerMultiNV" class="dropdown-multiselect-btn"
+              onclick="toggleDropdownMultiNV(event)" title="Lọc công nợ theo nhân viên bán hàng (NV bán của từng hoá đơn)">
+              <span id="lblMultiNVTrigger" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; flex:1;">🧑‍💼 Tất cả NV bán hàng</span>
+              <span class="dropdown-multiselect-caret">▼</span>
+            </button>
+
+            <div id="menuMultiNV" class="dropdown-multiselect-menu" onclick="event.stopPropagation()">
+              <div class="dropdown-multiselect-search">
+                <input type="text" id="timKiemNVMulti" placeholder="🔍 Tìm tên hoặc SĐT nhân viên..."
+                  autocomplete="off" oninput="locDanhSachNVTrongMenu(this.value)">
+                <span id="btnClearSearchNV" onclick="xoaTimKiemNVMulti()" style="display:none; position:absolute; right:8px; top:50%; transform:translateY(-50%); cursor:pointer; color:#94a3b8; font-size:12px; font-weight:700;">✕</span>
+              </div>
+
+              <div class="dropdown-multiselect-actions">
+                <label style="display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-weight:700; margin:0; user-select:none; color:var(--text-main, #0f172a);">
+                  <input type="checkbox" id="chkChonTatCaNV" onchange="toggleChonTatCaNV(this.checked)" style="accent-color:#16a34a; width:15px; height:15px; cursor:pointer; margin:0;">
+                  <span>Tất cả NV</span>
+                </label>
+                <div style="display:flex; gap:6px; align-items:center;">
+                  <span role="button" tabindex="0" class="action-btn" onclick="chonTatCaNV()" style="color:#16a34a;" title="Chọn tất cả nhân viên">Chọn hết</span>
+                  <span style="color:#cbd5e1;">|</span>
+                  <span role="button" tabindex="0" class="action-btn" onclick="boChonTatCaNV()" style="color:#ef4444;" title="Bỏ chọn tất cả (về mặc định)">Bỏ hết</span>
+                </div>
+              </div>
+
+              <div id="danhSachNVMultiItems" class="dropdown-multiselect-list">
+                <!-- Danh sách nhân viên render bằng JavaScript -->
+              </div>
+              <div id="emptyNVMulti" style="display:none; text-align:center; padding:12px; font-size:12px; color:#64748b;">
+                Không tìm thấy nhân viên phù hợp
+              </div>
+
+              <div class="dropdown-multiselect-footer">
+                <span id="lblMultiNVDem">Đang chọn: Tất cả</span>
+                <button type="button" class="btn btn-primary" style="height:24px; padding:0 10px; font-size:11px; background:#16a34a; border-color:#15803d; border-radius:4px; font-weight:700;" onclick="dongDropdownMultiNV()">Xong</button>
+              </div>
+            </div>
+
+            <!-- Thẻ select ẩn để tương thích tuyệt đối với bất kỳ mã nào truy cập locNVBanHang -->
+            <select id="locNVBanHang" style="display:none;" onchange="locDanhSachCongNo()" title="Lọc công nợ theo nhân viên bán hàng">
+              <option value="tat_ca">🧑‍💼 Tất cả NV bán hàng</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -2153,25 +2351,49 @@
       return s.replace(/\s*[-–—:,(\/]*\s*\+?\d[\d\s.\-]{6,}\d\)?$/, '').trim() || s;
     }
 
-    // Đơn nợ có thuộc NV bán hàng đang chọn trong bộ lọc không
+    // Tập các khoá nhân viên bán hàng đang được tích chọn (Multi-select)
+    let tapNVBanHangDangChon = new Set();
+    let danhSachNVCuaSo = []; // Danh sách đối tượng { khoa, ten, soDon }
+
+    // Đơn nợ có thuộc NV bán hàng đang chọn trong bộ lọc không (hỗ trợ multi-select IN)
     function donKhopLocNVBanHang(d, locNV) {
-      if (locNV === undefined) locNV = document.getElementById('locNVBanHang')?.value || 'tat_ca';
-      if (!locNV || locNV === 'tat_ca') return true;
-      const khoa = khoaNVBanHang(d.nguoiBan);
-      return locNV === '__chua_co_nv__' ? !khoa : khoa === locNV;
+      // 1. Nếu có tập nhân viên đang chọn từ multi-select:
+      if (tapNVBanHangDangChon && tapNVBanHangDangChon.size > 0) {
+        // Nếu chọn tất cả (hoặc số chọn >= tổng số NV trong sổ) -> khớp mọi đơn
+        if (danhSachNVCuaSo && danhSachNVCuaSo.length > 0 && tapNVBanHangDangChon.size >= danhSachNVCuaSo.length) {
+          return true;
+        }
+        const khoa = khoaNVBanHang(d.nguoiBan);
+        if (!khoa) return tapNVBanHangDangChon.has('__chua_co_nv__');
+        return tapNVBanHangDangChon.has(khoa);
+      }
+
+      // 2. Nếu tapNVBanHangDangChon rỗng (0 người được chọn) -> mặc định hiển thị tất cả
+      if (locNV === undefined || locNV === 'tat_ca' || !locNV) return true;
+
+      // 3. Fallback hỗ trợ truyền tham số locNV đơn lẻ (hoặc chuỗi phân cách dấu phẩy)
+      if (typeof locNV === 'string') {
+        if (locNV.includes(',')) {
+          const tap = new Set(locNV.split(',').map(s => s.trim()).filter(Boolean));
+          const khoa = khoaNVBanHang(d.nguoiBan);
+          if (!khoa) return tap.has('__chua_co_nv__');
+          return tap.has(khoa);
+        }
+        const khoa = khoaNVBanHang(d.nguoiBan);
+        return locNV === '__chua_co_nv__' ? !khoa : khoa === locNV;
+      }
+      return true;
     }
 
     // Cập nhật danh sách NV bán hàng vào bộ lọc (lấy từ các đơn nợ đang có trong sổ)
     function capNhatDropdownNVBanHang() {
       const sel = document.getElementById('locNVBanHang');
-      if (!sel) return;
-      const valDangChon = sel.value;
       const mapNV = new Map();   // khoá -> { soDon, tenHienThi: { tên gốc -> số lần } }
-      let coDonChuaCoNV = false;
+      let soDonChuaCoNV = 0;
 
       danhSachCongNo.forEach(d => {
         const khoa = khoaNVBanHang(d.nguoiBan);
-        if (!khoa) { coDonChuaCoNV = true; return; }
+        if (!khoa) { soDonChuaCoNV++; return; }
         if (!mapNV.has(khoa)) mapNV.set(khoa, { soDon: 0, tenHienThi: new Map() });
         const nv = mapNV.get(khoa);
         const tenGoc = String(d.nguoiBan).trim().replace(/\s+/g, ' ');
@@ -2185,22 +2407,271 @@
         return { khoa, ten, soDon: nv.soDon };
       }).sort((a, b) => a.ten.localeCompare(b.ten, 'vi'));
 
-      sel.innerHTML = '<option value="tat_ca">🧑‍💼 Tất cả NV bán hàng</option>';
-      dsNV.forEach(nv => {
-        const opt = document.createElement('option');
-        opt.value = nv.khoa;
-        opt.textContent = `${nv.ten} (${nv.soDon} đơn)`;
-        if (nv.khoa === valDangChon) opt.selected = true;
-        sel.appendChild(opt);
+      if (soDonChuaCoNV > 0) {
+        dsNV.push({
+          khoa: '__chua_co_nv__',
+          ten: '❔ Chưa có NV bán hàng',
+          soDon: soDonChuaCoNV
+        });
+      }
+
+      danhSachNVCuaSo = dsNV;
+
+      // Cập nhật thẻ select ẩn để tương thích mã cũ
+      if (sel) {
+        const valDangChon = sel.value;
+        sel.innerHTML = '<option value="tat_ca">🧑‍💼 Tất cả NV bán hàng</option>';
+        dsNV.forEach(nv => {
+          const opt = document.createElement('option');
+          opt.value = nv.khoa;
+          opt.textContent = `${nv.ten} (${nv.soDon} đơn)`;
+          if (nv.khoa === valDangChon) opt.selected = true;
+          sel.appendChild(opt);
+        });
+      }
+
+      // Giữ lại các khoá hợp lệ trong tapNVBanHangDangChon
+      const tapKhoaHopLe = new Set(dsNV.map(x => x.khoa));
+      Array.from(tapNVBanHangDangChon).forEach(k => {
+        if (!tapKhoaHopLe.has(k)) tapNVBanHangDangChon.delete(k);
       });
-      if (coDonChuaCoNV) {
-        const opt = document.createElement('option');
-        opt.value = '__chua_co_nv__';
-        opt.textContent = '❔ Chưa có NV bán hàng';
-        if (valDangChon === '__chua_co_nv__') opt.selected = true;
-        sel.appendChild(opt);
+
+      renderMultiNVItems();
+      capNhatHienThiMultiNV();
+    }
+
+    // Render danh sách checkbox từng nhân viên trong menu dropdown
+    function renderMultiNVItems() {
+      const container = document.getElementById('danhSachNVMultiItems');
+      if (!container) return;
+      if (!danhSachNVCuaSo || danhSachNVCuaSo.length === 0) {
+        container.innerHTML = '<div style="padding:10px; text-align:center; color:#64748b; font-size:12px;">Chưa có dữ liệu nhân viên</div>';
+        return;
+      }
+
+      container.innerHTML = danhSachNVCuaSo.map(nv => {
+        const isChon = tapNVBanHangDangChon.has(nv.khoa);
+        return `
+          <label class="dropdown-multiselect-item ${isChon ? 'is-selected' : ''}" data-khoa="${escapeHtml(nv.khoa)}" data-ten="${escapeHtml(nv.ten)}">
+            <input type="checkbox" value="${escapeHtml(nv.khoa)}" ${isChon ? 'checked' : ''} onchange="onThayDoiTichNV(this)">
+            <span style="flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(nv.ten)}">${escapeHtml(nv.ten)}</span>
+            <span style="font-size:11px; color:#64748b; font-weight:600; white-space:nowrap;">(${nv.soDon} đơn)</span>
+          </label>
+        `;
+      }).join('');
+    }
+
+    // Sự kiện khi tích / bỏ tích một nhân viên trong menu
+    function onThayDoiTichNV(el) {
+      const khoa = el.value;
+      if (el.checked) {
+        tapNVBanHangDangChon.add(khoa);
+      } else {
+        tapNVBanHangDangChon.delete(khoa);
+      }
+      capNhatHienThiMultiNV();
+      locDanhSachCongNo();
+    }
+
+    // Chọn tất cả nhân viên (nếu đang tìm kiếm thì chọn những người đang hiển thị)
+    function chonTatCaNV() {
+      const kw = (document.getElementById('timKiemNVMulti')?.value || '').trim();
+      if (kw) {
+        const items = document.querySelectorAll('#danhSachNVMultiItems .dropdown-multiselect-item');
+        items.forEach(el => {
+          if (el.style.display !== 'none') {
+            const chk = el.querySelector('input[type="checkbox"]');
+            if (chk) {
+              chk.checked = true;
+              tapNVBanHangDangChon.add(chk.value);
+            }
+          }
+        });
+      } else {
+        danhSachNVCuaSo.forEach(nv => tapNVBanHangDangChon.add(nv.khoa));
+      }
+      capNhatHienThiMultiNV();
+      locDanhSachCongNo();
+    }
+
+    // Bỏ chọn tất cả nhân viên -> tự động đưa về mặc định (hiển thị tất cả)
+    function boChonTatCaNV() {
+      const kw = (document.getElementById('timKiemNVMulti')?.value || '').trim();
+      if (kw) {
+        const items = document.querySelectorAll('#danhSachNVMultiItems .dropdown-multiselect-item');
+        items.forEach(el => {
+          if (el.style.display !== 'none') {
+            const chk = el.querySelector('input[type="checkbox"]');
+            if (chk) {
+              chk.checked = false;
+              tapNVBanHangDangChon.delete(chk.value);
+            }
+          }
+        });
+      } else {
+        tapNVBanHangDangChon.clear();
+      }
+      capNhatHienThiMultiNV();
+      locDanhSachCongNo();
+    }
+
+    // Master checkbox "Tất cả NV"
+    function toggleChonTatCaNV(checked) {
+      if (checked) {
+        chonTatCaNV();
+      } else {
+        boChonTatCaNV();
       }
     }
+
+    // Lọc tìm kiếm nhanh danh sách nhân viên trong menu theo tên hoặc SĐT
+    function locDanhSachNVTrongMenu(val) {
+      const tuKhoa = chuanHoaChuoiVN(val || '').toLowerCase().trim();
+      const items = document.querySelectorAll('#danhSachNVMultiItems .dropdown-multiselect-item');
+      const btnClear = document.getElementById('btnClearSearchNV');
+      const emptyEl = document.getElementById('emptyNVMulti');
+      if (btnClear) btnClear.style.display = tuKhoa ? 'block' : 'none';
+
+      let countVisible = 0;
+      items.forEach(el => {
+        const ten = chuanHoaChuoiVN(el.getAttribute('data-ten') || '').toLowerCase();
+        const khoa = chuanHoaChuoiVN(el.getAttribute('data-khoa') || '').toLowerCase();
+        const khop = !tuKhoa || ten.includes(tuKhoa) || khoa.includes(tuKhoa);
+        el.style.display = khop ? 'flex' : 'none';
+        if (khop) countVisible++;
+      });
+      if (emptyEl) {
+        emptyEl.style.display = (items.length > 0 && countVisible === 0) ? 'block' : 'none';
+      }
+    }
+
+    // Xoá ô tìm kiếm nhanh NV
+    function xoaTimKiemNVMulti() {
+      const input = document.getElementById('timKiemNVMulti');
+      if (input) {
+        input.value = '';
+        locDanhSachNVTrongMenu('');
+        input.focus();
+      }
+    }
+
+    // Cập nhật nhãn trên thanh Trigger Button theo quy tắc nghiệp vụ
+    function capNhatHienThiMultiNV() {
+      const lbl = document.getElementById('lblMultiNVTrigger');
+      const btn = document.getElementById('btnTriggerMultiNV');
+      const chkTatCa = document.getElementById('chkChonTatCaNV');
+      const lblDem = document.getElementById('lblMultiNVDem');
+      const selHidden = document.getElementById('locNVBanHang');
+      if (!lbl || !btn) return;
+
+      const tongSoNV = (danhSachNVCuaSo && danhSachNVCuaSo.length) || 0;
+      const soChon = tapNVBanHangDangChon.size;
+
+      // Cập nhật trạng thái checkbox & class cho từng item
+      document.querySelectorAll('#danhSachNVMultiItems .dropdown-multiselect-item').forEach(el => {
+        const chk = el.querySelector('input[type="checkbox"]');
+        if (chk) {
+          const isChon = tapNVBanHangDangChon.has(chk.value);
+          chk.checked = isChon;
+          el.classList.toggle('is-selected', isChon);
+        }
+      });
+
+      // 1. Khi chưa chọn hoặc chọn tất cả: Hiển thị "🧑‍💼 Tất cả NV bán hàng"
+      if (soChon === 0 || (tongSoNV > 0 && soChon >= tongSoNV)) {
+        lbl.textContent = '🧑‍💼 Tất cả NV bán hàng';
+        btn.title = 'Tất cả nhân viên bán hàng (NV bán của từng hoá đơn)';
+        if (chkTatCa) {
+          chkTatCa.checked = soChon > 0 && soChon >= tongSoNV;
+          chkTatCa.indeterminate = false;
+        }
+        if (lblDem) {
+          lblDem.textContent = soChon === 0 ? 'Mặc định: Tất cả NV' : `Đang chọn: Tất cả (${tongSoNV} NV)`;
+        }
+        if (selHidden) selHidden.value = 'tat_ca';
+      }
+      // 2. Khi chọn 1 nhân viên: Hiển thị đầy đủ tên nhân viên đó như cũ
+      else if (soChon === 1) {
+        const khoaChon = Array.from(tapNVBanHangDangChon)[0];
+        const nv = danhSachNVCuaSo.find(x => x.khoa === khoaChon);
+        const tenHienThi = nv ? `${nv.ten} (${nv.soDon} đơn)` : (khoaChon === '__chua_co_nv__' ? '❔ Chưa có NV bán hàng' : khoaChon);
+        lbl.textContent = tenHienThi;
+        btn.title = tenHienThi;
+        if (chkTatCa) {
+          chkTatCa.checked = false;
+          chkTatCa.indeterminate = true;
+        }
+        if (lblDem) {
+          lblDem.textContent = `Đã chọn: 1 / ${tongSoNV} NV`;
+        }
+        if (selHidden) selHidden.value = khoaChon;
+      }
+      // 3. Khi chọn từ 2 nhân viên trở lên: Hiển thị dạng rút gọn "Đã chọn X NV bán hàng" + tooltip
+      else {
+        lbl.textContent = `Đã chọn ${soChon} NV bán hàng`;
+        const dsTen = danhSachNVCuaSo
+          .filter(x => tapNVBanHangDangChon.has(x.khoa))
+          .map(x => x.ten);
+        const tooltipText = `Đã chọn ${soChon} NV bán hàng:\n• ` + dsTen.join('\n• ');
+        btn.title = tooltipText;
+        if (chkTatCa) {
+          chkTatCa.checked = false;
+          chkTatCa.indeterminate = true;
+        }
+        if (lblDem) {
+          lblDem.textContent = `Đã chọn: ${soChon} / ${tongSoNV} NV`;
+        }
+        if (selHidden) selHidden.value = Array.from(tapNVBanHangDangChon).join(',');
+      }
+    }
+
+    // Đóng / mở dropdown multi-select
+    function toggleDropdownMultiNV(e) {
+      if (e) e.stopPropagation();
+      const wrap = document.getElementById('wrapMultiNVBanHang');
+      if (!wrap) return;
+      const isOpen = wrap.classList.contains('is-open');
+      if (isOpen) {
+        dongDropdownMultiNV();
+      } else {
+        moDropdownMultiNV();
+      }
+    }
+
+    function moDropdownMultiNV() {
+      const wrap = document.getElementById('wrapMultiNVBanHang');
+      if (!wrap) return;
+      wrap.classList.add('is-open');
+      const menu = document.getElementById('menuMultiNV');
+      if (menu) menu.style.display = 'flex';
+      const input = document.getElementById('timKiemNVMulti');
+      if (input) {
+        input.value = '';
+        locDanhSachNVTrongMenu('');
+        setTimeout(() => input.focus(), 60);
+      }
+    }
+
+    function dongDropdownMultiNV() {
+      const wrap = document.getElementById('wrapMultiNVBanHang');
+      if (wrap) wrap.classList.remove('is-open');
+      const menu = document.getElementById('menuMultiNV');
+      if (menu) menu.style.display = 'none';
+    }
+
+    // Lắng nghe sự kiện click outside & phím Escape để đóng dropdown
+    document.addEventListener('click', function(e) {
+      const wrap = document.getElementById('wrapMultiNVBanHang');
+      if (wrap && !wrap.contains(e.target)) {
+        dongDropdownMultiNV();
+      }
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        dongDropdownMultiNV();
+      }
+    });
 
     // ========================================================
     // SỬA / THÊM TÊN NV BÁN HÀNG (nút "✏️ NV bán" ở cột Thao tác)
@@ -2602,7 +3073,11 @@
           if (d.ngayThanhToan && d.ngayThanhToan > group.ngayThanhToanGanNhat) group.ngayThanhToanGanNhat = d.ngayThanhToan;
         });
 
-        const dsKH = Array.from(mapKH.values()).sort((a, b) => b.tongConLai - a.tongConLai);
+        const dsKH = Array.from(mapKH.values()).map(g => {
+          const dsNB = Array.from(new Set(g.danhSachDon.map(d => String(d.nguoiBan || '').trim()).filter(Boolean)));
+          g.nguoiBanHienThi = dsNB.length > 1 ? dsNB.join(', ') : (dsNB[0] || g.nguoiBan || '--');
+          return g;
+        }).sort((a, b) => b.tongConLai - a.tongConLai);
         // Tổng nợ của từng khách trên TOÀN sổ (không theo bộ lọc) — so với lúc quản lý tích "Đúng công nợ"
         const congNoToanSo = tongCongNoToanSoTheoKhach();
         document.getElementById('lblSoLuongHienThi').textContent = `${dsKH.length} khách hàng`;
@@ -2638,7 +3113,7 @@
                   ${htmlBadgeTraTruoc(k.tenKH)}
                   ${htmlBadgeHanMucKhach(k.tenKH)}
                 </td>
-                <td>${escapeHtml(k.nguoiBan || '--')}</td>
+                <td><span title="${escapeHtml(k.nguoiBanHienThi || k.nguoiBan || '--')}">${escapeHtml(k.nguoiBanHienThi || k.nguoiBan || '--')}</span></td>
                 <td style="text-align:center;">
                   <span class="badge-status" style="background:#f1f5f9; color:#334155; border:1px solid #cbd5e1;">
                     ${k.soDon} đơn
@@ -2986,7 +3461,10 @@
     function layDonDaChon() {
       const kq = new Map();
       danhSachCongNo.forEach(d => {
-        if ((khachDaChon.has(khoaKhachCongNo(d)) && donKhopLocNgayTrangThai(d)) || donDaChon.has(d.id)) kq.set(d.id, d);
+        if ((khachDaChon.has(khoaKhachCongNo(d)) && donKhopLocNgayTrangThai(d)) || 
+            (donDaChon.has(d.id) && donKhopLocNgayTrangThai(d))) {
+          kq.set(d.id, d);
+        }
       });
       return Array.from(kq.values());
     }
@@ -2998,8 +3476,15 @@
       const phan = [];
       if (tuNgay || denNgay) phan.push(`Ngày nợ ${tuNgay ? 'từ ' + dinhDangNgayVN(tuNgay) : ''} ${denNgay ? 'đến ' + dinhDangNgayVN(denNgay) : ''}`.trim());
       if (locTT && locTT.value !== 'tat_ca') phan.push(locTT.options[locTT.selectedIndex].text);
-      const locNV = document.getElementById('locNVBanHang');
-      if (locNV && locNV.value !== 'tat_ca' && locNV.selectedIndex >= 0) phan.push('NV bán: ' + locNV.options[locNV.selectedIndex].text.replace(/\s*\(\d+ đơn\)$/, ''));
+      if (tapNVBanHangDangChon && tapNVBanHangDangChon.size > 0 && danhSachNVCuaSo && tapNVBanHangDangChon.size < danhSachNVCuaSo.length) {
+        if (tapNVBanHangDangChon.size === 1) {
+          const k = Array.from(tapNVBanHangDangChon)[0];
+          const nv = danhSachNVCuaSo.find(x => x.khoa === k);
+          phan.push('NV bán: ' + (nv ? nv.ten : k));
+        } else {
+          phan.push(`NV bán (${tapNVBanHangDangChon.size} người): ` + danhSachNVCuaSo.filter(x => tapNVBanHangDangChon.has(x.khoa)).map(x => x.ten).join(', '));
+        }
+      }
       return phan.length ? ' · Lọc: ' + phan.join(' · ') : '';
     }
 
@@ -3022,14 +3507,21 @@
         return;
       }
       const ds = layDonDaChon();
+      if (!ds.length) {
+        thanh.style.display = 'none';
+        return;
+      }
       const soKH = new Set(ds.map(khoaKhachCongNo)).size;
       const tongNo = ds.reduce((s, d) => s + (d.soTienNo || 0), 0);
       const conLai = ds.reduce((s, d) => s + conLaiCuaDon(d), 0);
       const phan = [];
-      if (khachDaChon.size) phan.push(`${khachDaChon.size} khách hàng`);
-      if (donDaChon.size) phan.push(`${donDaChon.size} đơn lẻ`);
+      if (khachDaChon.size) {
+        phan.push(khachDaChon.size === soKH ? `${soKH} khách hàng` : `${soKH} khách hàng (từ ${khachDaChon.size} đã tích)`);
+      }
+      const soDonLe = ds.filter(d => donDaChon.has(d.id) && !khachDaChon.has(khoaKhachCongNo(d))).length;
+      if (soDonLe) phan.push(`${soDonLe} đơn lẻ`);
       document.getElementById('thanhChonNoiDung').innerHTML =
-        `✅ Đã tích <b>${phan.join(' + ')}</b> → <b>${ds.length}</b> đơn nợ của <b>${soKH}</b> khách · Tổng nợ <b>${formatTien(tongNo)} đ</b> · Còn phải thu <b>${formatTien(conLai)} đ</b>`;
+        `✅ Đã tích <b>${phan.join(' + ') || (ds.length + ' đơn')}</b> → <b>${ds.length}</b> đơn nợ của <b>${soKH}</b> khách · Tổng nợ <b>${formatTien(tongNo)} đ</b> · Còn phải thu <b>${formatTien(conLai)} đ</b>`;
       thanh.style.display = 'flex';
     }
 
@@ -6247,6 +6739,9 @@
         const cleanLoc = chuanHoaChuoiVN(locKH);
         if (cleanKH !== cleanLoc && !cleanKH.includes(cleanLoc) && !cleanLoc.includes(cleanKH)) return false;
 
+        // Đồng bộ lọc theo nhân viên bán hàng (nếu đang lọc NV)
+        if (!donKhopLocNVBanHang(d)) return false;
+
         const ngayGhiRaw = d.ngayGiao || d.ngayGhiNo || '';
         const ngayChuan = chuanHoaNgayYYYYMMDD(ngayGhiRaw);
         if (ngayChuan) {
@@ -6267,7 +6762,8 @@
       // Điền thông tin vào mẫu in
       document.getElementById('p_tenKhachHang').textContent = locKH;
       document.getElementById('p_maKhachHang').textContent = dsIn[0].maKH || '--';
-      document.getElementById('p_nvPhuTrach').textContent = dsIn[0].nguoiBan || 'Nguyễn Tấn Đạt';
+      const dsNguoiBanIn = Array.from(new Set(dsIn.map(d => String(d.nguoiBan || '').trim()).filter(Boolean)));
+      document.getElementById('p_nvPhuTrach').textContent = dsNguoiBanIn.join(', ') || dsIn[0].nguoiBan || 'Nguyễn Tấn Đạt';
       document.getElementById('p_ngayLap').textContent = new Date().toLocaleDateString('vi-VN');
 
       const strTuNgay = tuNgay ? dinhDangNgayVN(tuNgay) : (dsIn.length > 0 ? (dinhDangNgayVN(chuanHoaNgayYYYYMMDD(dsIn[dsIn.length - 1].ngayGiao || dsIn[dsIn.length - 1].ngayGhiNo)) || 'Đầu kỳ') : 'Đầu kỳ');

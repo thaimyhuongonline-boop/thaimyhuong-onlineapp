@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Test DOM Dropdown Multi-Select</title>
+<style>
+  body { font-family: monospace; padding: 20px; background: #f8fafc; }
+  .pass { color: #16a34a; font-weight: bold; }
+  .fail { color: #dc2626; font-weight: bold; }
+  .summary { padding: 12px; border-radius: 6px; margin-bottom: 12px; }
+  .summary.ok { background: #dcfce7; color: #166534; }
+  .summary.bad { background: #fee2e2; color: #991b1b; }
+</style>
+</head>
+<body>
+
+<div id="summary" class="summary">Đang chạy...</div>
+<div id="logs"></div>
+
+<!-- CONTAINER DROPDOWN GIỐNG THEO_DOI_CONG_NO.HTML -->
+<div class="dropdown-multiselect" id="wrapMultiNVBanHang" style="margin: 20px;">
+  <button type="button" id="btnTriggerMultiNV" class="dropdown-multiselect-btn"
+    onclick="toggleDropdownMultiNV(event)" title="Lọc công nợ theo nhân viên bán hàng">
+    <span id="lblMultiNVTrigger">🧑‍💼 Tất cả NV bán hàng</span>
+    <span class="dropdown-multiselect-caret">▼</span>
+  </button>
+
+  <div id="menuMultiNV" class="dropdown-multiselect-menu" style="display:none;" onclick="event.stopPropagation()">
+    <div class="dropdown-multiselect-search">
+      <input type="text" id="timKiemNVMulti" placeholder="🔍 Tìm tên hoặc SĐT..."
+        autocomplete="off" oninput="locDanhSachNVTrongMenu(this.value)">
+      <span id="btnClearSearchNV" onclick="xoaTimKiemNVMulti()" style="display:none; cursor:pointer;">✕</span>
+    </div>
+
+    <div class="dropdown-multiselect-actions">
+      <label>
+        <input type="checkbox" id="chkChonTatCaNV" onchange="toggleChonTatCaNV(this.checked)">
+        <span>Tất cả NV</span>
+      </label>
+      <div>
+        <span role="button" id="btnChonHet" onclick="chonTatCaNV()">Chọn hết</span>
+        <span role="button" id="btnBoHet" onclick="boChonTatCaNV()">Bỏ hết</span>
+      </div>
+    </div>
+
+    <div id="danhSachNVMultiItems" class="dropdown-multiselect-list"></div>
+    <div id="emptyNVMulti" style="display:none;">Không tìm thấy nhân viên phù hợp</div>
+
+    <div class="dropdown-multiselect-footer">
+      <span id="lblMultiNVDem">Đang chọn: Tất cả</span>
+      <button type="button" id="btnDong" onclick="dongDropdownMultiNV()">Xong</button>
+    </div>
+  </div>
+
+  <select id="locNVBanHang" style="display:none;" onchange="locDanhSachCongNo()">
+    <option value="tat_ca">🧑‍💼 Tất cả NV bán hàng</option>
+  </select>
+</div>
+
+<div id="lblSoLuongHienThi">0 mục</div>
+
+<script>
+  let testPass = 0, testTotal = 0;
+  function testAssert(name, cond, info) {
+    testTotal++;
+    if (cond) testPass++;
+    const div = document.createElement('div');
+    div.className = cond ? 'pass' : 'fail';
+    div.textContent = (cond ? '✅ ' : '❌ ') + name + (cond ? '' : ' [FAILED: ' + JSON.stringify(info) + ']');
+    document.getElementById('logs').appendChild(div);
+  }
+
+  function chuanHoaChuoiVN(str) {
+    if (!str) return '';
+    return String(str)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[đĐ]/g, m => m === 'đ' ? 'd' : 'D')
+      .toLowerCase()
+      .trim();
+  }
+
+  function khoaNVBanHang(ten) {
+    const s = chuanHoaChuoiVN(ten).replace(/\s+/g, ' ');
+    if (!s) return '';
+    return s.replace(/\s*[-–—:,(\/]*\s*\+?\d[\d\s.\-]{6,}\d\)?$/, '').trim() || s;
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  let tapNVBanHangDangChon = new Set();
+  let danhSachNVCuaSo = [];
+  let soLanLocCongNoGoi = 0;
+
+  function locDanhSachCongNo() {
+    soLanLocCongNoGoi++;
+  }
+
+  // LOGIC TỪ THEO_DOI_CONG_NO.HTML
+  function toggleDropdownMultiNV(e) {
+    if (e) e.stopPropagation();
+    const wrap = document.getElementById('wrapMultiNVBanHang');
+    if (!wrap) return;
+    const isOpen = wrap.classList.contains('is-open');
+    if (isOpen) {
+      dongDropdownMultiNV();
+    } else {
+      moDropdownMultiNV();
+    }
+  }
+
+  function moDropdownMultiNV() {
+    const wrap = document.getElementById('wrapMultiNVBanHang');
+    if (!wrap) return;
+    wrap.classList.add('is-open');
+    const menu = document.getElementById('menuMultiNV');
+    if (menu) menu.style.display = 'flex';
+    const input = document.getElementById('timKiemNVMulti');
+    if (input) {
+      input.value = '';
+      locDanhSachNVTrongMenu('');
+      setTimeout(() => input.focus(), 60);
+    }
+  }
+
+  function dongDropdownMultiNV() {
+    const wrap = document.getElementById('wrapMultiNVBanHang');
+    if (wrap) wrap.classList.remove('is-open');
+    const menu = document.getElementById('menuMultiNV');
+    if (menu) menu.style.display = 'none';
+  }
+
+  document.addEventListener('click', function(e) {
+    const wrap = document.getElementById('wrapMultiNVBanHang');
+    if (wrap && !wrap.contains(e.target)) {
+      dongDropdownMultiNV();
+    }
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      dongDropdownMultiNV();
+    }
+  });
+
+  function capNhatDropdownNVBanHang(danhSachCongNo) {
+    const sel = document.getElementById('locNVBanHang');
+    const mapNV = new Map();
+    let soDonChuaCoNV = 0;
+
+    danhSachCongNo.forEach(d => {
+      const khoa = khoaNVBanHang(d.nguoiBan);
+      if (!khoa) { soDonChuaCoNV++; return; }
+      if (!mapNV.has(khoa)) mapNV.set(khoa, { soDon: 0, tenHienThi: new Map() });
+      const nv = mapNV.get(khoa);
+      const tenGoc = String(d.nguoiBan).trim().replace(/\s+/g, ' ');
+      nv.soDon++;
+      nv.tenHienThi.set(tenGoc, (nv.tenHienThi.get(tenGoc) || 0) + 1);
+    });
+
+    const dsNV = Array.from(mapNV.entries()).map(([khoa, nv]) => {
+      const ten = Array.from(nv.tenHienThi.entries()).sort((a, b) => b[1] - a[1] || b[0].length - a[0].length)[0][0];
+      return { khoa, ten, soDon: nv.soDon };
+    }).sort((a, b) => a.ten.localeCompare(b.ten, 'vi'));
+
+    if (soDonChuaCoNV > 0) {
+      dsNV.push({
+        khoa: '__chua_co_nv__',
+        ten: '❔ Chưa có NV bán hàng',
+        soDon: soDonChuaCoNV
+      });
+    }
+
+    danhSachNVCuaSo = dsNV;
+
+    if (sel) {
+      const valDangChon = sel.value;
+      sel.innerHTML = '<option value="tat_ca">🧑‍💼 Tất cả NV bán hàng</option>';
+      dsNV.forEach(nv => {
+        const opt = document.createElement('option');
+        opt.value = nv.khoa;
+        opt.textContent = `${nv.ten} (${nv.soDon} đơn)`;
+        if (nv.khoa === valDangChon) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+
+    const tapKhoaHopLe = new Set(dsNV.map(x => x.khoa));
+    Array.from(tapNVBanHangDangChon).forEach(k => {
+      if (!tapKhoaHopLe.has(k)) tapNVBanHangDangChon.delete(k);
+    });
+
+    renderMultiNVItems();
+    capNhatHienThiMultiNV();
+  }
+
+  function renderMultiNVItems() {
+    const container = document.getElementById('danhSachNVMultiItems');
+    if (!container) return;
+    if (!danhSachNVCuaSo || danhSachNVCuaSo.length === 0) {
+      container.innerHTML = '<div style="padding:10px; text-align:center; color:#64748b; font-size:12px;">Chưa có dữ liệu nhân viên</div>';
+      return;
+    }
+
+    container.innerHTML = danhSachNVCuaSo.map(nv => {
+      const isChon = tapNVBanHangDangChon.has(nv.khoa);
+      return `
+        <label class="dropdown-multiselect-item ${isChon ? 'is-selected' : ''}" data-khoa="${escapeHtml(nv.khoa)}" data-ten="${escapeHtml(nv.ten)}" style="display:flex;">
+          <input type="checkbox" value="${escapeHtml(nv.khoa)}" ${isChon ? 'checked' : ''} onchange="onThayDoiTichNV(this)">
+          <span class="txt-ten">${escapeHtml(nv.ten)}</span>
+          <span class="txt-don">(${nv.soDon} đơn)</span>
+        </label>
+      `;
+    }).join('');
+  }
+
+  function onThayDoiTichNV(el) {
+    const khoa = el.value;
+    if (el.checked) {
+      tapNVBanHangDangChon.add(khoa);
+    } else {
+      tapNVBanHangDangChon.delete(khoa);
+    }
+    capNhatHienThiMultiNV();
+    locDanhSachCongNo();
+  }
+
+  function chonTatCaNV() {
+    const kw = (document.getElementById('timKiemNVMulti')?.value || '').trim();
+    if (kw) {
+      const items = document.querySelectorAll('#danhSachNVMultiItems .dropdown-multiselect-item');
+      items.forEach(el => {
+        if (el.style.display !== 'none') {
+          const chk = el.querySelector('input[type="checkbox"]');
+          if (chk) {
+            chk.checked = true;
+            tapNVBanHangDangChon.add(chk.value);
+          }
+        }
+      });
+    } else {
+      danhSachNVCuaSo.forEach(nv => tapNVBanHangDangChon.add(nv.khoa));
+    }
+    capNhatHienThiMultiNV();
+    locDanhSachCongNo();
+  }
+
+  function boChonTatCaNV() {
+    const kw = (document.getElementById('timKiemNVMulti')?.value || '').trim();
+    if (kw) {
+      const items = document.querySelectorAll('#danhSachNVMultiItems .dropdown-multiselect-item');
+      items.forEach(el => {
+        if (el.style.display !== 'none') {
+          const chk = el.querySelector('input[type="checkbox"]');
+          if (chk) {
+            chk.checked = false;
+            tapNVBanHangDangChon.delete(chk.value);
+          }
+        }
+      });
+    } else {
+      tapNVBanHangDangChon.clear();
+    }
+    capNhatHienThiMultiNV();
+    locDanhSachCongNo();
+  }
+
+  function toggleChonTatCaNV(checked) {
+    if (checked) {
+      chonTatCaNV();
+    } else {
+      boChonTatCaNV();
+    }
+  }
+
+  function locDanhSachNVTrongMenu(val) {
+    const tuKhoa = chuanHoaChuoiVN(val || '').toLowerCase().trim();
+    const items = document.querySelectorAll('#danhSachNVMultiItems .dropdown-multiselect-item');
+    const btnClear = document.getElementById('btnClearSearchNV');
+    const emptyEl = document.getElementById('emptyNVMulti');
+    if (btnClear) btnClear.style.display = tuKhoa ? 'block' : 'none';
+
+    let countVisible = 0;
+    items.forEach(el => {
+      const ten = chuanHoaChuoiVN(el.getAttribute('data-ten') || '').toLowerCase();
+      const khoa = chuanHoaChuoiVN(el.getAttribute('data-khoa') || '').toLowerCase();
+      const khop = !tuKhoa || ten.includes(tuKhoa) || khoa.includes(tuKhoa);
+      el.style.display = khop ? 'flex' : 'none';
+      if (khop) countVisible++;
+    });
+    if (emptyEl) {
+      emptyEl.style.display = (items.length > 0 && countVisible === 0) ? 'block' : 'none';
+    }
+  }
+
+  function xoaTimKiemNVMulti() {
+    const input = document.getElementById('timKiemNVMulti');
+    if (input) {
+      input.value = '';
+      locDanhSachNVTrongMenu('');
+      input.focus();
+    }
+  }
+
+  function capNhatHienThiMultiNV() {
+    const lbl = document.getElementById('lblMultiNVTrigger');
+    const btn = document.getElementById('btnTriggerMultiNV');
+    const chkTatCa = document.getElementById('chkChonTatCaNV');
+    const lblDem = document.getElementById('lblMultiNVDem');
+    const selHidden = document.getElementById('locNVBanHang');
+    if (!lbl || !btn) return;
+
+    const tongSoNV = (danhSachNVCuaSo && danhSachNVCuaSo.length) || 0;
+    const soChon = tapNVBanHangDangChon.size;
+
+    document.querySelectorAll('#danhSachNVMultiItems .dropdown-multiselect-item').forEach(el => {
+      const chk = el.querySelector('input[type="checkbox"]');
+      if (chk) {
+        const isChon = tapNVBanHangDangChon.has(chk.value);
+        chk.checked = isChon;
+        el.classList.toggle('is-selected', isChon);
+      }
+    });
+
+    if (soChon === 0 || (tongSoNV > 0 && soChon >= tongSoNV)) {
+      lbl.textContent = '🧑‍💼 Tất cả NV bán hàng';
+      btn.title = 'Tất cả nhân viên bán hàng (NV bán của từng hoá đơn)';
+      if (chkTatCa) {
+        chkTatCa.checked = soChon > 0 && soChon >= tongSoNV;
+        chkTatCa.indeterminate = false;
+      }
+      if (lblDem) {
+        lblDem.textContent = soChon === 0 ? 'Mặc định: Tất cả NV' : `Đang chọn: Tất cả (${tongSoNV} NV)`;
+      }
+      if (selHidden) selHidden.value = 'tat_ca';
+    } else if (soChon === 1) {
+      const khoaChon = Array.from(tapNVBanHangDangChon)[0];
+      const nv = danhSachNVCuaSo.find(x => x.khoa === khoaChon);
+      const tenHienThi = nv ? `${nv.ten} (${nv.soDon} đơn)` : (khoaChon === '__chua_co_nv__' ? '❔ Chưa có NV bán hàng' : khoaChon);
+      lbl.textContent = tenHienThi;
+      btn.title = tenHienThi;
+      if (chkTatCa) {
+        chkTatCa.checked = false;
+        chkTatCa.indeterminate = true;
+      }
+      if (lblDem) {
+        lblDem.textContent = `Đã chọn: 1 / ${tongSoNV} NV`;
+      }
+      if (selHidden) selHidden.value = khoaChon;
+    } else {
+      lbl.textContent = `Đã chọn ${soChon} NV bán hàng`;
+      const dsTen = danhSachNVCuaSo
+        .filter(x => tapNVBanHangDangChon.has(x.khoa))
+        .map(x => x.ten);
+      const tooltipText = `Đã chọn ${soChon} NV bán hàng:\n• ` + dsTen.join('\n• ');
+      btn.title = tooltipText;
+      if (chkTatCa) {
+        chkTatCa.checked = false;
+        chkTatCa.indeterminate = true;
+      }
+      if (lblDem) {
+        lblDem.textContent = `Đã chọn: ${soChon} / ${tongSoNV} NV`;
+      }
+      if (selHidden) selHidden.value = Array.from(tapNVBanHangDangChon).join(',');
+    }
+  }
+
+  // TIẾN HÀNH KIỂM THỬ DOM & TƯƠNG TÁC
+  const mockDon = [
+    { id: '1', nguoiBan: 'Lê Đức Tính - 0787 952 774' },
+    { id: '2', nguoiBan: 'Lê Đức Tính - 0787 952 774' },
+    { id: '3', nguoiBan: 'Đặng Văn Tiên - 0905 714 901' },
+    { id: '4', nguoiBan: 'Nguyễn Khá - 0935 784 341' }
+  ];
+
+  capNhatDropdownNVBanHang(mockDon);
+
+  // 1. Kiểm tra ban đầu
+  testAssert("1. Khởi tạo danh sách 3 NV bán hàng vào DOM", danhSachNVCuaSo.length === 3);
+  testAssert("2. Label trigger mặc định là 'Tất cả NV bán hàng'", document.getElementById('lblMultiNVTrigger').textContent === '🧑‍💼 Tất cả NV bán hàng');
+
+  // 2. Mở dropdown
+  toggleDropdownMultiNV();
+  testAssert("3. Gọi toggleDropdownMultiNV -> Menu mở (display: flex)", document.getElementById('menuMultiNV').style.display === 'flex');
+
+  // 3. Tích chọn 1 nhân viên (Lê Đức Tính)
+  const items = document.querySelectorAll('#danhSachNVMultiItems .dropdown-multiselect-item');
+  const chk1 = items[1].querySelector('input'); // giả sử Lê Đức Tính
+  chk1.checked = true;
+  onThayDoiTichNV(chk1);
+
+  testAssert("4. Tích 1 nhân viên -> Menu VẪN MỞ (display: flex, không bị tự đóng)", document.getElementById('menuMultiNV').style.display === 'flex');
+  testAssert("5. Label trigger hiển thị đầy đủ tên NV khi chọn 1 người", document.getElementById('lblMultiNVTrigger').textContent.includes('đơn'));
+  testAssert("6. locDanhSachCongNo() được gọi sau khi tích", soLanLocCongNoGoi > 0);
+
+  // 4. Tích chọn thêm nhân viên thứ 2
+  const chk0 = items[0].querySelector('input');
+  chk0.checked = true;
+  onThayDoiTichNV(chk0);
+
+  testAssert("7. Chọn 2 nhân viên -> Trigger rút gọn 'Đã chọn 2 NV bán hàng'", document.getElementById('lblMultiNVTrigger').textContent === 'Đã chọn 2 NV bán hàng');
+  testAssert("8. Tooltip title chứa danh sách tên 2 nhân viên", document.getElementById('btnTriggerMultiNV').title.includes('\n• '));
+
+  // 5. Tìm kiếm nhanh
+  const inputSearch = document.getElementById('timKiemNVMulti');
+  inputSearch.value = 'tinh';
+  locDanhSachNVTrongMenu('tinh');
+  let countVisible = 0;
+  items.forEach(el => { if (el.style.display !== 'none') countVisible++; });
+  testAssert("9. Tìm kiếm 'tinh' -> Lọc chính xác 1 nhân viên hiển thị", countVisible === 1);
+
+  // Xoá tìm kiếm
+  xoaTimKiemNVMulti();
+  let countAfterClear = 0;
+  items.forEach(el => { if (el.style.display !== 'none') countAfterClear++; });
+  testAssert("10. Xoá ô tìm kiếm -> Hiển thị lại đầy đủ 3 nhân viên", countAfterClear === 3);
+
+  // 6. Bỏ chọn tất cả
+  boChonTatCaNV();
+  testAssert("11. Bỏ chọn tất cả -> Về mặc định 'Tất cả NV bán hàng'", document.getElementById('lblMultiNVTrigger').textContent === '🧑‍💼 Tất cả NV bán hàng');
+  testAssert("12. Bỏ chọn tất cả -> tapNVBanHangDangChon rỗng (size 0)", tapNVBanHangDangChon.size === 0);
+
+  // 7. Chọn tất cả
+  chonTatCaNV();
+  testAssert("13. Chọn tất cả -> tapNVBanHangDangChon chứa đầy đủ 3 NV", tapNVBanHangDangChon.size === 3);
+  testAssert("14. Chọn tất cả -> Trigger vẫn hiển thị 'Tất cả NV bán hàng'", document.getElementById('lblMultiNVTrigger').textContent === '🧑‍💼 Tất cả NV bán hàng');
+
+  // 8. Đóng dropdown
+  dongDropdownMultiNV();
+  testAssert("15. Đóng dropdown -> Menu display: none", document.getElementById('menuMultiNV').style.display === 'none');
+
+  // Cập nhật tổng kết
+  const isOk = testPass === testTotal;
+  const sumEl = document.getElementById('summary');
+  sumEl.className = 'summary ' + (isOk ? 'ok' : 'bad');
+  sumEl.textContent = (isOk ? '🎉 TẤT CẢ TEST DOM HOÀN TẤT XUẤT SẮC: ' : '⚠️ CÓ TEST THẤT BẠI: ') + `${testPass}/${testTotal} test cases đạt yêu cầu`;
+</script>
+
+</body>
+</html>
