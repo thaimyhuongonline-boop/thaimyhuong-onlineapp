@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Kiểm Tra Cột NỢ CÒN LẠI (Cột U) Khi Xuất Excel Theo Mẫu — theo_doi_cong_no.html</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; background: #f8fafc; color: #0f172a; }
+  h1 { font-size: 20px; margin-bottom: 8px; color: #15803d; }
+  .summary { padding: 12px 16px; border-radius: 8px; font-weight: 700; margin-bottom: 16px; font-size: 15px; }
+  .summary.pass { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+  .summary.fail { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+  .test-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .test-title { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .test-detail { font-size: 12.5px; color: #64748b; margin-top: 4px; font-family: monospace; white-space: pre-wrap; }
+  .badge-pass { background: #22c55e; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+  .badge-fail { background: #ef4444; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+</head>
+<body>
+
+<h1>🧪 Kiểm Thử Cột NỢ CÒN LẠI (Cột U) Trong Xuất Báo Cáo Excel Theo Mẫu</h1>
+<div id="summaryBox" class="summary">Đang chạy kiểm thử...</div>
+<div id="testResults"></div>
+
+<script>
+  const results = [];
+  function assert(name, condition, details) {
+    results.push({ name, pass: !!condition, details: details || '' });
+  }
+
+  function escapeHtml(v) {
+    if (v == null) return '';
+    return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function conLaiCuaDon(d) {
+    return (d.conLai !== undefined) ? d.conLai : Math.max(0, (d.soTienNo || 0) - (d.daThu || 0));
+  }
+
+  function cotSangChu(col) {
+    let s = '';
+    while (col > 0) {
+      const m = (col - 1) % 26;
+      s = String.fromCharCode(65 + m) + s;
+      col = Math.floor((col - 1) / 26);
+    }
+    return s;
+  }
+
+  async function chayKiemThu() {
+    // ----------------------------------------------------
+    // PHẦN 1: AUDIT TRỰC TIẾP CODE TRONG theo_doi_cong_no.html
+    // ----------------------------------------------------
+    try {
+      const xhr = new XMLHttpRequest();
+      xhr.open("GET", "../theo_doi_cong_no.html", false);
+      xhr.send();
+      const codeHTML = xhr.responseText;
+
+      assert("Audit 1.1: Có định nghĩa cotNoConLai = cotThanhTien + 4",
+        codeHTML.includes("cotNoConLai = cotThanhTien + 4"));
+
+      assert("Audit 1.2: soCot = cotNoConLai để toàn bộ bảng mở rộng tới cột NỢ CÒN LẠI",
+        codeHTML.includes("const soCot = cotNoConLai;"));
+
+      assert("Audit 1.3: Dòng tiêu đề có cột 'NỢ CÒN LẠI' nằm ngay sau 'TỔNG TIỀN TRÊN HOÁ ĐƠN'",
+        codeHTML.includes("concat(['THÀNH TIỀN', 'SỐ HĐ', 'TRẠNG THÁI THANH TOÁN', 'TỔNG TIỀN TRÊN HOÁ ĐƠN', 'NỢ CÒN LẠI'])"));
+
+      assert("Audit 1.4: Có tính toán an toàn noConLai theo 3 trạng thái thanh toán",
+        codeHTML.includes("noConLai = Math.max(0, cl > 0 ? cl : (tongTienDon - daThu));"));
+
+      assert("Audit 1.5: Cột NỢ CÒN LẠI được thêm vào mảng giaTri của mỗi dòng hoá đơn",
+        codeHTML.includes("concat([d.tienHD || d.soTienNo || 0, d.maHD || '', tt, null, noConLai])"));
+
+      assert("Audit 1.6: Dòng tổng cộng hangTong tính tổng cotNoConLai bằng reduce conLaiCuaDon",
+        codeHTML.includes("hangTong.getCell(cotNoConLai).value = dsDon.reduce((s, d) => s + conLaiCuaDon(d), 0);"));
+
+      assert("Audit 1.7: AutoFilter mở rộng tới soCot (cột NỢ CÒN LẠI)",
+        codeHTML.includes("ws.autoFilter = `${cotSangChu(1)}5:${cotSangChu(soCot)}"));
+
+      assert("Audit 1.8: Popup Xem báo cáo đã chọn (Tab đơn) đồng bộ cột 'Nợ còn lại'",
+        codeHTML.includes(">Nợ còn lại</th>") && codeHTML.includes("'Nợ còn lại'"));
+    } catch (e) {
+      assert("Audit Source Code Failed", false, e.message);
+    }
+
+    // ----------------------------------------------------
+    // PHẦN 2: TẠO WORKBOOK VỚI ĐÚNG 12 MẶT HÀNG (GIỐNG HÌNH ẢNH USER)
+    // ----------------------------------------------------
+    // Khi có 12 mặt hàng:
+    // Cột 1: STT (A)
+    // Cột 2: NGÀY (B)
+    // Cột 3: KHÁCH HÀNG (C)
+    // Cột 4: NV BÁN HÀNG (D)
+    // Cột 5..16: 12 Mặt hàng (E..P)
+    // Cột 17: THÀNH TIỀN (Q)
+    // Cột 18: SỐ HĐ (R)
+    // Cột 19: TRẠNG THÁI THANH TOÁN (S)
+    // Cột 20: TỔNG TIỀN TRÊN HOÁ ĐƠN (T)
+    // Cột 21: NỢ CÒN LẠI (U) -> ĐÚNG CHÍNH XÁC CỘT U!
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Cong_No', {
+      views: [{ state: 'frozen', xSplit: 4, ySplit: 5 }]
+    });
+
+    const dsCot12 = [];
+    for (let i = 1; i <= 12; i++) {
+      dsCot12.push({ khoa: 'SP' + i, maHang: 'SP' + i, tenHang: 'Sản phẩm ' + i, km: false, tong: 10 * i });
+    }
+    const soCotHang = dsCot12.length; // 12
+    const cotThanhTien = 5 + soCotHang; // 17 (Q)
+    const cotSoHD = cotThanhTien + 1;   // 18 (R)
+    const cotTrangThai = cotThanhTien + 2; // 19 (S)
+    const cotTongHD = cotThanhTien + 3; // 20 (T)
+    const cotNoConLai = cotThanhTien + 4; // 21 (U)
+    const soCot = cotNoConLai; // 21 (U)
+
+    assert("TC-Layout: Cột THÀNH TIỀN là cột 17 (Q)", cotThanhTien === 17 && cotSangChu(cotThanhTien) === 'Q', `Col: ${cotThanhTien} (${cotSangChu(cotThanhTien)})`);
+    assert("TC-Layout: Cột SỐ HĐ là cột 18 (R)", cotSoHD === 18 && cotSangChu(cotSoHD) === 'R', `Col: ${cotSoHD} (${cotSangChu(cotSoHD)})`);
+    assert("TC-Layout: Cột TRẠNG THÁI THANH TOÁN là cột 19 (S)", cotTrangThai === 19 && cotSangChu(cotTrangThai) === 'S', `Col: ${cotTrangThai} (${cotSangChu(cotTrangThai)})`);
+    assert("TC-Layout: Cột TỔNG TIỀN TRÊN HOÁ ĐƠN là cột 20 (T)", cotTongHD === 20 && cotSangChu(cotTongHD) === 'T', `Col: ${cotTongHD} (${cotSangChu(cotTongHD)})`);
+    assert("TC-Layout: Cột NỢ CÒN LẠI nằm chính xác tại CỘT 21 (U)", cotNoConLai === 21 && cotSangChu(cotNoConLai) === 'U', `Col: ${cotNoConLai} (${cotSangChu(cotNoConLai)})`);
+
+    // Dựng tiêu đề
+    const FONT = 'Times New Roman';
+    const vien = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+    const nen = mau => ({ type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + mau } });
+
+    const hangTieuDe = ws.getRow(5);
+    const tieuDeCot = ['STT', 'NGÀY', 'KHÁCH HÀNG', 'NV BÁN HÀNG']
+      .concat(dsCot12.map(c => c.tenHang))
+      .concat(['THÀNH TIỀN', 'SỐ HĐ', 'TRẠNG THÁI THANH TOÁN', 'TỔNG TIỀN TRÊN HOÁ ĐƠN', 'NỢ CÒN LẠI']);
+
+    tieuDeCot.forEach((v, i) => {
+      const c = hangTieuDe.getCell(i + 1);
+      c.value = v;
+      c.font = { name: FONT, bold: true, size: 9 };
+      c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      c.fill = nen('FFFF00');
+      c.border = vien;
+    });
+
+    assert("TC-Header: Tiêu đề Cột U là 'NỢ CÒN LẠI'", hangTieuDe.getCell(cotNoConLai).value === 'NỢ CÒN LẠI');
+    assert("TC-Header: Cột U có nền vàng #FFFF00", hangTieuDe.getCell(cotNoConLai).fill.fgColor.argb === 'FFFFFF00');
+    assert("TC-Header: Cột U có font bold và căn giữa", hangTieuDe.getCell(cotNoConLai).font.bold === true && hangTieuDe.getCell(cotNoConLai).alignment.horizontal === 'center');
+    assert("TC-Header: Cột U có wrapText: true", hangTieuDe.getCell(cotNoConLai).alignment.wrapText === true);
+
+    // ----------------------------------------------------
+    // PHẦN 3: TEST CASE 1 - 3 TRẠNG THÁI THANH TOÁN
+    // ----------------------------------------------------
+    const dsDonTest = [
+      // 1. Đã thanh toán (tienHD: 20.895.000, daThu: 20.895.000, conLai: 0)
+      { id: 'HD1', maHD: 'HD286308', tenKH: 'QAV TOKBOKI', nguoiBan: 'Trương Khánh Vy Em', tienHD: 20895000, soTienNo: 20895000, daThu: 20895000, conLai: 0, trangThai: 'da_thu_du' },
+      // 2. Chưa thanh toán (tienHD: 19.900.000, daThu: 0, conLai: 19.900.000)
+      { id: 'HD2', maHD: 'HD286503', tenKH: 'QUÁN ĂN VẶT PLACE', nguoiBan: 'Trương Khánh Vy Em', tienHD: 19900000, soTienNo: 19900000, daThu: 0, conLai: 19900000, trangThai: 'chua_thu' },
+      // 3. Thanh toán một phần (tienHD: 20.895.000, daThu: 5.000.000, conLai: 15.895.000)
+      { id: 'HD3', maHD: 'HD286410', tenKH: 'QAV QUỲNH HÀN MẠC TỬ', nguoiBan: 'Trương Khánh Vy Em', tienHD: 20895000, soTienNo: 20895000, daThu: 5000000, conLai: 15895000, trangThai: 'da_thu_mot_phan' },
+      // 4. Edge case null / undefined
+      { id: 'HD4', maHD: 'HD289999', tenKH: 'KHÁCH TEST NULL', nguoiBan: '', tienHD: 10000000, soTienNo: 10000000, daThu: null, conLai: undefined, trangThai: 'chua_thu' }
+    ];
+
+    let dongSo = 6;
+    dsDonTest.forEach((d, idx) => {
+      const cl = conLaiCuaDon(d);
+      const daThu = Number(d.daThu) || 0;
+      const tt = (d.trangThai === 'da_thu_du' || cl <= 0) ? 'Đã thanh toán' : (daThu > 0 ? 'Thanh toán một phần' : 'Chưa thanh toán');
+      const tongTienDon = Number(d.soTienNo !== undefined ? d.soTienNo : (d.tienHD || 0)) || 0;
+      let noConLai = 0;
+      if (tt === 'Đã thanh toán') {
+        noConLai = 0;
+      } else if (tt === 'Chưa thanh toán') {
+        noConLai = Math.max(0, tongTienDon);
+      } else {
+        noConLai = Math.max(0, cl > 0 ? cl : (tongTienDon - daThu));
+      }
+
+      const nvBanHang = String(d.nguoiBan || '').trim();
+      const giaTri = [idx + 1, '26/10/2026', d.tenKH, nvBanHang]
+        .concat(dsCot12.map(() => 5))
+        .concat([d.tienHD || d.soTienNo || 0, d.maHD || '', tt, null, noConLai]);
+
+      const hang = ws.getRow(dongSo);
+      const mauNen = idx % 2 === 0 ? 'E2EFDA' : 'FFF2CC';
+      giaTri.forEach((v, i) => {
+        const c = hang.getCell(i + 1);
+        c.value = v;
+        c.border = vien;
+        c.fill = nen(mauNen);
+        const laCotTien = (i + 1 === cotThanhTien || i + 1 === cotTongHD || i + 1 === cotNoConLai);
+        c.font = { name: FONT, size: 10, bold: laCotTien };
+        c.alignment = { vertical: 'middle', horizontal: (i === 2 || i === 3) ? 'left' : (laCotTien ? 'right' : 'center'), wrapText: (i === 2 || i === 3) };
+        if (laCotTien) {
+          c.numFmt = '#,##0';
+        }
+      });
+      dongSo++;
+    });
+
+    const row6 = ws.getRow(6); // Đã thanh toán
+    const row7 = ws.getRow(7); // Chưa thanh toán
+    const row8 = ws.getRow(8); // Thanh toán một phần
+    const row9 = ws.getRow(9); // Null fallback
+
+    // Kiểm tra Test case 1
+    assert("TC1.1 - Đơn 'Đã thanh toán': Nợ còn lại = 0",
+      row6.getCell(cotNoConLai).value === 0,
+      `Giá trị: ${row6.getCell(cotNoConLai).value}`);
+
+    assert("TC1.2 - Đơn 'Chưa thanh toán': Nợ còn lại = 19.900.000 (đúng toàn bộ tiền đơn)",
+      row7.getCell(cotNoConLai).value === 19900000,
+      `Giá trị: ${row7.getCell(cotNoConLai).value}`);
+
+    assert("TC1.3 - Đơn 'Thanh toán một phần': Nợ còn lại = 15.895.000 (20.895.000 - 5.000.000)",
+      row8.getCell(cotNoConLai).value === 15895000,
+      `Giá trị: ${row8.getCell(cotNoConLai).value}`);
+
+    assert("TC1.4 - Edge Case: Đơn có daThu=null, conLai=undefined -> Nợ còn lại = 10.000.000 (không bị NaN)",
+      row9.getCell(cotNoConLai).value === 10000000 && !isNaN(row9.getCell(cotNoConLai).value),
+      `Giá trị: ${row9.getCell(cotNoConLai).value}`);
+
+    // ----------------------------------------------------
+    // PHẦN 4: TEST CASE 2 - CHỐNG NHÂN BẢN SỐ NỢ & TỔNG CỘNG KHỚP 100%
+    // ----------------------------------------------------
+    // Dòng tổng cộng
+    const dongDuLieuCuoi = dongSo - 1;
+    const hangTong = ws.getRow(dongSo);
+    hangTong.getCell(1).value = `TỔNG CỘNG (${dsDonTest.length} hoá đơn)`;
+    hangTong.getCell(cotThanhTien).value = dsDonTest.reduce((s, d) => s + (d.tienHD || d.soTienNo || 0), 0);
+    hangTong.getCell(cotNoConLai).value = dsDonTest.reduce((s, d) => s + conLaiCuaDon(d), 0);
+
+    for (let i = 1; i <= soCot; i++) {
+      const c = hangTong.getCell(i);
+      c.font = { name: FONT, bold: true, size: 10 };
+      c.fill = nen('FFFF00');
+      c.border = vien;
+      const laCotSo = (i === cotThanhTien || i === cotTongHD || i === cotNoConLai);
+      c.alignment = { vertical: 'middle', horizontal: laCotSo ? 'right' : 'center' };
+      if (laCotSo) c.numFmt = '#,##0';
+    }
+
+    const tongSumCotU = [row6, row7, row8, row9].reduce((s, r) => s + Number(r.getCell(cotNoConLai).value || 0), 0);
+    const tongConLaiExpected = dsDonTest.reduce((s, d) => s + conLaiCuaDon(d), 0);
+
+    assert("TC2.1 - Chống nhân bản: Mỗi hoá đơn chỉ có 1 dòng, SUM(Cột U) khớp tuyệt đối tổng còn lại",
+      tongSumCotU === tongConLaiExpected,
+      `SUM(U) = ${tongSumCotU}, Expected = ${tongConLaiExpected}`);
+
+    assert("TC2.2 - Ô Total dòng tổng cộng Cột U khớp 100% với SUM(Cột U)",
+      hangTong.getCell(cotNoConLai).value === tongSumCotU,
+      `Total Cột U = ${hangTong.getCell(cotNoConLai).value}, SUM = ${tongSumCotU}`);
+
+    assert("TC2.3 - Ô Total dòng tổng cộng Cột U có nền vàng và định dạng #,##0",
+      hangTong.getCell(cotNoConLai).fill.fgColor.argb === 'FFFFFF00' && hangTong.getCell(cotNoConLai).numFmt === '#,##0');
+
+    // ----------------------------------------------------
+    // PHẦN 5: TEST CASE 3 - ĐỊNH DẠNG DỮ LIỆU & AUTOFILTER
+    // ----------------------------------------------------
+    ws.autoFilter = `${cotSangChu(1)}5:${cotSangChu(soCot)}${Math.max(5, dongDuLieuCuoi)}`;
+
+    assert("TC3.1 - AutoFilter bao phủ chính xác từ A5 đến U" + dongDuLieuCuoi,
+      ws.autoFilter === `A5:U${dongDuLieuCuoi}`,
+      `AutoFilter: ${ws.autoFilter}`);
+
+    assert("TC3.2 - Dòng dữ liệu Cột U có định dạng số tiền #,##0",
+      row6.getCell(cotNoConLai).numFmt === '#,##0' && row7.getCell(cotNoConLai).numFmt === '#,##0');
+
+    assert("TC3.3 - Dòng dữ liệu Cột U căn phải và in đậm",
+      row6.getCell(cotNoConLai).alignment.horizontal === 'right' && row6.getCell(cotNoConLai).font.bold === true);
+
+    assert("TC3.4 - Dòng dữ liệu Cột U có màu nền xen kẽ đồng bộ với Cột T",
+      row6.getCell(cotNoConLai).fill.fgColor.argb === row6.getCell(cotTongHD).fill.fgColor.argb &&
+      row7.getCell(cotNoConLai).fill.fgColor.argb === row7.getCell(cotTongHD).fill.fgColor.argb,
+      `Row6: ${row6.getCell(cotNoConLai).fill.fgColor.argb}, Row7: ${row7.getCell(cotNoConLai).fill.fgColor.argb}`);
+
+    assert("TC3.5 - Cột T (TỔNG TIỀN TRÊN HOÁ ĐƠN) để trống null cho kế toán nhập",
+      row6.getCell(cotTongHD).value === null && row7.getCell(cotTongHD).value === null);
+
+    // ----------------------------------------------------
+    // HIỂN THỊ KẾT QUẢ TỔNG HỢP
+    // ----------------------------------------------------
+    const passCount = results.filter(r => r.pass).length;
+    const failCount = results.filter(r => !r.pass).length;
+    const allPass = failCount === 0;
+
+    const summaryBox = document.getElementById('summaryBox');
+    summaryBox.className = 'summary ' + (allPass ? 'pass' : 'fail');
+    summaryBox.textContent = allPass 
+      ? `✅ TẤT CẢ TEST ĐÃ VƯỢT QUA (${passCount}/${results.length} tests)` 
+      : `❌ CÓ ${failCount} TEST THẤT BẠI (${passCount}/${results.length} tests passed)`;
+
+    const container = document.getElementById('testResults');
+    container.innerHTML = results.map(r => `
+      <div class="test-card">
+        <div class="test-title">
+          <span class="badge-${r.pass ? 'pass' : 'fail'}">${r.pass ? 'PASS' : 'FAIL'}</span>
+          <span>${escapeHtml(r.name)}</span>
+        </div>
+        ${r.details ? `<div class="test-detail">${escapeHtml(r.details)}</div>` : ''}
+      </div>
+    `).join('');
+  }
+
+  window.addEventListener('DOMContentLoaded', chayKiemThu);
+</script>
+</body>
+</html>

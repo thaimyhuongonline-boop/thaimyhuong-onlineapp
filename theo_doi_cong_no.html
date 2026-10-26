@@ -3935,7 +3935,7 @@
           <th style="width:35px; text-align:center;">STT</th><th style="width:90px;">Ngày nợ</th><th style="width:95px;">Mã HĐ</th>
           <th>Khách hàng</th><th style="width:110px;">Chuyến xe</th><th style="width:105px; text-align:right;">Tiền HĐ</th>
           <th style="width:105px; text-align:right;">Tiền nợ</th><th style="width:100px; text-align:right;">Đã thu</th>
-          <th style="width:105px; text-align:right;">Còn lại</th><th style="width:75px; text-align:center;">Tuổi nợ</th>
+          <th style="width:105px; text-align:right;">Nợ còn lại</th><th style="width:75px; text-align:center;">Tuổi nợ</th>
           <th style="width:100px; text-align:center;">Trạng thái</th><th style="width:90px; text-align:center;">Hàng hoá</th></tr>`;
         tbody.innerHTML = dsDon.length ? dsDon.map((d, i) => {
           const conLai = conLaiCuaDon(d);
@@ -4058,7 +4058,7 @@
           dong: gomTheoKhach(ds).map((k, i) => [i + 1, k.tenKH, k.maKH, k.nguoiBan, k.soDon, k.tienHD, k.no, k.daThu, k.conLai, k.tuoiMax === null ? '' : k.tuoiMax]) };
       }
       if (tab === 'don') {
-        return { ten: 'Theo đơn hàng', cot: ['STT', 'Ngày nợ', 'Mã HĐ', 'Khách hàng', 'Mã KH', 'Chuyến xe', 'Tài xế', 'Tiền HĐ', 'Tiền nợ', 'Đã thu', 'Còn lại', 'Tuổi nợ (ngày)', 'Trạng thái'], cotSo: [7, 8, 9, 10],
+        return { ten: 'Theo đơn hàng', cot: ['STT', 'Ngày nợ', 'Mã HĐ', 'Khách hàng', 'Mã KH', 'Chuyến xe', 'Tài xế', 'Tiền HĐ', 'Tiền nợ', 'Đã thu', 'Nợ còn lại', 'Tuổi nợ (ngày)', 'Trạng thái'], cotSo: [7, 8, 9, 10],
           dong: sapXepDonBaoCao(ds).map((d, i) => {
             const cl = conLaiCuaDon(d);
             return [i + 1, d.ngayGiao || d.ngayGhiNo || '', d.maHD, d.tenKH, d.maKH || '', d.xe || '', d.taiXe || '', d.tienHD || 0, d.soTienNo || 0, d.daThu || 0, cl,
@@ -6974,8 +6974,8 @@
           margins: { left: 0.25, right: 0.25, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 }, printTitlesRow: '5:5' }
       });
       const soCotHang = dsCot.length;
-      const cotThanhTien = 5 + soCotHang, cotSoHD = cotThanhTien + 1, cotTrangThai = cotThanhTien + 2, cotTongHD = cotThanhTien + 3;
-      const soCot = cotTongHD;
+      const cotThanhTien = 5 + soCotHang, cotSoHD = cotThanhTien + 1, cotTrangThai = cotThanhTien + 2, cotTongHD = cotThanhTien + 3, cotNoConLai = cotThanhTien + 4;
+      const soCot = cotNoConLai;
       const FONT = 'Times New Roman';
       const vien = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
       const nen = mau => ({ type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + mau } });
@@ -6986,7 +6986,7 @@
       const doRongCotHang = c => Math.min(16, Math.max(9, Math.ceil(tenCotHang(c).length / 3) + 2));
       ws.columns = [{ width: 5 }, { width: 11 }, { width: 34 }, { width: 22 }]
         .concat(dsCot.map(c => ({ width: doRongCotHang(c) })))
-        .concat([{ width: 13 }, { width: 14 }, { width: 22 }, { width: 15 }]);
+        .concat([{ width: 13 }, { width: 14 }, { width: 22 }, { width: 18 }, { width: 18 }]);
 
       // Đầu trang: logo + thông tin công ty · hotline · tiêu đề
       if (logo) {
@@ -7019,7 +7019,7 @@
       const hangTieuDe = ws.getRow(5);
       const tieuDeCot = ['STT', 'NGÀY', 'KHÁCH HÀNG', 'NV BÁN HÀNG']
         .concat(dsCot.map(c => (c.tenHang || c.maHang) + (c.km ? '\n(KM)' : '')))   // tên sản phẩm (không có tên thì dùng mã)
-        .concat(['THÀNH TIỀN', 'SỐ HĐ', 'TRẠNG THÁI THANH TOÁN', 'TỔNG TIỀN TRÊN HOÁ ĐƠN']);
+        .concat(['THÀNH TIỀN', 'SỐ HĐ', 'TRẠNG THÁI THANH TOÁN', 'TỔNG TIỀN TRÊN HOÁ ĐƠN', 'NỢ CÒN LẠI']);
       tieuDeCot.forEach((v, i) => {
         const c = hangTieuDe.getCell(i + 1);
         c.value = v;
@@ -7053,8 +7053,19 @@
       dsDon.forEach((d, idx) => {
         const m = slTheoDon.get(d.id) || new Map();
         const cl = conLaiCuaDon(d);
-        const daThu = d.daThu || 0;
+        const daThu = Number(d.daThu) || 0;
         const tt = (d.trangThai === 'da_thu_du' || cl <= 0) ? 'Đã thanh toán' : (daThu > 0 ? 'Thanh toán một phần' : 'Chưa thanh toán');
+        const tongTienDon = Number(d.soTienNo !== undefined ? d.soTienNo : (d.tienHD || 0)) || 0;
+        let noConLai = 0;
+        if (tt === 'Đã thanh toán') {
+          noConLai = 0;
+        } else if (tt === 'Chưa thanh toán') {
+          noConLai = Math.max(0, tongTienDon);
+        } else {
+          // Thanh toán một phần
+          noConLai = Math.max(0, cl > 0 ? cl : (tongTienDon - daThu));
+        }
+
         let nvBanHang = String(d.nguoiBan || '').trim();
         if (!nvBanHang) {
           nvBanHang = String(mapNVTheoKhach.get(khoaKhachCongNo(d)) || '').trim();
@@ -7063,7 +7074,7 @@
 
         const giaTri = [idx + 1, dinhDangNgayVN(ngayNoCuaDon(d)) || d.ngayGiao || '', tenKhachTrenBaoCao(khoaKhachCongNo(d), chung.soTu), nvBanHang]
           .concat(dsCot.map(c => { const v = Math.round((m.get(c.khoa) || 0) * 1000) / 1000; return v ? v : null; }))
-          .concat([d.tienHD || d.soTienNo || 0, d.maHD || '', tt, null]);
+          .concat([d.tienHD || d.soTienNo || 0, d.maHD || '', tt, null, noConLai]);
         const hang = ws.getRow(dongSo);
         const mauNen = idx % 2 === 0 ? 'E2EFDA' : 'FFF2CC';
         giaTri.forEach((v, i) => {
@@ -7071,9 +7082,12 @@
           c.value = v;
           c.border = vien;
           c.fill = nen(mauNen);
-          c.font = { name: FONT, size: 10, bold: i + 1 === cotThanhTien };
-          c.alignment = { vertical: 'middle', horizontal: (i === 2 || i === 3) ? 'left' : 'center', wrapText: (i === 2 || i === 3) };
-          if (i + 1 === cotThanhTien) { c.numFmt = '#,##0'; c.alignment = { vertical: 'middle', horizontal: 'right' }; }
+          const laCotTien = (i + 1 === cotThanhTien || i + 1 === cotTongHD || i + 1 === cotNoConLai);
+          c.font = { name: FONT, size: 10, bold: laCotTien };
+          c.alignment = { vertical: 'middle', horizontal: (i === 2 || i === 3) ? 'left' : (laCotTien ? 'right' : 'center'), wrapText: (i === 2 || i === 3) };
+          if (laCotTien) {
+            c.numFmt = '#,##0';
+          }
         });
         dongSo++;
       });
@@ -7091,7 +7105,7 @@
         return s;
       }
 
-      // Mở rộng phạm vi AutoFilter cho toàn bộ các cột từ STT đến TỔNG TIỀN TRÊN HOÁ ĐƠN
+      // Mở rộng phạm vi AutoFilter cho toàn bộ các cột từ STT đến NỢ CÒN LẠI
       ws.autoFilter = `${cotSangChu(1)}5:${cotSangChu(soCot)}${Math.max(5, dongDuLieuCuoi)}`;
 
       // Dòng tổng cộng
@@ -7100,13 +7114,15 @@
       hangTong.getCell(1).value = `TỔNG CỘNG (${dsDon.length} hoá đơn)`;
       dsCot.forEach((c, i) => { const v = Math.round(c.tong * 1000) / 1000; hangTong.getCell(5 + i).value = v || null; });
       hangTong.getCell(cotThanhTien).value = dsDon.reduce((s, d) => s + (d.tienHD || d.soTienNo || 0), 0);
+      hangTong.getCell(cotNoConLai).value = dsDon.reduce((s, d) => s + conLaiCuaDon(d), 0);
       for (let i = 1; i <= soCot; i++) {
         const c = hangTong.getCell(i);
         c.font = { name: FONT, bold: true, size: 10 };
         c.fill = nen('FFFF00');
         c.border = vien;
-        c.alignment = { vertical: 'middle', horizontal: i === cotThanhTien ? 'right' : 'center' };
-        if (i === cotThanhTien) c.numFmt = '#,##0';
+        const laCotSo = (i === cotThanhTien || i === cotTongHD || i === cotNoConLai);
+        c.alignment = { vertical: 'middle', horizontal: laCotSo ? 'right' : 'center' };
+        if (laCotSo) c.numFmt = '#,##0';
       }
       dongSo += 2;
 
