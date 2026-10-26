@@ -638,8 +638,11 @@
             <input type="text" id="modalTienNo" class="form-control" style="background:#f8fafc; font-weight:700;" readonly>
           </div>
           <div class="form-group">
-            <label>Nợ Còn Lại:</label>
-            <input type="text" id="modalConLai" class="form-control" style="background:#fee2e2; color:#b91c1c; font-weight:800;" readonly>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <label style="margin:0;">Nợ Còn Lại:</label>
+              <button type="button" id="btnTatToanDu" class="btn btn-outline" style="height:20px; padding:0 6px; font-size:10.5px; color:#16a34a; border-color:#86efac; font-weight:700; background:#f0fdf4;" onclick="dienTatToanDuModal()" title="Điền toàn bộ số nợ còn lại để tất toán đủ">⚡ Tất toán đủ</button>
+            </div>
+            <input type="text" id="modalConLai" class="form-control" style="background:#fee2e2; color:#b91c1c; font-weight:800; margin-top:3px;" readonly>
           </div>
         </div>
 
@@ -703,7 +706,7 @@
 
         <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
           <button type="button" class="btn btn-outline" onclick="dongModalThuNoTaiQuy()">Hủy</button>
-          <button type="button" class="btn btn-primary" onclick="luuThuNoTaiQuy()">💾 Xác Nhận Thu Nợ</button>
+          <button type="button" id="btnXacNhanThuNo" class="btn btn-primary" onclick="luuThuNoTaiQuy()">💾 Xác Nhận Thu Nợ</button>
         </div>
       </div>
     </div>
@@ -2505,9 +2508,9 @@
         const daThu = d.daThu || 0;
 
         // 1. Lọc trạng thái
-        if (locTT === 'chua_thu' && (d.trangThai === 'da_thu_du' || conLai <= 0 || daThu > 0)) return false;
+        if (locTT === 'chua_thu' && (conLai <= 0 || daThu > 0)) return false;
         if (locTT === 'da_thu_mot_phan' && (conLai <= 0 || daThu === 0)) return false;
-        if (locTT === 'da_thu_du' && (d.trangThai !== 'da_thu_du' && conLai > 0)) return false;
+        if (locTT === 'da_thu_du' && conLai > 0) return false;
         if (locTT === 'vuot_han_muc' && !donViPhamHanMuc(d)) return false;
 
         // 2. Lọc khách hàng: Chuẩn hóa chuỗi an toàn Unicode
@@ -2735,7 +2738,7 @@
             sumCon += conLai;
 
             let badge = '';
-            if (d.trangThai === 'da_thu_du' || conLai <= 0) {
+            if (conLai <= 0) {
               badge = `<span class="badge-status badge-da-thu">✅ Đã thu đủ</span>`;
             } else if (daThu > 0) {
               badge = `<span class="badge-status badge-mot-phan">⚠️ Thu 1 phần</span>`;
@@ -5003,19 +5006,30 @@
         // Bỏ qua khoản hoàn lại hoặc 0 đ
         if (st <= 0) return;
         const rId = r.id ? String(r.id) : '';
-        const key = rId || ((r.ngay_thu || r.ngay || '') + '_' + st + '_' + (r.ghi_chu || r.ghiChu || '') + '_' + (r.hinh_thuc || r.hinhThuc || ''));
-        if (daCoKey.has(key)) return;
-        daCoKey.add(key);
+        const ngay = r.ngay_thu || r.ngay || r.ngayThanhToan || '';
+        const gc = (r.ghi_chu || r.ghiChu || '').trim();
+        const ht = r.hinh_thuc || r.hinhThuc || 'Tiền mặt';
+        const taoLuc = r.tao_luc || r.taoLuc || '';
+
+        // Chống trùng lặp: ưu tiên ID thật nếu có
+        if (rId && !rId.startsWith('local_') && daCoKey.has('id_' + rId)) return;
+        // Chống trùng lặp giữa bản ghi local cache và Cloud cùng ngày, số tiền, hình thức, ghi chú
+        const bizKey = 'biz_' + ngay + '_' + Math.round(st) + '_' + ht + '_' + gc;
+        if (daCoKey.has(bizKey)) return;
+
+        if (rId && !rId.startsWith('local_')) daCoKey.add('id_' + rId);
+        daCoKey.add(bizKey);
+
         dsThuRaw.push({
           id: rId,
-          ngay: r.ngay_thu || r.ngay || r.ngayThanhToan || '',
+          ngay: ngay,
           soTien: st,
-          hinhThuc: r.hinh_thuc || r.hinhThuc || 'Tiền mặt',
+          hinhThuc: ht,
           taiKhoan: r.tai_khoan_nhan || r.taiKhoan || r.taiKhoanNhan || '',
           nguoiThu: r.nguoi_thu || r.nguoiThu || '',
-          ghiChu: r.ghi_chu || r.ghiChu || '',
+          ghiChu: gc,
           hangTraLai: r.hang_tra_lai || r.hangTraLai || null,
-          taoLuc: r.tao_luc || r.taoLuc || ''
+          taoLuc: taoLuc
         });
       };
 
@@ -5231,17 +5245,23 @@
 
       const dsCuaKH = danhSachCongNo.filter(d => (d.tenKH || '').trim() === tenKH);
 
-      // Nạp bổ sung các khoản thu từ Supabase nếu có đơn đã thu mà chưa có chi tiết trong thuNoTheoDon
+      // Nạp bổ sung các khoản thu từ Supabase của toàn bộ đơn thuộc khách hàng này
       if (typeof sb !== 'undefined') {
-        const canTai = dsCuaKH
-          .filter(d => (d.daThu || 0) > 0 && !thuNoTheoDon.has(d.id) && (!d.maHD || !thuNoTheoDon.has(d.maHD)))
-          .map(d => d.id);
-        if (canTai.length > 0) {
-          try {
-            const { data } = await sb.from('thu_no')
-              .select('id, id_don_no, ma_hd, so_tien, ngay_thu, hinh_thuc, tai_khoan_nhan, ghi_chu, nguoi_thu, hang_tra_lai, tao_luc')
-              .in('id_don_no', canTai);
-            (data || []).forEach(r => {
+        const idsKH = dsCuaKH.map(d => d.id).filter(Boolean);
+        const maHDs = dsCuaKH.map(d => d.maHD).filter(Boolean);
+        try {
+          let query = sb.from('thu_no')
+            .select('id, id_don_no, ma_hd, so_tien, ngay_thu, hinh_thuc, tai_khoan_nhan, ghi_chu, nguoi_thu, hang_tra_lai, tao_luc');
+          if (idsKH.length > 0) {
+            query = query.in('id_don_no', idsKH);
+          } else if (maHDs.length > 0) {
+            query = query.in('ma_hd', maHDs);
+          }
+          const { data } = await query;
+          if (Array.isArray(data)) {
+            idsKH.forEach(id => thuNoTheoDon.set(id, []));
+            maHDs.forEach(hd => thuNoTheoDon.set(hd, []));
+            data.forEach(r => {
               if (r.id_don_no) {
                 if (!thuNoTheoDon.has(r.id_don_no)) thuNoTheoDon.set(r.id_don_no, []);
                 thuNoTheoDon.get(r.id_don_no).push(r);
@@ -5249,11 +5269,14 @@
               if (r.ma_hd) {
                 if (!thuNoTheoDon.has(r.ma_hd)) thuNoTheoDon.set(r.ma_hd, []);
                 thuNoTheoDon.get(r.ma_hd).push(r);
+                const altId = 'NO_' + r.ma_hd;
+                if (!thuNoTheoDon.has(altId)) thuNoTheoDon.set(altId, []);
+                thuNoTheoDon.get(altId).push(r);
               }
             });
-          } catch (e) {
-            console.warn('Lỗi nạp bổ sung thu_no cho modal lịch sử:', e);
           }
+        } catch (e) {
+          console.warn('Lỗi nạp bổ sung thu_no cho modal lịch sử:', e);
         }
       }
 
@@ -5261,17 +5284,25 @@
 
       const tbody = document.getElementById('tbodyLichSuDon');
       tbody.innerHTML = dsCuaKH.map((d, i) => {
-        const cl = (d.conLai !== undefined) ? d.conLai : Math.max(0, (d.soTienNo || 0) - (d.daThu || 0));
-        const daThu = d.daThu || 0;
+        const dsThu = layLichSuThuCuaDon(d);
+        // Tính Đã Thu từ tổng thực tế các đợt đã lưu
+        let daThu = d.daThu || 0;
+        if (dsThu.length > 0) {
+          const tongDot = dsThu.reduce((s, t) => s + (t.soTien || 0), 0);
+          if (tongDot > 0) daThu = tongDot;
+        }
+        const cl = Math.max(0, (d.soTienNo || 0) - daThu);
+        d.daThu = daThu;
+        d.conLai = cl;
+        d.trangThai = (cl <= 0) ? 'da_thu_du' : (daThu > 0 ? 'da_thu_mot_phan' : 'chua_thu');
+
         const daKiemTra = !!d.daKiemTra;
         sumHD += (d.tienHD || 0);
         sumNo += (d.soTienNo || 0);
         sumThu += daThu;
         sumCon += cl;
 
-        const dsThu = layLichSuThuCuaDon(d);
-
-        let badge = (d.trangThai === 'da_thu_du' || cl <= 0) 
+        let badge = (cl <= 0) 
           ? `<span class="badge-status badge-da-thu">Đã thu đủ</span>`
           : (daThu > 0 ? `<span class="badge-status badge-mot-phan">Thu 1 phần</span>` : `<span class="badge-status badge-chua-thu">Chưa thu</span>`);
 
@@ -5598,16 +5629,68 @@
       boxNH.style.display = chuyenKhoan > 0 ? 'flex' : 'none';
     }
 
-    // Cộng dồn Tiền mặt + Chuyển khoản = Tổng thu đợt này (khách có thể trả cùng lúc cả 2 hình thức)
-    function capNhatTongTienThuModal() {
-      const tienMat = parseVNNumber_(document.getElementById('modalTienMatThu').value);
+    // Điền toàn bộ số nợ còn lại để tất toán đủ
+    function dienTatToanDuModal() {
+      const id = document.getElementById('modalSelDonNo').value;
+      const don = danhSachCongNo.find(d => d.id === id);
+      if (!don) return;
+      const cl = (don.conLai !== undefined) ? don.conLai : Math.max(0, (don.soTienNo || 0) - (don.daThu || 0));
       const chuyenKhoan = parseVNNumber_(document.getElementById('modalChuyenKhoanThu').value);
-      document.getElementById('modalTongThu').value = formatTien(tienMat + chuyenKhoan) + ' đ';
-      // Có phần trả lại hàng thì hiện thêm, để biết tổng trừ nợ = tiền + hàng trả lại
       const oTraHang = document.getElementById('modalTraLaiHangThu');
       const traLaiHang = oTraHang ? parseVNNumber_(oTraHang.value) : 0;
+      const canThuTM = Math.max(0, cl - chuyenKhoan - traLaiHang);
+      document.getElementById('modalTienMatThu').value = formatTien(canThuTM);
+      capNhatTongTienThuModal();
+    }
+
+    // Cộng dồn Tiền mặt + Chuyển khoản + Hàng trả lại = Tổng trừ nợ đợt này
+    // Đồng thời kiểm tra cảnh báo và đổi nhãn nút Xác nhận theo đúng nghiệp vụ
+    function capNhatTongTienThuModal() {
+      const id = document.getElementById('modalSelDonNo').value;
+      const don = danhSachCongNo.find(d => d.id === id);
+      const cl = don ? ((don.conLai !== undefined) ? don.conLai : Math.max(0, (don.soTienNo || 0) - (don.daThu || 0))) : 0;
+
+      const tienMat = parseVNNumber_(document.getElementById('modalTienMatThu').value);
+      const chuyenKhoan = parseVNNumber_(document.getElementById('modalChuyenKhoanThu').value);
+      const soTienThu = tienMat + chuyenKhoan;
+      const oTraHang = document.getElementById('modalTraLaiHangThu');
+      const traLaiHang = oTraHang ? parseVNNumber_(oTraHang.value) : 0;
+      const tongTruNo = soTienThu + traLaiHang;
+
+      const oTongThu = document.getElementById('modalTongThu');
+      const btnLuu = document.getElementById('btnXacNhanThuNo') || document.querySelector('#modalThuNoTaiQuy .btn-primary');
+
       if (traLaiHang > 0) {
-        document.getElementById('modalTongThu').value = `${formatTien(tienMat + chuyenKhoan)} đ tiền + ${formatTien(traLaiHang)} đ trả hàng = trừ nợ ${formatTien(tienMat + chuyenKhoan + traLaiHang)} đ`;
+        oTongThu.value = `${formatTien(soTienThu)} đ tiền + ${formatTien(traLaiHang)} đ trả hàng = trừ nợ ${formatTien(tongTruNo)} đ`;
+      } else {
+        oTongThu.value = formatTien(soTienThu) + ' đ';
+      }
+
+      // Kiểm soát góc biên: không cho phép nhập vượt quá số nợ còn lại
+      if (don && cl > 0 && tongTruNo > cl) {
+        oTongThu.value += ` (⚠️ VƯỢT QUÁ NỢ CÒN LẠI ${formatTien(cl)} đ)`;
+        oTongThu.style.background = '#fee2e2';
+        oTongThu.style.color = '#b91c1c';
+        if (btnLuu) {
+          btnLuu.textContent = '⚠️ Vượt quá nợ còn lại (Không thể lưu)';
+          btnLuu.disabled = true;
+          btnLuu.style.background = '#ef4444';
+        }
+      } else {
+        oTongThu.style.background = '#f0fdf4';
+        oTongThu.style.color = '#15803d';
+        if (btnLuu && !dangLuuThuNoTaiQuy) {
+          btnLuu.disabled = false;
+          btnLuu.style.background = '';
+          if (tongTruNo > 0 && tongTruNo === cl) {
+            btnLuu.textContent = '💾 Xác Nhận Thu Đủ (Tất Toán)';
+          } else if (tongTruNo > 0 && tongTruNo < cl) {
+            const clCon = cl - tongTruNo;
+            btnLuu.textContent = `💾 Xác Nhận Thu 1 Phần (Còn nợ ${formatTien(clCon)} đ)`;
+          } else {
+            btnLuu.textContent = '💾 Xác Nhận Thu Nợ';
+          }
+        }
       }
       capNhatHienThiNganHangThuNo();
     }
@@ -5816,7 +5899,36 @@
     }
 
     function dongModalThuNoTaiQuy() {
-      document.getElementById('modalThuNoTaiQuy').style.display = 'none';
+      const modal = document.getElementById('modalThuNoTaiQuy');
+      if (modal) modal.style.display = 'none';
+      const sel = document.getElementById('modalSelDonNo');
+      if (sel) sel.value = '';
+      const oTienNo = document.getElementById('modalTienNo');
+      if (oTienNo) oTienNo.value = '';
+      const oConLai = document.getElementById('modalConLai');
+      if (oConLai) oConLai.value = '';
+      const oTM = document.getElementById('modalTienMatThu');
+      if (oTM) oTM.value = '';
+      const oCK = document.getElementById('modalChuyenKhoanThu');
+      if (oCK) oCK.value = '0';
+      const oTH = document.getElementById('modalTraLaiHangThu');
+      if (oTH) oTH.value = '0';
+      if (typeof datLaiHangTraLaiDangChon === 'function') datLaiHangTraLaiDangChon();
+      const oTongThu = document.getElementById('modalTongThu');
+      if (oTongThu) {
+        oTongThu.value = '';
+        oTongThu.style.background = '#f0fdf4';
+        oTongThu.style.color = '#15803d';
+      }
+      const oGhiChu = document.getElementById('modalGhiChu');
+      if (oGhiChu) oGhiChu.value = '';
+      capNhatHienThiNganHangThuNo();
+      const btnLuu = document.getElementById('btnXacNhanThuNo') || document.querySelector('#modalThuNoTaiQuy .btn-primary');
+      if (btnLuu) {
+        btnLuu.textContent = '💾 Xác Nhận Thu Nợ';
+        btnLuu.disabled = false;
+        btnLuu.style.background = '';
+      }
     }
 
     function chonDonNoTrenModal(id) {
@@ -5833,8 +5945,7 @@
       const cl = (don.conLai !== undefined) ? don.conLai : Math.max(0, (don.soTienNo || 0) - (don.daThu || 0));
       document.getElementById('modalTienNo').value = formatTien(don.soTienNo || 0) + ' đ';
       document.getElementById('modalConLai').value = formatTien(cl) + ' đ';
-      // Mặc định giả định khách trả hết bằng tiền mặt — kế toán có thể sửa lại, ví dụ
-      // tách bớt 1 phần sang ô Chuyển Khoản nếu khách trả cùng lúc cả 2 hình thức
+      // Mặc định điền số tiền còn lại vào ô tiền mặt — người dùng có thể nhập số tiền thu 1 phần tùy ý
       document.getElementById('modalTienMatThu').value = formatTien(cl);
       document.getElementById('modalChuyenKhoanThu').value = '0';
       { const oTH = document.getElementById('modalTraLaiHangThu'); if (oTH) oTH.value = '0'; if (typeof datLaiHangTraLaiDangChon === 'function') datLaiHangTraLaiDangChon(); }
@@ -5847,8 +5958,16 @@
       el.value = formatTien(val);
     }
 
+    // Khóa tránh double-submit khi bấm nút Lưu thu nợ nhiều lần
+    let dangLuuThuNoTaiQuy = false;
+
     async function luuThuNoTaiQuy() {
       if (chanNeuChiXem()) return;
+      if (dangLuuThuNoTaiQuy) {
+        console.warn('⚠️ Hệ thống đang xử lý lưu thu nợ, vui lòng không nhấn nhiều lần!');
+        return;
+      }
+
       const id = document.getElementById('modalSelDonNo').value;
       if (!id) {
         alert("⚠️ Vui lòng chọn một đơn nợ cần thu!");
@@ -5857,20 +5976,17 @@
       const don = danhSachCongNo.find(d => d.id === id);
       if (!don) return;
 
-      // Khách có thể trả nợ cùng lúc bằng cả Tiền mặt và Chuyển khoản — mỗi phần sẽ
-      // tự cấn trừ đúng số tiền tương ứng vào công nợ và sinh đúng bút toán riêng
-      // (Nợ 1111 / Nợ 1121 - đều Có 131) khi xuất MISA ở Bước 3.
       const tienMatThu = parseVNNumber_(document.getElementById('modalTienMatThu').value);
       const chuyenKhoanThu = parseVNNumber_(document.getElementById('modalChuyenKhoanThu').value);
       const soTienThu = tienMatThu + chuyenKhoanThu;
-      // Phần khách TRẢ LẠI HÀNG thay cho tiền (trừ vào nợ, không có tiền vào quỹ)
       const oTraHang = document.getElementById('modalTraLaiHangThu');
       const traLaiHang = oTraHang ? parseVNNumber_(oTraHang.value) : 0;
+
       if (soTienThu <= 0 && traLaiHang <= 0) {
         alert("⚠️ Vui lòng nhập số tiền Tiền mặt / Chuyển khoản hoặc số tiền hàng Trả lại lớn hơn 0!");
         return;
       }
-      // Trả lại hàng: phải chọn đúng mặt hàng khách trả (theo hoá đơn đã mua)
+
       const dsHangTraLai = traLaiHang > 0 ? hangTraLaiDangChon.slice() : [];
       if (traLaiHang > 0) {
         const tongHangChon = dsHangTraLai.reduce((s, h) => s + (h.thanhTien || 0), 0);
@@ -5883,11 +5999,13 @@
             `Bấm [OK] để vẫn lưu, [Hủy] để sửa lại.`)) return;
         }
       }
+
       const nhNhan = chuyenKhoanThu > 0 ? document.getElementById('modalNganHangNhan').value : '';
       if (chuyenKhoanThu > 0 && !nhNhan) {
         alert("⚠️ Vui lòng chọn Ngân hàng nhận cho phần thu Chuyển khoản!");
         return;
       }
+
       const ngayThu = document.getElementById('modalNgayThu').value || new Date().toISOString().slice(0, 10);
       const ghiChu = document.getElementById('modalGhiChu').value;
 
@@ -5897,87 +6015,73 @@
       if (traLaiHang > 0) cacPhanThu.push(`${formatTien(traLaiHang)} đ trả lại hàng`);
       const phuongThucChiTiet = cacPhanThu.join(' + ');
 
-      // CHỐNG THU TRÙNG: kiểm tra lại số dư MỚI NHẤT trên Supabase ngay trước khi lưu,
-      // đề phòng người khác vừa thu đơn nợ này ở máy khác trong lúc form đang mở.
-      // Nếu bảng thu_no chưa được tạo trên Supabase (chưa chạy sql/07_thu_no_dong_bo.sql)
-      // thì KHÔNG chặn nghiệp vụ — tạm quay về lưu cục bộ như trước đây.
-      const btnLuu = document.querySelector('#modalThuNoTaiQuy .btn-primary');
-      if (btnLuu) btnLuu.disabled = true;
-      let clMoiNhat;
-      let dongBoDuocCloud = true;
-      try {
-        if (typeof sb !== 'undefined' && !banThuNoChuaSanSang) {
-          const { data, error } = await sb.from('thu_no').select('so_tien').eq('id_don_no', id);
-          if (error) throw error;
-          const daThuCloudMoiNhat = (data || []).reduce((s, r) => s + parseFloat(r.so_tien || 0), 0);
-          doiChieuDaThuVoiCloud(don, daThuCloudMoiNhat); // cập nhật ngay để hiển thị đúng nếu phải dừng lại
-          clMoiNhat = Math.max(0, (don.soTienNo || 0) - (don.daThu || 0));
-        } else {
-          clMoiNhat = (don.conLai !== undefined) ? don.conLai : Math.max(0, (don.soTienNo || 0) - (don.daThu || 0));
-          dongBoDuocCloud = false;
-        }
-      } catch (e) {
-        if (laLoiThieuBangThuNo(e)) {
-          banThuNoChuaSanSang = true;
-          console.warn('⚠️ Bảng thu_no chưa được tạo trên Supabase — tạm thời lưu cục bộ (chưa chống được thu trùng). Hãy chạy sql/07_thu_no_dong_bo.sql trên Supabase để bật lại.', e);
-          clMoiNhat = (don.conLai !== undefined) ? don.conLai : Math.max(0, (don.soTienNo || 0) - (don.daThu || 0));
-          dongBoDuocCloud = false;
-        } else {
-          console.error('Lỗi kiểm tra số dư mới nhất trước khi thu nợ:', e);
-          alert('❌ Không kiểm tra được số dư mới nhất từ máy chủ, vui lòng thử lại: ' + (e.message || String(e)));
-          if (btnLuu) btnLuu.disabled = false;
-          return;
-        }
+      // Khóa nút lưu và bật cờ semaphore
+      dangLuuThuNoTaiQuy = true;
+      const btnLuu = document.getElementById('btnXacNhanThuNo') || document.querySelector('#modalThuNoTaiQuy .btn-primary');
+      if (btnLuu) {
+        btnLuu.disabled = true;
+        btnLuu.textContent = '⏳ Đang lưu...';
       }
 
-      if (clMoiNhat <= 0) {
-        alert(`ℹ️ Đơn nợ "${don.maHD}" đã được thu ĐỦ (có thể vừa được thu ở máy khác). Đang cập nhật lại sổ công nợ...`);
-        if (btnLuu) btnLuu.disabled = false;
-        dongModalThuNoTaiQuy();
-        await taiLaiDuLieuCongNo();
-        return;
-      }
-      // Khách đưa DƯ so với nợ còn lại: phần trừ nợ ghi vào thu_no như cũ, phần dư (sau khi hỏi)
-      // ghi vào SỔ TIỀN KHÁCH TRẢ TRƯỚC để trừ vào đơn sau (có hỏi) hoặc hoàn lại cho khách.
-      // Máy chủ chưa có sổ trả trước (chưa chạy sql/12) thì giữ cách làm cũ.
-      // Hàng trả lại không được vượt quá số nợ còn lại (không thể trả hàng nhiều hơn số đang nợ)
-      if (traLaiHang > clMoiNhat) {
-        alert(`⚠️ Số tiền hàng trả lại (${formatTien(traLaiHang)} đ) lớn hơn số nợ còn lại của đơn "${don.maHD}" (${formatTien(clMoiNhat)} đ).\n\nVui lòng sửa lại số tiền trả lại hàng.`);
-        if (btnLuu) btnLuu.disabled = false;
-        return;
-      }
-      // Phần nợ khách còn phải trả BẰNG TIỀN sau khi trừ hàng trả lại
-      const clChoTien = Math.max(0, clMoiNhat - traLaiHang);
-      let phanDu = null;
-      if (soTienThu > clChoTien) {
-        if (dongBoDuocCloud && soTraTruocSanSang !== false && typeof tachPhanDuTT === 'function') {
-          const tach = tachPhanDuTT(tienMatThu, chuyenKhoanThu, clChoTien);
-          if (!confirm(`Khách đưa ${formatTien(soTienThu)} đ nhưng đơn "${don.maHD}" chỉ còn nợ ${formatTien(clChoTien)} đ${traLaiHang > 0 ? ` (sau khi trừ ${formatTien(traLaiHang)} đ trả lại hàng)` : ''}.\n\n` +
-            `• Trừ nợ đơn này: ${formatTien(clChoTien)} đ\n` +
-            `• Phần dư ${formatTien(tach.tmDu + tach.ckDu)} đ sẽ được GHI VÀO SỔ TIỀN KHÁCH TRẢ TRƯỚC của khách "${don.tenKH}" ` +
-            `(trừ vào đơn sau — luôn hỏi trước khi trừ — hoặc hoàn lại cho khách).\n\nBấm [OK] để ghi nhận, [Hủy] để sửa lại số tiền.`)) {
-            if (btnLuu) btnLuu.disabled = false;
+      try {
+        let clMoiNhat;
+        let dongBoDuocCloud = true;
+
+        // 1. Kiểm tra số dư MỚI NHẤT từ Supabase (tránh thu trùng giữa các máy)
+        try {
+          if (typeof sb !== 'undefined' && !banThuNoChuaSanSang) {
+            const { data, error } = await sb.from('thu_no').select('so_tien').eq('id_don_no', id);
+            if (error) throw error;
+            const daThuCloudMoiNhat = (data || []).reduce((s, r) => s + parseFloat(r.so_tien || 0), 0);
+            doiChieuDaThuVoiCloud(don, daThuCloudMoiNhat);
+            clMoiNhat = Math.max(0, (don.soTienNo || 0) - (don.daThu || 0));
+          } else {
+            clMoiNhat = (don.conLai !== undefined) ? don.conLai : Math.max(0, (don.soTienNo || 0) - (don.daThu || 0));
+            dongBoDuocCloud = false;
+          }
+        } catch (e) {
+          if (laLoiThieuBangThuNo(e)) {
+            banThuNoChuaSanSang = true;
+            console.warn('⚠️ Bảng thu_no chưa được tạo trên Supabase — tạm thời lưu cục bộ.', e);
+            clMoiNhat = (don.conLai !== undefined) ? don.conLai : Math.max(0, (don.soTienNo || 0) - (don.daThu || 0));
+            dongBoDuocCloud = false;
+          } else {
+            console.error('Lỗi kiểm tra số dư mới nhất trước khi thu nợ:', e);
+            alert('❌ Không kiểm tra được số dư mới nhất từ máy chủ, vui lòng thử lại: ' + (e.message || String(e)));
             return;
           }
-          phanDu = tach;
-        } else if (!confirm(`Số tiền thu (${formatTien(soTienThu)} đ) lớn hơn số nợ còn lại thực tế (${formatTien(clChoTien)} đ). Bạn vẫn muốn tiếp tục?`)) {
-          if (btnLuu) btnLuu.disabled = false;
+        }
+
+        if (clMoiNhat <= 0) {
+          alert(`ℹ️ Đơn nợ "${don.maHD}" đã được thu ĐỦ (có thể vừa được thu ở máy khác). Đang cập nhật lại sổ công nợ...`);
+          dongModalThuNoTaiQuy();
+          await taiLaiDuLieuCongNo();
           return;
         }
-      }
-      // Phần thực sự trừ vào nợ của đơn này (khi có phần dư thì không tính phần dư)
-      const tmTruNo = phanDu ? phanDu.tmNo : tienMatThu;
-      const ckTruNo = phanDu ? phanDu.ckNo : chuyenKhoanThu;
-      // (cộng cả phần khách trả lại hàng — cũng trừ vào nợ của đơn)
-      const soTienTruNo = tmTruNo + ckTruNo + traLaiHang;
 
-      // Ghi nhận lên Supabase TRƯỚC — thành công mới cập nhật sổ trên máy này,
-      // để mọi máy khác đều thấy được khoản vừa thu (tránh thu trùng). Nếu bảng
-      // thu_no chưa tồn tại thì bỏ qua bước này, lưu cục bộ như trước đây.
-      // Mỗi hình thức thu (Tiền mặt / Chuyển khoản) được ghi thành 1 dòng riêng
-      // để Bước 3 xuất đúng bút toán Nợ 1111 hoặc Nợ 1121 - Có 131 tương ứng.
-      let resInsert = { error: null };
-      if (dongBoDuocCloud && typeof sb !== 'undefined') {
+        // 2. Kiểm soát góc biên: KHÔNG CHO PHÉP NHẬP VƯỢT QUÁ NỢ CÒN LẠI
+        if (traLaiHang > clMoiNhat) {
+          alert(`⚠️ Số tiền hàng trả lại (${formatTien(traLaiHang)} đ) lớn hơn số nợ còn lại của đơn "${don.maHD}" (${formatTien(clMoiNhat)} đ).\n\nVui lòng sửa lại số tiền trả lại hàng.`);
+          return;
+        }
+
+        const clChoTien = Math.max(0, clMoiNhat - traLaiHang);
+        if (soTienThu > clChoTien) {
+          alert(`⚠️ Số tiền thu (${formatTien(soTienThu)} đ) vượt quá số tiền Còn Lại cần thu (${formatTien(clChoTien)} đ) của đơn "${don.maHD}"${traLaiHang > 0 ? ` (sau khi trừ ${formatTien(traLaiHang)} đ hàng trả lại)` : ''}!\n\nHệ thống KHÔNG cho phép thu vượt quá số nợ còn lại. Vui lòng kiểm tra và nhập đúng số tiền thực thu.`);
+          return;
+        }
+
+        // Số tiền thực thu đợt này (chỉ đúng số tiền người dùng nhập)
+        const tmTruNo = tienMatThu;
+        const ckTruNo = chuyenKhoanThu;
+        const soTienTruNo = tmTruNo + ckTruNo + traLaiHang;
+
+        // 3. Chuẩn bị lịch sử thu hiện có TRƯỚC KHI cập nhật daThu (ngăn chặn fallback sinh đợt ảo)
+        if (!Array.isArray(don.lichSuThu)) {
+          don.lichSuThu = layLichSuThuCuaDon(don);
+        }
+
+        // 4. Ghi nhận lên Supabase
         const dongThuNo = [];
         if (tmTruNo > 0) {
           dongThuNo.push({
@@ -5995,7 +6099,6 @@
             nguoi_thu: layNguoiThaoTac(), ghi_chu: ghiChu || '', ngay_thu: ngayThu
           });
         }
-        // Phần khách TRẢ LẠI HÀNG: 1 dòng riêng để trừ nợ trên mọi máy (Bước 3 không xuất phiếu thu)
         if (traLaiHang > 0) {
           const dongTraHang = {
             id_don_no: id, ma_hd: don.maHD || '', ma_dot: don.maDot || '',
@@ -6005,111 +6108,117 @@
             ghi_chu: `Khách trả lại hàng trừ nợ HĐ ${don.maHD || ''}${dsHangTraLai.length ? ' — Hàng trả: ' + tomTatHangTraLai(dsHangTraLai) : ''}${ghiChu ? ' — ' + ghiChu : ''}`,
             ngay_thu: ngayThu
           };
-          // Chi tiết mặt hàng khách trả (cột hang_tra_lai — sql/14_thu_no_hang_tra_lai.sql)
           if (dsHangTraLai.length) dongTraHang.hang_tra_lai = dsHangTraLai;
           dongThuNo.push(dongTraHang);
         }
-        resInsert = await sb.from('thu_no').insert(dongThuNo);
-        // Máy chủ chưa có cột hang_tra_lai (chưa chạy sql/14) → ghi lại không kèm cột này
-        // (chi tiết mặt hàng vẫn nằm trong ghi chú của dòng trả hàng)
-        if (resInsert.error && /hang_tra_lai/i.test(String(resInsert.error.message || resInsert.error.details || ''))) {
-          console.warn('⚠️ Chưa có cột thu_no.hang_tra_lai — hãy chạy sql/14_thu_no_hang_tra_lai.sql. Ghi khoản trả hàng không kèm chi tiết cột.', resInsert.error);
-          dongThuNo.forEach(r => { delete r.hang_tra_lai; });
-          resInsert = await sb.from('thu_no').insert(dongThuNo);
-        }
-        if (resInsert.error && laLoiThieuBangThuNo(resInsert.error)) {
-          banThuNoChuaSanSang = true;
-          console.warn('⚠️ Bảng thu_no chưa được tạo trên Supabase — khoản thu này chỉ lưu cục bộ. Hãy chạy sql/07_thu_no_dong_bo.sql trên Supabase để bật đồng bộ.', resInsert.error);
-          dongBoDuocCloud = false;
-          resInsert = { error: null };
-        }
-      }
-      if (btnLuu) btnLuu.disabled = false;
 
-      if (resInsert.error) {
-        console.error('Lỗi ghi nhận thu nợ lên Supabase:', resInsert.error);
-        alert('❌ KHÔNG ghi nhận được khoản thu này (chưa lưu lên máy chủ).\n\nChi tiết: ' + (resInsert.error.message || JSON.stringify(resInsert.error)) +
-          '\n\nNếu báo thiếu cột "id_don_no", hãy chạy file sql/07_thu_no_dong_bo.sql trong Supabase SQL Editor.');
-        return;
-      }
-
-      don.daThu = (don.daThu || 0) + soTienTruNo;
-      // Khoản vừa thu đã nằm trên Cloud → dời mốc đối chiếu theo, để lần đồng bộ sau không cộng trùng
-      if (dongBoDuocCloud && typeof don.daThuCloudDaDongBo === 'number') don.daThuCloudDaDongBo += soTienTruNo;
-      don.conLai = Math.max(0, clMoiNhat - soTienTruNo);
-      don.trangThai = don.conLai <= 0 ? 'da_thu_du' : 'da_thu_mot_phan';
-      don.taiKhoanNhan = nhNhan || don.taiKhoanNhan;
-      don.ngayThanhToan = ngayThu;
-
-      // Lưu chi tiết đợt thu mới vào don.lichSuThu và thuNoTheoDon (chống ghi đè)
-      if (!Array.isArray(don.lichSuThu)) {
-        don.lichSuThu = layLichSuThuCuaDon(don);
-      }
-      dongThuNo.forEach(r => {
-        if ((r.so_tien || 0) > 0) {
-          const itemThu = {
-            id: r.id || ('local_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)),
-            ngay: r.ngay_thu || ngayThu,
-            soTien: parseFloat(r.so_tien),
-            hinhThuc: r.hinh_thuc || 'Tiền mặt',
-            taiKhoan: r.tai_khoan_nhan || '',
-            nguoiThu: r.nguoi_thu || layNguoiThaoTac(),
-            ghiChu: r.ghi_chu || '',
-            hangTraLai: r.hang_tra_lai || null,
-            taoLuc: new Date().toISOString()
-          };
-          don.lichSuThu.push(itemThu);
-
-          // Cập nhật thuNoTheoDon
-          if (!thuNoTheoDon.has(don.id)) thuNoTheoDon.set(don.id, []);
-          thuNoTheoDon.get(don.id).push({ ...r, id: itemThu.id, tao_luc: itemThu.taoLuc });
-          if (don.maHD) {
-            if (!thuNoTheoDon.has(don.maHD)) thuNoTheoDon.set(don.maHD, []);
-            thuNoTheoDon.get(don.maHD).push({ ...r, id: itemThu.id, tao_luc: itemThu.taoLuc });
-            const altId = 'NO_' + don.maHD;
-            if (don.id !== altId) {
-              if (!thuNoTheoDon.has(altId)) thuNoTheoDon.set(altId, []);
-              thuNoTheoDon.get(altId).push({ ...r, id: itemThu.id, tao_luc: itemThu.taoLuc });
-            }
+        let resInsert = { data: null, error: null };
+        if (dongBoDuocCloud && typeof sb !== 'undefined') {
+          resInsert = await sb.from('thu_no').insert(dongThuNo).select('id, tao_luc, so_tien, hinh_thuc, ngay_thu, ghi_chu, nguoi_thu, hang_tra_lai');
+          if (resInsert.error && /hang_tra_lai/i.test(String(resInsert.error.message || resInsert.error.details || ''))) {
+            console.warn('⚠️ Chưa có cột thu_no.hang_tra_lai. Ghi khoản trả hàng không kèm chi tiết cột.', resInsert.error);
+            dongThuNo.forEach(r => { delete r.hang_tra_lai; });
+            resInsert = await sb.from('thu_no').insert(dongThuNo).select('id, tao_luc, so_tien, hinh_thuc, ngay_thu, ghi_chu, nguoi_thu');
           }
-
-          // Cập nhật thuNoHinhThucCloudMap
-          const arrHT = thuNoHinhThucCloudMap.get(don.id) || [];
-          arrHT.push({ hinhThuc: itemThu.hinhThuc, taiKhoan: itemThu.taiKhoan, soTien: itemThu.soTien });
-          thuNoHinhThucCloudMap.set(don.id, arrHT);
+          if (resInsert.error && laLoiThieuBangThuNo(resInsert.error)) {
+            banThuNoChuaSanSang = true;
+            console.warn('⚠️ Bảng thu_no chưa được tạo trên Supabase — khoản thu này chỉ lưu cục bộ.', resInsert.error);
+            dongBoDuocCloud = false;
+            resInsert = { data: null, error: null };
+          }
         }
-      });
 
-      const thongTinDotMoi = `Đã thu ${formatTien(soTienTruNo)} đ (${phuongThucChiTiet}) ngày ${ngayThu}.${phanDu ? ` Dư ${formatTien(phanDu.tmDu + phanDu.ckDu)} đ ghi trả trước.` : ''} ${ghiChu}`.trim();
-      don.ghiChuThu = don.ghiChuThu ? `${don.ghiChuThu}\n${thongTinDotMoi}` : thongTinDotMoi;
+        if (resInsert.error) {
+          console.error('Lỗi ghi nhận thu nợ lên Supabase:', resInsert.error);
+          alert('❌ KHÔNG ghi nhận được khoản thu này (chưa lưu lên máy chủ).\n\nChi tiết: ' + (resInsert.error.message || JSON.stringify(resInsert.error)));
+          return;
+        }
 
-      ghiSoCongNo(danhSachCongNo);
-      dongModalThuNoTaiQuy();
-      capNhatKPI();
-      veBangCongNo();
-      if (khachHangDangXemLichSu) {
-        moLichSuDonKhachHang(encodeURIComponent(khachHangDangXemLichSu));
+        // 5. Cập nhật đợt thu mới vào don.lichSuThu và thuNoTheoDon (sử dụng ID thật nếu có)
+        const rowsInsert = (resInsert.data && resInsert.data.length) ? resInsert.data : dongThuNo;
+        rowsInsert.forEach((r, idx) => {
+          const st = parseFloat(r.so_tien || 0);
+          if (st > 0) {
+            const itemThu = {
+              id: r.id ? String(r.id) : ('local_' + Date.now() + '_' + idx),
+              ngay: r.ngay_thu || ngayThu,
+              soTien: st,
+              hinhThuc: r.hinh_thuc || 'Tiền mặt',
+              taiKhoan: r.tai_khoan_nhan || '',
+              nguoiThu: r.nguoi_thu || layNguoiThaoTac(),
+              ghiChu: r.ghi_chu || '',
+              hangTraLai: r.hang_tra_lai || null,
+              taoLuc: r.tao_luc || new Date().toISOString()
+            };
+            don.lichSuThu.push(itemThu);
+
+            // Cập nhật thuNoTheoDon
+            const rCache = { ...r, id: itemThu.id, tao_luc: itemThu.taoLuc, so_tien: st };
+            if (!thuNoTheoDon.has(don.id)) thuNoTheoDon.set(don.id, []);
+            thuNoTheoDon.get(don.id).push(rCache);
+            if (don.maHD) {
+              if (!thuNoTheoDon.has(don.maHD)) thuNoTheoDon.set(don.maHD, []);
+              thuNoTheoDon.get(don.maHD).push(rCache);
+              const altId = 'NO_' + don.maHD;
+              if (don.id !== altId) {
+                if (!thuNoTheoDon.has(altId)) thuNoTheoDon.set(altId, []);
+                thuNoTheoDon.get(altId).push(rCache);
+              }
+            }
+
+            // Cập nhật thuNoHinhThucCloudMap
+            const arrHT = thuNoHinhThucCloudMap.get(don.id) || [];
+            arrHT.push({ hinhThuc: itemThu.hinhThuc, taiKhoan: itemThu.taiKhoan, soTien: itemThu.soTien });
+            thuNoHinhThucCloudMap.set(don.id, arrHT);
+          }
+        });
+
+        // 6. Tính toán lại chính xác: Đã Thu, Còn Lại, Trạng Thái
+        // Đã Thu = Tổng các đợt thực tế đã lưu
+        const dsThuHienTai = layLichSuThuCuaDon(don);
+        const tongThucThu = dsThuHienTai.reduce((s, t) => s + (t.soTien || 0), 0);
+        don.daThu = tongThucThu > 0 ? tongThucThu : ((don.daThu || 0) + soTienTruNo);
+        if (dongBoDuocCloud && typeof don.daThuCloudDaDongBo === 'number') {
+          don.daThuCloudDaDongBo += soTienTruNo;
+        }
+
+        // Còn Lại = Tiền Nợ - Đã Thu
+        don.conLai = Math.max(0, (don.soTienNo || 0) - (don.daThu || 0));
+
+        // Trạng Thái: Chỉ chuyển "Đã thu đủ" khi Còn Lại == 0. Nếu Còn Lại > 0 và Đã Thu > 0 => "Thu 1 phần"
+        don.trangThai = (don.conLai <= 0) ? 'da_thu_du' : 'da_thu_mot_phan';
+        don.taiKhoanNhan = nhNhan || don.taiKhoanNhan;
+        don.ngayThanhToan = ngayThu;
+
+        const thongTinDotMoi = `Đã thu ${formatTien(soTienTruNo)} đ (${phuongThucChiTiet}) ngày ${ngayThu}. ${ghiChu}`.trim();
+        don.ghiChuThu = don.ghiChuThu ? `${don.ghiChuThu}\n${thongTinDotMoi}` : thongTinDotMoi;
+
+        // Lưu vào sổ công nợ & cập nhật UI
+        ghiSoCongNo(danhSachCongNo);
+        dongModalThuNoTaiQuy(); // Reset sạch toàn bộ form để không lưu vết cũ
+        capNhatKPI();
+        veBangCongNo();
+
+        if (khachHangDangXemLichSu) {
+          await moLichSuDonKhachHang(encodeURIComponent(khachHangDangXemLichSu));
+        }
+
+        const canhBaoChuaDongBo = dongBoDuocCloud ? '' :
+          '\n\n⚠️ LƯU Ý: Hệ thống chống thu trùng (bảng thu_no) CHƯA được thiết lập trên máy chủ, nên khoản thu này mới chỉ lưu trên máy này. Vui lòng nhờ quản trị viên chạy file sql/07_thu_no_dong_bo.sql trên Supabase càng sớm càng tốt.';
+        const thongBaoConNo = don.conLai > 0
+          ? `\n• Số dư còn nợ lại: ${formatTien(don.conLai)} đ (Trạng thái: Thu 1 phần)`
+          : '\n• Đơn nợ này đã được tất toán ĐỦ 100% (Còn lại: 0 đ)!';
+
+        alert(`✅ Đã ghi nhận thu thành công ${formatTien(soTienTruNo)} đ trừ nợ đơn "${don.maHD}" của khách "${don.tenKH}" (khách đưa ${phuongThucChiTiet})!${thongBaoConNo}` +
+          (dongBoDuocCloud ? '\n\nKhoản thu này đã được đồng bộ lên hệ thống, mọi máy khác sẽ thấy ngay.' : canhBaoChuaDongBo));
+
+      } finally {
+        dangLuuThuNoTaiQuy = false;
+        if (btnLuu) {
+          btnLuu.disabled = false;
+          btnLuu.textContent = '💾 Xác Nhận Thu Nợ';
+        }
       }
-
-      // Ghi phần dư vào sổ tiền khách trả trước (người dùng đã đồng ý ở bước hỏi phía trên)
-      let thongBaoDu = '';
-      if (phanDu) {
-        const dongDu = [];
-        if (phanDu.tmDu > 0) dongDu.push({ ngay: ngayThu, ma_kh: don.maKH || '', ten_kh: don.tenKH || '', loai: 'nhan', so_tien: phanDu.tmDu, hinh_thuc: 'Tiền mặt', nguon: 'thu_tai_quy_du', ma_hd: don.maHD || '', ghi_chu: ghiChu || '' });
-        if (phanDu.ckDu > 0) dongDu.push({ ngay: ngayThu, ma_kh: don.maKH || '', ten_kh: don.tenKH || '', loai: 'nhan', so_tien: phanDu.ckDu, hinh_thuc: 'Chuyển khoản', tai_khoan_nhan: nhNhan || '', nguon: 'thu_tai_quy_du', ma_hd: don.maHD || '', ghi_chu: ghiChu || '' });
-        const kqDu = await ghiSoTraTruoc(dongDu);
-        thongBaoDu = kqDu.ok
-          ? `\n\n💚 Phần dư ${formatTien(phanDu.tmDu + phanDu.ckDu)} đ đã ghi vào SỔ TIỀN KHÁCH TRẢ TRƯỚC của khách.`
-          : `\n\n⚠️ CHƯA ghi được phần dư ${formatTien(phanDu.tmDu + phanDu.ckDu)} đ vào sổ trả trước (${kqDu.loi || 'lỗi'}). Vui lòng ghi tay bằng nút "💚 Khách Trả Trước".`;
-        await napSoDuTraTruoc();
-      }
-
-      const canhBaoChuaDongBo = dongBoDuocCloud ? '' :
-        '\n\n⚠️ LƯU Ý: Hệ thống chống thu trùng (bảng thu_no) CHƯA được thiết lập trên máy chủ, nên khoản thu này mới chỉ lưu trên máy này. Vui lòng nhờ quản trị viên chạy file sql/07_thu_no_dong_bo.sql trên Supabase càng sớm càng tốt.';
-      alert(`✅ Đã ghi nhận thu thành công ${formatTien(soTienTruNo)} đ trừ nợ đơn "${don.maHD}" của khách "${don.tenKH}" (khách đưa ${phuongThucChiTiet})!` +
-        (dongBoDuocCloud ? '\n\nKhoản thu này đã được đồng bộ lên hệ thống, mọi máy khác sẽ thấy ngay.' : canhBaoChuaDongBo) + thongBaoDu);
-      // Khách còn đơn nợ khác → HỎI có muốn dùng phần dư để trừ tiếp không (không tự trừ)
-      if (phanDu) await hoiCanTruSauKhiCoTien(don.tenKH);
     }
 
     // ========================================================
