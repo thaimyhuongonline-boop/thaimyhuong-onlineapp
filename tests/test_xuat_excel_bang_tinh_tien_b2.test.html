@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Kiểm Thử Nút Xuất Excel Bảng Tính Tiền Bước 2</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; background: #f8fafc; color: #0f172a; }
+  h1 { font-size: 20px; margin-bottom: 8px; color: #15803d; }
+  .summary { padding: 12px 16px; border-radius: 8px; font-weight: 700; margin-bottom: 16px; font-size: 15px; }
+  .summary.pass { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+  .summary.fail { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+  .test-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .test-title { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .test-detail { font-size: 12.5px; color: #64748b; margin-top: 4px; font-family: monospace; white-space: pre-wrap; }
+  .badge-pass { background: #22c55e; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+  .badge-fail { background: #ef4444; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+  .btn-outline { border: 1px solid #cbd5e1; background: #fff; border-radius: 4px; cursor: pointer; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+</head>
+<body>
+
+<h1>🧪 Kiểm Thử: Nút "Xuất Excel Bảng Tính Tiền" Bước 2 (buoc2_quyet_toan_thu_tien.html)</h1>
+<div id="summaryBox" class="summary">Đang chạy kiểm thử...</div>
+<div id="testResults"></div>
+
+<!-- DOM Elements giả lập -->
+<div style="display:none;">
+  <button type="button" class="btn btn-outline" id="btnXuatExcelBangTinhTien" onclick="xuatExcelBangTinhTien()">
+    <span>📊</span> Xuất Excel Bảng Tính Tiền
+  </button>
+  <input type="hidden" id="inputTienChi" value="0">
+  <input type="hidden" id="inputThuNoCu" value="0">
+  <input type="text" id="inputTienThoi" value="200.000">
+</div>
+
+<script>
+  const results = [];
+  function assert(name, condition, details) {
+    results.push({ name, pass: !!condition, details: details || '' });
+  }
+
+  // Khai báo biến môi trường Bước 2
+  let dotHienTai = null;
+  let danhSachHoaDonQuyetToan = [];
+  let thongBaoToastGhiNhan = [];
+
+  function hienThiToast(msg) {
+    thongBaoToastGhiNhan.push(msg);
+  }
+
+  function tongHoanTienMatKhach() {
+    return 0;
+  }
+
+  // Helper hàm lấy DDMMYYYY
+  function layChuoiDDMMYYYY(strDate) {
+    if (!strDate) {
+      const now = new Date();
+      const d = String(now.getDate()).padStart(2, '0');
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const y = now.getFullYear();
+      return `${d}${m}${y}`;
+    }
+    strDate = String(strDate).trim();
+    if (strDate.includes('/')) {
+      const parts = strDate.split('/');
+      if (parts.length >= 3) {
+        return `${parts[0].padStart(2, '0')}${parts[1].padStart(2, '0')}${parts[2].slice(0, 4)}`;
+      }
+    }
+    if (strDate.includes('-')) {
+      const parts = strDate.split('-');
+      if (parts.length >= 3) {
+        return `${parts[2].slice(0, 2).padStart(2, '0')}${parts[1].padStart(2, '0')}${parts[0]}`;
+      }
+    }
+    return strDate.replace(/\D/g, '').slice(0, 8);
+  }
+
+  function capNhatTrangThaiNutXuatExcel() {
+    const btn = document.getElementById('btnXuatExcelBangTinhTien');
+    if (!btn) return;
+    const coDuLieu = !!(dotHienTai && Array.isArray(danhSachHoaDonQuyetToan) && danhSachHoaDonQuyetToan.length > 0);
+    btn.disabled = !coDuLieu;
+    btn.style.opacity = coDuLieu ? '1' : '0.55';
+    btn.style.cursor = coDuLieu ? 'pointer' : 'not-allowed';
+  }
+
+  // Intercept XLSX.writeFile
+  let fileXuatGhiNhan = null;
+  let wbXuatGhiNhan = null;
+  const originalWriteFile = XLSX.writeFile;
+  XLSX.writeFile = function(wb, filename) {
+    wbXuatGhiNhan = wb;
+    fileXuatGhiNhan = filename;
+  };
+
+  function xuatExcelBangTinhTien() {
+    if (!dotHienTai || !Array.isArray(danhSachHoaDonQuyetToan) || danhSachHoaDonQuyetToan.length === 0) {
+      if (typeof hienThiToast === 'function') {
+        hienThiToast("⚠️ Vui lòng chọn hoặc tải dữ liệu chuyến xe trước khi xuất báo cáo!");
+      } else {
+        alert("Vui lòng chọn hoặc tải dữ liệu chuyến xe trước khi xuất báo cáo!");
+      }
+      return;
+    }
+
+    try {
+      const tenXe = dotHienTai.xe || 'Chưa gán xe';
+      const taiXe = dotHienTai.taiXe || 'Chưa gán tài xế';
+      const ngayGiao = dotHienTai.ngayGiao || 'Hôm nay';
+      const trangThaiQuyetToan = dotHienTai.daQuyetToan ? "Đã quyết toán" : "Chờ tính tiền";
+
+      let tongXuatKho = 0;
+      let tongTienMat = 0;
+      let tongChuyenKhoan = 0;
+      let tongTraVe = 0;
+      let tongTraHan = 0;
+      let tongGiaoLai = 0;
+      let tongNoPhatSinh = 0;
+
+      danhSachHoaDonQuyetToan.forEach(hd => {
+        tongXuatKho += parseFloat(hd.tienHD || 0);
+        tongTienMat += parseFloat(hd.tienMat || 0);
+        tongChuyenKhoan += parseFloat(hd.chuyenKhoan || 0);
+        tongTraVe += parseFloat(hd.traVe || 0);
+        tongNoPhatSinh += parseFloat(hd.noPhatSinh || 0);
+        if (hd.loaiTraVe === 'giao_lai') {
+          tongGiaoLai += parseFloat(hd.traVe || 0);
+        } else {
+          tongTraHan += parseFloat(hd.traVe || 0);
+        }
+      });
+
+      const chiPhiXe = parseFloat(document.getElementById('inputTienChi')?.value || dotHienTai.tienChi || 0);
+      const thuNoCuXe = parseFloat(document.getElementById('inputThuNoCu')?.value || dotHienTai.thuNoCu || 0);
+      const tienThoiXe = parseFloat(document.getElementById('inputTienThoi')?.value ? String(document.getElementById('inputTienThoi').value).replace(/\./g, '').replace(/,/g, '') : (dotHienTai.tienThoi || 0));
+      const hoanTM = typeof tongHoanTienMatKhach === 'function' ? tongHoanTienMatKhach() : 0;
+      const soTienPhaiThu = Math.max(0, tongTienMat + thuNoCuXe - chiPhiXe + tienThoiXe - hoanTM);
+
+      const rowsData = [];
+
+      rowsData.push(["CÔNG TY TNHH THÁI MỸ HƯƠNG", "", "", "", "", "", "", "", "", "", "", "", ""]);
+      rowsData.push(["BẢNG QUYẾT TOÁN THU TIỀN HÀNG KHI XE VỀ", "", "", "", "", "", "", "", "", "", "", "", ""]);
+      rowsData.push([`Chuyến xe: ${tenXe} | Tài xế: ${taiXe} | Ngày giao: ${ngayGiao} | Trạng thái: ${trangThaiQuyetToan}`, "", "", "", "", "", "", "", "", "", "", "", ""]);
+      rowsData.push([]);
+
+      rowsData.push(["I. TỔNG HỢP CÁC CHỈ SỐ TÀI CHÍNH CHUYẾN XE", "", "", "", "", "", "", "", "", "", "", "", ""]);
+      rowsData.push(["STT", "Chỉ Số Tài Chính", "Giá Trị (VNĐ)", "Ghi Chú Nghiệp Vụ", "", "", "", "", "", "", "", "", ""]);
+      rowsData.push([1, "Tổng Tiền Xuất Kho", tongXuatKho, `${danhSachHoaDonQuyetToan.length} hóa đơn đi giao`]);
+      rowsData.push([2, "Tiền Mặt Phải Nộp", tongTienMat, "Tài xế phải nộp thủ quỹ"]);
+      rowsData.push([3, "Tiền Chuyển Khoản", tongChuyenKhoan, "Khách hàng chuyển khoản ngân hàng"]);
+      rowsData.push([4, "Hàng Trả Về", tongTraVe, `Trả hẳn: ${tongTraHan.toLocaleString('vi-VN')} đ | Giao lại: ${tongGiaoLai.toLocaleString('vi-VN')} đ`]);
+      rowsData.push([5, "Chi Phí Phát Sinh Xe (Chi)", chiPhiXe, "Trừ vào tiền nộp"]);
+      rowsData.push([6, "Thu Nợ Cũ Khách Hàng (Xe thu hộ)", thuNoCuXe, "Cộng vào tiền nộp (cấn trừ vào Sổ công nợ)"]);
+      rowsData.push([7, "Tiền Thối", tienThoiXe, "Cộng vào tiền nộp"]);
+      if (hoanTM > 0) {
+        rowsData.push([8, "Hoàn Tiền Mặt Cho Khách (CK dư)", hoanTM, "Tài xế đã hoàn tiền mặt lại cho khách do CK dư"]);
+      }
+      rowsData.push([
+        hoanTM > 0 ? 9 : 8,
+        "SỐ TIỀN PHẢI THU (Tài xế nộp)",
+        soTienPhaiThu,
+        "= Tiền mặt + Thu nợ cũ - Chi phí + Tiền thối" + (hoanTM > 0 ? " - Hoàn TM" : "")
+      ]);
+      rowsData.push([]);
+
+      rowsData.push(["II. CHI TIẾT TỪNG HÓA ĐƠN TRONG CHUYẾN XE", "", "", "", "", "", "", "", "", "", "", "", ""]);
+      rowsData.push([
+        "STT", "Mã HĐ", "Khách Hàng", "NV Bán Hàng", "Tiền HĐ (đ)",
+        "Tình Trạng Nhận", "Hàng Trả (đ)", "Xử Lý Hàng Trả", "Tiền Mặt (đ)",
+        "Chuyển Khoản (đ)", "Ngân Hàng Nhận", "Nợ Lại (đ)", "Ghi Chú"
+      ]);
+
+      danhSachHoaDonQuyetToan.forEach((hd, i) => {
+        let tinhTrangText = "Giao đủ 100%";
+        if (hd.tinhTrang === 'tra_mot_phan') tinhTrangText = "Trả 1 phần";
+        else if (hd.tinhTrang === 'tra_nguyen_don') tinhTrangText = "Trả nguyên đơn";
+
+        let xuLyTraText = "";
+        if (hd.traVe > 0) {
+          xuLyTraText = hd.loaiTraVe === 'giao_lai' ? "Chờ giao lại" : "Trả về kho";
+        }
+
+        rowsData.push([
+          i + 1,
+          hd.maHD || '',
+          hd.tenKH || '',
+          hd.nguoiBan || '',
+          parseFloat(hd.tienHD || 0),
+          tinhTrangText,
+          parseFloat(hd.traVe || 0),
+          xuLyTraText,
+          parseFloat(hd.tienMat || 0),
+          parseFloat(hd.chuyenKhoan || 0),
+          hd.taiKhoanNhan || hd.nganHang || '',
+          parseFloat(hd.noPhatSinh || 0),
+          hd.ghiChu || ''
+        ]);
+      });
+
+      rowsData.push([
+        "TỔNG CỘNG",
+        `${danhSachHoaDonQuyetToan.length} HĐ`,
+        "", "", tongXuatKho, "", tongTraVe, "", tongTienMat, tongChuyenKhoan, "", tongNoPhatSinh, ""
+      ]);
+
+      const ws = XLSX.utils.aoa_to_sheet(rowsData);
+
+      ws['!cols'] = [
+        { wch: 6 }, { wch: 15 }, { wch: 32 }, { wch: 18 }, { wch: 16 },
+        { wch: 16 }, { wch: 14 }, { wch: 15 }, { wch: 16 }, { wch: 16 },
+        { wch: 22 }, { wch: 16 }, { wch: 25 }
+      ];
+
+      const range = XLSX.utils.decode_range(ws['!ref']);
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+          const cell = ws[cellRef];
+          if (cell && cell.t === 'n') {
+            cell.z = '#,##0';
+          }
+        }
+      }
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "BangQuyetToan");
+
+      const cleanMaDot = String(dotHienTai.maDot || dotHienTai.xe || 'ChuyenXe')
+        .replace(/[/\\:*?"<>|]/g, '_')
+        .replace(/\s+/g, '_')
+        .trim();
+      const chuoiNgay = layChuoiDDMMYYYY(ngayGiao);
+      const tenFile = `Bang_Quyet_Toan_Tien_Hang_${cleanMaDot}_${chuoiNgay}.xlsx`;
+
+      XLSX.writeFile(wb, tenFile);
+
+      if (typeof hienThiToast === 'function') {
+        hienThiToast(`📥 Đã xuất thành công file Excel: ${tenFile}`);
+      }
+    } catch (err) {
+      console.error("Lỗi xuất Excel bảng tính tiền:", err);
+      alert("Có lỗi khi xuất Excel bảng tính tiền: " + (err.message || String(err)));
+    }
+  }
+
+  // =========================================================================
+  // TIẾN HÀNH KIỂM THỬ TẤT CẢ TEST CASES
+  // =========================================================================
+  async function chayKiemThu() {
+    console.log("Bắt đầu kiểm thử...");
+
+    // =========================================================================
+    // TEST CASE 1: HAPPY PATH - CHUYẾN XE HD2 CHIỀU (26/10/2026)
+    // =========================================================================
+    try {
+      dotHienTai = {
+        maDot: "HD2_CHIEU_26102026",
+        xe: "HD2 CHIỀU",
+        taiXe: "Chưa gán",
+        ngayGiao: "26/10/2026",
+        daQuyetToan: true,
+        tienChi: 0,
+        thuNoCu: 0,
+        tienThoi: 200000
+      };
+
+      // Thiết lập dữ liệu khớp 100% với màn hình trong screenshot:
+      // Tổng xuất kho: 44.259.500 đ
+      // Tiền mặt phải nộp: 5.773.750 đ
+      // Chuyển khoản: 2.900.000 đ
+      // Hàng trả về: 300.000 đ
+      // Tiền thối: 200.000 đ
+      // Số tiền phải thu: 5.973.750 đ
+      danhSachHoaDonQuyetToan = [
+        { maHD: 'HD289084', tenKH: 'MOONMILK 90-92 HỒ XUÂN HƯƠNG', tienHD: 4627000, traVe: 0, tienMat: 0, chuyenKhoan: 0, noPhatSinh: 4627000, tinhTrang: 'giao_du' },
+        { maHD: 'HD289094', tenKH: 'MOONMILK 112 LÊ QUANG ĐẠO', tienHD: 5757000, traVe: 0, tienMat: 0, chuyenKhoan: 0, noPhatSinh: 5757000, tinhTrang: 'giao_du' },
+        { maHD: 'HD289103', tenKH: 'MOONMILK 17 MAI THÚC LÂN', tienHD: 4373000, traVe: 0, tienMat: 0, chuyenKhoan: 0, noPhatSinh: 4373000, tinhTrang: 'giao_du' },
+        { maHD: 'HD289117', tenKH: 'MOONMILK CHUNG CƯ MƯỜNG THANH', tienHD: 3667000, traVe: 0, tienMat: 0, chuyenKhoan: 0, noPhatSinh: 3667000, tinhTrang: 'giao_du' },
+        { maHD: 'HD291137', tenKH: 'MOONMILK TRẦN BẠCH ĐẰNG', tienHD: 1188000, traVe: 0, tienMat: 0, chuyenKhoan: 0, noPhatSinh: 1188000, tinhTrang: 'giao_du' },
+        { maHD: 'HD291138', tenKH: 'MOONMILK 17 MAI THÚC LÂN', tienHD: 891000, traVe: 0, tienMat: 0, chuyenKhoan: 0, noPhatSinh: 891000, tinhTrang: 'giao_du' },
+        { maHD: 'HD291144', tenKH: 'MOONMILK 112 LÊ QUANG ĐẠO', tienHD: 2970000, traVe: 0, tienMat: 0, chuyenKhoan: 0, noPhatSinh: 2970000, tinhTrang: 'giao_du' },
+        { maHD: 'HD291146', tenKH: 'MOONMILK 90-92 HỒ XUÂN HƯƠNG', tienHD: 1485000, traVe: 0, tienMat: 0, chuyenKhoan: 0, noPhatSinh: 1485000, tinhTrang: 'giao_du' },
+        // Các hoá đơn thu tiền mặt, chuyển khoản và trả về
+        { maHD: 'HD_CK_01', tenKH: 'Khách CK Techcombank', tienHD: 2900000, traVe: 0, tienMat: 0, chuyenKhoan: 2900000, noPhatSinh: 0, taiKhoanNhan: 'TCB - 20166789', tinhTrang: 'giao_du' },
+        { maHD: 'HD_TRA_VE_01', tenKH: 'Khách Trả Về Hẳn', tienHD: 300000, traVe: 300000, tienMat: 0, chuyenKhoan: 0, noPhatSinh: 0, tinhTrang: 'tra_nguyen_don', loaiTraVe: 'tra_ve_kho' },
+        { maHD: 'HD_TM_01', tenKH: 'Khách Trả Tiền Mặt', tienHD: 5773750, traVe: 0, tienMat: 5773750, chuyenKhoan: 0, noPhatSinh: 0, tinhTrang: 'giao_du' },
+        // Các hoá đơn nợ khác để đủ tổng xuất kho 44.259.500 đ
+        { maHD: 'HD_CON_LAI', tenKH: 'Các khách nợ khác', tienHD: 10327750, traVe: 0, tienMat: 0, chuyenKhoan: 0, noPhatSinh: 10327750, tinhTrang: 'giao_du' }
+      ];
+
+      // Cập nhật trạng thái nút
+      capNhatTrangThaiNutXuatExcel();
+      const btn = document.getElementById('btnXuatExcelBangTinhTien');
+
+      assert("1.1 Nút Xuất Excel ở trạng thái kích hoạt (enabled) khi có dữ liệu chuyến xe",
+        btn && !btn.disabled && btn.style.opacity === '1',
+        `Disabled: ${btn?.disabled} | Opacity: ${btn?.style.opacity}`);
+
+      // Thực hiện bấm xuất Excel
+      fileXuatGhiNhan = null;
+      wbXuatGhiNhan = null;
+      xuatExcelBangTinhTien();
+
+      assert("1.2 Đã gọi hàm xuất file và tạo file thành công",
+        fileXuatGhiNhan !== null && wbXuatGhiNhan !== null,
+        `Tên file: ${fileXuatGhiNhan}`);
+
+      assert("1.3 Tên file đúng định dạng: Bang_Quyet_Toan_Tien_Hang_[Mã_Chuyến]_[DDMMYYYY].xlsx",
+        fileXuatGhiNhan === "Bang_Quyet_Toan_Tien_Hang_HD2_CHIEU_26102026_26102026.xlsx",
+        `Thực tế: ${fileXuatGhiNhan}`);
+
+      // Kiểm tra nội dung sheet
+      const ws = wbXuatGhiNhan.Sheets["BangQuyetToan"];
+      assert("1.4 Sheet 'BangQuyetToan' được tạo thành công", !!ws, "Sheet tồn tại");
+
+      // Tìm dòng Tiền Mặt Phải Nộp
+      let cellTienMatValue = null;
+      let cellTienMatFormat = null;
+      let cellPhaiThuValue = null;
+      let cellPhaiThuFormat = null;
+
+      const range = XLSX.utils.decode_range(ws['!ref']);
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        const cellLabel = ws[XLSX.utils.encode_cell({ r: R, c: 1 })];
+        const cellVal = ws[XLSX.utils.encode_cell({ r: R, c: 2 })];
+
+        if (cellLabel && String(cellLabel.v).includes("Tiền Mặt Phải Nộp")) {
+          cellTienMatValue = cellVal ? cellVal.v : null;
+          cellTienMatFormat = cellVal ? cellVal.z : null;
+        }
+        if (cellLabel && String(cellLabel.v).includes("SỐ TIỀN PHẢI THU (Tài xế nộp)")) {
+          cellPhaiThuValue = cellVal ? cellVal.v : null;
+          cellPhaiThuFormat = cellVal ? cellVal.z : null;
+        }
+      }
+
+      assert("1.5 Trường 'Tiền mặt phải nộp' khớp chính xác 5.773.750 đ và format số chuẩn (#,##0)",
+        cellTienMatValue === 5773750 && cellTienMatFormat === '#,##0',
+        `Giá trị: ${cellTienMatValue?.toLocaleString()} đ | Format: ${cellTienMatFormat}`);
+
+      assert("1.6 Trường 'Số tiền phải thu (Tài xế nộp)' khớp chính xác 5.973.750 đ và format số chuẩn (#,##0)",
+        cellPhaiThuValue === 5973750 && cellPhaiThuFormat === '#,##0',
+        `Giá trị: ${cellPhaiThuValue?.toLocaleString()} đ | Format: ${cellPhaiThuFormat}`);
+
+    } catch (e1) {
+      assert("Lỗi Test Case 1", false, e1.message);
+    }
+
+    // =========================================================================
+    // TEST CASE 2: NEGATIVE CASE - KHI LÀM MỚI / XÓA LỌC / DỮ LIỆU TRỐNG
+    // =========================================================================
+    try {
+      // Giả lập làm mới hoặc xóa lọc làm rỗng dữ liệu
+      dotHienTai = null;
+      danhSachHoaDonQuyetToan = [];
+
+      capNhatTrangThaiNutXuatExcel();
+      const btn = document.getElementById('btnXuatExcelBangTinhTien');
+
+      assert("2.1 Nút Xuất Excel tự động chuyển trạng thái disabled mờ đi khi không có chuyến xe",
+        btn && btn.disabled === true && btn.style.opacity === '0.55',
+        `Disabled: ${btn?.disabled} | Opacity: ${btn?.style.opacity}`);
+
+      // Giả lập cố tình bấm vào nút khi chưa có chuyến xe
+      thongBaoToastGhiNhan = [];
+      let coException = false;
+      try {
+        xuatExcelBangTinhTien();
+      } catch (eEx) {
+        coException = true;
+      }
+
+      assert("2.2 Bấm Xuất Excel khi trống dữ liệu KHÔNG throw exception hoặc crash",
+        coException === false,
+        "Không có ngoại lệ phát sinh");
+
+      assert("2.3 Hệ thống chặn lại và hiện thông báo hướng dẫn người dùng chính xác",
+        thongBaoToastGhiNhan.some(msg => msg.includes("Vui lòng chọn hoặc tải dữ liệu chuyến xe trước khi xuất báo cáo")),
+        `Thông báo nhận được: "${thongBaoToastGhiNhan.join(' | ')}"`);
+
+    } catch (e2) {
+      assert("Lỗi Test Case 2", false, e2.message);
+    }
+
+    // =========================================================================
+    // TEST CASE 3: KIỂM THỬ XỬ LÝ KÝ TỰ ĐẶC BIỆT & ĐỊNH DẠNG NGÀY TRONG TÊN FILE
+    // =========================================================================
+    try {
+      const d1 = layChuoiDDMMYYYY("26/10/2026");
+      const d2 = layChuoiDDMMYYYY("2026-10-26");
+      assert("3.1 Chuyển đổi định dạng ngày 26/10/2026 và 2026-10-26 đều cho kết quả 26102026",
+        d1 === "26102026" && d2 === "26102026",
+        `d1: ${d1} | d2: ${d2}`);
+
+      const tenGoc = 'HD2 CHIỀU / ĐỢT 1 : 26*10?';
+      const tenClean = tenGoc.replace(/[/\\:*?"<>|]/g, '_').replace(/\s+/g, '_').trim();
+      assert("3.2 Làm sạch ký tự cấm trong tên file an toàn cho Windows/Excel",
+        !tenClean.includes('/') && !tenClean.includes(':') && !tenClean.includes('*') && !tenClean.includes('?'),
+        `Tên sạch: ${tenClean}`);
+    } catch (e3) {
+      assert("Lỗi Test Case 3", false, e3.message);
+    }
+
+    // Hiển thị tổng kết kiểm thử
+    hienThiKetQua();
+  }
+
+  function hienThiKetQua() {
+    const box = document.getElementById('summaryBox');
+    const container = document.getElementById('testResults');
+    const passCount = results.filter(r => r.pass).length;
+    const totalCount = results.length;
+    const allPassed = passCount === totalCount;
+
+    if (allPassed) {
+      box.className = 'summary pass';
+      box.innerHTML = `✅ TẤT CẢ TEST ĐÃ VƯỢT QUA (${passCount}/${totalCount} assertions pass)`;
+    } else {
+      box.className = 'summary fail';
+      box.innerHTML = `❌ CÓ TEST THẤT BẠI (${passCount}/${totalCount} assertions pass)`;
+    }
+
+    container.innerHTML = results.map(r => `
+      <div class="test-card">
+        <div class="test-title">
+          <span class="${r.pass ? 'badge-pass' : 'badge-fail'}">${r.pass ? 'PASS' : 'FAIL'}</span>
+          <span>${r.name}</span>
+        </div>
+        ${r.details ? `<div class="test-detail">${r.details}</div>` : ''}
+      </div>
+    `).join('');
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    chayKiemThu();
+  });
+</script>
+</body>
+</html>

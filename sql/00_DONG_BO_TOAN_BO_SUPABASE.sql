@@ -91,6 +91,9 @@ ALTER TABLE public.luu_tru ADD COLUMN IF NOT EXISTS da_quyet_toan BOOLEAN DEFAUL
 CREATE INDEX IF NOT EXISTS idx_luu_tru_xe ON public.luu_tru(xe);
 CREATE INDEX IF NOT EXISTS idx_luu_tru_ma_dot ON public.luu_tru(ma_dot);
 CREATE INDEX IF NOT EXISTS idx_luu_tru_ma_kh ON public.luu_tru(ma_kh);
+CREATE INDEX IF NOT EXISTS idx_luu_tru_no_phat_sinh ON public.luu_tru(no_phat_sinh);
+CREATE INDEX IF NOT EXISTS idx_luu_tru_ngay_giao ON public.luu_tru(ngay_giao);
+CREATE INDEX IF NOT EXISTS idx_luu_tru_da_quyet_toan ON public.luu_tru(da_quyet_toan);
 
 -- ----------------------------------------------------------------------------
 -- 4. BẢNG CHI TIẾT HÓA ĐƠN (Bước 2 & 3: Chi tiết từng dòng hàng hóa phục vụ MISA)

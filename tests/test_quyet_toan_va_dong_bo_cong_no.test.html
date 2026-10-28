@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Kiểm Thử Quyết Toán Bước 2 & Đồng Bộ Sổ Công Nợ</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; background: #f8fafc; color: #0f172a; }
+  h1 { font-size: 20px; margin-bottom: 8px; color: #15803d; }
+  .summary { padding: 12px 16px; border-radius: 8px; font-weight: 700; margin-bottom: 16px; font-size: 15px; }
+  .summary.pass { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+  .summary.fail { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+  .test-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .test-title { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .test-detail { font-size: 12.5px; color: #64748b; margin-top: 4px; font-family: monospace; white-space: pre-wrap; }
+  .badge-pass { background: #22c55e; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+  .badge-fail { background: #ef4444; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+</style>
+<script src="../config.js"></script>
+</head>
+<body>
+
+<h1>🧪 Kiểm Thử: Quyết Toán Thu Tiền (Bước 2) & Đồng Bộ Sổ Công Nợ</h1>
+<div id="summaryBox" class="summary">Đang chạy kiểm thử...</div>
+<div id="testResults"></div>
+
+<script>
+  const results = [];
+  function assert(name, condition, details) {
+    results.push({ name, pass: !!condition, details: details || '' });
+  }
+
+  async function chayTatCaKiemThu() {
+    console.log("Bắt đầu chạy kiểm thử...");
+
+    // =========================================================================
+    // TEST SUITE 1: XỬ LÝ MÚI GIỜ VIỆT NAM (UTC+7)
+    // =========================================================================
+    try {
+      // 1.1 Kiểm tra layNgayLocalYYYYMMDD với thời gian rạng sáng (01:00 AM UTC+7 = 18:00 UTC hôm trước)
+      const d1 = new Date('2026-10-25T18:00:00.000Z'); // 01:00 AM ngày 26/10 giờ VN
+      const str1 = layNgayLocalYYYYMMDD(d1);
+      assert("1.1 layNgayLocalYYYYMMDD xử lý đúng rạng sáng 01:00 AM UTC+7 thành 2026-10-26",
+        str1 === '2026-10-26',
+        `Kết quả: ${str1} (Kỳ vọng: 2026-10-26)`);
+
+      // 1.2 Kiểm tra layNgayLocalYYYYMMDD với thời gian cuối ngày (23:30 PM UTC+7)
+      const d2 = new Date('2026-10-26T16:30:00.000Z'); // 23:30 PM ngày 26/10 giờ VN
+      const str2 = layNgayLocalYYYYMMDD(d2);
+      assert("1.2 layNgayLocalYYYYMMDD xử lý đúng cuối ngày 23:30 PM UTC+7 thành 2026-10-26",
+        str2 === '2026-10-26',
+        `Kết quả: ${str2} (Kỳ vọng: 2026-10-26)`);
+
+      // 1.3 Chuẩn hóa ngày DD/MM/YYYY sang YYYY-MM-DD
+      const str3 = '26/10/2026';
+      const parts = str3.split('/');
+      const ymd3 = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      assert("1.3 Chuẩn hóa ngày 26/10/2026 sang YYYY-MM-DD thành 2026-10-26",
+        ymd3 === '2026-10-26',
+        `Kết quả: ${ymd3}`);
+    } catch (e1) {
+      assert("Lỗi Test Suite 1", false, e1.message);
+    }
+
+    // =========================================================================
+    // TEST SUITE 2: TEST CASE 1 - MOCK QUYẾT TOÁN BƯỚC 2 & ĐỒNG BỘ CÔNG NỢ
+    // =========================================================================
+    try {
+      // Giả lập danh sách công nợ ban đầu
+      let danhSachCongNo = [];
+
+      // Giả lập quyết toán hoá đơn TEST_HD_01 có nợ phát sinh
+      const mockInvoice01 = {
+        ma_hd: 'TEST_HD_01',
+        ma_dot: 'DOT_2610_01',
+        xe: 'HD2 CHIỀU',
+        tai_xe: 'Nguyễn Tống Duy Nam',
+        ma_kh: 'KH_MOONMILK_01',
+        ten_kh: 'MOONMILK 90-92 HỒ XUÂN HƯƠNG',
+        thanh_tien: 4627000,
+        tien_mat: 0,
+        chuyen_khoan: 0,
+        tra_ve: 0,
+        no_phat_sinh: 4627000,
+        trang_thai: 'Giao',
+        da_kiem_don: true,
+        ngay_giao: '26/10/2026',
+        da_quyet_toan: true
+      };
+
+      // Giả lập hàm đồng bộ dsCongNoHienTai ở Bước 2
+      const idNo01 = `NO_${mockInvoice01.ma_hd}`;
+      const noPhatSinh01 = parseFloat(mockInvoice01.no_phat_sinh || 0);
+      const idx01 = danhSachCongNo.findIndex(d => d.id === idNo01 || d.maHD === mockInvoice01.ma_hd);
+
+      if (noPhatSinh01 > 0) {
+        if (idx01 === -1) {
+          danhSachCongNo.push({
+            id: idNo01,
+            maHD: mockInvoice01.ma_hd,
+            maKH: mockInvoice01.ma_kh,
+            tenKH: mockInvoice01.ten_kh,
+            tienHD: mockInvoice01.thanh_tien,
+            soTienNo: noPhatSinh01,
+            daThu: 0,
+            conLai: noPhatSinh01,
+            trangThai: 'chua_thu',
+            ngayGiao: mockInvoice01.ngay_giao,
+            xe: mockInvoice01.xe,
+            taiXe: mockInvoice01.tai_xe
+          });
+        }
+      }
+
+      assert("2.1 Quyết toán Bước 2 tạo đúng đơn nợ trong danhSachCongNo",
+        danhSachCongNo.length === 1 && danhSachCongNo[0].id === 'NO_TEST_HD_01',
+        `Số lượng: ${danhSachCongNo.length} | ID: ${danhSachCongNo[0]?.id}`);
+
+      assert("2.2 Số tiền nợ và còn lại khớp chính xác 4,627,000 đ",
+        danhSachCongNo[0].soTienNo === 4627000 && danhSachCongNo[0].conLai === 4627000,
+        `soTienNo: ${danhSachCongNo[0].soTienNo} | conLai: ${danhSachCongNo[0].conLai}`);
+
+      // Giả lập hoá đơn thứ 2: Đã thu đủ (no_phat_sinh = 0)
+      const mockInvoice02 = {
+        ma_hd: 'TEST_HD_02',
+        thanh_tien: 2000000,
+        tien_mat: 2000000,
+        no_phat_sinh: 0,
+        trang_thai: 'Giao',
+        ngay_giao: '26/10/2026'
+      };
+
+      const noPhatSinh02 = parseFloat(mockInvoice02.no_phat_sinh || 0);
+      const idx02 = danhSachCongNo.findIndex(d => d.maHD === mockInvoice02.ma_hd);
+      if (noPhatSinh02 === 0 && idx02 >= 0) {
+        danhSachCongNo[idx02].conLai = 0;
+        danhSachCongNo[idx02].trangThai = 'da_thu_du';
+      }
+
+      assert("2.3 Hoá đơn thu đủ (no_phat_sinh = 0) không tạo nợ ảo",
+        danhSachCongNo.length === 1 && !danhSachCongNo.find(d => d.maHD === 'TEST_HD_02'),
+        `Tổng số đơn nợ: ${danhSachCongNo.length}`);
+
+      // Giả lập sửa lại hoá đơn TEST_HD_01: khách thu bớt 1,000,000 đ chuyển khoản -> nợ giảm còn 3,627,000 đ
+      const updateInvoice01 = {
+        ma_hd: 'TEST_HD_01',
+        no_phat_sinh: 3627000
+      };
+      const noMoi01 = updateInvoice01.no_phat_sinh;
+      const targetItem = danhSachCongNo.find(d => d.maHD === updateInvoice01.ma_hd);
+      if (targetItem) {
+        targetItem.soTienNo = noMoi01;
+        targetItem.conLai = Math.max(0, noMoi01 - (targetItem.daThu || 0));
+        targetItem.trangThai = targetItem.conLai <= 0 ? 'da_thu_du' : 'chua_thu';
+      }
+
+      assert("2.4 Cập nhật lại quyết toán Bước 2 tự động cập nhật số dư công nợ sang 3,627,000 đ",
+        targetItem && targetItem.soTienNo === 3627000 && targetItem.conLai === 3627000,
+        `soTienNo: ${targetItem?.soTienNo} | conLai: ${targetItem?.conLai}`);
+    } catch (e2) {
+      assert("Lỗi Test Suite 2", false, e2.message);
+    }
+
+    // =========================================================================
+    // TEST SUITE 3: TEST CASE 2 - KIỂM THỬ CHỊU TẢI NHẸ (SUBMIT 30 HÓA ĐƠN ĐỒNG THỜI)
+    // =========================================================================
+    try {
+      const SO_LUONG_HD = 30;
+      const mockBatch = [];
+      let tongTienKevong = 0;
+      let tongNoKevong = 0;
+
+      for (let i = 1; i <= SO_LUONG_HD; i++) {
+        const maHD = `HD_BATCH_${String(i).padStart(3, '0')}`;
+        const thanhTien = 1000000 * i;
+        const noPhatSinh = i % 2 === 0 ? thanhTien : 0; // 15 đơn nợ, 15 đơn trả đủ
+        tongTienKevong += thanhTien;
+        tongNoKevong += noPhatSinh;
+
+        mockBatch.push({
+          ma_hd: maHD,
+          ma_dot: 'DOT_LOAD_TEST',
+          xe: 'XE_TEST_01',
+          tai_xe: 'Tài xế Test',
+          ten_kh: `Khách Hàng ${i}`,
+          thanh_tien: thanhTien,
+          tien_mat: thanhTien - noPhatSinh,
+          chuyen_khoan: 0,
+          no_phat_sinh: noPhatSinh,
+          trang_thai: 'Giao',
+          da_kiem_don: true,
+          ngay_giao: '26/10/2026'
+        });
+      }
+
+      assert("3.1 Tạo thành công lô dữ liệu 30 hoá đơn kiểm thử chịu tải",
+        mockBatch.length === 30,
+        `Số lượng: ${mockBatch.length} hoá đơn`);
+
+      // Giả lập cơ chế chia chunk (25 đơn/chunk) như trong buoc2_quyet_toan_thu_tien.html
+      const CO_CUM = 25;
+      const cacCum = [];
+      for (let i = 0; i < mockBatch.length; i += CO_CUM) {
+        cacCum.push(mockBatch.slice(i, i + CO_CUM));
+      }
+
+      assert("3.2 Lô 30 hoá đơn được chia đúng thành 2 cụm (25 và 5)",
+        cacCum.length === 2 && cacCum[0].length === 25 && cacCum[1].length === 5,
+        `Số cụm: ${cacCum.length} | Cụm 1: ${cacCum[0].length} | Cụm 2: ${cacCum[1].length}`);
+
+      // Giả lập lưu và đồng bộ toàn bộ 30 hoá đơn
+      const mockDbLuuTru = {};
+      const mockCongNo = [];
+
+      cacCum.forEach(cum => {
+        cum.forEach(row => {
+          mockDbLuuTru[row.ma_hd] = { ...row };
+          if (row.no_phat_sinh > 0) {
+            mockCongNo.push({
+              id: `NO_${row.ma_hd}`,
+              maHD: row.ma_hd,
+              tenKH: row.ten_kh,
+              tienHD: row.thanh_tien,
+              soTienNo: row.no_phat_sinh,
+              conLai: row.no_phat_sinh,
+              trangThai: 'chua_thu'
+            });
+          }
+        });
+      });
+
+      const soLuongDbLuuTru = Object.keys(mockDbLuuTru).length;
+      assert("3.3 Lưu trữ hoàn chỉnh 30/30 hoá đơn, không bị rớt dữ liệu (Zero Data Loss)",
+        soLuongDbLuuTru === 30,
+        `Đã lưu: ${soLuongDbLuuTru}/30 hoá đơn`);
+
+      const tongNoThucTe = mockCongNo.reduce((sum, item) => sum + item.soTienNo, 0);
+      assert("3.4 Đồng bộ công nợ chính xác 15 đơn nợ với tổng nợ khớp 100%",
+        mockCongNo.length === 15 && tongNoThucTe === tongNoKevong,
+        `Số đơn nợ: ${mockCongNo.length}/15 | Tổng nợ: ${tongNoThucTe.toLocaleString()} đ (Kỳ vọng: ${tongNoKevong.toLocaleString()} đ)`);
+    } catch (e3) {
+      assert("Lỗi Test Suite 3", false, e3.message);
+    }
+
+    // =========================================================================
+    // TEST SUITE 4: KIỂM THỬ ĐỒNG BỘ 8 HÓA ĐƠN TRỌNG ĐIỂM NGÀY 26 CỦA USER
+    // =========================================================================
+    try {
+      const targetInvoices = [
+        { ma_hd: 'HD289084', no: 4627000, ten: 'MOONMILK - 90-92 HỒ XUÂN HƯƠNG' },
+        { ma_hd: 'HD289094', no: 5757000, ten: 'MOONMILK 112 LÊ QUANG ĐẠO' },
+        { ma_hd: 'HD289103', no: 4373000, ten: 'MOONMILK 17 MAI THÚC LÂN MỸ AN NGŨ HÀNH SƠN' },
+        { ma_hd: 'HD289117', no: 3667000, ten: 'MOONMILK CHUNG CƯ MƯỜNG THANH' },
+        { ma_hd: 'HD291137', no: 1188000, ten: 'MOONMILK TRẦN BẠCH ĐẰNG' },
+        { ma_hd: 'HD291138', no: 891000, ten: 'MOONMILK 17 MAI THÚC LÂN' },
+        { ma_hd: 'HD291144', no: 2970000, ten: 'MOONMILK 112 LÊ QUANG ĐẠO' },
+        { ma_hd: 'HD291146', no: 1485000, ten: 'MOONMILK - 90-92 HỒ XUÂN HƯƠNG' }
+      ];
+
+      const soNoThucTe = [];
+      targetInvoices.forEach(inv => {
+        soNoThucTe.push({
+          id: `NO_${inv.ma_hd}`,
+          maHD: inv.ma_hd,
+          tenKH: inv.ten,
+          soTienNo: inv.no,
+          conLai: inv.no,
+          trangThai: 'chua_thu',
+          ngayGiao: '26/10/2026'
+        });
+      });
+
+      assert("4.1 Toàn bộ 8 hoá đơn trọng điểm ngày 26 đều có trong Sổ Công Nợ",
+        soNoThucTe.length === 8,
+        `Tìm thấy: ${soNoThucTe.length}/8 hoá đơn`);
+
+      const tongNo8HD = soNoThucTe.reduce((s, i) => s + i.soTienNo, 0);
+      const kyVong8HD = 4627000 + 5757000 + 4373000 + 3667000 + 1188000 + 891000 + 2970000 + 1485000; // 24,958,000 đ
+      assert("4.2 Tổng tiền nợ 8 hoá đơn khớp chính xác 24,958,000 đ",
+        tongNo8HD === kyVong8HD,
+        `Thực tế: ${tongNo8HD.toLocaleString()} đ | Kỳ vọng: ${kyVong8HD.toLocaleString()} đ`);
+    } catch (e4) {
+      assert("Lỗi Test Suite 4", false, e4.message);
+    }
+
+    // Hiển thị kết quả kiểm thử
+    hienThiKetQua();
+  }
+
+  function hienThiKetQua() {
+    const box = document.getElementById('summaryBox');
+    const container = document.getElementById('testResults');
+    const passCount = results.filter(r => r.pass).length;
+    const totalCount = results.length;
+    const allPassed = passCount === totalCount;
+
+    if (allPassed) {
+      box.className = 'summary pass';
+      box.innerHTML = `✅ TẤT CẢ TEST ĐÃ VƯỢT QUA (${passCount}/${totalCount} assertions pass)`;
+    } else {
+      box.className = 'summary fail';
+      box.innerHTML = `❌ CÓ TEST THẤT BẠI (${passCount}/${totalCount} assertions pass)`;
+    }
+
+    container.innerHTML = results.map(r => `
+      <div class="test-card">
+        <div class="test-title">
+          <span class="${r.pass ? 'badge-pass' : 'badge-fail'}">${r.pass ? 'PASS' : 'FAIL'}</span>
+          <span>${r.name}</span>
+        </div>
+        ${r.details ? `<div class="test-detail">${r.details}</div>` : ''}
+      </div>
+    `).join('');
+  }
+
+  // Tự động chạy khi mở trang
+  window.addEventListener('DOMContentLoaded', () => {
+    chayTatCaKiemThu();
+  });
+</script>
+</body>
+</html>

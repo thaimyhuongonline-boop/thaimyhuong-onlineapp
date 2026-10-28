@@ -606,6 +606,9 @@
         <button type="button" class="btn btn-outline" onclick="taiLaiDuLieuCongNo()">
           <span>🔄</span> Tải Lại Dữ Liệu
         </button>
+        <button type="button" class="btn btn-outline" id="btnChayBuNgay26Header" style="border-color:#38bdf8; color:#0369a1; font-weight:800; background:#f0f9ff;" onclick="chayBuCongNoNgay26()" title="Quét toàn bộ hóa đơn ngày 26/10 đã quyết toán ở Bước 2 để đồng bộ bù vào Sổ Công Nợ">
+          <span>⚡</span> Đồng Bộ Bù Ngày 26
+        </button>
         <button type="button" class="btn btn-outline" onclick="inDoiChieuCongNoTuBoLoc()" title="In Biên bản đối chiếu công nợ chi tiết theo bộ lọc">
           <span>🖨️</span> In Đối Chiếu Công Nợ
         </button>
@@ -698,6 +701,7 @@
             <input type="date" id="locDenNgay" class="form-control" style="width:125px; font-size:11.5px;" onchange="locDanhSachCongNo()" title="Đến ngày">
             <button type="button" class="btn btn-outline" style="height:28px; padding:0 6px; font-size:11px;" title="Xem toàn bộ công nợ từ trước đến nay" onclick="datBoLocTatCaNgay()">📅 Tất cả</button>
             <button type="button" class="btn btn-outline" style="height:28px; padding:0 6px; font-size:11px;" title="Lọc công nợ trong tháng hiện tại" onclick="datBoLocThangNay()">Tháng này</button>
+            <button type="button" class="btn btn-outline" id="btnLocNgay26" style="height:28px; padding:0 6px; font-size:11px; font-weight:700; color:#1e40af; border-color:#93c5fd; background:#eff6ff;" title="Xem công nợ ngày 26/10" onclick="datBoLocNgay26()">📅 Ngày 26/10</button>
           </div>
 
           <select id="locKhachHang" class="form-control" style="max-width:200px; font-weight:700;" onchange="locDanhSachCongNo()">
@@ -1879,10 +1883,19 @@
     }
 
     // Helper chuẩn hóa mọi định dạng ngày sang chuẩn YYYY-MM-DD để so sánh chính xác
+    // Xử lý chuẩn múi giờ Việt Nam (UTC+7) cho các chuỗi timestamp ISO có 'T'
     function chuanHoaNgayYYYYMMDD(strDate) {
       if (!strDate) return '';
       strDate = String(strDate).trim();
-      if (strDate.includes('T')) strDate = strDate.split('T')[0];
+      
+      // Nếu là ISO Datetime / UTC timestamp -> chuyển sang ngày giờ địa phương VN (tránh lệch ngày sang hôm trước)
+      if (strDate.includes('T') || (strDate.includes(':') && strDate.includes('-'))) {
+        const dt = new Date(strDate);
+        if (!isNaN(dt.getTime())) {
+          return layNgayLocalYYYYMMDD(dt);
+        }
+        strDate = strDate.split('T')[0];
+      }
       if (strDate.includes(' ')) strDate = strDate.split(' ')[0];
 
       // Nếu là định dạng ngày Việt Nam: DD/MM/YYYY hoặc D/M/YYYY
@@ -1940,6 +1953,182 @@
       if (elTu) elTu.value = layNgayLocalYYYYMMDD(firstDay);
       if (elDen) elDen.value = layNgayLocalYYYYMMDD(now);
       locDanhSachCongNo();
+    }
+
+    // Đặt bộ lọc nhanh xem công nợ ngày 26 (26/10/2026)
+    function datBoLocNgay26() {
+      const elTu = document.getElementById('locTuNgay');
+      const elDen = document.getElementById('locDenNgay');
+      if (elTu) elTu.value = '2026-10-26';
+      if (elDen) elDen.value = '2026-10-26';
+      locDanhSachCongNo();
+    }
+
+    // Quét và đồng bộ bù công nợ ngày 26 (hoặc ngày chỉ định) từ kết quả quyết toán Bước 2
+    async function chayBuCongNoNgay26(ngayCanQuet = '26/10/2026') {
+      if (typeof sb === 'undefined') {
+        alert('Chưa kết nối được với cơ sở dữ liệu Supabase!');
+        return;
+      }
+      baoNhanhCongNo('🔄 Đang quét hóa đơn quyết toán ngày ' + ngayCanQuet + '...');
+      let soLuongThem = 0;
+      let soLuongCapNhat = 0;
+
+      try {
+        // 1. Quét dữ liệu từ bảng luu_tru trên Supabase
+        const CO_TRANG = 1000;
+        let rowsLt = [];
+        let tu = 0;
+        while (true) {
+          const { data: pageLt, error: errLt } = await sb.from('luu_tru')
+            .select('*')
+            .range(tu, tu + CO_TRANG - 1);
+          if (errLt) {
+            console.warn("Lỗi đọc luu_tru khi chạy bù:", errLt);
+            break;
+          }
+          if (!pageLt || pageLt.length === 0) break;
+          rowsLt.push(...pageLt);
+          if (pageLt.length < CO_TRANG) break;
+          tu += CO_TRANG;
+        }
+
+        // Lọc các hóa đơn thuộc ngày 26
+        const rowsNgay26 = rowsLt.filter(r => {
+          const ng = chuanHoaNgayYYYYMMDD(r.ngay_giao || r.tao_luc || '');
+          return ng === '2026-10-26' || r.ngay_giao === '26/10/2026' || r.ngay_giao === '2026-10-26';
+        });
+
+        // 2. Quét thêm từ lịch sử đợt trên localStorage nếu có
+        let tripsFromStorage = [];
+        try {
+          tripsFromStorage = JSON.parse(localStorage.getItem('tmh_lich_su_dot') || '[]');
+        } catch (eDot) {}
+
+        const mapTripInvoices = {};
+        tripsFromStorage.forEach(trip => {
+          const tripNgay = trip.ngay || trip.ngayChuyen || '';
+          if (tripNgay.includes('26/10/2026') || tripNgay.includes('2026-10-26') || (trip.maDot && trip.maDot.includes('261026'))) {
+            (trip.danhSach || trip.invoices || []).forEach(inv => {
+              if (inv.maHD) {
+                mapTripInvoices[inv.maHD] = { ...inv, xe: trip.xe || inv.xe, taiXe: trip.taiXe || inv.taiXe, maDot: trip.maDot };
+              }
+            });
+          }
+        });
+
+        const dsIdDaXoa = docDsIdDaXoa();
+
+        // 3. Đồng bộ hóa đơn từ luu_tru
+        rowsNgay26.forEach(r => {
+          const idNo = `NO_${r.ma_hd}`;
+          if (dsIdDaXoa.includes(idNo)) return;
+
+          const noMoi = parseFloat(r.no_phat_sinh || 0);
+          const tienHDMoi = parseFloat(r.thanh_tien || 0);
+          const idx = danhSachCongNo.findIndex(d => d.id === idNo || d.maHD === r.ma_hd);
+
+          if (noMoi > 0) {
+            if (idx === -1) {
+              danhSachCongNo.push({
+                id: idNo,
+                maHD: r.ma_hd,
+                maKH: r.ma_kh || '',
+                tenKH: r.ten_kh || 'Khách Hàng',
+                soDienThoai: r.so_dien_thoai || '',
+                diaChi: r.dia_chi || '',
+                xe: r.xe || '',
+                taiXe: r.tai_xe || '',
+                ngayGiao: r.ngay_giao || '26/10/2026',
+                tienHD: tienHDMoi,
+                soTienNo: noMoi,
+                daThu: 0,
+                conLai: noMoi,
+                trangThai: 'chua_thu',
+                ngayGhiNo: r.ngay_giao || '26/10/2026',
+                ghiChu: (r.ghi_chu !== undefined && r.ghi_chu !== null) ? String(r.ghi_chu).trim() : '',
+                daKiemTra: !!r.da_kiem_tra,
+                laGiaoLai: !!r.la_giao_lai,
+                daQuyetToan: true
+              });
+              soLuongThem++;
+            } else {
+              const item = danhSachCongNo[idx];
+              let coDoi = false;
+              if (item.soTienNo !== noMoi) {
+                item.soTienNo = noMoi;
+                item.conLai = Math.max(0, noMoi - (item.daThu || 0));
+                item.trangThai = item.conLai <= 0 ? 'da_thu_du' : ((item.daThu || 0) > 0 ? 'da_thu_mot_phan' : 'chua_thu');
+                coDoi = true;
+              }
+              if (tienHDMoi && item.tienHD !== tienHDMoi) { item.tienHD = tienHDMoi; coDoi = true; }
+              if (r.ten_kh && (!item.tenKH || item.tenKH === 'Khách Hàng')) { item.tenKH = r.ten_kh; coDoi = true; }
+              if (r.xe && item.xe !== r.xe) { item.xe = r.xe; coDoi = true; }
+              if (r.tai_xe && item.taiXe !== r.tai_xe) { item.taiXe = r.tai_xe; coDoi = true; }
+              if (coDoi) soLuongCapNhat++;
+            }
+          } else if (noMoi === 0 && idx >= 0) {
+            // Đã quyết toán hết nợ
+            const item = danhSachCongNo[idx];
+            if (item.conLai > 0 || item.soTienNo > 0) {
+              item.soTienNo = 0;
+              item.conLai = 0;
+              item.trangThai = 'da_thu_du';
+              soLuongCapNhat++;
+            }
+          }
+        });
+
+        // 4. Bổ sung các hóa đơn từ lịch sử đợt nếu luu_tru chưa có
+        Object.keys(mapTripInvoices).forEach(maHD => {
+          const inv = mapTripInvoices[maHD];
+          const noMoi = parseFloat(inv.noPhatSinh || inv.tienNo || 0);
+          if (noMoi > 0) {
+            const idNo = `NO_${maHD}`;
+            if (dsIdDaXoa.includes(idNo)) return;
+            const idx = danhSachCongNo.findIndex(d => d.id === idNo || d.maHD === maHD);
+            if (idx === -1) {
+              danhSachCongNo.push({
+                id: idNo,
+                maHD: maHD,
+                maKH: inv.maKH || '',
+                tenKH: inv.tenKH || 'Khách Hàng',
+                soDienThoai: inv.sdt || inv.dienThoai || '',
+                diaChi: inv.diaChi || '',
+                xe: inv.xe || '',
+                taiXe: inv.taiXe || '',
+                ngayGiao: inv.ngayGiao || '26/10/2026',
+                tienHD: parseFloat(inv.thanhTien || inv.tongTien || 0),
+                soTienNo: noMoi,
+                daThu: 0,
+                conLai: noMoi,
+                trangThai: 'chua_thu',
+                ngayGhiNo: '26/10/2026',
+                ghiChu: inv.ghiChu || '',
+                daKiemTra: false,
+                daQuyetToan: true
+              });
+              soLuongThem++;
+            }
+          }
+        });
+
+        // 5. Lưu sổ và cập nhật giao diện
+        ghiSoCongNo(danhSachCongNo);
+        capNhatKPI();
+        capNhatDropdownKhachHang();
+        datBoLocNgay26();
+
+        const tongNgay26 = danhSachCongNo.filter(d => {
+          const ng = chuanHoaNgayYYYYMMDD(d.ngayGhiNo || d.ngayGiao || '');
+          return ng === '2026-10-26' || (d.ngayGiao && d.ngayGiao.includes('26/10/2026'));
+        }).length;
+
+        baoNhanhCongNo(`✅ Hoàn tất đồng bộ bù ngày 26/10: thêm ${soLuongThem}, cập nhật ${soLuongCapNhat}. Tổng: ${tongNgay26} đơn.`);
+      } catch (err) {
+        console.error('Lỗi khi chạy bù công nợ:', err);
+        alert('Có lỗi khi chạy bù công nợ: ' + (err.message || err));
+      }
     }
 
     async function khoiTaoTrang() {
@@ -2075,15 +2264,25 @@
       thuNoCloudDaTai = false;
       if (typeof sb === 'undefined') return;
       try {
-        const { data, error } = await sb.from('thu_no')
-          .select('id, id_don_no, ma_hd, so_tien, ngay_thu, hinh_thuc, tai_khoan_nhan, ghi_chu, nguoi_thu, hang_tra_lai, tao_luc')
-          .not('id_don_no', 'is', null)
-          .order('tao_luc', { ascending: true })
-          .range(0, 9999);
-        if (error) {
-          if (laLoiThieuBangThuNo(error)) banThuNoChuaSanSang = true;
-          console.warn('Không đọc được bảng thu_no (đã chạy sql/07_thu_no_dong_bo.sql chưa?):', error);
-          return;
+        const CO_TRANG = 1000;
+        let data = [];
+        let tu = 0;
+        while (true) {
+          const { data: pageData, error } = await sb.from('thu_no')
+            .select('id, id_don_no, ma_hd, so_tien, ngay_thu, hinh_thuc, tai_khoan_nhan, ghi_chu, nguoi_thu, hang_tra_lai, tao_luc')
+            .not('id_don_no', 'is', null)
+            .order('tao_luc', { ascending: true })
+            .range(tu, tu + CO_TRANG - 1);
+          if (error) {
+            if (laLoiThieuBangThuNo(error)) banThuNoChuaSanSang = true;
+            console.warn('Không đọc được bảng thu_no (đã chạy sql/07_thu_no_dong_bo.sql chưa?):', error);
+            if (tu === 0) return;
+            break;
+          }
+          if (!pageData || pageData.length === 0) break;
+          data.push(...pageData);
+          if (pageData.length < CO_TRANG) break;
+          tu += CO_TRANG;
         }
         thuNoCloudDaTai = true;
         (data || []).forEach(r => {
@@ -2256,17 +2455,38 @@
         console.warn("Lỗi quét tmh_lich_su_dot:", e);
       }
 
-      // 2. Đồng bộ từ Supabase nếu có kết nối
+      // 2. Đồng bộ từ Supabase nếu có kết nối (đọc phân trang toàn bộ các trang để vượt giới hạn 1000 dòng của PostgREST)
       if (typeof sb !== 'undefined') {
         try {
-          const { data, error } = await sb.from('luu_tru').select('*').gt('no_phat_sinh', 0);
-          if (!error && Array.isArray(data)) {
+          const CO_TRANG = 1000;
+          let data = [];
+          let tu = 0;
+          while (true) {
+            const { data: pageData, error: pageErr } = await sb.from('luu_tru')
+              .select('*')
+              .gt('no_phat_sinh', 0)
+              .range(tu, tu + CO_TRANG - 1);
+            if (pageErr) {
+              console.warn("Lỗi đọc phân trang luu_tru:", pageErr);
+              if (tu === 0) break;
+              break;
+            }
+            if (!pageData || pageData.length === 0) break;
+            data.push(...pageData);
+            if (pageData.length < CO_TRANG) break;
+            tu += CO_TRANG;
+          }
+
+          if (data && Array.isArray(data)) {
             data.forEach(r => {
               const idNo = `NO_${r.ma_hd}`;
               // Bỏ qua nếu đã xóa thủ công
               const dsIdDaXoa = docDsIdDaXoa();
               if (dsIdDaXoa.includes(idNo)) return;
               const idx = danhSachCongNo.findIndex(d => d.id === idNo || d.maHD === r.ma_hd);
+              const noMoi = parseFloat(r.no_phat_sinh || 0);
+              const tienHDMoi = parseFloat(r.thanh_tien || 0);
+
               if (idx === -1) {
                 danhSachCongNo.push({
                   id: idNo,
@@ -2278,10 +2498,10 @@
                   xe: r.xe || '',
                   taiXe: r.tai_xe || '',
                   ngayGiao: r.ngay_giao || '',
-                  tienHD: r.thanh_tien || 0,
-                  soTienNo: r.no_phat_sinh || 0,
+                  tienHD: tienHDMoi,
+                  soTienNo: noMoi,
                   daThu: 0,
-                  conLai: r.no_phat_sinh || 0,
+                  conLai: noMoi,
                   trangThai: 'chua_thu',
                   ngayGhiNo: r.ngay_giao || '',
                   ghiChu: (r.ghi_chu !== undefined && r.ghi_chu !== null) ? String(r.ghi_chu).trim() : '',
@@ -2294,6 +2514,29 @@
                 coThayDoi = true;
               } else {
                 const item = danhSachCongNo[idx];
+                // CẬP NHẬT ĐẦY ĐỦ SỐ TIỀN NỢ & THÔNG TIN TỪ SUPABASE (luu_tru là nguồn gốc chân thực)
+                if (noMoi !== item.soTienNo) {
+                  item.soTienNo = noMoi;
+                  item.conLai = Math.max(0, noMoi - (item.daThu || 0));
+                  item.trangThai = item.conLai <= 0 ? 'da_thu_du' : ((item.daThu || 0) > 0 ? 'da_thu_mot_phan' : 'chua_thu');
+                  coThayDoi = true;
+                }
+                if (tienHDMoi && tienHDMoi !== item.tienHD) {
+                  item.tienHD = tienHDMoi;
+                  coThayDoi = true;
+                }
+                if (r.ngay_giao && r.ngay_giao !== item.ngayGiao) {
+                  item.ngayGiao = r.ngay_giao;
+                  coThayDoi = true;
+                }
+                if (r.xe && r.xe !== item.xe) {
+                  item.xe = r.xe;
+                  coThayDoi = true;
+                }
+                if (r.tai_xe && r.tai_xe !== item.taiXe) {
+                  item.taiXe = r.tai_xe;
+                  coThayDoi = true;
+                }
                 if ((!item.tenKH || item.tenKH === 'Khách Hàng') && r.ten_kh) {
                   item.tenKH = r.ten_kh;
                   coThayDoi = true;
@@ -2338,6 +2581,39 @@
           }
         } catch (e) {
           console.warn("Lỗi đọc Supabase:", e);
+        }
+      }
+
+      // 2c. Kiểm tra các hóa đơn trong sổ nợ xem có đơn nào trên Supabase đã được quyết toán không còn nợ (no_phat_sinh = 0)
+      if (typeof sb !== 'undefined' && danhSachCongNo.length > 0) {
+        try {
+          const dsMaHDChuaThu = danhSachCongNo
+            .filter(d => !d.ngoaiBangKe && (d.conLai > 0 || d.soTienNo > 0))
+            .map(d => d.maHD)
+            .filter(Boolean);
+          
+          if (dsMaHDChuaThu.length > 0) {
+            for (let i = 0; i < dsMaHDChuaThu.length; i += 100) {
+              const cum = dsMaHDChuaThu.slice(i, i + 100);
+              const { data: daKiem } = await sb.from('luu_tru')
+                .select('ma_hd, no_phat_sinh, da_quyet_toan, da_kiem_don')
+                .in('ma_hd', cum)
+                .eq('no_phat_sinh', 0);
+              if (Array.isArray(daKiem) && daKiem.length > 0) {
+                daKiem.forEach(k => {
+                  const idx = danhSachCongNo.findIndex(d => d.maHD === k.ma_hd);
+                  if (idx >= 0 && (danhSachCongNo[idx].conLai > 0 || danhSachCongNo[idx].soTienNo > 0)) {
+                    danhSachCongNo[idx].soTienNo = 0;
+                    danhSachCongNo[idx].conLai = 0;
+                    danhSachCongNo[idx].trangThai = 'da_thu_du';
+                    coThayDoi = true;
+                  }
+                });
+              }
+            }
+          }
+        } catch (eZero) {
+          console.warn("Lỗi kiểm tra hóa đơn hết nợ:", eZero);
         }
       }
 

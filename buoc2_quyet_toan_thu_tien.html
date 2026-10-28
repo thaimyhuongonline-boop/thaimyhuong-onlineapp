@@ -779,6 +779,9 @@
           <button type="button" class="btn btn-outline" style="height:32px; padding:0 8px; font-size:11.5px;" onclick="xoaBoLocChuyenXe()" title="Xóa bộ lọc về mặc định (xem tất cả)">
             <span>✖</span> Xóa lọc
           </button>
+          <button type="button" class="btn btn-outline" id="btnXuatExcelBangTinhTien" style="height:32px; padding:0 10px; font-size:12px; font-weight:700; color:#15803d; border-color:#86efac; background:#f0fdf4;" onclick="xuatExcelBangTinhTien()" title="Xuất toàn bộ bảng tính tiền và quyết toán của chuyến xe đang chọn ra Excel">
+            <span style="color:#16a34a; font-size:13px; font-weight:900;">📊</span> Xuất Excel Bảng Tính Tiền
+          </button>
         </div>
 
         <!-- Dòng 2: Dropdown Chọn chuyến xe, Các nút thao tác & Thẻ thông tin xe -->
@@ -2020,6 +2023,10 @@
           chuyenTabB2(pTab);
         }
       } catch (e) {}
+
+      if (typeof capNhatTrangThaiNutXuatExcel === 'function') {
+        capNhatTrangThaiNutXuatExcel();
+      }
     }
 
     // Tải danh mục tài khoản ngân hàng từ Danh mục hệ thống
@@ -4718,6 +4725,11 @@
 
       // Cập nhật đối soát bảng đếm tiền mặt theo SỐ TIỀN PHẢI THU
       kiemTraKhopTienMat(soTienPhaiThu);
+
+      // Cập nhật trạng thái nút Xuất Excel Bảng Tính Tiền
+      if (typeof capNhatTrangThaiNutXuatExcel === 'function') {
+        capNhatTrangThaiNutXuatExcel();
+      }
     }
 
     // ========================================================
@@ -6415,10 +6427,12 @@
       // 2. Ghi nhận vào sổ công nợ (tmh_theo_doi_cong_no)
       const dsCongNoHienTai = docSoCongNo();
       let demNoMoi = 0;
+      const ngayGiaoMacDinh = dotHienTai.ngayGiao || (typeof layNgayLocalYYYYMMDD === 'function' ? layNgayLocalYYYYMMDD(new Date()) : new Date().toLocaleDateString('en-CA'));
+      
       danhSachHoaDonQuyetToan.forEach(h => {
+        const idNo = `NO_${h.maHD}`;
+        const tonTaiIdx = dsCongNoHienTai.findIndex(d => d.id === idNo || d.maHD === h.maHD);
         if (h.noPhatSinh > 0) {
-          const idNo = `NO_${h.maHD}`;
-          const tonTaiIdx = dsCongNoHienTai.findIndex(d => d.id === idNo || d.maHD === h.maHD);
           const daThuCu = (tonTaiIdx >= 0 && dsCongNoHienTai[tonTaiIdx].daThu) ? dsCongNoHienTai[tonTaiIdx].daThu : 0;
           const conLaiMoi = Math.max(0, h.noPhatSinh - daThuCu);
           const trangThaiMoi = conLaiMoi <= 0 ? 'da_thu_du' : (daThuCu > 0 ? 'da_thu_mot_phan' : 'chua_thu');
@@ -6437,13 +6451,13 @@
             maDot: dotHienTai.maDot,
             xe: dotHienTai.xe,
             taiXe: dotHienTai.taiXe || '',
-            ngayGiao: dotHienTai.ngayGiao || new Date().toISOString().slice(0, 10),
+            ngayGiao: ngayGiaoMacDinh,
             tienHD: h.tienHD,
             soTienNo: h.noPhatSinh,
             daThu: daThuCu,
             conLai: conLaiMoi,
             trangThai: trangThaiMoi,
-            ngayGhiNo: (tonTaiIdx >= 0 && dsCongNoHienTai[tonTaiIdx].ngayGhiNo) ? dsCongNoHienTai[tonTaiIdx].ngayGhiNo : new Date().toLocaleDateString('vi-VN'),
+            ngayGhiNo: (tonTaiIdx >= 0 && dsCongNoHienTai[tonTaiIdx].ngayGhiNo) ? dsCongNoHienTai[tonTaiIdx].ngayGhiNo : ngayGiaoMacDinh,
             ghiChu: (h.ghiChu !== undefined && h.ghiChu !== null) ? String(h.ghiChu).trim() : '',
             hinhThuc: htTT || (tonTaiIdx >= 0 ? (dsCongNoHienTai[tonTaiIdx].hinhThuc || '') : ''),
             tienMat: h.tienMat,
@@ -6457,12 +6471,19 @@
             dsCongNoHienTai.unshift(banGhiNo);
             demNoMoi++;
           }
+        } else if (tonTaiIdx >= 0) {
+          // Hóa đơn này từng có nợ nhưng nay quyết toán thu hết / trả hết (noPhatSinh == 0) -> chuyển trạng thái đã thu đủ
+          dsCongNoHienTai[tonTaiIdx].conLai = 0;
+          dsCongNoHienTai[tonTaiIdx].trangThai = 'da_thu_du';
+          dsCongNoHienTai[tonTaiIdx].soTienNo = 0;
+          dsCongNoHienTai[tonTaiIdx].tienMat = h.tienMat;
+          dsCongNoHienTai[tonTaiIdx].chuyenKhoan = h.chuyenKhoan;
         }
       });
 
       // Thu nợ cũ: TỰ ĐỘNG CẤN TRỪ vào Sổ Theo Dõi Công Nợ + bảng thu_no trên Supabase
       // (chỉ ghi phần chênh so với lần lưu trước của chính chuyến xe này → lưu lại nhiều lần
-      // không bị trừ nợ trùng; mọi máy & trang Theo Dõi Công Nợ thấy ngay, chống thu trùng)
+      // không bị trừ nợ trùng; mọi máy & trang Theo Dõi Công NỢ thấy ngay, chống thu trùng)
       const ketQuaCanTru = await canTruThuNoCuVaoSoCongNo(dsCongNoHienTai, chuanBiThuNo);
       ghiSoCongNo(dsCongNoHienTai);
 
@@ -6526,8 +6547,9 @@
         xoaDonGiaoLaiSupabase(cacHDHoanThanh);
       }
 
-      // 5. Đồng bộ Supabase luu_tru & phieu_nop_tien
+      // 5. Đồng bộ Supabase luu_tru & phieu_nop_tien với ACID Transaction và khả năng chống rớt mạng
       let luuPhieuNopOk = false;
+      let luuLuuTruOk = false;
       if (typeof sb !== 'undefined') {
         try {
           const rowsUpdate = danhSachHoaDonQuyetToan.map(h => {
@@ -6560,14 +6582,12 @@
             };
           });
 
-          await upsertSupabaseTuTu('luu_tru', rowsUpdate, { onConflict: 'ma_hd' });
-
-          // Lưu phiếu nộp tiền lên Supabase
+          // Chuẩn bị dữ liệu phiếu nộp tiền
           const phieuNopData = {
             ma_phieu: `PNP_${dotHienTai.maDot}`,
             ma_dot: dotHienTai.maDot,
             xe: dotHienTai.xe,
-            ngay_nop: dotHienTai.ngayGiao || new Date().toISOString().slice(0, 10),
+            ngay_nop: dotHienTai.ngayGiao || ngayGiaoMacDinh,
             nguoi_nop: nguoiNop || dotHienTai.taiXe,
             thu_quy: nguoiNhan,
             tong_tien_mat: tongMat,
@@ -6586,8 +6606,6 @@
             chenh_lech: (MENH_GIA_TIEN.reduce((s, m) => s + m * (SO_TO_DEM[m] || 0), 0)) - soTienPhaiThu,
             ghi_chu: `Chi: ${formatTien(tienChi)} (${noiDungChi}) | Thu nợ cũ: ${formatTien(thuNoCu)} (${ghiChuThuNoCu}) | ${ghiChuPhieu}` +
               (tongHoanTMLuu > 0 ? ` | Hoàn TM khách (CK dư): ${formatTien(tongHoanTMLuu)}` : ''),
-            // Các cột số liệu riêng để máy khác đọc lại đúng khi mở lại đợt này
-            // (trước đây chỉ gộp chung vào ghi_chu dạng chữ nên không đọc lại được)
             tien_chi: tienChi,
             noi_dung_chi: noiDungChi,
             thu_no_cu: thuNoCu,
@@ -6595,13 +6613,44 @@
             tien_thoi: tienThoi,
             ghi_chu_phieu: ghiChuPhieu,
             danh_sach_don_no_dang_thu: danhSachDonNoDangThu,
-            // Chi tiết nhiều dòng (cần chạy sql/10_chi_tiet_chi_phi_thu_no.sql; thiếu cột thì tự bỏ qua)
             danh_sach_chi_phi: dotHienTai.danhSachChiPhi,
             danh_sach_thu_no: dotHienTai.danhSachThuNo,
             ghi_chu_hoa_don: mapGCLuuChuyen
           };
-          const kqPhieuNop = await upsertSupabaseTuTu('phieu_nop_tien', [phieuNopData], { onConflict: 'ma_phieu' });
-          luuPhieuNopOk = !!(kqPhieuNop && kqPhieuNop.success);
+
+          // Bước 5a: Ưu tiên Transaction RPC fn_quyet_toan_chuyen_xe (ACID) nếu đã được cài đặt trên Supabase
+          let rpcThanhCong = false;
+          try {
+            const { data: rpcRes, error: rpcErr } = await sb.rpc('fn_quyet_toan_chuyen_xe', {
+              p_rows_luu_tru: rowsUpdate,
+              p_phieu_nop: phieuNopData
+            });
+            if (!rpcErr && rpcRes && rpcRes.success) {
+              rpcThanhCong = true;
+              luuLuuTruOk = true;
+              luuPhieuNopOk = true;
+            }
+          } catch (eRpc) {
+            // Chưa cài đặt RPC -> fallback sang batch upsert từng bảng
+          }
+
+          // Bước 5b: Fallback lưu batch theo từng cụm 25 dòng hóa đơn (chống timeout & rớt mạng)
+          if (!rpcThanhCong) {
+            const CHUNK_SIZE = 25;
+            let tatCaChunkOk = true;
+            for (let i = 0; i < rowsUpdate.length; i += CHUNK_SIZE) {
+              const chunk = rowsUpdate.slice(i, i + CHUNK_SIZE);
+              const kqChunk = await upsertSupabaseTuTu('luu_tru', chunk, { onConflict: 'ma_hd' });
+              if (!kqChunk || !kqChunk.success) {
+                tatCaChunkOk = false;
+                console.error(`[Bước 2] Lỗi lưu cụm hóa đơn ${i + 1}-${i + chunk.length}:`, kqChunk?.error);
+              }
+            }
+            luuLuuTruOk = tatCaChunkOk;
+
+            const kqPhieuNop = await upsertSupabaseTuTu('phieu_nop_tien', [phieuNopData], { onConflict: 'ma_phieu' });
+            luuPhieuNopOk = !!(kqPhieuNop && kqPhieuNop.success);
+          }
         } catch (e) {
           console.warn("Lỗi đồng bộ Supabase:", e);
         }
@@ -6654,6 +6703,10 @@
         if (thieuThuaNop.daDem && (thieuThuaNop.ghiNo || thieuThuaNop.thua >= NGUONG_GHI_NO_THIEU_TIEN) && !luuPhieuNopOk) {
           thongBaoExtra += `\n⚠️ Chưa lưu được phiếu nộp tiền lên máy chủ nên Báo Cáo Tổng Hợp chưa thấy khoản thiếu / thừa này — kiểm tra mạng rồi bấm Lưu lại.`;
         }
+      }
+
+      if (typeof sb !== 'undefined' && !luuLuuTruOk) {
+        thongBaoExtra += `\n⚠️ CẢNH BÁO MẠNG: Một số hóa đơn chưa đồng bộ xong lên máy chủ Supabase. Hãy kiểm tra mạng và bấm "Lưu Quyết Toán" lại để đảm bảo dữ liệu toàn vẹn.`;
       }
 
       alert(
@@ -7722,13 +7775,229 @@
       }
     }
 
-    // Đóng modal chi tiết bằng phím ESC
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') {
-        const m = document.getElementById('modalChiTietKPIThieu');
-        if (m && m.style.display === 'flex') dongModalChiTietKPIThieu();
+    // ========================================================
+    // XUẤT EXCEL BẢNG TÍNH TIỀN HÀNG CỦA CHUYẾN XE (BƯỚC 2)
+    // ========================================================
+    function layChuoiDDMMYYYY(strDate) {
+      if (!strDate) {
+        const now = new Date();
+        const d = String(now.getDate()).padStart(2, '0');
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const y = now.getFullYear();
+        return `${d}${m}${y}`;
       }
-    });
+      strDate = String(strDate).trim();
+      if (strDate.includes('/')) {
+        const parts = strDate.split('/');
+        if (parts.length >= 3) {
+          return `${parts[0].padStart(2, '0')}${parts[1].padStart(2, '0')}${parts[2].slice(0, 4)}`;
+        }
+      }
+      if (strDate.includes('-')) {
+        const parts = strDate.split('-');
+        if (parts.length >= 3) {
+          return `${parts[2].slice(0, 2).padStart(2, '0')}${parts[1].padStart(2, '0')}${parts[0]}`;
+        }
+      }
+      return strDate.replace(/\D/g, '').slice(0, 8);
+    }
+
+    function capNhatTrangThaiNutXuatExcel() {
+      const btn = document.getElementById('btnXuatExcelBangTinhTien');
+      if (!btn) return;
+      const coDuLieu = !!(dotHienTai && Array.isArray(danhSachHoaDonQuyetToan) && danhSachHoaDonQuyetToan.length > 0);
+      btn.disabled = !coDuLieu;
+      btn.style.opacity = coDuLieu ? '1' : '0.55';
+      btn.style.cursor = coDuLieu ? 'pointer' : 'not-allowed';
+    }
+
+    function xuatExcelBangTinhTien() {
+      if (!dotHienTai || !Array.isArray(danhSachHoaDonQuyetToan) || danhSachHoaDonQuyetToan.length === 0) {
+        if (typeof hienThiToast === 'function') {
+          hienThiToast("⚠️ Vui lòng chọn hoặc tải dữ liệu chuyến xe trước khi xuất báo cáo!");
+        } else {
+          alert("Vui lòng chọn hoặc tải dữ liệu chuyến xe trước khi xuất báo cáo!");
+        }
+        return;
+      }
+
+      try {
+        const tenXe = dotHienTai.xe || 'Chưa gán xe';
+        const taiXe = dotHienTai.taiXe || 'Chưa gán tài xế';
+        const ngayGiao = dotHienTai.ngayGiao || 'Hôm nay';
+        const trangThaiQuyetToan = dotHienTai.daQuyetToan ? "Đã quyết toán" : "Chờ tính tiền";
+
+        // 1. Trích xuất các chỉ số KPI tổng hợp từ state / UI
+        let tongXuatKho = 0;
+        let tongTienMat = 0;
+        let tongChuyenKhoan = 0;
+        let tongTraVe = 0;
+        let tongTraHan = 0;
+        let tongGiaoLai = 0;
+        let tongNoPhatSinh = 0;
+
+        danhSachHoaDonQuyetToan.forEach(hd => {
+          tongXuatKho += parseFloat(hd.tienHD || 0);
+          tongTienMat += parseFloat(hd.tienMat || 0);
+          tongChuyenKhoan += parseFloat(hd.chuyenKhoan || 0);
+          tongTraVe += parseFloat(hd.traVe || 0);
+          tongNoPhatSinh += parseFloat(hd.noPhatSinh || 0);
+          if (hd.loaiTraVe === 'giao_lai') {
+            tongGiaoLai += parseFloat(hd.traVe || 0);
+          } else {
+            tongTraHan += parseFloat(hd.traVe || 0);
+          }
+        });
+
+        const chiPhiXe = parseFloat(document.getElementById('inputTienChi')?.value || dotHienTai.tienChi || 0);
+        const thuNoCuXe = parseFloat(document.getElementById('inputThuNoCu')?.value || dotHienTai.thuNoCu || 0);
+        const tienThoiXe = parseFloat(document.getElementById('inputTienThoi')?.value ? String(document.getElementById('inputTienThoi').value).replace(/\./g, '').replace(/,/g, '') : (dotHienTai.tienThoi || 0));
+        const hoanTM = typeof tongHoanTienMatKhach === 'function' ? tongHoanTienMatKhach() : 0;
+        const soTienPhaiThu = Math.max(0, tongTienMat + thuNoCuXe - chiPhiXe + tienThoiXe - hoanTM);
+
+        const rowsData = [];
+
+        // Header công ty & tiêu đề
+        rowsData.push(["CÔNG TY TNHH THÁI MỸ HƯƠNG", "", "", "", "", "", "", "", "", "", "", "", ""]);
+        rowsData.push(["BẢNG QUYẾT TOÁN THU TIỀN HÀNG KHI XE VỀ", "", "", "", "", "", "", "", "", "", "", "", ""]);
+        rowsData.push([`Chuyến xe: ${tenXe} | Tài xế: ${taiXe} | Ngày giao: ${ngayGiao} | Trạng thái: ${trangThaiQuyetToan}`, "", "", "", "", "", "", "", "", "", "", "", ""]);
+        rowsData.push([]); // dòng trống
+
+        // Khối 1: TỔNG HỢP CÁC CHỈ SỐ TÀI CHÍNH CỦA CHUYẾN XE (KPI & CÂN ĐỐI)
+        rowsData.push(["I. TỔNG HỢP CÁC CHỈ SỐ TÀI CHÍNH CHUYẾN XE", "", "", "", "", "", "", "", "", "", "", "", ""]);
+        rowsData.push(["STT", "Chỉ Số Tài Chính", "Giá Trị (VNĐ)", "Ghi Chú Nghiệp Vụ", "", "", "", "", "", "", "", "", ""]);
+        rowsData.push([1, "Tổng Tiền Xuất Kho", tongXuatKho, `${danhSachHoaDonQuyetToan.length} hóa đơn đi giao`]);
+        rowsData.push([2, "Tiền Mặt Phải Nộp", tongTienMat, "Tài xế phải nộp thủ quỹ"]);
+        rowsData.push([3, "Tiền Chuyển Khoản", tongChuyenKhoan, "Khách hàng chuyển khoản ngân hàng"]);
+        rowsData.push([4, "Hàng Trả Về", tongTraVe, `Trả hẳn: ${tongTraHan.toLocaleString('vi-VN')} đ | Giao lại: ${tongGiaoLai.toLocaleString('vi-VN')} đ`]);
+        rowsData.push([5, "Chi Phí Phát Sinh Xe (Chi)", chiPhiXe, "Trừ vào tiền nộp"]);
+        rowsData.push([6, "Thu Nợ Cũ Khách Hàng (Xe thu hộ)", thuNoCuXe, "Cộng vào tiền nộp (cấn trừ vào Sổ công nợ)"]);
+        rowsData.push([7, "Tiền Thối", tienThoiXe, "Cộng vào tiền nộp"]);
+        if (hoanTM > 0) {
+          rowsData.push([8, "Hoàn Tiền Mặt Cho Khách (CK dư)", hoanTM, "Tài xế đã hoàn tiền mặt lại cho khách do CK dư"]);
+        }
+        rowsData.push([
+          hoanTM > 0 ? 9 : 8,
+          "SỐ TIỀN PHẢI THU (Tài xế nộp)",
+          soTienPhaiThu,
+          "= Tiền mặt + Thu nợ cũ - Chi phí + Tiền thối" + (hoanTM > 0 ? " - Hoàn TM" : "")
+        ]);
+        rowsData.push([]); // dòng trống
+
+        // Khối 2: BẢNG CHI TIẾT TỪNG HÓA ĐƠN TRONG CHUYẾN XE
+        rowsData.push(["II. CHI TIẾT TỪNG HÓA ĐƠN TRONG CHUYẾN XE", "", "", "", "", "", "", "", "", "", "", "", ""]);
+        rowsData.push([
+          "STT",
+          "Mã HĐ",
+          "Khách Hàng",
+          "NV Bán Hàng",
+          "Tiền HĐ (đ)",
+          "Tình Trạng Nhận",
+          "Hàng Trả (đ)",
+          "Xử Lý Hàng Trả",
+          "Tiền Mặt (đ)",
+          "Chuyển Khoản (đ)",
+          "Ngân Hàng Nhận",
+          "Nợ Lại (đ)",
+          "Ghi Chú"
+        ]);
+
+        danhSachHoaDonQuyetToan.forEach((hd, i) => {
+          let tinhTrangText = "Giao đủ 100%";
+          if (hd.tinhTrang === 'tra_mot_phan') tinhTrangText = "Trả 1 phần";
+          else if (hd.tinhTrang === 'tra_nguyen_don') tinhTrangText = "Trả nguyên đơn";
+
+          let xuLyTraText = "";
+          if (hd.traVe > 0) {
+            xuLyTraText = hd.loaiTraVe === 'giao_lai' ? "Chờ giao lại" : "Trả về kho";
+          }
+
+          rowsData.push([
+            i + 1,
+            hd.maHD || '',
+            hd.tenKH || '',
+            hd.nguoiBan || '',
+            parseFloat(hd.tienHD || 0),
+            tinhTrangText,
+            parseFloat(hd.traVe || 0),
+            xuLyTraText,
+            parseFloat(hd.tienMat || 0),
+            parseFloat(hd.chuyenKhoan || 0),
+            hd.taiKhoanNhan || hd.nganHang || '',
+            parseFloat(hd.noPhatSinh || 0),
+            hd.ghiChu || ''
+          ]);
+        });
+
+        // Dòng tổng cộng chi tiết
+        rowsData.push([
+          "TỔNG CỘNG",
+          `${danhSachHoaDonQuyetToan.length} HĐ`,
+          "",
+          "",
+          tongXuatKho,
+          "",
+          tongTraVe,
+          "",
+          tongTienMat,
+          tongChuyenKhoan,
+          "",
+          tongNoPhatSinh,
+          ""
+        ]);
+
+        const ws = XLSX.utils.aoa_to_sheet(rowsData);
+
+        // Cài đặt độ rộng cột chuẩn Grid
+        ws['!cols'] = [
+          { wch: 6 },  // STT
+          { wch: 15 }, // Mã HĐ
+          { wch: 32 }, // Khách Hàng
+          { wch: 18 }, // NV Bán
+          { wch: 16 }, // Tiền HĐ
+          { wch: 16 }, // Tình Trạng
+          { wch: 14 }, // Hàng Trả
+          { wch: 15 }, // Xử Lý Trả
+          { wch: 16 }, // Tiền Mặt
+          { wch: 16 }, // Chuyển Khoản
+          { wch: 22 }, // Ngân Hàng
+          { wch: 16 }, // Nợ Lại
+          { wch: 25 }  // Ghi Chú
+        ];
+
+        // Định dạng số có dấu phân cách hàng nghìn cho tất cả các ô số
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+          for (let C = range.s.c; C <= range.e.c; ++C) {
+            const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+            const cell = ws[cellRef];
+            if (cell && cell.t === 'n') {
+              cell.z = '#,##0';
+            }
+          }
+        }
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "BangQuyetToan");
+
+        // Tạo tên file động theo cú pháp: Bang_Quyet_Toan_Tien_Hang_[Mã_Chuyến_Xe]_[DDMMYYYY].xlsx
+        const cleanMaDot = String(dotHienTai.maDot || dotHienTai.xe || 'ChuyenXe')
+          .replace(/[/\\:*?"<>|]/g, '_')
+          .replace(/\s+/g, '_')
+          .trim();
+        const chuoiNgay = layChuoiDDMMYYYY(ngayGiao);
+        const tenFile = `Bang_Quyet_Toan_Tien_Hang_${cleanMaDot}_${chuoiNgay}.xlsx`;
+
+        XLSX.writeFile(wb, tenFile);
+
+        if (typeof hienThiToast === 'function') {
+          hienThiToast(`📥 Đã xuất thành công file Excel: ${tenFile}`);
+        }
+      } catch (err) {
+        console.error("Lỗi xuất Excel bảng tính tiền:", err);
+        alert("Có lỗi khi xuất Excel bảng tính tiền: " + (err.message || String(err)));
+      }
+    }
 
     function xuatExcelDonThieuNhanVien() {
       if (!danhSachDonThieuTongHop || !danhSachDonThieuTongHop.length) {

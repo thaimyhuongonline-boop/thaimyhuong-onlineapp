@@ -137,9 +137,25 @@ async function dangXuat() {
 }
 
 /**
+ * Helper lấy ngày định dạng YYYY-MM-DD theo giờ địa phương (Việt Nam UTC+7)
+ * Tránh lỗi lệch ngày (bị lùi về hôm qua) khi dùng toISOString().slice(0, 10) trước 7:00 sáng
+ */
+function layNgayLocalYYYYMMDD(d) {
+  if (!d || !(d instanceof Date) || isNaN(d)) d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// Bộ nhớ đệm các cột chưa tồn tại trên từng bảng Supabase để tránh lặp lại roundtrip lỗi PGRST204
+const _knownMissingColsByTable = new Map();
+
+/**
  * Hàm Upsert Supabase thông minh có khả năng tự phục hồi (Auto-healing)
  * Nếu bảng trên CSDL Supabase thiếu một cột nào đó (lỗi PGRST204),
  * hàm sẽ tự động loại bỏ cột đó và thử lại ngay, tránh bị từ chối toàn bộ đợt lưu.
+ * Hỗ trợ retry khi gặp lỗi mạng/timeout và lưu cache cột thiếu để tối ưu tốc độ lưu.
  */
 async function upsertSupabaseTuTu(tableName, payload, options = {}) {
   if (typeof sb === 'undefined') return { success: false, error: 'Chưa khởi tạo Supabase client' };
@@ -147,6 +163,18 @@ async function upsertSupabaseTuTu(tableName, payload, options = {}) {
   let currentPayload = Array.isArray(payload)
     ? payload.map(item => ({ ...item }))
     : { ...payload };
+
+  // 1. Loại bỏ ngay các cột đã biết là chưa có trên bảng để tiết kiệm roundtrip
+  const knownMissing = _knownMissingColsByTable.get(tableName);
+  if (knownMissing && knownMissing.size > 0) {
+    if (Array.isArray(currentPayload)) {
+      currentPayload.forEach(row => {
+        knownMissing.forEach(col => delete row[col]);
+      });
+    } else {
+      knownMissing.forEach(col => delete currentPayload[col]);
+    }
+  }
 
   const conflictCol = options.onConflict;
 
@@ -164,6 +192,10 @@ async function upsertSupabaseTuTu(tableName, payload, options = {}) {
         const match = error.message.match(/Could not find the '([^']+)' column/i);
         if (match && match[1]) {
           const colLoi = match[1];
+          if (!_knownMissingColsByTable.has(tableName)) {
+            _knownMissingColsByTable.set(tableName, new Set());
+          }
+          _knownMissingColsByTable.get(tableName).add(colLoi);
           console.warn(`[Auto-heal] Bảng "${tableName}" chưa có cột "${colLoi}". Đang loại bỏ để lưu an toàn...`);
           if (Array.isArray(currentPayload)) {
             currentPayload.forEach(row => delete row[colLoi]);
@@ -174,9 +206,23 @@ async function upsertSupabaseTuTu(tableName, payload, options = {}) {
         }
       }
 
+      // Xử lý lỗi mạng/timeout: retry với exponential backoff nếu chưa quá 4 lần
+      const errMsg = (error.message || '').toLowerCase();
+      const errCode = String(error.code || '');
+      const laLoiMang = errMsg.includes('network') || errMsg.includes('timeout') || errMsg.includes('fetch') || errMsg.includes('failed to fetch') || ['502', '503', '504', '429'].includes(errCode);
+      if (attempt < 4 && laLoiMang) {
+        console.warn(`[Supabase Retry] Thử lại lưu bảng "${tableName}" sau lỗi mạng/timeout (lần ${attempt + 1})...`);
+        await new Promise(r => setTimeout(r, 400 * Math.pow(2, attempt)));
+        continue;
+      }
+
       console.error(`[Supabase Upsert Error] ${tableName}:`, error);
       return { success: false, error };
     } catch (ex) {
+      if (attempt < 4) {
+        await new Promise(r => setTimeout(r, 400 * Math.pow(2, attempt)));
+        continue;
+      }
       console.error(`[Supabase Exception] ${tableName}:`, ex);
       return { success: false, error: ex };
     }
