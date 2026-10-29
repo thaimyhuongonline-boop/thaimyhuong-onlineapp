@@ -2100,8 +2100,11 @@
                 if (theoDot.size > 1) {
                   let maxCount = 0;
                   theoDot.forEach(grp => {
-                    if (grp.length > maxCount) { maxCount = grp.length; bestGroup = grp; }
+                    const dedupGrp = typeof khuTrungDongChiTietHang === 'function' ? khuTrungDongChiTietHang(grp) : grp;
+                    if (dedupGrp.length >= maxCount) { maxCount = dedupGrp.length; bestGroup = dedupGrp; }
                   });
+                } else if (typeof khuTrungDongChiTietHang === 'function') {
+                  bestGroup = khuTrungDongChiTietHang(bestGroup);
                 }
                 const dongChuan = bestGroup.map(r => ({
                   'Mã hóa đơn': ma,
@@ -2231,21 +2234,14 @@
 
       // Gộp các dòng tìm thấy vào duLieuKiotViet (chống trùng lặp dòng)
       if (!Array.isArray(duLieuKiotViet)) duLieuKiotViet = [];
-      const setDongDaCo = new Set(duLieuKiotViet.map(r => {
-        const maHD = String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase();
-        const maH = String(r['Mã hàng'] || r.ma_hang || '').trim().toUpperCase();
-        const sl = r['Số lượng'] !== undefined ? r['Số lượng'] : r.so_luong;
-        const dg = r['Đơn giá'] !== undefined ? r['Đơn giá'] : r.don_gia;
-        return `${maHD}‖${maH}‖${dg}‖${sl}`;
-      }));
+      const chuKyDong_ = r => (typeof taoChuKyDongHang === 'function')
+        ? taoChuKyDongHang(r)
+        : `${String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase()}‖${String(r['Mã hàng'] || r.ma_hang || '').trim().toUpperCase()}‖${Math.round((parseFloat(r['Đơn giá'] !== undefined ? r['Đơn giá'] : r.don_gia) || 0) * 100) / 100}‖${Math.round((parseFloat(r['Số lượng'] !== undefined ? r['Số lượng'] : r.so_luong) || 0) * 1000) / 1000}`;
+      const setDongDaCo = new Set(duLieuKiotViet.map(chuKyDong_));
 
       kqMap.forEach((rows, ma) => {
         rows.forEach(r => {
-          const maHD = String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase();
-          const maH = String(r['Mã hàng'] || r.ma_hang || '').trim().toUpperCase();
-          const sl = r['Số lượng'] !== undefined ? r['Số lượng'] : r.so_luong;
-          const dg = r['Đơn giá'] !== undefined ? r['Đơn giá'] : r.don_gia;
-          const sig = `${maHD}‖${maH}‖${dg}‖${sl}`;
+          const sig = chuKyDong_(r);
           if (!setDongDaCo.has(sig)) {
             setDongDaCo.add(sig);
             duLieuKiotViet.push(r);
@@ -2292,14 +2288,19 @@
       if (dot.nvThu) document.getElementById('nvThuTien').value = dot.nvThu;
       if (chuanHoaNgayISO_(dot.ngayRaw || dot.ngayGiao)) document.getElementById('ngayGiaoHang').value = chuanHoaNgayISO_(dot.ngayRaw || dot.ngayGiao);
 
-      // Nạp chi tiết hàng hóa KiotViet của đợt này (nếu chưa có thì nạp từ chi_tiet_hoa_don)
-      if (Array.isArray(dot.cacDongChiTietKiotViet) && dot.cacDongChiTietKiotViet.length > 0) {
-        duLieuKiotViet = dot.cacDongChiTietKiotViet;
+      // Nạp chi tiết hàng hóa KiotViet của đợt này (nếu chưa có thì nạp đầy đủ & khử trùng từ chi_tiet_hoa_don)
+      if (typeof taiChiTietHangDayDuChoDot === 'function') {
+        try {
+          duLieuKiotViet = await taiChiTietHangDayDuChoDot(dot, true);
+        } catch (e) {}
+      } else if (Array.isArray(dot.cacDongChiTietKiotViet) && dot.cacDongChiTietKiotViet.length > 0) {
+        duLieuKiotViet = typeof khuTrungDongChiTietHang === 'function' ? khuTrungDongChiTietHang(dot.cacDongChiTietKiotViet) : dot.cacDongChiTietKiotViet;
       } else if (typeof sb !== 'undefined') {
         try {
           const { data: cthd } = await sb.from('chi_tiet_hoa_don').select('*').eq('ma_dot', maDot);
           if (cthd && cthd.length > 0) {
-            duLieuKiotViet = cthd.map(c => ({
+            const cthdSach = typeof khuTrungDongChiTietHang === 'function' ? khuTrungDongChiTietHang(cthd) : cthd;
+            duLieuKiotViet = cthdSach.map(c => ({
               'Mã hóa đơn': c.ma_hd,
               'ma_hd': c.ma_hd,
               'Mã khách hàng': c.ma_kh,
@@ -4493,6 +4494,12 @@
     }
 
     async function luuSangBuoc3() {
+      if (window._dangLuuChuyenXeB1) {
+        hienThiToast("⏳ Đang lưu chuyến xe, vui lòng không bấm lặp nhiều lần...");
+        return;
+      }
+      window._dangLuuChuyenXeB1 = true;
+      try {
       khoiPhucDuLieuChuyenDangXemLai();
       let hoaDonDuocChon = danhSachHoaDon.filter(h => h.chon);
       if (hoaDonDuocChon.length === 0) {
@@ -4517,9 +4524,22 @@
       }
 
       // Xác định mã chuyến xe hiện tại:
-      // Ưu tiên dùng chuyến xe đang xem lại hoặc mã chuyến trong phiên làm việc hiện tại
-      // để đảm bảo gom toàn bộ các đơn (cũ + mới nạp) vào CÙNG 1 chuyến duy nhất.
+      // Nếu người dùng đã đổi sang Xe khác hoặc Ngày giao khác với chuyến vừa lưu (và không phải đang sửa thông tin cùng bộ hóa đơn),
+      // tự động tạo mã chuyến mới để không ghi đè mất chuyến xe trước!
       let maDot = (chuyenDangXemLai && chuyenDangXemLai.maDot) || window._chuyenHienTaiMaDot || null;
+      if (maDot && chuyenDangXemLai && chuyenDangXemLai.dot) {
+        const xeCu = String(chuyenDangXemLai.dot.xe || '').trim();
+        const ngayCu = chuanHoaNgayVN_(chuyenDangXemLai.dot.ngayGiao || chuyenDangXemLai.dot.ngayRaw || '');
+        const dsHDCu = new Set((chuyenDangXemLai.dot.danhSachHD || []).map(x => String(x || '').trim().toUpperCase()));
+        const coTrungHDCu = hoaDonDuocChon.some(h => dsHDCu.has(String(h.maHD || '').trim().toUpperCase()));
+        if ((xeCu && xeCu !== xe) || (ngayCu && ngayCu !== ngayGiao)) {
+          if (!coTrungHDCu) {
+            // Đã nạp bộ hóa đơn hoàn toàn mới và chọn xe/ngày mới -> tách chuyến mới
+            maDot = null;
+            chuyenDangXemLai = null;
+          }
+        }
+      }
       const laCapNhatChuyenCu = !!maDot;
       if (!maDot) {
         maDot = `DOT_${xe.replace(/[^a-zA-Z0-9]/g, '')}_${ngayRaw.replace(/-/g, '')}_${Date.now().toString().slice(-4)}`;
@@ -4563,10 +4583,14 @@
       // Tạo lại biểu mẫu chuẩn khớp với toàn bộ các đơn đang tích
       chayTaoPhieu();
 
-      const cacDongChiTiet = (duLieuKiotViet || []).filter(r => {
+      const cacDongChiTietRaw = (duLieuKiotViet || []).filter(r => {
         const m = String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase();
         return hoaDonDuocChon.some(h => String(h.maHD).toUpperCase() === m);
       });
+      const mapTienHDChon = new Map(hoaDonDuocChon.map(h => [String(h.maHD || '').trim().toUpperCase(), parseFloat(h.tongTien || 0) || 0]));
+      const cacDongChiTiet = (typeof khuTrungDongChiTietHang === 'function')
+        ? khuTrungDongChiTietHang(cacDongChiTietRaw, mapTienHDChon)
+        : cacDongChiTietRaw;
 
       const chiTietBangKe = ((duLieuXuatExcel && duLieuXuatExcel.bangKe) || []).map(r => {
         const isGL = hoaDonDuocChon.some(h => h.maHD === r.maHD && h.laGiaoLai);
@@ -4716,6 +4740,10 @@
               quy_cach: parseFloat(r['Quy cách'] || r.quy_cach || 1),
               la_khuyen_mai: !!(r['KM'] || r.la_khuyen_mai)
             }));
+            // Xóa sạch các dòng chi_tiet_hoa_don cũ của cùng ma_dot trước khi insert lại để chống nhân đôi (duplicate) 100%
+            try {
+              await sb.from('chi_tiet_hoa_don').delete().eq('ma_dot', maDot);
+            } catch (eDel) {}
             await upsertSupabaseTuTu('chi_tiet_hoa_don', rowsCTHD);
           }
         } catch (e) {
@@ -4759,6 +4787,9 @@
 
       if (chuyenB2) {
         window.location.href = `buoc2_quyet_toan_thu_tien.html?maDot=${encodeURIComponent(maDot)}`;
+      }
+      } finally {
+        window._dangLuuChuyenXeB1 = false;
       }
     }
 
@@ -4998,8 +5029,11 @@
       //  nạp lại đúng file cũ thì không thêm dòng nào)
       const setDongDaCo = new Set();
       const demDongDaCo = new Map();
+      const chuKyExcel_ = r => (typeof taoChuKyDongHang === 'function')
+        ? taoChuKyDongHang(r)
+        : `${String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase()}‖${String(r['Mã hàng'] || r.ma_hang || '').trim().toUpperCase()}‖${Math.round(parseVNNumber_(r['Đơn giá'] !== undefined ? r['Đơn giá'] : r.don_gia) * 100) / 100}‖${Math.round(parseVNNumber_(r['Số lượng'] !== undefined ? r['Số lượng'] : r.so_luong) * 1000) / 1000}`;
       duLieuTongHop.forEach(r => {
-        const sig = `${r['Mã hóa đơn']}‖${r['Mã hàng']}‖${r['Đơn giá']}‖${r['Số lượng']}`;
+        const sig = chuKyExcel_(r);
         setDongDaCo.add(sig);
         demDongDaCo.set(sig, (demDongDaCo.get(sig) || 0) + 1);
       });
@@ -5097,7 +5131,7 @@
             const ghiChu = String(layGiaTri_(r, ['Ghi chú', 'Diễn giải']) || '').trim();
             const giamHD = parseVNNumber_(layGiaTri_(r, ['Giảm giá HĐ', 'Giảm giá hóa đơn', 'Chiết khấu HĐ']));
 
-            const sig = `${maHD}‖${maHang}‖${donGiaThucTe}‖${sl}`;
+            const sig = chuKyExcel_({ 'Mã hóa đơn': maHD, 'Mã hàng': maHang, 'Đơn giá': donGiaThucTe, 'Số lượng': sl });
             const lanTrongFile = (demDongFile.get(sig) || 0) + 1;
             demDongFile.set(sig, lanTrongFile);
             if (setDongDaCo.has(sig) && lanTrongFile <= (demDongDaCo.get(sig) || 0)) {

@@ -599,33 +599,35 @@
         danhSachTatCaDot = [];
       }
 
-      // Đọc và hợp nhất từ Supabase luu_tru
+      // Đọc và hợp nhất từ Supabase luu_tru (nguồn chuẩn đồng bộ 100% với Báo Cáo Tổng Hợp)
       if (typeof sb !== 'undefined') {
         try {
           const { data, error } = (typeof docLuuTruMoiNhat === 'function')
-            ? await docLuuTruMoiNhat(5000)
+            ? await docLuuTruMoiNhat(20000)
             : await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(1000);
           if (!error && data && data.length > 0 && typeof chuyenDoiLuuTruThanhDanhSachDot === 'function') {
             const dsDotSB = chuyenDoiLuuTruThanhDanhSachDot(data);
+            const mapCu = new Map((danhSachTatCaDot || []).map(d => [d.maDot, d]));
             let coChuyenMoi = false;
-            dsDotSB.forEach(dotSB => {
-              const idx = danhSachTatCaDot.findIndex(d => d.maDot === dotSB.maDot);
-              if (idx === -1) {
-                danhSachTatCaDot.push(dotSB);
+            const dsHopNhat = dsDotSB.map(dotSB => {
+              const cu = mapCu.get(dotSB.maDot);
+              if (!cu) {
                 coChuyenMoi = true;
-              } else {
-                danhSachTatCaDot[idx].daQuyetToan = dotSB.daQuyetToan;
-                danhSachTatCaDot[idx].soLuongHD = dotSB.soLuongHD;
-                danhSachTatCaDot[idx].tongTien = dotSB.tongTien;
-                const chiTietMayNay = danhSachTatCaDot[idx].danhSachChiTiet || [];
-                // Chuyến không quyết toán trên máy này → lấy số liệu quyết toán mới nhất (tiền, trả về, hàng trả) từ máy chủ
-                if (!danhSachTatCaDot[idx].danhSachChiTiet || danhSachTatCaDot[idx].danhSachChiTiet.length === 0 || !danhSachTatCaDot[idx].thoiGianQuyetToan) {
-                  danhSachTatCaDot[idx].danhSachChiTiet = dotSB.danhSachChiTiet;
-                }
-                // Người bán (cột Mã NV bán hàng của file MISA): hoá đơn thiếu tên → lấy ở máy chủ, không có thì giữ tên đã có trên máy này
-                giuNguoiBanB3(danhSachTatCaDot[idx].danhSachChiTiet, [dotSB.danhSachChiTiet, chiTietMayNay]);
+                return dotSB;
               }
+              const chiTietMayNay = cu.danhSachChiTiet || [];
+              giuNguoiBanB3(dotSB.danhSachChiTiet, [dotSB.danhSachChiTiet, chiTietMayNay]);
+              return {
+                ...cu,
+                ...dotSB,
+                daDayMisa: !!cu.daDayMisa,
+                thoiGianDayMisa: cu.thoiGianDayMisa || null,
+                cacDongChiTietKiotViet: (Array.isArray(cu.cacDongChiTietKiotViet) && cu.cacDongChiTietKiotViet.length > 0)
+                  ? cu.cacDongChiTietKiotViet
+                  : []
+              };
             });
+            danhSachTatCaDot = dsHopNhat;
             localStorage.setItem("tmh_lich_su_dot", JSON.stringify(danhSachTatCaDot));
             if (isAutoSync && coChuyenMoi) {
               hienThiToast("🔔 Đã tự động cập nhật chuyến xe mới cho Kế toán!");
@@ -796,14 +798,20 @@
     function tkNoHienThiMisa(r) { return r.tkNoMisa !== undefined ? r.tkNoMisa : r.tkNo; }
     function tkCoHienThiMisa(r) { return r.tkCoMisa !== undefined ? r.tkCoMisa : r.tkCo; }
 
-    // Nếu chưa có chi tiết dòng hàng hóa, tải từ Supabase chi_tiet_hoa_don
+    // Nạp đầy đủ & khử trùng chi tiết từng mặt hàng cho chuyến xe (chống lỗi fallback HH_TONGHOP và chống nhân đôi)
     async function napDongHangChoDotMisa(dot) {
+      if (!dot) return;
+      if (typeof taiChiTietHangDayDuChoDot === 'function') {
+        await taiChiTietHangDayDuChoDot(dot, true);
+        return;
+      }
       const maDot = dot.maDot;
       if ((!dot.cacDongChiTietKiotViet || dot.cacDongChiTietKiotViet.length === 0) && typeof sb !== 'undefined') {
         try {
           const { data: cthd } = await sb.from('chi_tiet_hoa_don').select('*').eq('ma_dot', maDot);
           if (cthd && cthd.length > 0) {
-            dot.cacDongChiTietKiotViet = cthd.map(c => ({
+            const cthdSach = typeof khuTrungDongChiTietHang === 'function' ? khuTrungDongChiTietHang(cthd) : cthd;
+            dot.cacDongChiTietKiotViet = cthdSach.map(c => ({
               'Mã hóa đơn': c.ma_hd,
               'Mã khách hàng': c.ma_kh,
               'Tên khách hàng': c.ten_kh,
@@ -878,13 +886,96 @@
       if (cheDoNgayMisa) return chonNgayMisa(cheDoNgayMisa.ngay);
     }
 
+    // Tải các khoản thu nợ cũ / trả trước ngoài hóa đơn giao hàng trong ngày (cùng công thức Báo Cáo Tổng Hợp)
+    async function taiThuNgoaiHoaDonTheoNgayMisa(ngayVN, dsDotNgay) {
+      const kq = { tm: 0, ck: 0, soKhoan: 0 };
+      if (typeof sb === 'undefined' || !ngayVN) return kq;
+      try {
+        const dsNgay = typeof taoBienTheNgayTruyVan === 'function' ? taoBienTheNgayTruyVan(ngayVN) : [ngayVN];
+        const dsMaDot = Array.from(new Set((dsDotNgay || []).map(d => d.maDotGoc || d.maDot).filter(Boolean)));
+        const [rThuNo, rTraTruoc, rPhieu] = await Promise.all([
+          sb.from('thu_no').select('*').in('ngay_thu', dsNgay),
+          sb.from('khach_tra_truoc').select('*').in('ngay_nhan', dsNgay),
+          dsMaDot.length ? sb.from('phieu_nop_tien').select('*').in('ma_dot', dsMaDot) : Promise.resolve({ data: [] })
+        ]);
+        const phanLoai_ = h => {
+          const s = String(h || '').toLowerCase();
+          if (s.includes('trả trước') || s.includes('tra truoc')) return 'tt';
+          if (s.includes('trả lại hàng') || s.includes('tra lai hang') || s.includes('hàng trả')) return 'th';
+          if (s.includes('chuyển khoản') || s.includes('chuyen khoan') || s.includes('ck')) return 'ck';
+          return 'tm';
+        };
+        const dsThuNo = Array.isArray(rThuNo.data) ? rThuNo.data : [];
+        let coThuNoTuXe = false;
+        dsThuNo.forEach(r => {
+          const st = parseFloat(r.so_tien || 0) || 0;
+          if (st <= 0) return;
+          if (typeof laKhoanThuNoDaHuy === 'function' && laKhoanThuNoDaHuy(r)) return;
+          const loai = phanLoai_(r.hinh_thuc);
+          if (loai === 'tt' || loai === 'th') return;
+          if (String(r.ghi_chu || '').includes('[Bước 2')) coThuNoTuXe = true;
+          if (loai === 'ck') kq.ck += st; else kq.tm += st;
+          kq.soKhoan++;
+        });
+        // Nếu phiếu nộp tiền có thu_no_cu nhưng chưa ghi sang bảng thu_no thì cộng bù giống Báo Cáo Tổng Hợp
+        if (!coThuNoTuXe && Array.isArray(rPhieu.data)) {
+          rPhieu.data.forEach(p => {
+            const tnc = parseFloat(p.thu_no_cu || 0) || 0;
+            if (tnc > 0) { kq.tm += tnc; kq.soKhoan++; }
+          });
+        }
+        const dsTT = Array.isArray(rTraTruoc.data) ? rTraTruoc.data : [];
+        dsTT.forEach(r => {
+          const st = parseFloat(r.so_tien || 0) || 0;
+          if (st === 0) return;
+          const loai = phanLoai_(r.hinh_thuc);
+          if (loai === 'ck') kq.ck += st; else kq.tm += st;
+          kq.soKhoan++;
+        });
+      } catch (e) {}
+      return kq;
+    }
+
     async function chonNgayMisa(ngay) {
+      // Đồng bộ trực tiếp luu_tru của đúng ngày đang chọn từ Supabase để không sót chuyến xe nào (khớp 100% Báo Cáo Tổng Hợp)
+      if (typeof taiLuuTruTheoNgay === 'function' && typeof chuyenDoiLuuTruThanhDanhSachDot === 'function') {
+        try {
+          const rowsNgay = await taiLuuTruTheoNgay(ngay);
+          if (Array.isArray(rowsNgay) && rowsNgay.length > 0) {
+            const dsDotNgaySB = chuyenDoiLuuTruThanhDanhSachDot(rowsNgay);
+            let coCapNhat = false;
+            dsDotNgaySB.forEach(dotSB => {
+              const idx = danhSachTatCaDot.findIndex(d => d.maDot === dotSB.maDot);
+              if (idx === -1) {
+                danhSachTatCaDot.push(dotSB);
+                coCapNhat = true;
+              } else {
+                const cu = danhSachTatCaDot[idx];
+                giuNguoiBanB3(dotSB.danhSachChiTiet, [dotSB.danhSachChiTiet, cu.danhSachChiTiet || []]);
+                danhSachTatCaDot[idx] = {
+                  ...cu,
+                  ...dotSB,
+                  daDayMisa: !!cu.daDayMisa,
+                  thoiGianDayMisa: cu.thoiGianDayMisa || null,
+                  cacDongChiTietKiotViet: (Array.isArray(cu.cacDongChiTietKiotViet) && cu.cacDongChiTietKiotViet.length > 0)
+                    ? cu.cacDongChiTietKiotViet
+                    : []
+                };
+              }
+            });
+            if (coCapNhat) {
+              try { localStorage.setItem("tmh_lich_su_dot", JSON.stringify(danhSachTatCaDot)); } catch (e) {}
+            }
+          }
+        } catch (e) {}
+      }
+
       const tatCaXe = danhSachTatCaDot.filter(d => khoaNgayMisa(d) === ngay);
       const gomChuaQT = !!(document.getElementById('chkGomChuaQTMisa') || {}).checked;
       const dsDot = tatCaXe.filter(d => gomChuaQT || d.daQuyetToan);
       const dsBoQua = tatCaXe.filter(d => !(gomChuaQT || d.daQuyetToan));
       dotHienTai = null;
-      const cd = cheDoNgayMisa = { ngay, dsDot, dsBoQua };
+      const cd = cheDoNgayMisa = { ngay, dsDot, dsBoQua, ngoaiHD: { tm: 0, ck: 0, soKhoan: 0 } };
 
       document.getElementById('nhanGomChuaQTMisa').style.display = 'flex';
       document.getElementById('tagXeMisa').textContent = `🚚 Gộp ${dsDot.length}/${tatCaXe.length} xe`;
@@ -895,8 +986,12 @@
       tagStatus.innerHTML = daDayHet ? "✅ Đã đẩy MISA (cả ngày)" : `⏳ Chờ xuất MISA (${dsDot.filter(d => !d.daDayMisa).length} xe chưa đẩy)`;
       document.getElementById('tbodyMisa').innerHTML = `<tr><td colspan="17" style="text-align:center; padding:30px; color:var(--text-muted);">⏳ Đang tổng hợp ${dsDot.length} chuyến xe ngày ${ngay}...</td></tr>`;
 
-      await Promise.all(dsDot.map(d => napDongHangChoDotMisa(d)).concat([napDanhMucDinhKhoanB3()]));
+      const [, ngoaiHD] = await Promise.all([
+        Promise.all(dsDot.map(d => napDongHangChoDotMisa(d)).concat([napDanhMucDinhKhoanB3()])),
+        taiThuNgoaiHoaDonTheoNgayMisa(ngay, tatCaXe)
+      ]);
       if (cheDoNgayMisa !== cd) return; // đã chọn chuyến / ngày khác (hoặc bấm lại) trong lúc tải
+      cd.ngoaiHD = ngoaiHD || { tm: 0, ck: 0, soKhoan: 0 };
 
       // Tính từng chuyến như khi xuất riêng, rồi gộp
       const ketQua = dsDot.map(d => Object.assign({ dot: d }, taoDuLieuDongMisa(d, true)));
@@ -1018,25 +1113,52 @@
       // lạ không có số liệu quyết toán sẽ bị tính mặc định "Khách trả tiền mặt" (TK 1111) làm Phần 1 lệch Phần 3.
       const setMaHDChuyen = new Set(setMaHD);
       mapQuyetToan.forEach((_, m) => setMaHDChuyen.add(m));
-      const thuocChuyen = r => setMaHDChuyen.size === 0 || setMaHDChuyen.has(String(r['Mã hóa đơn'] || '').trim().toUpperCase());
+      const mapTienHD = new Map();
+      mapQuyetToan.forEach((it, m) => mapTienHD.set(m, parseFloat(it.thanhTien || it.tienHD || 0) || 0));
+
+      const thuocChuyen = r => setMaHDChuyen.size === 0 || setMaHDChuyen.has(String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase());
       let cacDongHang = (dot.cacDongChiTietKiotViet && dot.cacDongChiTietKiotViet.length > 0)
         ? dot.cacDongChiTietKiotViet.filter(thuocChuyen)
-        : rawKiot.filter(r => setMaHD.has(String(r['Mã hóa đơn'] || '').trim().toUpperCase()));
+        : rawKiot.filter(r => setMaHDChuyen.has(String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase()));
 
-      // Nếu vẫn trống, fallback lấy danh sách hóa đơn làm chứng từ tổng hợp
-      if (cacDongHang.length === 0 && Array.isArray(dot.danhSachChiTiet)) {
-        cacDongHang = dot.danhSachChiTiet.map(item => ({
-          'Mã hóa đơn': item.maHD,
-          'Mã khách hàng': item.maKH,
-          'Tên khách hàng': item.tenKH,
-          'Mã hàng': 'HH_TONGHOP',
-          'Tên hàng': 'Hàng hóa tổng hợp theo hóa đơn ' + item.maHD,
-          'ĐVT': 'Đơn',
-          'Số lượng': 1,
-          'Đơn giá': item.thanhTien,
-          'Thành tiền': item.thanhTien,
-          'Người bán': item.nguoiBan
-        }));
+      // Khử trùng lặp dòng hàng (nếu chuyến từng bị bấm Lưu nhiều lần) và loại bỏ dòng tổng hợp giả
+      if (typeof khuTrungDongChiTietHang === 'function' && cacDongHang.length > 0) {
+        cacDongHang = khuTrungDongChiTietHang(cacDongHang, mapTienHD);
+      }
+
+      // Kiểm tra từng hóa đơn trong chuyến: nếu hóa đơn nào chưa có dòng hàng trong cacDongHang,
+      // tìm tiếp trong rawKiot (kể cả mã gốc khi mã HĐ giao lại có hậu tố '123') trước khi dùng dòng dự phòng
+      if (Array.isArray(dot.danhSachChiTiet) && dot.danhSachChiTiet.length > 0) {
+        const maDaCo = new Set(cacDongHang.map(r => String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase()));
+        dot.danhSachChiTiet.forEach(item => {
+          const ma = String(item.maHD || item.ma_hd || '').trim().toUpperCase();
+          if (!ma || maDaCo.has(ma)) return;
+          let dongTim = rawKiot.filter(r => {
+            const m = String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase();
+            const mh = String(r['Mã hàng'] || r.ma_hang || '').trim().toUpperCase();
+            return (m === ma || (ma.endsWith('123') && m === ma.slice(0, -3))) && mh && mh !== 'HH_TONGHOP';
+          });
+          if (dongTim.length > 0) {
+            if (typeof khuTrungDongChiTietHang === 'function') {
+              dongTim = khuTrungDongChiTietHang(dongTim.map(x => ({ ...x, 'Mã hóa đơn': ma, ma_hd: ma })), mapTienHD);
+            }
+            cacDongHang.push(...dongTim);
+            maDaCo.add(ma);
+          } else {
+            cacDongHang.push({
+              'Mã hóa đơn': item.maHD,
+              'Mã khách hàng': item.maKH,
+              'Tên khách hàng': item.tenKH,
+              'Mã hàng': 'HH_TONGHOP',
+              'Tên hàng': 'Hàng hóa tổng hợp theo hóa đơn ' + item.maHD,
+              'ĐVT': 'Đơn',
+              'Số lượng': 1,
+              'Đơn giá': item.thanhTien,
+              'Thành tiền': item.thanhTien,
+              'Người bán': item.nguoiBan
+            });
+          }
+        });
       }
 
       // Hàng trả về ở Bước 2: trả nguyên đơn → bỏ toàn bộ hàng của hoá đơn; trả 1 phần → trừ đúng mặt hàng đã chọn
@@ -1297,29 +1419,87 @@
         if (!r.hopLe) coLoi = true;
       });
 
-      // Tiền khách trả (tiền mặt / chuyển khoản) = TIỀN THỰC THU theo hoá đơn ở Bước 2 của đúng các chuyến đang xem —
-      // cùng hàm với Phần 3 (tinhTienThuHoaDonCacChuyen, phieu_thu_misa.js) nên "Khách trả tiền mặt" = phiếu thu tiền mặt,
-      // "Khách chuyển khoản" = phiếu thu tiền gửi. Hoá đơn trả 2 hình thức được tách đúng từng phần (không gộp cả hoá đơn vào 1 loại).
-      // Phần còn lại của doanh thu (chưa thu, chuyến chưa quyết toán) là "Khách ghi nợ".
-      let ghiChuThu = 'Bán hàng Nợ 1311 → Phiếu thu Nợ 1111 / 1121x (tiền thực thu theo Bước 2)';
-      if (typeof tinhTienThuHoaDonCacChuyen === 'function') {
-        const dsDotXem = cheDoNgayMisa ? (cheDoNgayMisa.dsDot || []) : (dotHienTai ? [dotHienTai] : []);
-        const thu = tinhTienThuHoaDonCacChuyen(dsDotXem);
-        tien1111 = thu.tm;
-        tien1121 = thu.ck;
-        tien131 = Math.max(0, tongTien - tien1111 - tien1121 - tien5212);
-        if (thu.chuaQT.length) ghiChuThu = `⏳ ${thu.chuaQT.length} xe chưa quyết toán Bước 2 → chưa tính là đã thu`;
+      // Tiền khách trả (tiền mặt / chuyển khoản / ghi nợ / trả lại) = SỐ LIỆU QUYẾT TOÁN CHUẨN trên luu_tru
+      // Đồng bộ công thức 100% với Báo Cáo Tổng Hợp (bao_cao_tong_hop.html)
+      let ghiChuThuTM = 'Bán hàng Nợ 1311 → Phiếu thu Nợ 1111 / 1121x (tiền thực thu theo Bước 2)';
+      let ghiChuThuCK = ghiChuThuTM;
+      const dsDotXem = cheDoNgayMisa ? (cheDoNgayMisa.dsDot || []) : (dotHienTai ? [dotHienTai] : []);
+      let tongXuatKho = 0;
+      let tongTraVeHD = 0;
+      let tongNoHD = 0;
+      let soHDXem = 0;
+
+      if (dsDotXem.length > 0) {
+        // Khử trùng hóa đơn nếu có mặt ở 2 chuyến trong ngày (giữ bản đã quyết toán giống Báo Cáo Tổng Hợp)
+        const mapHDXem = new Map();
+        dsDotXem.forEach(d => {
+          (d.danhSachChiTiet || []).forEach(it => {
+            const ma = String(it.maHD || it.ma_hd || '').trim().toUpperCase();
+            if (!ma) return;
+            const daQT = !!(d.daQuyetToan || it.daKiemDon || it.daQuyetToan || (parseFloat(it.tienMat || 0) + parseFloat(it.chuyenKhoan || 0) + parseFloat(it.traVe || 0) + parseFloat(it.noPhatSinh || 0) > 0));
+            if (!mapHDXem.has(ma) || daQT) {
+              mapHDXem.set(ma, { it, daQT });
+            }
+          });
+        });
+
+        let tmHD = 0, ckHD = 0;
+        mapHDXem.forEach(({ it, daQT }) => {
+          soHDXem++;
+          const phaiTra = Math.round(parseFloat(it.thanhTien || it.tienHD || 0) || 0);
+          const tm = Math.round(parseFloat(it.tienMat || 0) || 0);
+          const ck = Math.round(parseFloat(it.chuyenKhoan || 0) || 0);
+          const tv = Math.round(parseFloat(it.traVe || 0) || 0);
+          const noGhi = Math.round(parseFloat(it.noPhatSinh || 0) || 0);
+          tongXuatKho += phaiTra;
+          tongTraVeHD += tv;
+          if (daQT) {
+            const canThu = Math.max(0, phaiTra - tv);
+            const ckNo = Math.min(ck, canThu);
+            const tmNo = Math.min(tm, Math.max(0, canThu - ckNo));
+            tmHD += tmNo;
+            ckHD += ckNo;
+            const noDon = noGhi > 0 ? noGhi : Math.max(0, canThu - tmNo - ckNo);
+            tongNoHD += noDon;
+          } else {
+            tongNoHD += Math.max(0, phaiTra - tv);
+          }
+        });
+
+        if (typeof tinhTienThuHoaDonCacChuyen === 'function') {
+          const thu = tinhTienThuHoaDonCacChuyen(dsDotXem);
+          tien1111 = thu.tm;
+          tien1121 = thu.ck;
+          if (thu.chuaQT.length) {
+            ghiChuThuTM = `⏳ ${thu.chuaQT.length} xe chưa quyết toán Bước 2 → chưa tính là đã thu`;
+            ghiChuThuCK = ghiChuThuTM;
+          }
+        } else {
+          tien1111 = tmHD;
+          tien1121 = ckHD;
+        }
+        tien5212 = tongTraVeHD;
+        tien131 = tongNoHD;
+
+        if (cheDoNgayMisa && cheDoNgayMisa.ngoaiHD && (cheDoNgayMisa.ngoaiHD.tm > 0 || cheDoNgayMisa.ngoaiHD.ck > 0)) {
+          const nTM = Math.round(cheDoNgayMisa.ngoaiHD.tm || 0);
+          const nCK = Math.round(cheDoNgayMisa.ngoaiHD.ck || 0);
+          if (nTM > 0) ghiChuThuTM = `HĐ: ${formatTien(tien1111)} đ + Thu nợ/trả trước: ${formatTien(nTM)} đ = Tổng ngày: ${formatTien(tien1111 + nTM)} đ`;
+          if (nCK > 0) ghiChuThuCK = `HĐ: ${formatTien(tien1121)} đ + Thu nợ/trả trước: ${formatTien(nCK)} đ = Tổng ngày: ${formatTien(tien1121 + nCK)} đ`;
+        }
       }
 
       document.getElementById('kpiDoanhThu').textContent = formatTien(tongTien) + ' đ';
-      document.getElementById('kpiSoDong').textContent = `${danhSachDongMisa.length} dòng hàng hóa`;
+      document.getElementById('kpiSoDong').textContent = soHDXem > 0
+        ? `${danhSachDongMisa.length} dòng (${soHDXem} HĐ — Xuất kho: ${formatTien(tongXuatKho)} đ)`
+        : `${danhSachDongMisa.length} dòng hàng hóa`;
 
       document.getElementById('kpiTK1111').textContent = formatTien(tien1111) + ' đ';
       document.getElementById('kpiTK1121').textContent = formatTien(tien1121) + ' đ';
       document.getElementById('kpiTK131').textContent = formatTien(tien131) + ' đ';
       document.getElementById('kpiTK5212').textContent = formatTien(tien5212) + ' đ';
-      const eGhiChuThu = document.getElementById('kpiTK1111Sub'); if (eGhiChuThu) eGhiChuThu.textContent = ghiChuThu;
-      const eGhiChuThu2 = document.getElementById('kpiTK1121Sub'); if (eGhiChuThu2) eGhiChuThu2.textContent = ghiChuThu;
+      const eGhiChuThu = document.getElementById('kpiTK1111Sub'); if (eGhiChuThu) eGhiChuThu.textContent = ghiChuThuTM;
+      const eGhiChuThu2 = document.getElementById('kpiTK1121Sub'); if (eGhiChuThu2) eGhiChuThu2.textContent = ghiChuThuCK;
 
       document.getElementById('footMisaSL').textContent = formatSoLuongMisa(tongSL);
       document.getElementById('footMisaTien').textContent = formatTien(tongTien);

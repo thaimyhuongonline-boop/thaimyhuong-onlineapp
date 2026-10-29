@@ -2099,7 +2099,7 @@
       if (typeof sb !== 'undefined') {
         try {
           const { data, error } = (typeof docLuuTruMoiNhat === 'function')
-            ? await docLuuTruMoiNhat(5000)
+            ? await docLuuTruMoiNhat(20000)
             : await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(5000);
           if (!error && Array.isArray(data) && typeof chuyenDoiLuuTruThanhDanhSachDot === 'function') {
             const dsDotSB = chuyenDoiLuuTruThanhDanhSachDot(data);
@@ -4166,6 +4166,9 @@
                 if (!bo.length) {
                   const moiNhat = ds.reduce((mx, r) => String(r.tao_luc || '') > mx ? String(r.tao_luc || '') : mx, '');
                   bo = ds.filter(r => String(r.tao_luc || '') === moiNhat);
+                }
+                if (typeof khuTrungDongChiTietHang === 'function') {
+                  bo = khuTrungDongChiTietHang(bo);
                 }
                 const dong = bo.map(r => chuanDongHangB2({ 'Mã hàng': r.ma_hang, 'Tên hàng': r.ten_hang, 'ĐVT': r.dvt, 'Số lượng': r.so_luong, 'Đơn giá': r.don_gia, 'Thành tiền': r.thanh_tien, 'KM': r.la_khuyen_mai }));
                 if (dong.length) hangHoaCuaHDB2.set(m, dong);

@@ -1265,12 +1265,17 @@
     }
 
     function dongHangCuaHD(d) {
-      const ds = dongHangTheoHD.get(String(d.maHD || '').trim().toUpperCase()) || [];
+      const ma = String(d.maHD || '').trim().toUpperCase();
+      const ds = dongHangTheoHD.get(ma) || [];
       if (!ds.length) return [];
       let bo = ds.filter(r => r.ma_dot === d.maDot);
       if (!bo.length) {
         const moiNhat = ds.reduce((m, r) => String(r.tao_luc || '') > m ? String(r.tao_luc || '') : m, '');
         bo = ds.filter(r => String(r.tao_luc || '') === moiNhat);
+      }
+      if (typeof khuTrungDongChiTietHang === 'function') {
+        const mapTien = new Map([[ma, parseFloat(d.thanhTien || 0) || 0]]);
+        bo = khuTrungDongChiTietHang(bo, mapTien);
       }
       return bo;
     }
@@ -1415,11 +1420,11 @@
       const soChuyenThuNo = dsKhoan.filter(k => k.thuNoCu > 0).length;
       const soChuyenThoi = dsKhoan.filter(k => k.tienThoi > 0).length;
       document.getElementById('bcKpi').innerHTML =
-        the('k-xuat', 'xuat', '🚚 Tổng đơn hàng xuất kho', fmt(t.xuat) + ' đ', `${t.soHD} hoá đơn`) +
-        the('k-mat', 'tienmat', '💵 Thanh toán tiền mặt', fmt(t.tm + n.tm) + ' đ', `${t.soTM} đơn thu tiền mặt` + phuNgoai(n.tm, n.soTM)) +
-        the('k-ck', 'ck', '🏦 Chuyển khoản', fmt(t.ck + n.ck) + ' đ', `${t.soCK} đơn chuyển khoản` + phuNgoai(n.ck, n.soCK)) +
+        the('k-xuat', 'xuat', '🚚 Tổng đơn hàng xuất kho', fmt(t.xuat) + ' đ', `${t.soHD} hoá đơn (Doanh thu thuần sau trả về: ${fmt(t.xuat - t.tra)} đ)`) +
+        the('k-mat', 'tienmat', '💵 Thanh toán tiền mặt', fmt(t.tm + n.tm) + ' đ', `${t.soTM} đơn thu tiền mặt (${fmt(t.tm)} đ)` + phuNgoai(n.tm, n.soTM)) +
+        the('k-ck', 'ck', '🏦 Chuyển khoản', fmt(t.ck + n.ck) + ' đ', `${t.soCK} đơn chuyển khoản (${fmt(t.ck)} đ)` + phuNgoai(n.ck, n.soCK)) +
         the('k-tra', 'travee', '↩️ Hàng trả về', fmt(t.tra + n.tra) + ' đ', `${t.soTra} đơn có hàng trả` + (n.tra ? ` + ${fmt(n.tra)} đ khách trả lại hàng trừ nợ (${n.soTra} khoản)` : '')) +
-        the('k-net-xuat', 'thucxuat', '📦 Hàng thực tế xuất (sau trừ trả về)', fmt(t.xuat - t.tra + tongTienThoi) + ' đ', `Xuất kho ${fmt(t.xuat)} đ − Trả về ${fmt(t.tra)} đ + Tiền thối ${fmt(tongTienThoi)} đ`) +
+        the('k-net-xuat', 'thucxuat', '📦 Hàng thực tế xuất (sau trừ trả về)', fmt(t.xuat - t.tra + tongTienThoi) + ' đ', `Doanh thu thuần MISA: ${fmt(t.xuat - t.tra)} đ (Xuất ${fmt(t.xuat)} đ − Trả ${fmt(t.tra)} đ)` + (tongTienThoi ? ` + Tiền thối ${fmt(tongTienThoi)} đ` : '')) +
         the('k-no', 'no', '📒 Tổng nợ phát sinh', fmt(t.no) + ' đ', `${t.soNo} đơn ghi nợ`) +
         the('k-cho', 'cho', '⏳ Chờ quyết toán (Bước 2)', `${t.soCho} đơn`, `${fmt(t.tienCho)} đ chưa quyết toán`);
       document.getElementById('bcKpi').insertAdjacentHTML('beforeend', veTheThieuThua());
