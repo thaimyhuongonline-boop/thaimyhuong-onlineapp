@@ -60,6 +60,7 @@
     .bc-kpi.k-thua { border-left-color: #0e7490; }
     .bc-kpi.k-hoan { border-left-color: #b45309; }
     .bc-kpi.k-net-xuat { border-left-color: #0891b2; }
+    .bc-kpi.k-phai-nop { border-left-color: #059669; }
     .bc-tt-note { padding: 8px 14px; font-size: 12px; color: var(--text-muted); border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 3px; }
     .bc-tt-note:empty { display: none; }
     .bc-tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--border-color); flex-wrap: wrap; }
@@ -196,6 +197,7 @@
                 <th class="num">Chuyển khoản (đ)</th>
                 <th class="num">Hàng trả về (đ)</th>
                 <th class="num">Nợ (đ)</th>
+                <th class="num">Phải nộp (đ)</th>
                 <th class="num">Thiếu (đ)</th>
                 <th class="num">Thừa (đ)</th>
                 <th>Trạng thái</th>
@@ -405,6 +407,48 @@
             </thead>
             <tbody id="bcTXBody"></tbody>
             <tfoot id="bcTXFoot"></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL TỔNG TIỀN PHẢI NỘP THEO CHUYẾN XE -->
+  <div class="bc-modal no-print" id="bcModalPN" onclick="if(event.target===this) dongBangPhaiNop()">
+    <div class="bc-modal-box">
+      <div class="bc-modal-head">
+        <div>
+          <div class="bc-card-title" style="font-size:16px;">💰 Tổng tiền phải nộp theo chuyến xe = Tiền mặt + Thu nợ cũ − Tiền chi + Tiền thối</div>
+          <div class="bc-card-sub" id="bcPNSub"></div>
+        </div>
+        <div style="display:flex; gap:6px; flex-shrink:0;">
+          <button type="button" class="btn btn-outline" style="height:30px; padding:0 10px; font-size:12px;" onclick="xuatExcelPhaiNop()">📥 Xuất Excel</button>
+          <button type="button" class="btn btn-outline" style="height:30px; padding:0 10px; font-weight:800;" onclick="dongBangPhaiNop()">✕</button>
+        </div>
+      </div>
+      <div class="bc-modal-body">
+        <div class="bc-chips" id="bcPNChips"></div>
+        <div class="bc-tt-note" id="bcPNGhiChu" style="border:1px solid var(--border-color); border-radius:8px; background:#f8fafc;"></div>
+        <input type="text" id="bcPNTim" class="form-control" placeholder="🔍 Tìm chuyến xe, người nộp, ngày…" oninput="veBangPhaiNop()">
+        <div class="bc-scroll" style="max-height:58vh; border:1px solid var(--border-color); border-radius:8px;">
+          <table class="bc-table">
+            <thead>
+              <tr>
+                <th>Ngày</th>
+                <th>Chuyến xe</th>
+                <th>Tài xế / Người nộp</th>
+                <th class="num">Số HĐ</th>
+                <th class="num">Tiền mặt (đ)</th>
+                <th class="num">Tiền chi (đ)</th>
+                <th class="num">Tiền thối (đ)</th>
+                <th class="num">Thu nợ / Hoàn TM (đ)</th>
+                <th class="num">Phải nộp (đ)</th>
+                <th class="num">Thực nộp (đ)</th>
+                <th>Thiếu / Thừa</th>
+              </tr>
+            </thead>
+            <tbody id="bcPNBody"></tbody>
+            <tfoot id="bcPNFoot"></tfoot>
           </table>
         </div>
       </div>
@@ -1017,6 +1061,7 @@
     function veTatCa() {
       veKpi(); veBangDot(); veThieuThua(); veKhoanChuyen(); if (tabBC === 'hang') napHangHoa();
       if (document.getElementById('bcModalTX').classList.contains('show')) veBangThucXuat();
+      if (document.getElementById('bcModalPN').classList.contains('show')) veBangPhaiNop();
     }
 
     // ---------------- HÀNG THỰC TẾ XUẤT THEO CHUYẾN = Xuất kho − Trả về + Tiền thối ----------------
@@ -1148,7 +1193,202 @@
       aoa.push(['TỔNG CỘNG', `${rows.length} chuyến`, '', tong('soHD'), tong('xuat'), tong('tra'), tong('tienThoi'), tong('thucTe'), `${rows.filter(daKiemTraThucXuat).length}/${rows.length}`]);
       taiFileExcel(`HangThucTeXuat_TheoChuyen_${ymdLocal(new Date())}.xlsx`, aoa, [12, 24, 16, 8, 16, 14, 12, 16, 20]);
     }
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') dongBangThucXuat(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { dongBangThucXuat(); dongBangPhaiNop(); } });
+
+    // ---------------- TỔNG TIỀN PHẢI NỘP THEO CHUYẾN XE = Tiền mặt + Thu nợ cũ − Tiền chi + Tiền thối (− Hoàn TM) ----------------
+    function tinhPhaiNopMotChuyen(maDot, rows) {
+      const hdRows = (rows || []).filter(d => !d.laThuNgoai);
+      const dau = hdRows[0] || {};
+      const nt = nopTien.get(maDot);
+      const coPhieu = !!(nt && nt.coKhoan);
+      const tm = hdRows.reduce((s, d) => s + (d.tm || 0), 0);
+      const hoanTM = hdRows.reduce((s, d) => s + hoanCuaDon(d), 0);
+      const tienChi = coPhieu ? (nt.tienChi || 0) : (dau.tienChi || 0);
+      const thuNoCu = coPhieu ? (nt.thuNoCu || 0) : 0;
+      const tienThoi = coPhieu ? (nt.tienThoi || 0) : (dau.tienThoi || 0);
+      const noiDungChi = coPhieu ? noiDungChiCuaKhoan(nt) : '';
+      const ghiChuThuNo = coPhieu ? ghiChuThuNoCuaKhoan(nt) : '';
+      const soHD = hdRows.length;
+      const soQT = hdRows.filter(d => d.daQT).length;
+      const soCho = hdRows.filter(d => !d.daQT).length;
+      const coQT = soQT > 0;
+      const phaiNop = Math.max(0, Math.round(tm + thuNoCu - tienChi + tienThoi - hoanTM));
+      const nguoiNop = (nt && nt.nguoiNop) || dau.taiXe || '';
+      const tienDem = (coQT && nt) ? (nt.tienDem || 0) : 0;
+      const tt = (coQT && nt && typeof tinhThieuThuaNopTien === 'function')
+        ? tinhThieuThuaNopTien(tienDem, phaiNop)
+        : { daDem: false, tienDem: 0, phaiNop: phaiNop, chenh: 0, rawThieu: 0, rawThua: 0, thieu: 0, thua: 0, ghiNo: false, soNo: 0 };
+      return {
+        maDot: maDot,
+        ngay: dau.ngay || '',
+        xe: dau.xe || '',
+        taiXe: dau.taiXe || '',
+        nguoiNop: nguoiNop,
+        soHD: soHD,
+        soQT: soQT,
+        soCho: soCho,
+        coQT: coQT,
+        coPhieu: coPhieu,
+        tm: tm,
+        hoanTM: hoanTM,
+        thuNoCu: thuNoCu,
+        ghiChuThuNo: ghiChuThuNo,
+        tienChi: tienChi,
+        noiDungChi: noiDungChi,
+        tienThoi: tienThoi,
+        phaiNop: phaiNop,
+        daDem: !!(coQT && nt && tt.daDem),
+        tienDem: (coQT && nt && tt.daDem) ? tt.tienDem : 0,
+        chenh: tt.chenh || 0,
+        rawThieu: tt.rawThieu || 0,
+        rawThua: tt.rawThua || 0,
+        thieu: tt.thieu || 0,
+        thua: tt.thua || 0,
+        ghiNo: !!tt.ghiNo,
+        soNo: tt.soNo || 0
+      };
+    }
+
+    function dsPhaiNopTheoChuyen(tatCa) {
+      const ds = duLieuDaLoc().filter(d => !d.laThuNgoai);
+      const map = new Map();
+      ds.forEach(d => {
+        if (!map.has(d.maDot)) map.set(d.maDot, []);
+        map.get(d.maDot).push(d);
+      });
+      const out = Array.from(map.entries())
+        .map(([maDot, rows]) => tinhPhaiNopMotChuyen(maDot, rows))
+        .sort((a, b) => (vnSangKhoa(b.ngay) + b.xe).localeCompare(vnSangKhoa(a.ngay) + a.xe));
+      if (tatCa) return out;
+      return out.filter(g => g.phaiNop > 0 || g.tm > 0 || g.tienChi > 0 || g.thuNoCu > 0 || g.tienThoi > 0 || g.hoanTM > 0);
+    }
+
+    function dsPhaiNopSauTim() {
+      const q = (document.getElementById('bcPNTim')?.value || '').trim().toLowerCase();
+      const ds = dsPhaiNopTheoChuyen(false);
+      return q ? ds.filter(g => (g.ngay + ' ' + g.xe + ' ' + g.taiXe + ' ' + g.nguoiNop + ' ' + g.noiDungChi + ' ' + g.ghiChuThuNo).toLowerCase().includes(q)) : ds;
+    }
+
+    function moBangPhaiNop() {
+      document.getElementById('bcPNTim').value = '';
+      document.getElementById('bcModalPN').classList.add('show');
+      veBangPhaiNop();
+    }
+
+    function dongBangPhaiNop() { document.getElementById('bcModalPN').classList.remove('show'); }
+
+    function oChenhLechPhaiNop(g) {
+      if (!g.coQT) return '<span class="bc-tag wait">⏳ Chờ quyết toán</span>';
+      if (!g.daDem) return '<span class="bc-tag wait">Chưa đếm tiền</span>';
+      if (g.thieu > 0) {
+        return `<span class="bc-tag warn">🔻 Thiếu ${fmt(g.thieu)} đ</span><div style="font-size:10.5px; color:#be123c; margin-top:2px;">${g.ghiNo ? 'Ghi nợ người nộp' : `Dưới ${fmt(NGUONG_GHI_NO_THIEU_TIEN)} đ · không ghi nợ`}</div>`;
+      }
+      if (g.thua > 0) {
+        return `<span class="bc-tag" style="background:#ecfeff; color:#0e7490; border-color:#a5f3fc;">🔺 Thừa ${fmt(g.thua)} đ</span><div style="font-size:10.5px; color:#0e7490; margin-top:2px;">Ghi nhận cho người nộp</div>`;
+      }
+      const le = g.rawThieu > 0 ? `<div style="font-size:10.5px; color:var(--text-muted); margin-top:2px;">Lẻ −${fmt(g.rawThieu)} đ (&lt;${fmt(NGUONG_GHI_NO_THIEU_TIEN)} đ bỏ qua)</div>`
+        : (g.rawThua > 0 ? `<div style="font-size:10.5px; color:var(--text-muted); margin-top:2px;">Lẻ +${fmt(g.rawThua)} đ (&lt;${fmt(NGUONG_GHI_NO_THIEU_TIEN)} đ bỏ qua)</div>` : '');
+      return `<span class="bc-tag done">✅ Khớp</span>${le}`;
+    }
+
+    function veBangPhaiNop() {
+      const tu = document.getElementById('bcTuNgay').value, den = document.getElementById('bcDenNgay').value;
+      const xe = document.getElementById('bcXe').value;
+      const elSub = document.getElementById('bcPNSub');
+      if (elSub && tu && den) {
+        elSub.textContent = `Từ ${isoSangVN(tu)} đến ${isoSangVN(den)}${xe ? ' · ' + xe : ''} · Công thức đồng nhất với chi tiết từng chuyến xe · Bấm vào 1 chuyến để xem chi tiết đơn hàng`;
+      }
+      const dsTatCa = dsPhaiNopTheoChuyen(true);
+      const dsCoPS = dsPhaiNopTheoChuyen(false);
+      const rows = dsPhaiNopSauTim();
+      const tong = f => rows.reduce((s, g) => s + (g[f] || 0), 0);
+      const chips = [
+        `<div class="bc-chip">Số chuyến: <b>${rows.length}</b></div>`,
+        `<div class="bc-chip">Số đơn: <b>${tong('soHD')}</b></div>`,
+        `<div class="bc-chip" style="color:#15803d;">Tiền mặt: <b>${fmt(tong('tm'))} đ</b></div>`
+      ];
+      if (tong('thuNoCu') > 0) chips.push(`<div class="bc-chip" style="color:#1d4ed8;">+ Thu nợ cũ: <b>${fmt(tong('thuNoCu'))} đ</b></div>`);
+      chips.push(
+        `<div class="bc-chip" style="color:#b91c1c;">− Tiền chi: <b>${fmt(tong('tienChi'))} đ</b></div>`,
+        `<div class="bc-chip" style="color:#047857;">+ Tiền thối: <b>${fmt(tong('tienThoi'))} đ</b></div>`
+      );
+      if (tong('hoanTM') > 0) chips.push(`<div class="bc-chip" style="color:#b45309;">− Hoàn TM khách (CK dư): <b>${fmt(tong('hoanTM'))} đ</b></div>`);
+      chips.push(
+        `<div class="bc-chip" style="color:#047857; background:#ecfdf5; border-color:#a7f3d0;">= Tổng phải nộp: <b>${fmt(tong('phaiNop'))} đ</b></div>`,
+        `<div class="bc-chip">Thực nộp: <b>${fmt(tong('tienDem'))} đ</b></div>`
+      );
+      if (tong('thieu') > 0) chips.push(`<div class="bc-chip" style="color:#be123c;">🔻 Thiếu: <b>${fmt(tong('thieu'))} đ</b></div>`);
+      if (tong('thua') > 0) chips.push(`<div class="bc-chip" style="color:#0e7490;">🔺 Thừa: <b>${fmt(tong('thua'))} đ</b></div>`);
+      document.getElementById('bcPNChips').innerHTML = chips.join('');
+
+      const soKhac = dsTatCa.length - dsCoPS.length;
+      const soChoQT = dsTatCa.filter(g => !g.coQT && g.phaiNop === 0).length;
+      const soKhongTM = soKhac - soChoQT;
+      const ghiChu = [];
+      if (soChoQT > 0) ghiChu.push(`⏳ Có ${soChoQT} chuyến xe trong kỳ đang chờ quyết toán ở Bước 2 (chưa phát sinh tiền phải nộp).`);
+      if (soKhongTM > 0) ghiChu.push(`ℹ️ Có ${soKhongTM} chuyến xe đã quyết toán nhưng không phát sinh tiền mặt phải nộp (thanh toán chuyển khoản / công nợ).`);
+      document.getElementById('bcPNGhiChu').innerHTML = ghiChu.map(x => `<div>${x}</div>`).join('');
+
+      const body = document.getElementById('bcPNBody');
+      const foot = document.getElementById('bcPNFoot');
+      if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="11" class="bc-empty">Không có chuyến xe nào phát sinh tiền phải nộp trong khoảng thời gian đã chọn.</td></tr>';
+        foot.innerHTML = '';
+        return;
+      }
+      const o = v => v > 0 ? fmt(v) : '<span style="color:#cbd5e1;">–</span>';
+      body.innerHTML = rows.map(g => `
+        <tr class="bc-click" onclick='dongBangPhaiNop(); moChiTiet("dot", ${H(JSON.stringify(g.maDot))})' title="Bấm để xem chi tiết đơn hàng của chuyến xe">
+          <td>${H(g.ngay)}</td>
+          <td><b>Chuyến ${H(g.xe)}</b></td>
+          <td>
+            ${H(g.nguoiNop || g.taiXe || '—')}
+            ${g.nguoiNop && g.taiXe && g.nguoiNop !== g.taiXe ? `<div style="font-size:10.5px; color:var(--text-muted);">Tài xế: ${H(g.taiXe)}</div>` : ''}
+          </td>
+          <td class="num">${g.soHD}</td>
+          <td class="num" style="color:#15803d;">${o(g.tm)}</td>
+          <td class="num" style="color:#b91c1c;">${o(g.tienChi)}${g.noiDungChi ? `<div style="font-size:10.5px; color:var(--text-muted); max-width:180px;">${H(g.noiDungChi)}</div>` : ''}</td>
+          <td class="num" style="color:#047857;">${o(g.tienThoi)}</td>
+          <td class="num">${(g.thuNoCu > 0 || g.hoanTM > 0) ? `${g.thuNoCu > 0 ? `<div style="color:#1d4ed8;">+${fmt(g.thuNoCu)}</div>` : ''}${g.ghiChuThuNo ? `<div style="font-size:10.5px; color:var(--text-muted); max-width:160px;">${H(g.ghiChuThuNo)}</div>` : ''}${g.hoanTM > 0 ? `<div style="color:#b45309;">−Hoàn TM: ${fmt(g.hoanTM)}</div>` : ''}` : '<span style="color:#cbd5e1;">–</span>'}</td>
+          <td class="num" style="font-weight:800; color:#047857; font-size:13px;">${fmt(g.phaiNop)}</td>
+          <td class="num">${g.daDem ? fmt(g.tienDem) : '<span style="color:var(--text-muted); font-size:11px;">Chưa đếm</span>'}</td>
+          <td>${oChenhLechPhaiNop(g)}</td>
+        </tr>`).join('');
+      const tomTatCL = [];
+      if (tong('thieu') > 0) tomTatCL.push(`<span style="color:#be123c;">Thiếu: ${fmt(tong('thieu'))} đ</span>`);
+      if (tong('thua') > 0) tomTatCL.push(`<span style="color:#0e7490;">Thừa: ${fmt(tong('thua'))} đ</span>`);
+      const chenhThuHoan = tong('thuNoCu') - tong('hoanTM');
+      foot.innerHTML = `
+        <tr>
+          <td colspan="3">TỔNG CỘNG (${rows.length} chuyến)</td>
+          <td class="num">${tong('soHD')}</td>
+          <td class="num">${fmt(tong('tm'))}</td>
+          <td class="num" style="color:#b91c1c;">${fmt(tong('tienChi'))}</td>
+          <td class="num" style="color:#047857;">${fmt(tong('tienThoi'))}</td>
+          <td class="num">${chenhThuHoan !== 0 ? ((chenhThuHoan > 0 ? '+' : '') + fmt(chenhThuHoan)) : '0'}</td>
+          <td class="num" style="color:#047857; font-size:13.5px;">${fmt(tong('phaiNop'))}</td>
+          <td class="num">${fmt(tong('tienDem'))}</td>
+          <td>${tomTatCL.length ? tomTatCL.join(' · ') : '<span style="color:#15803d;">✅ Khớp</span>'}</td>
+        </tr>`;
+    }
+
+    function xuatExcelPhaiNop() {
+      const rows = dsPhaiNopSauTim();
+      const tu = document.getElementById('bcTuNgay').value, den = document.getElementById('bcDenNgay').value;
+      const xe = document.getElementById('bcXe').value;
+      const aoa = [
+        ['TỔNG TIỀN PHẢI NỘP THEO CHUYẾN XE — CÔNG TY TNHH THÁI MỸ HƯƠNG'],
+        [`Từ ${isoSangVN(tu)} đến ${isoSangVN(den)}${xe ? ' · ' + xe : ''}`], [],
+        ['Ngày', 'Chuyến xe', 'Người nộp / Tài xế', 'Số đơn', 'Tiền mặt (đ)', 'Thu nợ cũ (đ)', 'Tiền chi (đ)', 'Nội dung chi', 'Tiền thối (đ)', 'Hoàn TM khách (đ)', 'Phải nộp (đ)', 'Thực nộp (đ)', 'Thiếu (đ)', 'Thừa (đ)', 'Ghi nhận']
+      ];
+      rows.forEach(g => {
+        const gn = !g.coQT ? 'Chờ quyết toán' : (!g.daDem ? 'Chưa đếm tiền' : (g.thieu > 0 ? (g.ghiNo ? 'Thiếu — ghi nợ người nộp' : 'Thiếu dưới 10.000 đ — bỏ qua') : (g.thua > 0 ? 'Thừa — ghi nhận người nộp' : 'Khớp')));
+        aoa.push([g.ngay, g.xe, g.nguoiNop || g.taiXe, g.soHD, g.tm, g.thuNoCu, g.tienChi, g.noiDungChi, g.tienThoi, g.hoanTM, g.phaiNop, g.daDem ? g.tienDem : '', g.thieu, g.thua, gn]);
+      });
+      const tong = f => rows.reduce((s, g) => s + (g[f] || 0), 0);
+      aoa.push(['TỔNG CỘNG', `${rows.length} chuyến`, '', tong('soHD'), tong('tm'), tong('thuNoCu'), tong('tienChi'), '', tong('tienThoi'), tong('hoanTM'), tong('phaiNop'), tong('tienDem'), tong('thieu'), tong('thua'), '']);
+      taiFileExcel(`TongTienPhaiNop_TheoChuyen_${ymdLocal(new Date())}.xlsx`, aoa, [12, 20, 18, 8, 15, 14, 14, 24, 14, 14, 16, 16, 14, 14, 24]);
+    }
 
     // ---------------- TAB: TỔNG HỢP TIỀN | HÀNG HOÁ THỰC TẾ XUẤT KHO ----------------
     let tabBC = 'tien';
@@ -1445,6 +1685,13 @@
           soChuyenThuNo ? `${soChuyenThuNo} chuyến tài xế thu hộ nợ cũ — đã cộng vào tiền tài xế nộp` : 'Không có phát sinh') +
         the('k-hoan', 'khoanchuyen', '🔄 Tổng tiền thối (tài xế nộp lại)', fmt(tongTienThoi) + ' đ',
           soChuyenThoi ? `${soChuyenThoi} chuyến có tiền thối — đã cộng vào tiền tài xế nộp` : 'Không có phát sinh'));
+      // Tổng tiền phải nộp theo các chuyến xe (cùng công thức Phải nộp ở chi tiết từng chuyến xe)
+      const dsPhaiNop = dsPhaiNopTheoChuyen(false);
+      const tongPhaiNop = dsPhaiNop.reduce((s, g) => s + g.phaiNop, 0);
+      const soChuyenPhaiNop = dsPhaiNop.filter(g => g.phaiNop > 0).length;
+      document.getElementById('bcKpi').insertAdjacentHTML('beforeend',
+        the('k-phai-nop', 'phainop', '💰 Tổng tiền phải nộp', fmt(tongPhaiNop) + ' đ',
+          soChuyenPhaiNop ? `${soChuyenPhaiNop} chuyến xe cần nộp tiền` : 'Không có phát sinh'));
       // Hoàn tiền cho khách (giữ như trước: chỉ hiện khi có phát sinh)
       if (n.chiTm + n.chiCk > 0) {
         document.getElementById('bcKpi').insertAdjacentHTML('beforeend',
@@ -1479,12 +1726,13 @@
       const dots = Array.from(map.values()).sort((a, b) => (vnSangKhoa(b.ngay) + b.xe).localeCompare(vnSangKhoa(a.ngay) + a.xe));
       const body = document.getElementById('bcBangDot');
       if (!dots.length && !thuNgoaiDaLoc().length) {
-        body.innerHTML = '<tr><td colspan="13" class="bc-empty">Không có chuyến xe nào trong khoảng ngày đã chọn.</td></tr>';
+        body.innerHTML = '<tr><td colspan="14" class="bc-empty">Không có chuyến xe nào trong khoảng ngày đã chọn.</td></tr>';
         document.getElementById('bcFootDot').innerHTML = '';
         return;
       }
       body.innerHTML = dots.map(dt => {
         const t = tongHop(dt.rows);
+        const pn = tinhPhaiNopMotChuyen(dt.maDot, dt.rows);
         const tt = t.soCho === 0 ? '<span class="bc-tag done">✅ Đã quyết toán</span>'
           : (t.soQT === 0 ? '<span class="bc-tag wait">⏳ Chờ quyết toán</span>' : `<span class="bc-tag wait">⏳ ${t.soCho}/${t.soHD} chờ</span>`);
         const lech = t.soLech ? ' <span class="bc-tag warn">Lệch</span>' : '';
@@ -1499,6 +1747,7 @@
             <td class="num" style="color:#1d4ed8;">${fmt(t.ck)}</td>
             <td class="num" style="color:#b45309;">${fmt(t.tra)}</td>
             <td class="num" style="color:#b91c1c;">${fmt(t.no)}</td>
+            <td class="num" style="color:#047857; font-weight:700;">${fmt(pn.phaiNop)}</td>
             ${oThieuThuaDot(dt.maDot, 'thieu')}
             ${oThieuThuaDot(dt.maDot, 'thua')}
             <td>${tt}${lech}</td>
@@ -1520,12 +1769,14 @@
             <td class="num">–</td>
             <td class="num">–</td>
             <td class="num">–</td>
+            <td class="num">–</td>
             <td>${N.chuaRo > 0 ? `<span class="bc-tag warn">${fmt(N.chuaRo)} đ chưa rõ hình thức</span>` : '<span class="bc-tag done">Đã cộng vào tổng</span>'}</td>
             <td class="no-print"></td>
           </tr>`);
       }
       const T = tongHop(ds.concat(thuNgoaiDaLoc()));
       const TT = tongThieuThua(dsDotCoNopTien());
+      const tongPN = dots.reduce((s, dt) => s + tinhPhaiNopMotChuyen(dt.maDot, dt.rows).phaiNop, 0);
       document.getElementById('bcFootDot').innerHTML = `
         <tr>
           <td colspan="3">TỔNG CỘNG (${dots.length} chuyến${N.soNgoai ? ` + ${N.soNgoai} khoản ngoài hoá đơn` : ''})</td>
@@ -1535,6 +1786,7 @@
           <td class="num">${fmt(T.ck)}</td>
           <td class="num">${fmt(T.tra)}</td>
           <td class="num">${fmt(T.no)}</td>
+          <td class="num" style="color:#047857;">${fmt(tongPN)}</td>
           <td class="num">${fmt(TT.thieu)}</td>
           <td class="num">${fmt(TT.thua)}</td>
           <td></td>
@@ -1560,6 +1812,7 @@
 
     function moChiTiet(key, param, giuNguyenTim) {
       if (key === 'thucxuat') { moBangThucXuat(); return; }
+      if (key === 'phainop') { moBangPhaiNop(); return; }
       if (key === 'khoanchuyen') {
         if (tabBC !== 'tien') chonTabBC('tien');
         const elK = document.getElementById('bcKhoanChuyen');
@@ -1680,15 +1933,19 @@
         rows.forEach(d => { if (d.ck > 0) { const n = d.nganHang || 'Chưa rõ tài khoản'; mapNH[n] = (mapNH[n] || 0) + d.ck; } });
         Object.keys(mapNH).forEach(n => chips.push(`<div class="bc-chip">🏦 ${H(n)}: <b>${fmt(mapNH[n])} đ</b></div>`));
       }
-      const ntDot = (k === 'dot' && chiTietHienTai.rows.some(r => r.daQT)) ? nopTien.get(chiTietHienTai.param) : null;
-      if (ntDot) {
-        const tenNop = ntDot.nguoiNop || (rows[0] && rows[0].taiXe) || '';
-        if (tenNop) chips.push(`<div class="bc-chip">👤 Người nộp: <b>${H(tenNop)}</b></div>`);
-        if (!ntDot.daDem) chips.push(`<div class="bc-chip">💰 Chưa nhập bảng đếm tiền ở Bước 2</div>`);
-        else {
-          chips.push(`<div class="bc-chip">💰 Phải nộp: <b>${fmt(ntDot.phaiNop)} đ</b> · Thực nộp: <b>${fmt(ntDot.tienDem)} đ</b></div>`);
-          if (ntDot.thieu > 0) chips.push(`<div class="bc-chip" style="color:#be123c;">🔻 Thiếu: <b>${fmt(ntDot.thieu)} đ</b> — ${ntDot.ghiNo ? 'ghi nợ người nộp' : 'dưới 10.000 đ, không ghi nợ'}</div>`);
-          if (ntDot.thua > 0) chips.push(`<div class="bc-chip" style="color:#0e7490;">🔺 Thừa: <b>${fmt(ntDot.thua)} đ</b> — ghi nhận cho người nộp</div>`);
+      if (k === 'dot') {
+        const infoPN = tinhPhaiNopMotChuyen(chiTietHienTai.param, chiTietHienTai.rows);
+        const ntDot = infoPN.coQT ? nopTien.get(chiTietHienTai.param) : null;
+        if (ntDot || infoPN.phaiNop > 0) {
+          const tenNop = infoPN.nguoiNop;
+          if (tenNop) chips.push(`<div class="bc-chip">👤 Người nộp: <b>${H(tenNop)}</b></div>`);
+          if (!infoPN.daDem) {
+            chips.push(`<div class="bc-chip">💰 Phải nộp: <b>${fmt(infoPN.phaiNop)} đ</b> · Chưa nhập bảng đếm tiền ở Bước 2</div>`);
+          } else {
+            chips.push(`<div class="bc-chip">💰 Phải nộp: <b>${fmt(infoPN.phaiNop)} đ</b> · Thực nộp: <b>${fmt(infoPN.tienDem)} đ</b></div>`);
+            if (infoPN.thieu > 0) chips.push(`<div class="bc-chip" style="color:#be123c;">🔻 Thiếu: <b>${fmt(infoPN.thieu)} đ</b> — ${infoPN.ghiNo ? 'ghi nợ người nộp' : 'dưới 10.000 đ, không ghi nợ'}</div>`);
+            if (infoPN.thua > 0) chips.push(`<div class="bc-chip" style="color:#0e7490;">🔺 Thừa: <b>${fmt(infoPN.thua)} đ</b> — ghi nhận cho người nộp</div>`);
+          }
         }
       }
       const soDaKT = rows.filter(d => daKiemTraBC(d)).length;
@@ -2018,22 +2275,25 @@
         ['Tiền thừa khi nộp tiền xe (ghi nhận cho người nộp)', tt.soThua, tt.thua],
         ...(() => {
           const k = khoanTinhTienTheoChuyen(ds);
+          const dsPN = dsPhaiNopTheoChuyen(false);
           return [
             ['Hàng thực tế xuất (Xuất kho − Trả về + Tiền thối)', t.soHD, t.xuat - t.tra + k.reduce((s, x) => s + x.tienThoi, 0)],
             ['Tổng tiền chi (chi phí xe, Bước 2)', k.filter(x => x.tienChi > 0).length, k.reduce((s, x) => s + x.tienChi, 0)],
             ['Tổng tiền thu nợ cũ qua xe (Bước 2)', k.filter(x => x.thuNoCu > 0).length, k.reduce((s, x) => s + x.thuNoCu, 0)],
-            ['Tổng tiền thối (tài xế nộp lại, Bước 2)', k.filter(x => x.tienThoi > 0).length, k.reduce((s, x) => s + x.tienThoi, 0)]
+            ['Tổng tiền thối (tài xế nộp lại, Bước 2)', k.filter(x => x.tienThoi > 0).length, k.reduce((s, x) => s + x.tienThoi, 0)],
+            ['Tổng tiền phải nộp (các chuyến xe nộp về quỹ)', dsPN.filter(x => x.phaiNop > 0).length, dsPN.reduce((s, x) => s + x.phaiNop, 0)]
           ];
         })(), [],
-        ['Ngày', 'Chuyến xe', 'Tài xế', 'Số HĐ', 'Xuất kho', 'Tiền mặt', 'Chuyển khoản', 'Trả về', 'Nợ', 'Người nộp tiền', 'Thiếu', 'Thừa', 'Ghi nợ người nộp']
+        ['Ngày', 'Chuyến xe', 'Tài xế', 'Số HĐ', 'Xuất kho', 'Tiền mặt', 'Chuyển khoản', 'Trả về', 'Nợ', 'Phải nộp', 'Người nộp tiền', 'Thiếu', 'Thừa', 'Ghi nợ người nộp']
       ];
       const map = new Map();
       ds.forEach(d => { if (!map.has(d.maDot)) map.set(d.maDot, []); map.get(d.maDot).push(d); });
       map.forEach((rows, maDot) => {
         const s = tongHop(rows);
+        const pn = tinhPhaiNopMotChuyen(maDot, rows);
         const nt = s.soQT ? nopTien.get(maDot) : null;
         const coDem = !!(nt && nt.daDem);
-        aoa.push([rows[0].ngay, rows[0].xe, rows[0].taiXe, s.soHD, s.xuat, s.tm, s.ck, s.tra, s.no,
+        aoa.push([rows[0].ngay, rows[0].xe, rows[0].taiXe, s.soHD, s.xuat, s.tm, s.ck, s.tra, s.no, pn.phaiNop,
           nt ? (nt.nguoiNop || rows[0].taiXe) : '', coDem ? nt.thieu : (nt ? 'Chưa đếm tiền' : ''), coDem ? nt.thua : '', coDem ? nt.soNo : '']);
       });
       const nhom = nhomTheoNguoiNop(dsDotTT.filter(x => x.daDem && (x.thieu > 0 || x.thua > 0)));
