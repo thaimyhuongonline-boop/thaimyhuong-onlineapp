@@ -1238,8 +1238,8 @@
           // Dùng cho file bán hàng theo mẫu MISA 69 cột (misa_ban_hang.js): Mã thống kê (số xe), Mã NV bán hàng, Hàng khuyến mại
           xe: dot.xe || "",
           nguoiBanQT: String(infoQT.nguoiBan || "").trim(),
-          laKM: !!r['KM'],
-          hopLe: !!(maKH && maHang && thanhTien > 0)
+          laKM: !!r['KM'] || ((donGia === 0 || thanhTien === 0) && sl > 0),
+          hopLe: !!(maKH && maHang && (thanhTien > 0 || (sl > 0 && (!!r['KM'] || thanhTien === 0))))
         });
       });
 
@@ -1276,9 +1276,41 @@
       });
       theoHD.forEach((dong, maHD) => {
         const info = mapQuyetToan.get(maHD) || {};
+        const coQT = mapQuyetToan.has(maHD) && (info.tienHD !== undefined || info.thanhTien !== undefined);
+        const tienHDQT = coQT ? (parseFloat(info.tienHD !== undefined ? info.tienHD : info.thanhTien) || 0) : null;
+        const giamHD = parseFloat(info.giamHD || info.giam_gia_hd || 0) || 0;
+        const tongDongGoc = dong.reduce((s, r) => s + (parseFloat(r['Thành tiền'] || 0) || 0), 0);
+
+        // Đồng bộ Giảm giá hóa đơn (giam_gia_hd):
+        // - Nếu hóa đơn chiết khấu 100% (thanh_tien = 0 trên luu_tru, ví dụ HD291896): chuyển dòng hàng về 0 đ (hàng KM)
+        // - Nếu hóa đơn có giảm giá cấp HĐ 1 phần làm tổng dòng > thanh_tien: phân bổ tỷ lệ để tổng dòng = thanh_tien
+        if (coQT && tienHDQT !== null && tongDongGoc > 0) {
+          if (tienHDQT <= 0) {
+            dong.forEach(r => {
+              r['Thành tiền'] = 0; r.thanh_tien = 0;
+              r['Đơn giá'] = 0; r.don_gia = 0; r['Giá bán'] = 0;
+              r['KM'] = true; r.la_khuyen_mai = true;
+            });
+          } else if (tongDongGoc > tienHDQT + 0.5 && (giamHD > 0 || Math.abs(tongDongGoc - giamHD - tienHDQT) <= 2)) {
+            const dongDuong = dong.filter(r => (parseFloat(r['Thành tiền'] || 0) || 0) > 0);
+            let conLai = Math.round(tienHDQT);
+            dongDuong.forEach((r, idx) => {
+              const ttCu = parseFloat(r['Thành tiền'] || 0) || 0;
+              const sl = parseFloat(r['Số lượng'] || 0) || 0;
+              const ttMoi = (idx === dongDuong.length - 1) ? Math.max(0, conLai) : Math.round(tienHDQT * ttCu / tongDongGoc);
+              conLai -= ttMoi;
+              r['Thành tiền'] = ttMoi; r.thanh_tien = ttMoi;
+              if (sl > 0) {
+                const dgMoi = Math.round((ttMoi / sl) * 100) / 100;
+                r['Đơn giá'] = dgMoi; r.don_gia = dgMoi; r['Giá bán'] = dgMoi;
+              }
+            });
+          }
+        }
+
         const traVe = parseFloat(info.traVe || info.tra_ve || 0) || 0;
         if (!(traVe > 0)) { kq.dong.push(...dong); return; }
-        const tienHD = parseFloat(info.tienHD || info.thanhTien || 0) || tongTheoHD.get(maHD) || 0;
+        const tienHD = (tienHDQT !== null ? tienHDQT : 0) || tongTheoHD.get(maHD) || 0;
         const tenKH = info.tenKH || (dong[0] && dong[0]['Tên khách hàng']) || '';
         if (info.tinhTrang === 'tra_nguyen_don' || (tienHD > 0 && traVe >= tienHD - 0.5)) {
           kq.nguyenDon.push({ maHD, tenKH, traVe });

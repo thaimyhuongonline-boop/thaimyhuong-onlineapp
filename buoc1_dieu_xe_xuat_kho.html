@@ -4724,25 +4724,58 @@
           }
 
           if (cacDongChiTiet && cacDongChiTiet.length > 0) {
-            const rowsCTHD = cacDongChiTiet.map(r => ({
-              ma_hd: String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase(),
-              ma_dot: maDot,
-              ngay_ct: ngayGiao,
-              xe: xe,
-              ma_kh: String(r['Mã khách hàng'] || r.ma_kh || '').trim().toUpperCase(),
-              ten_kh: String(r['Tên khách hàng'] || r.ten_kh || '').trim(),
-              ma_hang: String(r['Mã hàng'] || r.ma_hang || '').trim().toUpperCase(),
-              ten_hang: String(r['Tên hàng'] || r.ten_hang || '').trim(),
-              dvt: String(r['ĐVT'] || r.dvt || 'Thùng').trim(),
-              so_luong: parseFloat(r['Số lượng'] !== undefined ? r['Số lượng'] : r.so_luong || 0),
-              don_gia: parseFloat(r['Đơn giá'] !== undefined ? r['Đơn giá'] : (r['Giá bán'] || r.don_gia || 0)),
-              thanh_tien: parseFloat(r['Thành tiền'] !== undefined ? r['Thành tiền'] : r.thanh_tien || 0),
-              quy_cach: parseFloat(r['Quy cách'] || r.quy_cach || 1),
-              la_khuyen_mai: !!(r['KM'] || r.la_khuyen_mai)
-            }));
-            // Xóa sạch các dòng chi_tiet_hoa_don cũ của cùng ma_dot trước khi insert lại để chống nhân đôi (duplicate) 100%
+            // Đồng bộ Giảm giá hóa đơn (giamHD) vào chi_tiet_hoa_don để tổng thành tiền dòng khớp 100% với luu_tru.thanh_tien
+            const mapBK = new Map(chiTietBangKe.map(b => [String(b.maHD || '').trim().toUpperCase(), b]));
+            const nhomCT = new Map();
+            const rowsCTHD = cacDongChiTiet.map(r => {
+              const rowObj = {
+                ma_hd: String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase(),
+                ma_dot: maDot,
+                ngay_ct: ngayGiao,
+                xe: xe,
+                ma_kh: String(r['Mã khách hàng'] || r.ma_kh || '').trim().toUpperCase(),
+                ten_kh: String(r['Tên khách hàng'] || r.ten_kh || '').trim(),
+                ma_hang: String(r['Mã hàng'] || r.ma_hang || '').trim().toUpperCase(),
+                ten_hang: String(r['Tên hàng'] || r.ten_hang || '').trim(),
+                dvt: String(r['ĐVT'] || r.dvt || 'Thùng').trim(),
+                so_luong: parseFloat(r['Số lượng'] !== undefined ? r['Số lượng'] : r.so_luong || 0),
+                don_gia: parseFloat(r['Đơn giá'] !== undefined ? r['Đơn giá'] : (r['Giá bán'] || r.don_gia || 0)),
+                thanh_tien: parseFloat(r['Thành tiền'] !== undefined ? r['Thành tiền'] : r.thanh_tien || 0),
+                quy_cach: parseFloat(r['Quy cách'] || r.quy_cach || 1),
+                la_khuyen_mai: !!(r['KM'] || r.la_khuyen_mai)
+              };
+              if (!nhomCT.has(rowObj.ma_hd)) nhomCT.set(rowObj.ma_hd, []);
+              nhomCT.get(rowObj.ma_hd).push(rowObj);
+              return rowObj;
+            });
+            nhomCT.forEach((dong, maHD) => {
+              const bk = mapBK.get(maHD);
+              if (!bk) return;
+              const tienHD = parseFloat(bk.thanhTien || 0) || 0;
+              const giamHD = parseFloat(bk.giamHD || 0) || 0;
+              const tongDong = dong.reduce((s, d) => s + (parseFloat(d.thanh_tien) || 0), 0);
+              if (tongDong <= 0) return;
+              if (tienHD <= 0) {
+                dong.forEach(d => { d.thanh_tien = 0; d.don_gia = 0; d.la_khuyen_mai = true; });
+              } else if (tongDong > tienHD + 0.5 && giamHD > 0) {
+                const dongDuong = dong.filter(d => (parseFloat(d.thanh_tien) || 0) > 0);
+                let conLai = Math.round(tienHD);
+                dongDuong.forEach((d, idx) => {
+                  const ttCu = parseFloat(d.thanh_tien) || 0;
+                  const ttMoi = (idx === dongDuong.length - 1) ? Math.max(0, conLai) : Math.round(tienHD * ttCu / tongDong);
+                  conLai -= ttMoi;
+                  d.thanh_tien = ttMoi;
+                  if (d.so_luong > 0) d.don_gia = Math.round((ttMoi / d.so_luong) * 100) / 100;
+                });
+              }
+            });
+            // Xóa sạch các dòng chi_tiet_hoa_don cũ của cùng ma_dot và của các ma_hd trong chuyến trước khi insert lại để chống nhân đôi (duplicate) 100%
             try {
               await sb.from('chi_tiet_hoa_don').delete().eq('ma_dot', maDot);
+              const dsMaHDCT = Array.from(nhomCT.keys()).filter(Boolean);
+              for (let i = 0; i < dsMaHDCT.length; i += 150) {
+                await sb.from('chi_tiet_hoa_don').delete().in('ma_hd', dsMaHDCT.slice(i, i + 150));
+              }
             } catch (eDel) {}
             await upsertSupabaseTuTu('chi_tiet_hoa_don', rowsCTHD);
           }

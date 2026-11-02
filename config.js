@@ -777,6 +777,52 @@ async function taiChiTietHangDayDuChoDot(dot, tuDongSuaDB = true) {
 
   // Khử trùng lần cuối toàn bộ danh sách dòng của chuyến
   dsDong = khuTrungDongChiTietHang(dsDong, mapTienHD).map(c => chuanHoaDong(c));
+
+  // Đồng bộ Giảm giá hóa đơn (giam_gia_hd) từ luu_tru vào dòng hàng chi tiết:
+  // Nếu hóa đơn có giảm giá cấp HĐ (100% hoặc 1 phần) làm tổng dòng > thanh_tien của HĐ, chuẩn hóa lại để khớp 100%
+  if (Array.isArray(dot.danhSachChiTiet) && dot.danhSachChiTiet.length > 0 && dsDong.length > 0) {
+    const mapCT = new Map();
+    dot.danhSachChiTiet.forEach(it => {
+      const m = String(it.maHD || it.ma_hd || '').trim().toUpperCase();
+      if (m) mapCT.set(m, it);
+    });
+    const nhomHD = new Map();
+    dsDong.forEach(r => {
+      const m = String(r['Mã hóa đơn'] || r.ma_hd || '').trim().toUpperCase();
+      if (!nhomHD.has(m)) nhomHD.set(m, []);
+      nhomHD.get(m).push(r);
+    });
+    nhomHD.forEach((dong, m) => {
+      const info = mapCT.get(m);
+      if (!info || (info.thanhTien === undefined && info.tienHD === undefined)) return;
+      const tienHD = parseFloat(info.thanhTien !== undefined ? info.thanhTien : info.tienHD) || 0;
+      const giamHD = parseFloat(info.giamHD || info.giam_gia_hd || 0) || 0;
+      const tongDong = dong.reduce((s, r) => s + (parseFloat(r['Thành tiền'] || 0) || 0), 0);
+      if (tongDong <= 0) return;
+      if (tienHD <= 0) {
+        dong.forEach(r => {
+          r['Thành tiền'] = 0; r.thanh_tien = 0;
+          r['Đơn giá'] = 0; r.don_gia = 0; r['Giá bán'] = 0;
+          r['KM'] = true; r.la_khuyen_mai = true;
+        });
+      } else if (tongDong > tienHD + 0.5 && (giamHD > 0 || Math.abs(tongDong - giamHD - tienHD) <= 2)) {
+        const dongDuong = dong.filter(r => (parseFloat(r['Thành tiền'] || 0) || 0) > 0);
+        let conLai = Math.round(tienHD);
+        dongDuong.forEach((r, idx) => {
+          const ttCu = parseFloat(r['Thành tiền'] || 0) || 0;
+          const sl = parseFloat(r['Số lượng'] || 0) || 0;
+          const ttMoi = (idx === dongDuong.length - 1) ? Math.max(0, conLai) : Math.round(tienHD * ttCu / tongDong);
+          conLai -= ttMoi;
+          r['Thành tiền'] = ttMoi; r.thanh_tien = ttMoi;
+          if (sl > 0) {
+            const dgMoi = Math.round((ttMoi / sl) * 100) / 100;
+            r['Đơn giá'] = dgMoi; r.don_gia = dgMoi; r['Giá bán'] = dgMoi;
+          }
+        });
+      }
+    });
+  }
+
   dot.cacDongChiTietKiotViet = dsDong;
   return dsDong;
 }

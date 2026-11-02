@@ -379,7 +379,7 @@
     <div class="bc-modal-box">
       <div class="bc-modal-head">
         <div>
-          <div class="bc-card-title" style="font-size:16px;">📦 Hàng thực tế xuất theo chuyến xe = Xuất kho − Trả về + Tiền thối</div>
+          <div class="bc-card-title" style="font-size:16px;">📦 Hàng thực tế xuất theo chuyến xe = Xuất kho − Trả về (Doanh số thuần MISA)</div>
           <div class="bc-card-sub" id="bcTXSub"></div>
         </div>
         <div style="display:flex; gap:6px; flex-shrink:0;">
@@ -1064,7 +1064,7 @@
       if (document.getElementById('bcModalPN').classList.contains('show')) veBangPhaiNop();
     }
 
-    // ---------------- HÀNG THỰC TẾ XUẤT THEO CHUYẾN = Xuất kho − Trả về + Tiền thối ----------------
+    // ---------------- HÀNG THỰC TẾ XUẤT THEO CHUYẾN = Xuất kho − Trả về (khớp 100% Doanh số thuần MISA) ----------------
     function dsThucXuatTheoChuyen() {
       const ds = duLieuDaLoc().filter(d => !d.laThuNgoai);
       const thoi = new Map(khoanTinhTienTheoChuyen(ds).map(k => [k.maDot, k.tienThoi]));
@@ -1075,7 +1075,7 @@
         g.soHD++; g.xuat += d.thanhTien; g.tra += d.tra;
       });
       return Array.from(map.values())
-        .map(g => Object.assign(g, { tienThoi: thoi.get(g.maDot) || 0, thucTe: g.xuat - g.tra + (thoi.get(g.maDot) || 0) }))
+        .map(g => Object.assign(g, { tienThoi: thoi.get(g.maDot) || 0, thucTe: g.xuat - g.tra }))
         .sort((a, b) => (vnSangKhoa(b.ngay) + b.xe).localeCompare(vnSangKhoa(a.ngay) + a.xe));
     }
 
@@ -1147,9 +1147,9 @@
         `<div class="bc-chip">Số chuyến: <b>${rows.length}</b></div>`,
         `<div class="bc-chip">Xuất kho: <b>${fmt(tong('xuat'))} đ</b></div>`,
         `<div class="bc-chip" style="color:#b45309;">− Trả về: <b>${fmt(tong('tra'))} đ</b></div>`,
-        `<div class="bc-chip" style="color:#047857;">+ Tiền thối: <b>${fmt(tong('tienThoi'))} đ</b></div>`,
-        `<div class="bc-chip" style="color:#0e7490;">= Thực tế xuất: <b>${fmt(tong('thucTe'))} đ</b></div>`
-      ].join('');
+        `<div class="bc-chip" style="color:#0e7490;">= Thực tế xuất (Doanh số thuần MISA): <b>${fmt(tong('thucTe'))} đ</b></div>`,
+        tong('tienThoi') ? `<div class="bc-chip" style="color:#047857;">Tiền thối (tài xế nộp lại): <b>${fmt(tong('tienThoi'))} đ</b></div>` : ''
+      ].filter(Boolean).join('');
       const soDaKT = rows.filter(daKiemTraThucXuat).length;
       document.getElementById('bcTXChips').insertAdjacentHTML('beforeend',
         `<div class="bc-chip" style="color:${soDaKT === rows.length && rows.length ? '#15803d' : '#475569'};">☑ Đã kiểm tra: <b>${soDaKT}/${rows.length}</b>${kiemTraNguonBC === 'may' ? ' <span style="color:#b45309;">(lưu tạm trên máy này — cần chạy sql/17)</span>' : ''}</div>`);
@@ -1181,7 +1181,7 @@
       const tu = document.getElementById('bcTuNgay').value, den = document.getElementById('bcDenNgay').value;
       const xe = document.getElementById('bcXe').value;
       const aoa = [
-        ['HÀNG THỰC TẾ XUẤT THEO CHUYẾN XE (XUẤT KHO − TRẢ VỀ + TIỀN THỐI) — CÔNG TY TNHH THÁI MỸ HƯƠNG'],
+        ['HÀNG THỰC TẾ XUẤT THEO CHUYẾN XE (XUẤT KHO − TRẢ VỀ) — CÔNG TY TNHH THÁI MỸ HƯƠNG'],
         [`Từ ${isoSangVN(tu)} đến ${isoSangVN(den)}${xe ? ' · ' + xe : ''}`], [],
         ['Ngày', 'Chuyến xe', 'Tài xế', 'Số HĐ', 'Xuất kho', 'Trả về', 'Tiền thối', 'Thực tế xuất', 'Đã kiểm tra']
       ];
@@ -1664,7 +1664,7 @@
         the('k-mat', 'tienmat', '💵 Thanh toán tiền mặt', fmt(t.tm + n.tm) + ' đ', `${t.soTM} đơn thu tiền mặt (${fmt(t.tm)} đ)` + phuNgoai(n.tm, n.soTM)) +
         the('k-ck', 'ck', '🏦 Chuyển khoản', fmt(t.ck + n.ck) + ' đ', `${t.soCK} đơn chuyển khoản (${fmt(t.ck)} đ)` + phuNgoai(n.ck, n.soCK)) +
         the('k-tra', 'travee', '↩️ Hàng trả về', fmt(t.tra + n.tra) + ' đ', `${t.soTra} đơn có hàng trả` + (n.tra ? ` + ${fmt(n.tra)} đ khách trả lại hàng trừ nợ (${n.soTra} khoản)` : '')) +
-        the('k-net-xuat', 'thucxuat', '📦 Hàng thực tế xuất (sau trừ trả về)', fmt(t.xuat - t.tra + tongTienThoi) + ' đ', `Doanh thu thuần MISA: ${fmt(t.xuat - t.tra)} đ (Xuất ${fmt(t.xuat)} đ − Trả ${fmt(t.tra)} đ)` + (tongTienThoi ? ` + Tiền thối ${fmt(tongTienThoi)} đ` : '')) +
+        the('k-net-xuat', 'thucxuat', '📦 Hàng thực tế xuất (sau trừ trả về)', fmt(t.xuat - t.tra) + ' đ', `Doanh thu thuần MISA: ${fmt(t.xuat - t.tra)} đ (Xuất ${fmt(t.xuat)} đ − Trả ${fmt(t.tra)} đ)`) +
         the('k-no', 'no', '📒 Tổng nợ phát sinh', fmt(t.no) + ' đ', `${t.soNo} đơn ghi nợ`) +
         the('k-cho', 'cho', '⏳ Chờ quyết toán (Bước 2)', `${t.soCho} đơn`, `${fmt(t.tienCho)} đ chưa quyết toán`);
       document.getElementById('bcKpi').insertAdjacentHTML('beforeend', veTheThieuThua());
@@ -2277,7 +2277,7 @@
           const k = khoanTinhTienTheoChuyen(ds);
           const dsPN = dsPhaiNopTheoChuyen(false);
           return [
-            ['Hàng thực tế xuất (Xuất kho − Trả về + Tiền thối)', t.soHD, t.xuat - t.tra + k.reduce((s, x) => s + x.tienThoi, 0)],
+            ['Hàng thực tế xuất (Xuất kho − Trả về / Doanh số thuần MISA)', t.soHD, t.xuat - t.tra],
             ['Tổng tiền chi (chi phí xe, Bước 2)', k.filter(x => x.tienChi > 0).length, k.reduce((s, x) => s + x.tienChi, 0)],
             ['Tổng tiền thu nợ cũ qua xe (Bước 2)', k.filter(x => x.thuNoCu > 0).length, k.reduce((s, x) => s + x.thuNoCu, 0)],
             ['Tổng tiền thối (tài xế nộp lại, Bước 2)', k.filter(x => x.tienThoi > 0).length, k.reduce((s, x) => s + x.tienThoi, 0)],
