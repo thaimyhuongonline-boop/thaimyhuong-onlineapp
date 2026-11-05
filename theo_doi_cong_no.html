@@ -1998,6 +1998,12 @@
           const ng = chuanHoaNgayYYYYMMDD(r.ngay_giao || r.tao_luc || '');
           return ng === '2026-10-26' || r.ngay_giao === '26/10/2026' || r.ngay_giao === '2026-10-26';
         });
+        if (typeof taiTatCaGhiChuHoaDonTuCloud === 'function') {
+          await taiTatCaGhiChuHoaDonTuCloud();
+        }
+        if (typeof ganGhiChuVaoDanhSachRowsLuuTru === 'function') {
+          ganGhiChuVaoDanhSachRowsLuuTru(rowsNgay26);
+        }
 
         // 2. Quét thêm từ lịch sử đợt trên localStorage nếu có
         let tripsFromStorage = [];
@@ -2478,6 +2484,12 @@
           }
 
           if (data && Array.isArray(data)) {
+            if (typeof taiTatCaGhiChuHoaDonTuCloud === 'function') {
+              await taiTatCaGhiChuHoaDonTuCloud();
+            }
+            if (typeof ganGhiChuVaoDanhSachRowsLuuTru === 'function') {
+              ganGhiChuVaoDanhSachRowsLuuTru(data);
+            }
             data.forEach(r => {
               const idNo = `NO_${r.ma_hd}`;
               // Bỏ qua nếu đã xóa thủ công
@@ -2596,7 +2608,7 @@
             for (let i = 0; i < dsMaHDChuaThu.length; i += 100) {
               const cum = dsMaHDChuaThu.slice(i, i + 100);
               const { data: daKiem } = await sb.from('luu_tru')
-                .select('ma_hd, no_phat_sinh, da_quyet_toan, da_kiem_don')
+                .select('ma_hd, no_phat_sinh, da_kiem_don')
                 .in('ma_hd', cum)
                 .eq('no_phat_sinh', 0);
               if (Array.isArray(daKiem) && daKiem.length > 0) {
@@ -6731,7 +6743,10 @@
       }
       ghiSoCongNo(danhSachCongNo);
 
-      // 2. Cập nhật local tmh_lich_su_dot
+      // 2. Cập nhật local tmh_lich_su_dot & kho ghi chú hoá đơn
+      if (maHD && typeof ghiGhiChuHoaDonLocal === 'function') {
+        ghiGhiChuHoaDonLocal(maHD, val, don?.maDot);
+      }
       try {
         const rawDot = localStorage.getItem('tmh_lich_su_dot');
         if (rawDot) {
@@ -6741,6 +6756,14 @@
             (dot.danhSachHoaDon || []).forEach(h => {
               if (h.maHD === maHD || `NO_${h.maHD}` === idDon) {
                 h.ghiChu = val;
+                h.ghi_chu = val;
+                coSua = true;
+              }
+            });
+            (dot.danhSachChiTiet || []).forEach(h => {
+              if ((h.maHD || h.ma_hd) === maHD || `NO_${h.maHD || h.ma_hd}` === idDon) {
+                h.ghiChu = val;
+                h.ghi_chu = val;
                 coSua = true;
               }
             });
@@ -6751,13 +6774,17 @@
         console.warn('Lỗi cập nhật local ghi chú:', e);
       }
 
-      // 3. Cập nhật Supabase
+      // 3. Cập nhật Supabase (cả kiem_tra_bao_cao và luu_tru)
       if (typeof sb !== 'undefined') {
         try {
           if (don && (don.ngoaiBangKe || don.maDot === 'NGOAI_BANG_KE')) {
             await sb.from('cong_no_ngoai_bang_ke').update({ ghi_chu: val || null }).eq('id', idDon);
           } else if (maHD) {
-            await sb.from('luu_tru').update({ ghi_chu: val || null }).eq('ma_hd', maHD);
+            if (typeof luuGhiChuHoaDonCloud === 'function') {
+              await luuGhiChuHoaDonCloud(maHD, val, don?.maDot);
+            } else {
+              await sb.from('luu_tru').update({ ghi_chu: val || null }).eq('ma_hd', maHD);
+            }
           }
         } catch (e) {
           console.warn('Lỗi lưu ghi chú lên cloud:', e);

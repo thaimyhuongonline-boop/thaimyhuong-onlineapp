@@ -49,6 +49,7 @@
   <div id="chipLocHangB2"></div>
 </div>
 
+<script src="../config.js"></script>
 <script>
   const results = [];
   let passCount = 0;
@@ -93,7 +94,9 @@
   // ========================================================
   const supabaseAuditLog = [];
   const mockSupabaseDB = {
-    luu_tru: new Map()
+    luu_tru: new Map(),
+    kiem_tra_bao_cao: new Map(),
+    phieu_nop_tien: new Map()
   };
 
   const mockSb = {
@@ -102,6 +105,7 @@
         table: tableName,
         action: 'select',
         filters: {},
+        likeFilters: {},
         payload: null
       };
 
@@ -128,6 +132,10 @@
           currentQuery.filters[col] = val;
           return builder;
         },
+        like: function(col, pattern) {
+          currentQuery.likeFilters[col] = pattern;
+          return builder;
+        },
         order: function() { return builder; },
         limit: function() { return builder; },
         then: function(resolve) {
@@ -135,6 +143,26 @@
         },
         _execute: async function() {
           supabaseAuditLog.push(JSON.parse(JSON.stringify(currentQuery)));
+
+          if (currentQuery.table === 'kiem_tra_bao_cao') {
+            if (currentQuery.action === 'upsert') {
+              const pList = Array.isArray(currentQuery.payload) ? currentQuery.payload : [currentQuery.payload];
+              pList.forEach(item => {
+                if (item && item.khoa) {
+                  mockSupabaseDB.kiem_tra_bao_cao.set(item.khoa, { ...(mockSupabaseDB.kiem_tra_bao_cao.get(item.khoa) || {}), ...item });
+                }
+              });
+              return { data: pList, error: null };
+            }
+            if (currentQuery.action === 'select') {
+              let rows = Array.from(mockSupabaseDB.kiem_tra_bao_cao.values());
+              if (currentQuery.likeFilters['khoa']) {
+                const pref = String(currentQuery.likeFilters['khoa']).replace(/%$/, '');
+                rows = rows.filter(r => String(r.khoa || '').startsWith(pref));
+              }
+              return { data: rows, error: null };
+            }
+          }
 
           if (currentQuery.table === 'luu_tru') {
             if (currentQuery.action === 'update') {
@@ -872,6 +900,40 @@
       danhSachHoaDonQuyetToan[9].ghiChu === ghiChuTest);
     assert(g6, "6.10 Cả 2 trường ghiChu & ghi_chu đều được đồng bộ đồng nhất", 
       danhSachHoaDonQuyetToan[9].ghi_chu === ghiChuTest && dotHienTai.danhSachChiTiet[9].ghi_chu === ghiChuTest);
+
+    // ====================================================
+    // NHÓM 7: LƯU VĨNH VIỄN TRÊN SUPABASE (kiem_tra_bao_cao & phieu_nop_tien)
+    // NGAY CẢ KHI BẢNG luu_tru THIẾU CỘT ghi_chu VÀ XÓA SẠCH LOCALSTORAGE (MÁY MỚI)
+    // ====================================================
+    const g7 = "Nhóm 7: Lưu vĩnh viễn trên Supabase (kiem_tra_bao_cao + phieu_nop_tien) & Đồng bộ sang Báo Cáo Tổng Hợp khi mở trên máy mới";
+    if (typeof luuGhiChuHoaDonCloud === 'function' && typeof taiTatCaGhiChuHoaDonTuCloud === 'function') {
+      await luuGhiChuHoaDonCloud("HD289677", "CK Vietcombank khách hẹn mai gửi UNC", maDotA, { "HD289677": "CK Vietcombank khách hẹn mai gửi UNC" });
+      assert(g7, "7.1 luuGhiChuHoaDonCloud ghi bản ghi ghichu_hd|HD289677 vào kiem_tra_bao_cao trên Supabase",
+        mockSupabaseDB.kiem_tra_bao_cao.has("ghichu_hd|HD289677") &&
+        mockSupabaseDB.kiem_tra_bao_cao.get("ghichu_hd|HD289677").ghi_chu === "CK Vietcombank khách hẹn mai gửi UNC");
+      assert(g7, "7.2 luuGhiChuHoaDonCloud ghi bản ghi ghichu_dot|<maDot> vào kiem_tra_bao_cao trên Supabase",
+        mockSupabaseDB.kiem_tra_bao_cao.has(`ghichu_dot|${maDotA}`));
+
+      // Giả lập sang máy mới hoàn toàn: xóa sạch localStorage và xóa cache RAM, đồng thời xóa cột ghi_chu khỏi luu_tru
+      localStorage.removeItem(KHOA_LS_GHI_CHU_HD_ALL);
+      localStorage.removeItem(`tmh_ghi_chu_hoa_don_${maDotA}`);
+      _cacheGhiChuHDCloud.clear();
+
+      await taiTatCaGhiChuHoaDonTuCloud();
+      const rowsTuLuuTruKhongCoCotGhiChu = [
+        { ma_hd: "HD289677", ma_dot: maDotA, ten_kh: "Khách Hàng 10", thanh_tien: 897000, chuyen_khoan: 897000, tao_luc: new Date().toISOString() }
+      ];
+      ganGhiChuVaoDanhSachRowsLuuTru(rowsTuLuuTruKhongCoCotGhiChu);
+      assert(g7, "7.3 Khi mở trên máy mới (localStorage trống & luu_tru thiếu cột ghi_chu), taiTatCaGhiChuHoaDonTuCloud + ganGhiChuVaoDanhSachRowsLuuTru phục hồi 100% ghi chú từ Supabase",
+        rowsTuLuuTruKhongCoCotGhiChu[0].ghi_chu === "CK Vietcombank khách hẹn mai gửi UNC" &&
+        rowsTuLuuTruKhongCoCotGhiChu[0].ghiChu === "CK Vietcombank khách hẹn mai gửi UNC");
+
+      const mapTuPhieu = tachGhiChuHoaDonTuPhieuNop({
+        ghi_chu: 'Chi: 0 () | Thu nợ cũ: 0 () |  ||GC_HD:{"HD293192":"Khách CK gộp 2 đơn"}'
+      });
+      assert(g7, "7.4 tachGhiChuHoaDonTuPhieuNop bóc tách chính xác ghi chú hoá đơn nhúng trong phieu_nop_tien.ghi_chu",
+        mapTuPhieu["HD293192"] === "Khách CK gộp 2 đơn");
+    }
 
     // ====================================================
     // HIỂN THỊ KẾT QUẢ KIỂM THỬ RA GIAO DIỆN

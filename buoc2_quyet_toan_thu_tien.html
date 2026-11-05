@@ -2098,6 +2098,9 @@
       // Đọc và hợp nhất từ Supabase luu_tru
       if (typeof sb !== 'undefined') {
         try {
+          if (typeof taiTatCaGhiChuHoaDonTuCloud === 'function') {
+            await taiTatCaGhiChuHoaDonTuCloud();
+          }
           const { data, error } = (typeof docLuuTruMoiNhat === 'function')
             ? await docLuuTruMoiNhat(20000)
             : await sb.from('luu_tru').select('*').order('tao_luc', { ascending: false }).limit(5000);
@@ -2109,6 +2112,19 @@
               let coChuyenMoi = false;
               const dotCoTheDaLamMoi = []; // trên máy này còn số liệu quyết toán nhưng máy chủ đã về Chờ tính tiền
               dsDotSB.forEach(dotSB => {
+                // Đảm bảo mọi đơn trong dotSB đều được gắn ghi chú từ cloud/local map
+                if (Array.isArray(dotSB.danhSachChiTiet)) {
+                  dotSB.danhSachChiTiet.forEach(cSB => {
+                    const ma = String(cSB.maHD || cSB.ma_hd || '').trim().toUpperCase();
+                    const gcTot = (typeof layGhiChuHoaDonTotNhat === 'function')
+                      ? layGhiChuHoaDonTotNhat(ma, dotSB.maDot, cSB.ghiChu || cSB.ghi_chu)
+                      : (cSB.ghiChu || cSB.ghi_chu || '');
+                    if (gcTot) {
+                      cSB.ghiChu = gcTot;
+                      cSB.ghi_chu = gcTot;
+                    }
+                  });
+                }
                 const idx = danhSachTatCaDot.findIndex(d => d.maDot === dotSB.maDot);
                 if (idx === -1) {
                   danhSachTatCaDot.push(dotSB);
@@ -2125,7 +2141,7 @@
                   danhSachTatCaDot[idx].ngayGiao = dotSB.ngayGiao || danhSachTatCaDot[idx].ngayGiao;
                   danhSachTatCaDot[idx].ngayRaw = dotSB.ngayRaw || danhSachTatCaDot[idx].ngayRaw;
                   if (!dotHienTai || dotHienTai.maDot !== dotSB.maDot) {
-                    // Khi cập nhật chi tiết đợt từ Supabase: giữ lại ghi chú local nếu Supabase trả về rỗng
+                    // Khi cập nhật chi tiết đợt từ Supabase: giữ lại ghi chú local/cloud nếu luu_tru trả về rỗng
                     if (Array.isArray(dotSB.danhSachChiTiet) && Array.isArray(danhSachTatCaDot[idx].danhSachChiTiet)) {
                       const mapLoc = new Map();
                       danhSachTatCaDot[idx].danhSachChiTiet.forEach(c => {
@@ -2408,6 +2424,12 @@
               console.log("⚡ Nhận sự kiện Realtime luu_tru");
               _debounceSyncB2();
             })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'kiem_tra_bao_cao' }, (payload) => {
+              const k = payload?.new?.khoa || payload?.old?.khoa || '';
+              if (String(k).startsWith('ghichu_')) {
+                _debounceSyncB2();
+              }
+            })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'thu_no' }, () => {
               // Có người vừa thu nợ ở đâu đó — đồng bộ lại để không chọn nhầm đơn đã thu
               dongBoConLaiCongNoTuCloud().then(() => {
@@ -2446,7 +2468,7 @@
         dot.tienThoi = parseFloat(data.tien_thoi || 0);
         dot.nguoiNop = data.nguoi_nop || dot.taiXe || '';
         dot.nguoiNhan = data.thu_quy || 'Thủ quỹ';
-        dot.ghiChuPhieu = data.ghi_chu_phieu || '';
+        dot.ghiChuPhieu = String(data.ghi_chu_phieu || '').split('||GC_HD:')[0].trim();
         dot.soToDemTien = {
           500000: data.sl_500k || 0, 200000: data.sl_200k || 0, 100000: data.sl_100k || 0,
           50000: data.sl_50k || 0, 20000: data.sl_20k || 0, 10000: data.sl_10k || 0,
@@ -2457,19 +2479,26 @@
         }
         if (Array.isArray(data.danh_sach_chi_phi) && data.danh_sach_chi_phi.length) dot.danhSachChiPhi = data.danh_sach_chi_phi;
         if (Array.isArray(data.danh_sach_thu_no) && data.danh_sach_thu_no.length) dot.danhSachThuNo = data.danh_sach_thu_no;
-        if (data.ghi_chu_hoa_don && typeof data.ghi_chu_hoa_don === 'object') {
+        const mapGCPhieu = (typeof tachGhiChuHoaDonTuPhieuNop === 'function')
+          ? tachGhiChuHoaDonTuPhieuNop(data)
+          : ((data.ghi_chu_hoa_don && typeof data.ghi_chu_hoa_don === 'object') ? data.ghi_chu_hoa_don : {});
+        if (mapGCPhieu && Object.keys(mapGCPhieu).length > 0) {
           try {
-            const keyGC = `tmh_ghi_chu_hoa_don_${dot.maDot}`;
-            let mapLoc = {};
-            try { mapLoc = JSON.parse(localStorage.getItem(keyGC) || '{}'); } catch (e) {}
-            Object.assign(mapLoc, data.ghi_chu_hoa_don);
-            localStorage.setItem(keyGC, JSON.stringify(mapLoc));
+            if (typeof ghiNhieuGhiChuHoaDonLocal === 'function') {
+              ghiNhieuGhiChuHoaDonLocal(mapGCPhieu, dot.maDot);
+            } else {
+              const keyGC = `tmh_ghi_chu_hoa_don_${dot.maDot}`;
+              let mapLoc = {};
+              try { mapLoc = JSON.parse(localStorage.getItem(keyGC) || '{}'); } catch (e) {}
+              Object.assign(mapLoc, mapGCPhieu);
+              localStorage.setItem(keyGC, JSON.stringify(mapLoc));
+            }
             if (Array.isArray(dot.danhSachChiTiet)) {
               dot.danhSachChiTiet.forEach(c => {
                 const m = String(c.maHD || c.ma_hd || '').trim().toUpperCase();
-                if ((!c.ghiChu || !String(c.ghiChu).trim()) && mapLoc[m]) {
-                  c.ghiChu = mapLoc[m];
-                  c.ghi_chu = mapLoc[m];
+                if ((!c.ghiChu || !String(c.ghiChu).trim()) && mapGCPhieu[m]) {
+                  c.ghiChu = mapGCPhieu[m];
+                  c.ghi_chu = mapGCPhieu[m];
                 }
               });
             }
@@ -2499,6 +2528,11 @@
       }
       if (!dotHienTai) return;
 
+      // Đồng bộ kho ghi chú cloud (kiem_tra_bao_cao) trước khi dựng danh sách hoá đơn
+      if (typeof taiTatCaGhiChuHoaDonTuCloud === 'function') {
+        await taiTatCaGhiChuHoaDonTuCloud();
+      }
+
       // Nạp map ghi chú độc lập lưu theo chuyến để bảo vệ tối đa
       let mapGCLuu = {};
       try {
@@ -2509,6 +2543,9 @@
       // từ luu_tru trên máy khác) thì bổ sung lại từ phiếu nộp tiền trên Supabase
       if (dotHienTai.daQuyetToan) {
         await napBoSungPhieuNopTuCloud(dotHienTai, true);
+        try {
+          Object.assign(mapGCLuu, JSON.parse(localStorage.getItem(`tmh_ghi_chu_hoa_don_${dotHienTai.maDot}`) || '{}'));
+        } catch (e) {}
       }
 
       // TỰ ĐỘNG CHỮA LÀNH (Auto-healing): Nếu chuyến bị thiếu chi tiết hoá đơn so với cloud
@@ -2544,43 +2581,57 @@
         } catch (e) {}
       }
 
-      // Luôn làm tươi ghi chú hoá đơn từ Supabase luu_tru cho chuyến xe đang chọn (chống ghi đè null/rỗng)
+      // Luôn làm tươi ghi chú hoá đơn từ Supabase (cả luu_tru nếu có cột ghi_chu và kho ghi chú cloud)
       if (typeof sb !== 'undefined' && dotHienTai && dotHienTai.maDot) {
-        try {
-          const { data: dsGC, error: errGC } = await sb.from('luu_tru')
-            .select('ma_hd, ghi_chu')
-            .eq('ma_dot', dotHienTai.maDot);
-          if (!errGC && Array.isArray(dsGC) && dsGC.length > 0) {
-            const mapGC = new Map();
-            dsGC.forEach(r => {
-              if (r.ma_hd) mapGC.set(String(r.ma_hd).trim().toUpperCase(), r.ghi_chu);
-            });
-            if (Array.isArray(dotHienTai.danhSachChiTiet)) {
-              dotHienTai.danhSachChiTiet.forEach(c => {
-                const ma = String(c.maHD || c.ma_hd || '').trim().toUpperCase();
-                if (mapGC.has(ma)) {
-                  const valCloud = mapGC.get(ma);
-                  // CHỈ ghi đè nếu cloud có nội dung thật sự, không dùng chuỗi rỗng/null đè mất ghi chú local
-                  if (valCloud !== null && valCloud !== undefined && String(valCloud).trim() !== '') {
-                    c.ghiChu = String(valCloud).trim();
-                    c.ghi_chu = c.ghiChu;
-                  }
+        const missingColsLT = (typeof _knownMissingColsByTable !== 'undefined') ? _knownMissingColsByTable.get('luu_tru') : null;
+        if (!missingColsLT || !missingColsLT.has('ghi_chu')) {
+          try {
+            const { data: dsGC, error: errGC } = await sb.from('luu_tru')
+              .select('ma_hd, ghi_chu')
+              .eq('ma_dot', dotHienTai.maDot);
+            if (errGC) {
+              const msg = String(errGC.message || errGC.details || '');
+              if (errGC.code === 'PGRST204' || /Could not find the 'ghi_chu' column|column .*ghi_chu.* does not exist/i.test(msg)) {
+                if (typeof _knownMissingColsByTable !== 'undefined') {
+                  if (!_knownMissingColsByTable.has('luu_tru')) _knownMissingColsByTable.set('luu_tru', new Set());
+                  _knownMissingColsByTable.get('luu_tru').add('ghi_chu');
                 }
+              }
+            } else if (Array.isArray(dsGC) && dsGC.length > 0) {
+              const mapGC = new Map();
+              dsGC.forEach(r => {
+                if (r.ma_hd) mapGC.set(String(r.ma_hd).trim().toUpperCase(), r.ghi_chu);
               });
+              if (Array.isArray(dotHienTai.danhSachChiTiet)) {
+                dotHienTai.danhSachChiTiet.forEach(c => {
+                  const ma = String(c.maHD || c.ma_hd || '').trim().toUpperCase();
+                  if (mapGC.has(ma)) {
+                    const valCloud = mapGC.get(ma);
+                    // CHỈ ghi đè nếu cloud có nội dung thật sự, không dùng chuỗi rỗng/null đè mất ghi chú local
+                    if (valCloud !== null && valCloud !== undefined && String(valCloud).trim() !== '') {
+                      c.ghiChu = String(valCloud).trim();
+                      c.ghi_chu = c.ghiChu;
+                    }
+                  }
+                });
+              }
             }
+          } catch (e) {
+            console.warn("[GhiChu] Lỗi làm tươi ghi chú từ cloud khi chọn chuyến:", e);
           }
-        } catch (e) {
-          console.warn("[GhiChu] Lỗi làm tươi ghi chú từ cloud khi chọn chuyến:", e);
         }
       }
 
-      // Đảm bảo phục hồi từ map lưu trữ độc lập nếu trong danhSachChiTiet ô đó còn trống
-      if (Array.isArray(dotHienTai.danhSachChiTiet) && Object.keys(mapGCLuu).length > 0) {
+      // Đảm bảo phục hồi từ kho ghi chú cloud (_cacheGhiChuHDCloud) + map lưu trữ độc lập
+      if (Array.isArray(dotHienTai.danhSachChiTiet)) {
         dotHienTai.danhSachChiTiet.forEach(c => {
           const ma = String(c.maHD || c.ma_hd || '').trim().toUpperCase();
-          if ((!c.ghiChu || !String(c.ghiChu).trim()) && mapGCLuu[ma]) {
-            c.ghiChu = mapGCLuu[ma];
-            c.ghi_chu = mapGCLuu[ma];
+          const gcTot = (typeof layGhiChuHoaDonTotNhat === 'function')
+            ? layGhiChuHoaDonTotNhat(ma, dotHienTai.maDot, c.ghiChu || c.ghi_chu || mapGCLuu[ma])
+            : (c.ghiChu || c.ghi_chu || mapGCLuu[ma] || '');
+          if (gcTot) {
+            c.ghiChu = gcTot;
+            c.ghi_chu = gcTot;
           }
         });
       }
@@ -3355,11 +3406,14 @@
 
         const maHD = r.maHD || r.ma_hd || '';
         const maChuan = String(maHD).trim().toUpperCase();
-        let gc = (r.ghiChu !== undefined && r.ghiChu !== null && String(r.ghiChu).trim() !== '')
+        const gcRaw = (r.ghiChu !== undefined && r.ghiChu !== null && String(r.ghiChu).trim() !== '')
           ? String(r.ghiChu).trim()
           : ((r.ghi_chu !== undefined && r.ghi_chu !== null && String(r.ghi_chu).trim() !== '')
             ? String(r.ghi_chu).trim()
             : (mapGCLuu[maChuan] || ''));
+        let gc = (typeof layGhiChuHoaDonTotNhat === 'function')
+          ? layGhiChuHoaDonTotNhat(maChuan, dot.maDot, gcRaw)
+          : gcRaw;
 
         // Đồng bộ ngược lại object nguồn để luôn nhất quán
         r.ghiChu = gc;
@@ -3929,17 +3983,21 @@
           localStorage.setItem("tmh_dot_quyet_toan_hien_tai", JSON.stringify(dotHienTai));
         } catch (e) {}
 
-        // Lưu vào map ghi chú riêng theo mã chuyến xe để bảo vệ độc lập
+        // Lưu vào map ghi chú riêng theo mã chuyến xe & kho ghi chú toàn cục để bảo vệ độc lập
         try {
-          const keyGCLuu = `tmh_ghi_chu_hoa_don_${dotHienTai.maDot}`;
-          let mapGCLuu = {};
-          try { mapGCLuu = JSON.parse(localStorage.getItem(keyGCLuu) || '{}'); } catch(e){}
-          if (val && String(val).trim() !== '') {
-            mapGCLuu[maHDChuan] = String(val).trim();
+          if (typeof ghiGhiChuHoaDonLocal === 'function') {
+            ghiGhiChuHoaDonLocal(maHDChuan, val, dotHienTai.maDot);
           } else {
-            delete mapGCLuu[maHDChuan];
+            const keyGCLuu = `tmh_ghi_chu_hoa_don_${dotHienTai.maDot}`;
+            let mapGCLuu = {};
+            try { mapGCLuu = JSON.parse(localStorage.getItem(keyGCLuu) || '{}'); } catch(e){}
+            if (val && String(val).trim() !== '') {
+              mapGCLuu[maHDChuan] = String(val).trim();
+            } else {
+              delete mapGCLuu[maHDChuan];
+            }
+            localStorage.setItem(keyGCLuu, JSON.stringify(mapGCLuu));
           }
-          localStorage.setItem(keyGCLuu, JSON.stringify(mapGCLuu));
         } catch (e) {}
       }
 
@@ -3957,44 +4015,81 @@
           if (coSua) ghiSoCongNo(dsCN);
         }
       } catch (e) {}
+
+      // 5. Cập nhật lại 3 bảng thống kê chi tiết (Chuyển khoản / Trả về / Công nợ) nếu có hiển thị ghi chú
+      if (typeof ve3BangThongKeChiTiet === 'function') {
+        try {
+          const tCK = danhSachHoaDonQuyetToan.reduce((s, x) => s + (x.chuyenKhoan || 0), 0);
+          const tTV = danhSachHoaDonQuyetToan.reduce((s, x) => s + (x.traVe || 0), 0);
+          const tNo = danhSachHoaDonQuyetToan.reduce((s, x) => s + (x.noPhatSinh || 0), 0);
+          ve3BangThongKeChiTiet(tCK, tTV, tNo);
+        } catch (e) {}
+      }
     }
 
     async function luuGhiChuLenSupabase(maHD, val, idx) {
       if (typeof sb === 'undefined' || !maHD) return;
       const valLuu = (val !== undefined && val !== null && String(val).trim() !== '') ? String(val).trim() : null;
-      try {
-        const { data, error } = await sb.from('luu_tru')
-          .update({ ghi_chu: valLuu })
-          .eq('ma_hd', maHD)
-          .select('ma_hd');
-        
-        if (error) {
-          console.warn(`[GhiChu] Lỗi cập nhật ghi_chu cho ${maHD}:`, error);
-          return;
-        }
+      const maDotCur = dotHienTai?.maDot || '';
 
-        // Nếu hoá đơn chưa từng được tạo trên Supabase luu_tru, tự động upsert bản ghi cơ sở
-        if (!data || data.length === 0) {
-          const hd = (idx !== undefined && danhSachHoaDonQuyetToan[idx]) 
-            ? danhSachHoaDonQuyetToan[idx] 
-            : danhSachHoaDonQuyetToan.find(h => (h.maHD || '').trim().toUpperCase() === String(maHD).trim().toUpperCase());
-          if (hd && typeof upsertSupabaseTuTu === 'function') {
-            await upsertSupabaseTuTu('luu_tru', [{
-              ma_hd: hd.maHD,
-              ma_dot: dotHienTai?.maDot || '',
-              xe: dotHienTai?.xe || '',
-              tai_xe: dotHienTai?.taiXe || '',
-              ngay_giao: dotHienTai?.ngayGiao || '',
-              ma_kh: hd.maKH || '',
-              ten_kh: hd.tenKH || '',
-              nguoi_ban: hd.nguoiBan || '',
-              thanh_tien: hd.tienHD || 0,
-              ghi_chu: valLuu
-            }], { onConflict: 'ma_hd' });
+      // Chuẩn bị map ghi chú hiện tại của cả chuyến xe để lưu đồng bộ
+      const mapCuaDot = {};
+      if (Array.isArray(danhSachHoaDonQuyetToan)) {
+        danhSachHoaDonQuyetToan.forEach(h => {
+          const m = String(h.maHD || '').trim().toUpperCase();
+          const g = (h.ghiChu !== undefined && h.ghiChu !== null) ? String(h.ghiChu).trim() : '';
+          if (m && g) mapCuaDot[m] = g;
+        });
+      }
+
+      // 1. Lưu vĩnh viễn lên Supabase qua luuGhiChuHoaDonCloud (bảng kiem_tra_bao_cao + luu_tru)
+      if (typeof luuGhiChuHoaDonCloud === 'function') {
+        await luuGhiChuHoaDonCloud(maHD, valLuu, maDotCur, mapCuaDot);
+      }
+
+      // 2. Nếu luu_tru có cột ghi_chu (hoặc môi trường mock test), kiểm tra và tự upsert bản ghi cơ sở nếu chưa tồn tại
+      const missingColsLT = (typeof _knownMissingColsByTable !== 'undefined') ? _knownMissingColsByTable.get('luu_tru') : null;
+      if (!missingColsLT || !missingColsLT.has('ghi_chu')) {
+        try {
+          const { data, error } = await sb.from('luu_tru')
+            .update({ ghi_chu: valLuu })
+            .eq('ma_hd', maHD)
+            .select('ma_hd');
+          
+          if (error) {
+            const msg = String(error.message || error.details || '');
+            if (error.code === 'PGRST204' || /Could not find the 'ghi_chu' column|column .*ghi_chu.* does not exist/i.test(msg)) {
+              if (typeof _knownMissingColsByTable !== 'undefined') {
+                if (!_knownMissingColsByTable.has('luu_tru')) _knownMissingColsByTable.set('luu_tru', new Set());
+                _knownMissingColsByTable.get('luu_tru').add('ghi_chu');
+              }
+            }
+            return;
           }
+
+          // Nếu hoá đơn chưa từng được tạo trên Supabase luu_tru, tự động upsert bản ghi cơ sở
+          if (!data || data.length === 0) {
+            const hd = (idx !== undefined && danhSachHoaDonQuyetToan[idx]) 
+              ? danhSachHoaDonQuyetToan[idx] 
+              : danhSachHoaDonQuyetToan.find(h => (h.maHD || '').trim().toUpperCase() === String(maHD).trim().toUpperCase());
+            if (hd && typeof upsertSupabaseTuTu === 'function') {
+              await upsertSupabaseTuTu('luu_tru', [{
+                ma_hd: hd.maHD,
+                ma_dot: dotHienTai?.maDot || '',
+                xe: dotHienTai?.xe || '',
+                tai_xe: dotHienTai?.taiXe || '',
+                ngay_giao: dotHienTai?.ngayGiao || '',
+                ma_kh: hd.maKH || '',
+                ten_kh: hd.tenKH || '',
+                nguoi_ban: hd.nguoiBan || '',
+                thanh_tien: hd.tienHD || 0,
+                ghi_chu: valLuu
+              }], { onConflict: 'ma_hd' });
+            }
+          }
+        } catch (err) {
+          console.warn(`[GhiChu] Exception khi lưu ghi chú cho ${maHD}:`, err);
         }
-      } catch (err) {
-        console.warn(`[GhiChu] Exception khi lưu ghi chú cho ${maHD}:`, err);
       }
     }
 
@@ -4751,7 +4846,10 @@
         tbodyCK.innerHTML = dsCK.map((h, i) => `
           <tr>
             <td style="text-align:center; color:var(--text-muted); font-weight:700;">${i + 1}</td>
-            <td><b style="color:var(--text-main);">${escapeHtml(h.tenKH)}</b></td>
+            <td>
+              <b style="color:var(--text-main);">${escapeHtml(h.tenKH)}</b>
+              ${h.ghiChu ? `<div style="font-size:11px; color:#b45309; font-weight:600; margin-top:2px;">📝 ${escapeHtml(h.ghiChu)}</div>` : ''}
+            </td>
             <td style="text-align:center; font-family:monospace; font-weight:700;">${escapeHtml(h.maHD)}</td>
             <td style="text-align:right; font-weight:800; color:#2563eb;" class="input-tien">${formatTien(h.chuyenKhoan)}</td>
             <td style="font-size:11.5px; color:#1d4ed8; font-weight:700;">${h.taiKhoanNhan || 'Techcombank'}</td>
@@ -4771,7 +4869,10 @@
         tbodyTraVe.innerHTML = dsTraVe.map((h, i) => `
           <tr>
             <td style="text-align:center; color:var(--text-muted); font-weight:700;">${i + 1}</td>
-            <td><b style="color:var(--text-main);">${escapeHtml(h.tenKH)}</b></td>
+            <td>
+              <b style="color:var(--text-main);">${escapeHtml(h.tenKH)}</b>
+              ${h.ghiChu ? `<div style="font-size:11px; color:#b45309; font-weight:600; margin-top:2px;">📝 ${escapeHtml(h.ghiChu)}</div>` : ''}
+            </td>
             <td style="text-align:center; font-family:monospace; font-weight:700;">${escapeHtml(h.maHD)}</td>
             <td style="text-align:right; font-weight:800; color:#ea580c;" class="input-tien">${formatTien(h.traVe)}</td>
             <td style="text-align:center;">
@@ -4795,7 +4896,10 @@
         tbodyNo.innerHTML = dsNo.map((h, i) => `
           <tr>
             <td style="text-align:center; color:var(--text-muted); font-weight:700;">${i + 1}</td>
-            <td><b style="color:var(--text-main);">${escapeHtml(h.tenKH)}</b></td>
+            <td>
+              <b style="color:var(--text-main);">${escapeHtml(h.tenKH)}</b>
+              ${h.ghiChu ? `<div style="font-size:11px; color:#b45309; font-weight:600; margin-top:2px;">📝 ${escapeHtml(h.ghiChu)}</div>` : ''}
+            </td>
             <td style="text-align:center; font-family:monospace; font-weight:700;">${escapeHtml(h.maHD)}</td>
             <td style="text-align:right; font-weight:800; color:#dc2626;" class="input-tien">${formatTien(h.noPhatSinh)}</td>
             <td style="text-align:center;">
@@ -6424,7 +6528,11 @@
         }
       });
       try {
-        localStorage.setItem(`tmh_ghi_chu_hoa_don_${dotHienTai.maDot}`, JSON.stringify(mapGCLuuChuyen));
+        if (typeof ghiNhieuGhiChuHoaDonLocal === 'function') {
+          ghiNhieuGhiChuHoaDonLocal(mapGCLuuChuyen, dotHienTai.maDot);
+        } else {
+          localStorage.setItem(`tmh_ghi_chu_hoa_don_${dotHienTai.maDot}`, JSON.stringify(mapGCLuuChuyen));
+        }
       } catch (e) {}
 
       // 2. Ghi nhận vào sổ công nợ (tmh_theo_doi_cong_no)
@@ -6608,7 +6716,8 @@
             sl_1k: SO_TO_DEM[1000] || 0,
             chenh_lech: (MENH_GIA_TIEN.reduce((s, m) => s + m * (SO_TO_DEM[m] || 0), 0)) - soTienPhaiThu,
             ghi_chu: `Chi: ${formatTien(tienChi)} (${noiDungChi}) | Thu nợ cũ: ${formatTien(thuNoCu)} (${ghiChuThuNoCu}) | ${ghiChuPhieu}` +
-              (tongHoanTMLuu > 0 ? ` | Hoàn TM khách (CK dư): ${formatTien(tongHoanTMLuu)}` : ''),
+              (tongHoanTMLuu > 0 ? ` | Hoàn TM khách (CK dư): ${formatTien(tongHoanTMLuu)}` : '') +
+              (Object.keys(mapGCLuuChuyen).length > 0 ? ` ||GC_HD:${JSON.stringify(mapGCLuuChuyen)}` : ''),
             tien_chi: tienChi,
             noi_dung_chi: noiDungChi,
             thu_no_cu: thuNoCu,
@@ -6620,6 +6729,11 @@
             danh_sach_thu_no: dotHienTai.danhSachThuNo,
             ghi_chu_hoa_don: mapGCLuuChuyen
           };
+
+          // Bước 5.0: Lưu vĩnh viễn toàn bộ ghi chú hoá đơn của chuyến xe lên bảng kiem_tra_bao_cao trên Supabase
+          if (typeof luuTatCaGhiChuChuyenXeCloud === 'function') {
+            await luuTatCaGhiChuChuyenXeCloud(dotHienTai.maDot, danhSachHoaDonQuyetToan);
+          }
 
           // Bước 5a: Ưu tiên Transaction RPC fn_quyet_toan_chuyen_xe (ACID) nếu đã được cài đặt trên Supabase
           let rpcThanhCong = false;

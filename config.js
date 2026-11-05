@@ -433,12 +433,366 @@ function khuTrungDongChiTietHang(rows, mapTienHD = null) {
   return ketQua;
 }
 
+// ============================================================================
+// ĐỒNG BỘ GHI CHÚ HOÁ ĐƠN (BƯỚC 2 <-> BÁO CÁO TỔNG HỢP <-> THEO DÕI CÔNG NỢ)
+// Lưu trữ vĩnh viễn trên Supabase (kiem_tra_bao_cao + phieu_nop_tien + luu_tru)
+// để mọi máy và mọi trình duyệt đều thấy ghi chú ngay cả khi bảng luu_tru
+// trên Supabase chưa chạy migration thêm cột ghi_chu.
+// ============================================================================
+const KHOA_LS_GHI_CHU_HD_ALL = 'tmh_ghi_chu_hoa_don_all';
+const _cacheGhiChuHDCloud = new Map(); // maHDChuan -> { ghiChu, luc, maDot }
+let _dangTaiGhiChuCloud = null;
+
+function docTatCaGhiChuHoaDonLocal() {
+  try {
+    return JSON.parse(localStorage.getItem(KHOA_LS_GHI_CHU_HD_ALL) || '{}') || {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function ghiGhiChuHoaDonLocal(maHD, val, maDot) {
+  const ma = String(maHD || '').trim().toUpperCase();
+  if (!ma) return;
+  const gc = (val !== undefined && val !== null) ? String(val).trim() : '';
+  try {
+    const all = docTatCaGhiChuHoaDonLocal();
+    if (gc) all[ma] = gc;
+    else delete all[ma];
+    localStorage.setItem(KHOA_LS_GHI_CHU_HD_ALL, JSON.stringify(all));
+  } catch (e) {}
+
+  if (maDot) {
+    try {
+      const keyDot = `tmh_ghi_chu_hoa_don_${maDot}`;
+      const mapDot = JSON.parse(localStorage.getItem(keyDot) || '{}') || {};
+      if (gc) mapDot[ma] = gc;
+      else delete mapDot[ma];
+      localStorage.setItem(keyDot, JSON.stringify(mapDot));
+    } catch (e) {}
+  }
+
+  if (gc) {
+    _cacheGhiChuHDCloud.set(ma, { ghiChu: gc, luc: new Date().toISOString(), maDot: maDot || '' });
+  } else {
+    _cacheGhiChuHDCloud.delete(ma);
+  }
+}
+
+function ghiNhieuGhiChuHoaDonLocal(mapGC, maDot) {
+  if (!mapGC || typeof mapGC !== 'object') return;
+  try {
+    const all = docTatCaGhiChuHoaDonLocal();
+    Object.keys(mapGC).forEach(k => {
+      const ma = String(k || '').trim().toUpperCase();
+      const v = (mapGC[k] !== undefined && mapGC[k] !== null) ? String(mapGC[k]).trim() : '';
+      if (ma && v) {
+        all[ma] = v;
+        if (!_cacheGhiChuHDCloud.has(ma)) {
+          _cacheGhiChuHDCloud.set(ma, { ghiChu: v, luc: new Date().toISOString(), maDot: maDot || '' });
+        }
+      }
+    });
+    localStorage.setItem(KHOA_LS_GHI_CHU_HD_ALL, JSON.stringify(all));
+  } catch (e) {}
+
+  if (maDot) {
+    try {
+      const keyDot = `tmh_ghi_chu_hoa_don_${maDot}`;
+      const mapDot = JSON.parse(localStorage.getItem(keyDot) || '{}') || {};
+      Object.keys(mapGC).forEach(k => {
+        const ma = String(k || '').trim().toUpperCase();
+        const v = (mapGC[k] !== undefined && mapGC[k] !== null) ? String(mapGC[k]).trim() : '';
+        if (ma && v) mapDot[ma] = v;
+      });
+      localStorage.setItem(keyDot, JSON.stringify(mapDot));
+    } catch (e) {}
+  }
+}
+
+function layGhiChuHoaDonTotNhat(maHD, maDot, valTrucTiep) {
+  if (valTrucTiep !== undefined && valTrucTiep !== null && String(valTrucTiep).trim() !== '') {
+    return String(valTrucTiep).trim();
+  }
+  const ma = String(maHD || '').trim().toUpperCase();
+  if (!ma) return '';
+  if (_cacheGhiChuHDCloud.has(ma)) {
+    const c = _cacheGhiChuHDCloud.get(ma);
+    if (c && c.ghiChu) return c.ghiChu;
+  }
+  if (maDot) {
+    try {
+      const mapDot = JSON.parse(localStorage.getItem(`tmh_ghi_chu_hoa_don_${maDot}`) || '{}');
+      if (mapDot && mapDot[ma] && String(mapDot[ma]).trim() !== '') {
+        return String(mapDot[ma]).trim();
+      }
+    } catch (e) {}
+  }
+  const all = docTatCaGhiChuHoaDonLocal();
+  if (all[ma] && String(all[ma]).trim() !== '') {
+    return String(all[ma]).trim();
+  }
+  return '';
+}
+
+function tachGhiChuHoaDonTuPhieuNop(p) {
+  if (!p || typeof p !== 'object') return {};
+  const kq = {};
+  if (p.ghi_chu_hoa_don && typeof p.ghi_chu_hoa_don === 'object') {
+    Object.keys(p.ghi_chu_hoa_don).forEach(k => {
+      const ma = String(k || '').trim().toUpperCase();
+      const v = p.ghi_chu_hoa_don[k];
+      if (ma && v !== undefined && v !== null && String(v).trim() !== '') {
+        kq[ma] = String(v).trim();
+      }
+    });
+  }
+  const rawGC = String(p.ghi_chu || '');
+  const marker = '||GC_HD:';
+  const idx = rawGC.indexOf(marker);
+  if (idx !== -1) {
+    const jsonPart = rawGC.slice(idx + marker.length).trim();
+    try {
+      const parsed = JSON.parse(jsonPart);
+      if (parsed && typeof parsed === 'object') {
+        Object.keys(parsed).forEach(k => {
+          const ma = String(k || '').trim().toUpperCase();
+          const v = parsed[k];
+          if (ma && v !== undefined && v !== null && String(v).trim() !== '') {
+            kq[ma] = String(v).trim();
+          }
+        });
+      }
+    } catch (e) {}
+  }
+  return kq;
+}
+
+async function luuGhiChuHoaDonCloud(maHD, val, maDot, mapCuaDot) {
+  const ma = String(maHD || '').trim().toUpperCase();
+  if (!ma) return;
+  const gc = (val !== undefined && val !== null && String(val).trim() !== '') ? String(val).trim() : '';
+  ghiGhiChuHoaDonLocal(ma, gc, maDot);
+
+  if (typeof sb === 'undefined') return;
+  const nowIso = new Date().toISOString();
+
+  // 1. Lưu vĩnh viễn vào bảng kiem_tra_bao_cao trên Supabase (bảng có cột ghi_chu TEXT & RLS mở)
+  try {
+    const rowsKT = [{
+      khoa: `ghichu_hd|${ma}`,
+      da_kiem_tra: Boolean(gc),
+      nguoi_kiem_tra: maDot ? String(maDot).trim() : '',
+      kiem_tra_luc: nowIso,
+      ghi_chu: gc || null
+    }];
+    if (maDot && mapCuaDot && typeof mapCuaDot === 'object') {
+      rowsKT.push({
+        khoa: `ghichu_dot|${String(maDot).trim()}`,
+        da_kiem_tra: Object.keys(mapCuaDot).length > 0,
+        nguoi_kiem_tra: String(maDot).trim(),
+        kiem_tra_luc: nowIso,
+        ghi_chu: Object.keys(mapCuaDot).length > 0 ? JSON.stringify(mapCuaDot) : null
+      });
+    }
+    if (typeof sb.from === 'function') {
+      const tbl = sb.from('kiem_tra_bao_cao');
+      if (tbl && typeof tbl.upsert === 'function') {
+        await tbl.upsert(rowsKT, { onConflict: 'khoa' });
+      }
+    }
+  } catch (e) {
+    console.warn('[GhiChuCloud] Lỗi lưu kiem_tra_bao_cao:', e);
+  }
+
+  // 2. Nếu bảng luu_tru có cột ghi_chu (hoặc môi trường mock test), đồng bộ luôn vào luu_tru
+  const missingColsLT = _knownMissingColsByTable.get('luu_tru');
+  if (!missingColsLT || !missingColsLT.has('ghi_chu')) {
+    try {
+      const { error } = await sb.from('luu_tru')
+        .update({ ghi_chu: gc || null })
+        .eq('ma_hd', maHD)
+        .select('ma_hd');
+      if (error) {
+        const msg = String(error.message || error.details || '');
+        if (error.code === 'PGRST204' || /Could not find the 'ghi_chu' column/i.test(msg)) {
+          if (!_knownMissingColsByTable.has('luu_tru')) _knownMissingColsByTable.set('luu_tru', new Set());
+          _knownMissingColsByTable.get('luu_tru').add('ghi_chu');
+        }
+      }
+    } catch (e) {}
+  }
+}
+
+async function luuTatCaGhiChuChuyenXeCloud(maDot, dsHoaDon) {
+  if (!Array.isArray(dsHoaDon) || dsHoaDon.length === 0) return;
+  const nowIso = new Date().toISOString();
+  const mapDot = {};
+  const rowsKT = [];
+
+  dsHoaDon.forEach(h => {
+    const ma = String(h.maHD || h.ma_hd || '').trim().toUpperCase();
+    if (!ma) return;
+    const gc = (h.ghiChu !== undefined && h.ghiChu !== null && String(h.ghiChu).trim() !== '')
+      ? String(h.ghiChu).trim()
+      : ((h.ghi_chu !== undefined && h.ghi_chu !== null && String(h.ghi_chu).trim() !== '') ? String(h.ghi_chu).trim() : '');
+    ghiGhiChuHoaDonLocal(ma, gc, maDot);
+    if (gc) {
+      mapDot[ma] = gc;
+      rowsKT.push({
+        khoa: `ghichu_hd|${ma}`,
+        da_kiem_tra: true,
+        nguoi_kiem_tra: maDot ? String(maDot).trim() : '',
+        kiem_tra_luc: nowIso,
+        ghi_chu: gc
+      });
+    }
+  });
+
+  if (maDot) {
+    rowsKT.push({
+      khoa: `ghichu_dot|${String(maDot).trim()}`,
+      da_kiem_tra: Object.keys(mapDot).length > 0,
+      nguoi_kiem_tra: String(maDot).trim(),
+      kiem_tra_luc: nowIso,
+      ghi_chu: Object.keys(mapDot).length > 0 ? JSON.stringify(mapDot) : null
+    });
+  }
+
+  if (typeof sb !== 'undefined' && rowsKT.length > 0) {
+    try {
+      const tbl = sb.from('kiem_tra_bao_cao');
+      if (tbl && typeof tbl.upsert === 'function') {
+        await tbl.upsert(rowsKT, { onConflict: 'khoa' });
+      }
+    } catch (e) {
+      console.warn('[GhiChuCloud] Lỗi lưu batch ghi chú chuyến xe:', e);
+    }
+  }
+}
+
+async function taiTatCaGhiChuHoaDonTuCloud() {
+  if (typeof sb === 'undefined' || typeof sb.from !== 'function') return _cacheGhiChuHDCloud;
+  if (_dangTaiGhiChuCloud) return _dangTaiGhiChuCloud;
+
+  _dangTaiGhiChuCloud = (async () => {
+    try {
+      const tbl = sb.from('kiem_tra_bao_cao');
+      if (!tbl || typeof tbl.select !== 'function') return _cacheGhiChuHDCloud;
+      const q = tbl.select('khoa, da_kiem_tra, nguoi_kiem_tra, kiem_tra_luc, ghi_chu');
+      if (!q || typeof q.like !== 'function') return _cacheGhiChuHDCloud;
+
+      const { data, error } = await q.like('khoa', 'ghichu_%').limit(10000);
+      if (error || !Array.isArray(data)) return _cacheGhiChuHDCloud;
+
+      const allLocal = docTatCaGhiChuHoaDonLocal();
+      let coCapNhatLocal = false;
+
+      // 1. Nạp từ ghichu_dot|<maDot> trước
+      data.forEach(row => {
+        if (!row || !row.khoa || !String(row.khoa).startsWith('ghichu_dot|')) return;
+        const maDot = String(row.khoa).slice('ghichu_dot|'.length).trim();
+        if (!row.ghi_chu) return;
+        try {
+          const mapDot = JSON.parse(row.ghi_chu);
+          if (mapDot && typeof mapDot === 'object') {
+            Object.keys(mapDot).forEach(k => {
+              const ma = String(k || '').trim().toUpperCase();
+              const gc = (mapDot[k] !== undefined && mapDot[k] !== null) ? String(mapDot[k]).trim() : '';
+              if (ma && gc) {
+                _cacheGhiChuHDCloud.set(ma, { ghiChu: gc, luc: row.kiem_tra_luc || '', maDot });
+                if (allLocal[ma] !== gc) {
+                  allLocal[ma] = gc;
+                  coCapNhatLocal = true;
+                }
+              }
+            });
+            if (maDot) {
+              try {
+                const keyDot = `tmh_ghi_chu_hoa_don_${maDot}`;
+                const curDot = JSON.parse(localStorage.getItem(keyDot) || '{}') || {};
+                Object.assign(curDot, mapDot);
+                localStorage.setItem(keyDot, JSON.stringify(curDot));
+              } catch (e) {}
+            }
+          }
+        } catch (e) {}
+      });
+
+      // 2. Nạp từ ghichu_hd|<maHD> (chi tiết từng đơn ghi đè mới nhất)
+      data.forEach(row => {
+        if (!row || !row.khoa || !String(row.khoa).startsWith('ghichu_hd|')) return;
+        const ma = String(row.khoa).slice('ghichu_hd|'.length).trim().toUpperCase();
+        if (!ma) return;
+        const gc = (row.ghi_chu !== undefined && row.ghi_chu !== null) ? String(row.ghi_chu).trim() : '';
+        const maDot = String(row.nguoi_kiem_tra || '').trim();
+        if (gc) {
+          _cacheGhiChuHDCloud.set(ma, { ghiChu: gc, luc: row.kiem_tra_luc || '', maDot });
+          if (allLocal[ma] !== gc) {
+            allLocal[ma] = gc;
+            coCapNhatLocal = true;
+          }
+          if (maDot) {
+            try {
+              const keyDot = `tmh_ghi_chu_hoa_don_${maDot}`;
+              const curDot = JSON.parse(localStorage.getItem(keyDot) || '{}') || {};
+              if (curDot[ma] !== gc) {
+                curDot[ma] = gc;
+                localStorage.setItem(keyDot, JSON.stringify(curDot));
+              }
+            } catch (e) {}
+          }
+        } else {
+          _cacheGhiChuHDCloud.delete(ma);
+          if (allLocal[ma]) {
+            delete allLocal[ma];
+            coCapNhatLocal = true;
+          }
+        }
+      });
+
+      if (coCapNhatLocal) {
+        try {
+          localStorage.setItem(KHOA_LS_GHI_CHU_HD_ALL, JSON.stringify(allLocal));
+        } catch (e) {}
+      }
+    } catch (e) {
+      console.warn('[GhiChuCloud] Lỗi tải ghi chú từ kiem_tra_bao_cao:', e);
+    } finally {
+      _dangTaiGhiChuCloud = null;
+    }
+    return _cacheGhiChuHDCloud;
+  })();
+
+  return _dangTaiGhiChuCloud;
+}
+
+function ganGhiChuVaoDanhSachRowsLuuTru(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return rows;
+  // Tự động nhận diện nếu bảng luu_tru trên Supabase thực tế chưa có cột ghi_chu
+  const mau = rows[0];
+  if (mau && typeof mau === 'object' && ('tao_luc' in mau) && ('thanh_tien' in mau) && !('ghi_chu' in mau)) {
+    if (!_knownMissingColsByTable.has('luu_tru')) _knownMissingColsByTable.set('luu_tru', new Set());
+    _knownMissingColsByTable.get('luu_tru').add('ghi_chu');
+  }
+  rows.forEach(r => {
+    if (!r || typeof r !== 'object') return;
+    const gc = layGhiChuHoaDonTotNhat(r.ma_hd || r.maHD, r.ma_dot || r.maDot, r.ghi_chu !== undefined && r.ghi_chu !== null ? r.ghi_chu : r.ghiChu);
+    if (gc) {
+      if (!r.ghi_chu || String(r.ghi_chu).trim() === '') r.ghi_chu = gc;
+      if (!r.ghiChu || String(r.ghiChu).trim() === '') r.ghiChu = gc;
+    }
+  });
+  return rows;
+}
+
 /**
  * Gom nhóm danh sách bản ghi từ bảng luu_tru trên Supabase thành danh sách chuyến xe (đợt)
  * Dùng chung cho Bước 1, Bước 2, Bước 3
  */
 function chuyenDoiLuuTruThanhDanhSachDot(rowsLuuTru) {
   if (!Array.isArray(rowsLuuTru) || rowsLuuTru.length === 0) return [];
+  ganGhiChuVaoDanhSachRowsLuuTru(rowsLuuTru);
   const mapDot = new Map();
   const daThayMaHD = new Set();
 
@@ -486,6 +840,7 @@ function chuyenDoiLuuTruThanhDanhSachDot(rowsLuuTru) {
     const tv = parseFloat(r.tra_ve || 0);
     const no = parseFloat(r.no_phat_sinh || 0);
     const daQT = !!(r.da_quyet_toan || r.da_kiem_don || (tm + ck + tv + no > 0));
+    const gcTotNhat = layGhiChuHoaDonTotNhat(r.ma_hd, keyDot, r.ghi_chu || r.ghiChu || '');
 
     dot.danhSachChiTiet.push({
       maHD: r.ma_hd,
@@ -502,7 +857,8 @@ function chuyenDoiLuuTruThanhDanhSachDot(rowsLuuTru) {
       taiKhoanNhan: r.tai_khoan_nhan || '',
       traVe: tv,
       noPhatSinh: no,
-      ghiChu: r.ghi_chu || '',
+      ghiChu: gcTotNhat,
+      ghi_chu: gcTotNhat,
       hinhThuc: r.hinh_thuc_thanh_toan || '',
       daKiemTra: !!r.da_kiem_tra,
       laGiaoLai: !!r.la_giao_lai,
@@ -529,6 +885,7 @@ async function docLuuTruMoiNhat(toiDa = 20000) {
   const CO = 1000;
   const theoMa = new Map();
   let taoLucCuoi = null, conNua = false;
+  const pGhiChu = taiTatCaGhiChuHoaDonTuCloud();
   for (let tu = 0; tu < toiDa; tu += CO) {
     const den = Math.min(tu + CO, toiDa) - 1;
     const { data, error } = await sb.from('luu_tru').select('*')
@@ -551,7 +908,10 @@ async function docLuuTruMoiNhat(toiDa = 20000) {
       }
     }
   }
-  return { data: Array.from(theoMa.values()), error: null };
+  await pGhiChu;
+  const arr = Array.from(theoMa.values());
+  ganGhiChuVaoDanhSachRowsLuuTru(arr);
+  return { data: arr, error: null };
 }
 
 /**
@@ -561,6 +921,7 @@ async function taiLuuTruTheoNgay(ngayVal) {
   if (typeof sb === 'undefined' || !ngayVal) return [];
   const dsNgay = taoBienTheNgayTruyVan(ngayVal);
   if (!dsNgay.length) return [];
+  const pGhiChu = taiTatCaGhiChuHoaDonTuCloud();
   const kq = [];
   const CO = 1000;
   for (let tu = 0; tu < 10000; tu += CO) {
@@ -570,7 +931,8 @@ async function taiLuuTruTheoNgay(ngayVal) {
     if (Array.isArray(data) && data.length) kq.push(...data);
     if (!data || data.length < CO) break;
   }
-  return kq;
+  await pGhiChu;
+  return ganGhiChuVaoDanhSachRowsLuuTru(kq);
 }
 
 /**
@@ -1180,7 +1542,7 @@ async function goDonNoCuaChuyenDaLamMoi(ds) {
     const dsMa = Array.from(new Set(ungVien.map(d => d.maHD)));
     const lt = new Map();
     for (let i = 0; i < dsMa.length; i += 150) {
-      const { data, error } = await sb.from("luu_tru").select("ma_hd, ma_dot, no_phat_sinh, da_quyet_toan, da_kiem_don").in("ma_hd", dsMa.slice(i, i + 150));
+      const { data, error } = await sb.from("luu_tru").select("ma_hd, ma_dot, no_phat_sinh, da_kiem_don").in("ma_hd", dsMa.slice(i, i + 150));
       if (error) return kq;
       (data || []).forEach(r => lt.set(r.ma_hd, r));
     }

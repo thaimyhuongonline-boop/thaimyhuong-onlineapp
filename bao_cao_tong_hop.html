@@ -508,7 +508,11 @@
     function chuanHoaHD(r, maDotMacDinh) {
       const tm = parseFloat(r.tien_mat || 0), ck = parseFloat(r.chuyen_khoan || 0);
       const tra = parseFloat(r.tra_ve || 0), no = parseFloat(r.no_phat_sinh || 0);
-      const gc = (r.ghi_chu !== undefined && r.ghi_chu !== null) ? String(r.ghi_chu).trim() : (r.ghiChu ? String(r.ghiChu).trim() : '');
+      const gcRaw = (r.ghi_chu !== undefined && r.ghi_chu !== null) ? String(r.ghi_chu).trim() : (r.ghiChu ? String(r.ghiChu).trim() : '');
+      const maDotChuan = r.ma_dot || maDotMacDinh || 'DOT_KHAC';
+      const gc = (typeof layGhiChuHoaDonTotNhat === 'function')
+        ? layGhiChuHoaDonTotNhat(r.ma_hd, maDotChuan, gcRaw)
+        : gcRaw;
       return {
         maHD: r.ma_hd || '',
         tenKH: r.ten_kh || '',
@@ -516,7 +520,7 @@
         xe: r.xe || 'Xe chung',
         taiXe: r.tai_xe || '',
         ngay: chuanHoaNgay(r.ngay_giao),
-        maDot: r.ma_dot || maDotMacDinh || 'DOT_KHAC',
+        maDot: maDotChuan,
         thanhTien: parseFloat(r.thanh_tien || 0),
         tm: tm, ck: ck, tra: tra, no: no,
         nganHang: r.tai_khoan_nhan || '',
@@ -532,6 +536,7 @@
     async function taiTuSupabase(dsIso) {
       const dsNgay = [];
       dsIso.forEach(iso => { dsNgay.push(isoSangVN(iso)); dsNgay.push(iso); });
+      const pGhiChu = (typeof taiTatCaGhiChuHoaDonTuCloud === 'function') ? taiTatCaGhiChuHoaDonTuCloud() : Promise.resolve();
       let tatCa = [], tu = 0;
       const co = 1000;
       for (;;) {
@@ -541,6 +546,10 @@
         if (!data || data.length < co) break;
         tu += co;
         if (tu >= 50000) break;
+      }
+      await pGhiChu;
+      if (typeof ganGhiChuVaoDanhSachRowsLuuTru === 'function') {
+        ganGhiChuVaoDanhSachRowsLuuTru(tatCa);
       }
       return tatCa.map(r => chuanHoaHD(r));
     }
@@ -606,7 +615,26 @@
       for (let i = 0; i < ds.length; i += 100) {
         const { data, error } = await sb.from('phieu_nop_tien').select(cot).in('ma_dot', ds.slice(i, i + 100));
         if (error) throw error;
-        (data || []).forEach(p => map.set(p.ma_dot, chuanHoaPhieuNop(p)));
+        (data || []).forEach(p => {
+          map.set(p.ma_dot, chuanHoaPhieuNop(p));
+          if (typeof tachGhiChuHoaDonTuPhieuNop === 'function') {
+            const mapGCPhieu = tachGhiChuHoaDonTuPhieuNop(p);
+            const keysGC = Object.keys(mapGCPhieu);
+            if (keysGC.length > 0) {
+              if (typeof ghiNhieuGhiChuHoaDonLocal === 'function') {
+                ghiNhieuGhiChuHoaDonLocal(mapGCPhieu, p.ma_dot);
+              }
+              if (Array.isArray(duLieu) && duLieu.length > 0) {
+                duLieu.forEach(d => {
+                  const ma = String(d.maHD || '').trim().toUpperCase();
+                  if (ma && (!d.ghiChu || !String(d.ghiChu).trim()) && mapGCPhieu[ma]) {
+                    d.ghiChu = mapGCPhieu[ma];
+                  }
+                });
+              }
+            }
+          }
+        });
       }
       return map;
     }
@@ -2332,6 +2360,13 @@
           .on('postgres_changes', { event: '*', schema: 'public', table: 'khach_tra_truoc' }, () => {
             clearTimeout(hen);
             hen = setTimeout(taiBaoCao, 1500);
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'kiem_tra_bao_cao' }, (payload) => {
+            const k = payload?.new?.khoa || payload?.old?.khoa || '';
+            if (String(k).startsWith('ghichu_')) {
+              clearTimeout(hen);
+              hen = setTimeout(taiBaoCao, 1200);
+            }
           })
           .subscribe((status) => {
             const el = document.getElementById('bcNguon');
