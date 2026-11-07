@@ -7,7 +7,7 @@
  * - Bá» qua cache hoÃ n toÃ n Ä‘á»‘i vá»›i dá»¯ liá»‡u Ä‘Ã¡m mÃ¢y Supabase
  * ==================================================================== */
 
-const CACHE_VERSION = 'tmh-pwa-v1.0.84';
+const CACHE_VERSION = 'tmh-pwa-v1.0.86';
 const CACHE_NAME = `thaimyhuong-${CACHE_VERSION}`;
 
 // Danh sÃ¡ch tÃ i nguyÃªn cá»‘t lÃµi táº£i trÆ°á»›c khi cÃ i Ä‘áº·t
@@ -114,12 +114,16 @@ self.addEventListener('fetch', (event) => {
 
   // B. Äá»I Vá»šI CÃC TRANG HTML VÃ€ ÄIá»€U HÆ¯á»šNG: Network-First (Æ¯u tiÃªn máº¡ng)
   // Äáº£m báº£o nhÃ¢n viÃªn má»Ÿ app luÃ´n tháº¥y giao diá»‡n vÃ  code má»›i nháº¥t
+  const isSameOriginCode =
+    url.origin === self.location.origin &&
+    (url.pathname.endsWith('.js') || url.pathname.endsWith('.css'));
+
   const isHtmlRequest =
     req.mode === 'navigate' ||
     (req.headers.get('accept') && req.headers.get('accept').includes('text/html')) ||
     url.pathname.endsWith('.html');
 
-  if (isHtmlRequest) {
+  if (isHtmlRequest || isSameOriginCode) {
     event.respondWith(
       fetch(req)
         .then((networkResponse) => {
@@ -132,9 +136,8 @@ self.addEventListener('fetch', (event) => {
           return networkResponse;
         })
         .catch(() => {
-          // Khi máº¥t káº¿t ná»‘i internet thÃ¬ má»›i láº¥y báº£n cache Ä‘Ã£ lÆ°u
           return caches.match(req).then((cached) => {
-            return cached || caches.match('./index.html');
+            return cached || (isHtmlRequest ? caches.match('./index.html') : null);
           });
         })
     );

@@ -15,7 +15,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="kho_idb.js"></script>
-  <script src="config.js"></script>
+  <script src="config.js?v=20261107"></script>
   <script src="phan_quyen.js"></script>
   <script src="pwa.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
@@ -627,7 +627,7 @@
               if (Array.isArray(duLieu) && duLieu.length > 0) {
                 duLieu.forEach(d => {
                   const ma = String(d.maHD || '').trim().toUpperCase();
-                  if (ma && (!d.ghiChu || !String(d.ghiChu).trim()) && mapGCPhieu[ma]) {
+                  if (ma && mapGCPhieu[ma] && (!d.ghiChu || !String(d.ghiChu).trim() || String(d.ghiChu).trim() === 'test dữ liệu')) {
                     d.ghiChu = mapGCPhieu[ma];
                   }
                 });
@@ -1915,6 +1915,14 @@
     }
 
     function dsChiTietSauTim() {
+      if (Array.isArray(chiTietHienTai.rows) && typeof layGhiChuHoaDonTotNhat === 'function') {
+        chiTietHienTai.rows.forEach(d => {
+          if (d && !d.laThuNgoai && d.maHD) {
+            const gc = layGhiChuHoaDonTotNhat(d.maHD, d.maDot, d.ghiChu);
+            if (gc) d.ghiChu = gc;
+          }
+        });
+      }
       const q = (document.getElementById('bcModalTim')?.value || '').trim().toLowerCase();
       if (!q) return chiTietHienTai.rows;
       return chiTietHienTai.rows.filter(d => (d.maHD + ' ' + d.tenKH + ' ' + d.xe + ' ' + d.maKH + ' ' + (d.ghiChu || '')).toLowerCase().includes(q));
@@ -2009,7 +2017,7 @@
             <td class="num">${d.tra ? fmt(d.tra) : '–'}</td>
             <td class="num">${d.no ? fmt(d.no) : '–'}</td>
             ${oChiThoiTrong}
-            <td>${tt}${d.ghiChu ? `<div style="font-size:10.5px; color:var(--text-muted); max-width:260px;">${H(d.ghiChu)}</div>` : ''}</td>
+            <td>${tt}${d.ghiChu ? `<div style="font-size:11px; color:#334155; font-weight:600; margin-top:2px; max-width:260px;">📝 ${H(d.ghiChu)}</div>` : ''}</td>
             ${oKiemTraBC(d, i)}
           </tr>`;
       }).join('') + dsPhieuChuyen.map(dongPhieuChuyenBC).join('');
@@ -2057,7 +2065,7 @@
             <td class="num">${d.tra ? fmt(d.tra) : '–'}</td>
             <td class="num">–</td>
             ${oChiThoiTrong || ''}
-            <td>${tt}${d.ghiChu ? `<div style="font-size:10.5px; color:var(--text-muted); max-width:260px;">${H(d.ghiChu)}</div>` : ''}</td>
+            <td>${tt}${d.ghiChu ? `<div style="font-size:11px; color:#334155; font-weight:600; margin-top:2px; max-width:260px;">📝 ${H(d.ghiChu)}</div>` : ''}</td>
             ${oKiemTraBC(d, i)}
           </tr>`;
     }

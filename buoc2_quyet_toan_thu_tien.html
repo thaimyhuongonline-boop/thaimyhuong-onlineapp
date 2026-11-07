@@ -16,7 +16,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <script src="kho_idb.js"></script>
-  <script src="config.js"></script>
+  <script src="config.js?v=20261107"></script>
   <script src="phan_quyen.js"></script>
   <script src="khach_tra_truoc.js"></script>
   <script src="han_muc_cong_no.js"></script>
@@ -2087,12 +2087,27 @@
 
       const maDotDangChonTruocDo = sel ? sel.value : (dotHienTai ? dotHienTai.maDot : '');
 
-      // Đọc từ LocalStorage trước
+      // Đọc từ LocalStorage và hợp nhất với bộ nhớ RAM hiện tại (tránh làm mất các chuyến vượt quá giới hạn 60 chuyến của localStorage khi auto-sync 20s)
+      const dsTrongRam = Array.isArray(danhSachTatCaDot) ? [...danhSachTatCaDot] : [];
       try {
-        danhSachTatCaDot = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
+        const dsTuLS = JSON.parse(localStorage.getItem("tmh_lich_su_dot") || "[]");
+        if (Array.isArray(dsTuLS) && dsTuLS.length > 0) {
+          const mapHopNhat = new Map();
+          dsTrongRam.forEach(d => { if (d && d.maDot) mapHopNhat.set(d.maDot, d); });
+          dsTuLS.forEach(d => {
+            if (!d || !d.maDot) return;
+            if (!mapHopNhat.has(d.maDot)) {
+              mapHopNhat.set(d.maDot, d);
+            }
+          });
+          danhSachTatCaDot = Array.from(mapHopNhat.values());
+        } else {
+          danhSachTatCaDot = dsTrongRam;
+        }
       } catch (e) {
-        danhSachTatCaDot = [];
+        danhSachTatCaDot = dsTrongRam;
       }
+      const tapMaDotDaCoTruoc = new Set(danhSachTatCaDot.map(d => d && d.maDot).filter(Boolean));
       window.danhSachTatCaDot = danhSachTatCaDot;
 
       // Đọc và hợp nhất từ Supabase luu_tru
@@ -2128,7 +2143,9 @@
                 const idx = danhSachTatCaDot.findIndex(d => d.maDot === dotSB.maDot);
                 if (idx === -1) {
                   danhSachTatCaDot.push(dotSB);
-                  coChuyenMoi = true;
+                  if (tapMaDotDaCoTruoc.size > 0 && !tapMaDotDaCoTruoc.has(dotSB.maDot)) {
+                    coChuyenMoi = true;
+                  }
                 } else {
                   if (danhSachTatCaDot[idx].thoiGianQuyetToan && !dotSB.daQuyetToan && (!dotHienTai || dotHienTai.maDot !== dotSB.maDot)) {
                     dotCoTheDaLamMoi.push(danhSachTatCaDot[idx]);
@@ -2177,15 +2194,26 @@
                       if (hd) {
                         const inputEl = document.getElementById(`inputGhiChu_${hd.stt - 1}`);
                         const isFocused = (activeEl && inputEl && activeEl === inputEl);
-                        if (!isFocused && cSB.ghiChu !== undefined && cSB.ghiChu !== null && String(cSB.ghiChu).trim() !== '') {
-                          hd.ghiChu = String(cSB.ghiChu).trim();
-                          hd.ghi_chu = hd.ghiChu;
-                          if (inputEl && inputEl.value !== hd.ghiChu) {
-                            inputEl.value = hd.ghiChu;
+                        const gcMoi = (cSB.ghiChu !== undefined && cSB.ghiChu !== null && String(cSB.ghiChu).trim() !== '')
+                          ? String(cSB.ghiChu).trim()
+                          : ((typeof layGhiChuHoaDonTotNhat === 'function') ? layGhiChuHoaDonTotNhat(ma, dotHienTai.maDot, hd.ghiChu) : (hd.ghiChu || ''));
+                        if (!isFocused && gcMoi) {
+                          hd.ghiChu = gcMoi;
+                          hd.ghi_chu = gcMoi;
+                          if (inputEl && inputEl.value !== gcMoi) {
+                            inputEl.value = gcMoi;
+                          }
+                        }
+                        if (Array.isArray(dotHienTai.danhSachChiTiet)) {
+                          const ct = dotHienTai.danhSachChiTiet.find(c => String(c.maHD || c.ma_hd || '').trim().toUpperCase() === ma);
+                          if (ct && hd.ghiChu) {
+                            ct.ghiChu = hd.ghiChu;
+                            ct.ghi_chu = hd.ghiChu;
                           }
                         }
                       }
                     });
+                    danhSachTatCaDot[idx].danhSachChiTiet = dotHienTai.danhSachChiTiet;
                   }
                 }
               });
@@ -2496,7 +2524,7 @@
             if (Array.isArray(dot.danhSachChiTiet)) {
               dot.danhSachChiTiet.forEach(c => {
                 const m = String(c.maHD || c.ma_hd || '').trim().toUpperCase();
-                if ((!c.ghiChu || !String(c.ghiChu).trim()) && mapGCPhieu[m]) {
+                if (mapGCPhieu[m] && (!c.ghiChu || !String(c.ghiChu).trim() || String(c.ghiChu).trim() === 'test dữ liệu')) {
                   c.ghiChu = mapGCPhieu[m];
                   c.ghi_chu = mapGCPhieu[m];
                 }
