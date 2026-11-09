@@ -46,6 +46,10 @@
         if (refreshing) return;
         refreshing = true;
         console.log('✨ [PWA] Service Worker mới đã kiểm soát trang. Tải lại nhẹ để áp dụng...');
+        if (!window._dangLuuChuyenXeB1 && !window._dangXoaHDB1Promise) {
+          setTimeout(() => { window.location.reload(); }, 250);
+          return;
+        }
         hienThiThongBaoCapNhatMoi();
       });
 

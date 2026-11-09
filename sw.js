@@ -7,7 +7,7 @@
  * - Bá» qua cache hoÃ n toÃ n Ä‘á»‘i vá»›i dá»¯ liá»‡u Ä‘Ã¡m mÃ¢y Supabase
  * ==================================================================== */
 
-const CACHE_VERSION = 'tmh-pwa-v1.0.87';
+const CACHE_VERSION = 'tmh-pwa-v1.0.88';
 const CACHE_NAME = `thaimyhuong-${CACHE_VERSION}`;
 
 // Danh sÃ¡ch tÃ i nguyÃªn cá»‘t lÃµi táº£i trÆ°á»›c khi cÃ i Ä‘áº·t
@@ -125,7 +125,7 @@ self.addEventListener('fetch', (event) => {
 
   if (isHtmlRequest || isSameOriginCode) {
     event.respondWith(
-      fetch(req)
+      fetch(req, { cache: 'no-store' })
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             const copy = networkResponse.clone();
