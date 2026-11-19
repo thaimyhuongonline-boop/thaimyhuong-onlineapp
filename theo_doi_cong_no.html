@@ -3955,13 +3955,8 @@
         // 2b. Lọc NV bán hàng (theo NV bán của từng đơn nợ)
         if (!donKhopLocNVBanHang(d, locNV)) return false;
 
-        // 3. Lọc ngày: Chuẩn hóa mọi định dạng ngày sang YYYY-MM-DD để so sánh chính xác tuyệt đối
-        const ngayGhiRaw = d.ngayGiao || d.ngayGhiNo || '';
-        const ngayChuan = chuanHoaNgayYYYYMMDD(ngayGhiRaw);
-        if (ngayChuan) {
-          if (tuNgay && ngayChuan < tuNgay) return false;
-          if (denNgay && ngayChuan > denNgay) return false;
-        }
+        // 3. Lọc ngày: Chuẩn hóa mọi định dạng ngày sang YYYY-MM-DD và giữ lại các khoản nợ tồn đọng / thu trong kỳ
+        if (!donKhopKhoangNgayLoc(d, tuNgay, denNgay)) return false;
 
         // 4. Lọc từ khóa tìm kiếm (hỗ trợ tìm cả tên/mã/xe của chi nhánh hoặc tên hệ thống / thành viên con)
         if (tuKhoa) {
@@ -4458,6 +4453,45 @@
     function conLaiCuaDon(d) { return (d.conLai !== undefined) ? d.conLai : Math.max(0, (d.soTienNo || 0) - (d.daThu || 0)); }
     function ngayNoCuaDon(d) { return chuanHoaNgayYYYYMMDD(d.ngayGiao || d.ngayGhiNo || ''); }
 
+    // Kiểm tra đơn nợ có khớp khoảng ngày lọc [tuNgay, denNgay] hay không:
+    // - Lọc 1 ngày cụ thể (tuNgay === denNgay): lấy đúng ngày phát sinh đó.
+    // - Lọc khoảng ngày: luôn giữ lại các khoản nợ tồn đọng phát sinh trước tuNgay nhưng vẫn còn nợ (conLai > 0)
+    //   hoặc có thanh toán phát sinh trong kỳ [tuNgay, denNgay] để bên ngoài bảng khớp với Lịch sử và Thu nợ hàng loạt.
+    function donKhopKhoangNgayLoc(d, tuNgay, denNgay) {
+      if (!tuNgay && !denNgay) return true;
+      const ngayChuan = ngayNoCuaDon(d);
+      if (!ngayChuan) return true;
+
+      if (tuNgay && denNgay && tuNgay === denNgay) {
+        return ngayChuan === tuNgay;
+      }
+
+      if (denNgay && ngayChuan > denNgay) return false;
+
+      if (tuNgay && ngayChuan < tuNgay) {
+        const conLai = conLaiCuaDon(d);
+        if (conLai > 0) return true;
+
+        const ngayTTChinh = chuanHoaNgayYYYYMMDD(d.ngayThanhToan || '');
+        if (ngayTTChinh && ngayTTChinh >= tuNgay && (!denNgay || ngayTTChinh <= denNgay)) {
+          return true;
+        }
+
+        if (typeof layLichSuThuCuaDon === 'function') {
+          const dsThu = layLichSuThuCuaDon(d);
+          if (dsThu.some(t => {
+            const ngayTTDot = chuanHoaNgayYYYYMMDD((t && t.ngay) || '');
+            return ngayTTDot && ngayTTDot >= tuNgay && (!denNgay || ngayTTDot <= denNgay);
+          })) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      return true;
+    }
+
     function chonKhachHangCongNo(el) {
       const k = el.getAttribute('data-kh');
       if (el.checked) khachDaChon.add(k); else khachDaChon.delete(k);
@@ -4497,11 +4531,7 @@
       if (locTT === 'vuot_han_muc' && !donViPhamHanMuc(d)) return false;
       // Đang lọc 1 NV bán hàng → khách đã tích chỉ lấy các đơn của NV đó
       if (!donKhopLocNVBanHang(d)) return false;
-      const ngay = ngayNoCuaDon(d);
-      if (ngay) {
-        if (tuNgay && ngay < tuNgay) return false;
-        if (denNgay && ngay > denNgay) return false;
-      }
+      if (!donKhopKhoangNgayLoc(d, tuNgay, denNgay)) return false;
       return true;
     }
 
@@ -6848,20 +6878,30 @@
       }
 
       let sumHD = 0, sumNo = 0, sumThu = 0, sumCon = 0;
+      let coThayDoiBangNgoai = false;
 
       const tbody = document.getElementById('tbodyLichSuDon');
       tbody.innerHTML = dsCuaKH.map((d, i) => {
         const dsThu = layLichSuThuCuaDon(d);
+        const daThuCu = d.daThu || 0;
+        const conLaiCu = conLaiCuaDon(d);
         // Tính Đã Thu từ tổng thực tế các đợt đã lưu
-        let daThu = d.daThu || 0;
+        let daThu = daThuCu;
         if (dsThu.length > 0) {
           const tongDot = dsThu.reduce((s, t) => s + (t.soTien || 0), 0);
           if (tongDot > 0) daThu = tongDot;
         }
         const cl = Math.max(0, (d.soTienNo || 0) - daThu);
+        if (Math.round(daThu) !== Math.round(daThuCu) || Math.round(cl) !== Math.round(conLaiCu)) {
+          coThayDoiBangNgoai = true;
+        }
         d.daThu = daThu;
         d.conLai = cl;
         d.trangThai = (cl <= 0) ? 'da_thu_du' : (daThu > 0 ? 'da_thu_mot_phan' : 'chua_thu');
+        if (dsThu.length > 0) {
+          const ngayTTMoi = dsThu.map(t => chuanHoaNgayYYYYMMDD(t.ngay || '')).filter(Boolean).sort().pop();
+          if (ngayTTMoi && !d.ngayThanhToan) d.ngayThanhToan = ngayTTMoi;
+        }
 
         const daKiemTra = !!d.daKiemTra;
         sumHD += (d.tienHD || 0);
@@ -6965,6 +7005,12 @@
       document.getElementById('histTongNo').textContent = formatTien(sumNo) + ' đ';
       document.getElementById('histDaThu').textContent = formatTien(sumThu) + ' đ';
       document.getElementById('histConLai').textContent = formatTien(sumCon) + ' đ';
+
+      if (coThayDoiBangNgoai) {
+        ghiSoCongNo(danhSachCongNo);
+        capNhatKPI();
+        veBangCongNo();
+      }
 
       modal.style.display = 'flex';
     }
@@ -7834,12 +7880,7 @@
         // Đồng bộ lọc theo nhân viên bán hàng (nếu đang lọc NV)
         if (!donKhopLocNVBanHang(d)) return false;
 
-        const ngayGhiRaw = d.ngayGiao || d.ngayGhiNo || '';
-        const ngayChuan = chuanHoaNgayYYYYMMDD(ngayGhiRaw);
-        if (ngayChuan) {
-          if (tuNgay && ngayChuan < tuNgay) return false;
-          if (denNgay && ngayChuan > denNgay) return false;
-        }
+        if (!donKhopKhoangNgayLoc(d, tuNgay, denNgay)) return false;
         return true;
       });
 
